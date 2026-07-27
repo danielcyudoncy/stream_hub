@@ -32,32 +32,62 @@ class SettingsPage extends GetView<SettingsController> {
               child: Obx(
                 () => Column(
                   children: [
-                    RadioListTile<ThemeMode>(
-                      title: Text('System Default',
-                          style: AppTypography.getBody(
-                              color: colorScheme.onSurface)),
-                      value: ThemeMode.system,
+                    RadioGroup<ThemeMode>(
                       groupValue: controller.themeMode.value,
-                      onChanged: (mode) => controller.changeThemeMode(mode!),
-                      activeColor: colorScheme.primary,
-                    ),
-                    RadioListTile<ThemeMode>(
-                      title: Text('Light Mode',
-                          style: AppTypography.getBody(
-                              color: colorScheme.onSurface)),
-                      value: ThemeMode.light,
-                      groupValue: controller.themeMode.value,
-                      onChanged: (mode) => controller.changeThemeMode(mode!),
-                      activeColor: colorScheme.primary,
-                    ),
-                    RadioListTile<ThemeMode>(
-                      title: Text('Dark Mode',
-                          style: AppTypography.getBody(
-                              color: colorScheme.onSurface)),
-                      value: ThemeMode.dark,
-                      groupValue: controller.themeMode.value,
-                      onChanged: (mode) => controller.changeThemeMode(mode!),
-                      activeColor: colorScheme.primary,
+                      onChanged: (ThemeMode? mode) {
+                        if (mode != null) {
+                          controller.changeThemeMode(mode);
+                        }
+                      },
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Radio<ThemeMode>(
+                                value: ThemeMode.system,
+                                fillColor: WidgetStateProperty.resolveWith<Color?>(
+                                  (Set<WidgetState> states) {
+                                    if (states.contains(
+                                        WidgetState.selected)) {
+                                      return colorScheme.primary;
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              Text(
+                                'System Default',
+                                style: AppTypography.getBody(
+                                    color: colorScheme.onSurface),
+                              ),
+                            ],
+                          ),
+                          Radio<ThemeMode>(
+                            value: ThemeMode.light,
+                            fillColor: WidgetStateProperty.resolveWith<Color?>(
+                              (Set<WidgetState> states) {
+                                if (states.contains(
+                                    WidgetState.selected)) {
+                                  return colorScheme.primary;
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                          Radio<ThemeMode>(
+                            value: ThemeMode.dark,
+                            fillColor: WidgetStateProperty.resolveWith<Color?>(
+                              (Set<WidgetState> states) {
+                                if (states.contains(
+                                    WidgetState.selected)) {
+                                  return colorScheme.primary;
+                                }
+                                return null;
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
