@@ -26,7 +26,36 @@ Project Foundation
 
 ---
 
-## Phase 2
+## Phase 2A
+
+Media Platform Core
+
+- MediaSource abstraction
+- MediaSourceManager
+- MediaSourceRegistry
+- MediaSourceFactory
+- MediaEngine
+- MediaCatalog
+- MediaLibrary
+- MediaItem base model
+- Specialized media models
+- PlayableStream
+- StreamResolver interface
+- Merge engine interfaces
+- Search engine interfaces
+- Filter engine interfaces
+- Sort engine interfaces
+- Sync engine interfaces
+- Health monitoring interfaces
+- Event bus system
+- Service interfaces
+- Repository interfaces
+- Dependency injection registration
+- Media source stubs (all supported types)
+
+---
+
+## Phase 2B
 
 M3U Support
 

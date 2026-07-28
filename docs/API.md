@@ -1,22 +1,41 @@
 # API Providers
 
-Every provider must expose the same data.
+Every media source must expose the same data.
 
 ---
 
 ## Common Models
 
-All providers should return:
+All sources should return:
 
-- Categories
 - Channels
 - Movies
 - Series
-- EPG
+- Episodes
+- Programs
+- Categories
 
 ---
 
-# M3U
+## Media Source Interface
+
+Every source must implement:
+
+- initialize()
+- connect()
+- disconnect()
+- dispose()
+- refresh()
+- sync()
+- validate()
+- health()
+- statistics()
+
+This keeps the UI independent from source type.
+
+---
+
+## M3U
 
 Input
 
@@ -34,7 +53,7 @@ Optional
 
 ---
 
-# Xtream Codes
+## Xtream Codes
 
 Input
 
@@ -52,7 +71,7 @@ Returns
 
 ---
 
-# Stalker Portal
+## Stalker Portal
 
 Input
 
@@ -74,7 +93,7 @@ Returns
 
 ---
 
-# XMLTV
+## XMLTV
 
 Input
 
@@ -89,7 +108,7 @@ Returns
 
 ---
 
-# Local Playlist
+## Local Playlist
 
 Input
 
@@ -103,27 +122,118 @@ Returns
 
 ---
 
-# Future Providers
+## Jellyfin
 
-- Jellyfin
-- Emby
-- Plex
-- TVHeadend
-- HDHomeRun
+Input
+
+- Server URL
+- API Key
+
+Returns
+
+- Movies
+- Series
+- Episodes
+- Categories
 
 ---
 
-# Provider Interface
+## Plex
 
-Every provider should support:
+Input
 
-- Login
-- Refresh
-- Get Categories
-- Get Channels
-- Get Movies
-- Get Series
-- Get EPG
-- Get Stream URL
+- Server URL
+- Token
 
-This keeps the UI independent from provider type.
+Returns
+
+- Movies
+- Series
+- Episodes
+- Categories
+
+---
+
+## Emby
+
+Input
+
+- Server URL
+- API Key
+
+Returns
+
+- Movies
+- Series
+- Episodes
+- Categories
+
+---
+
+## TVHeadend
+
+Input
+
+- Server URL
+- Credentials
+
+Returns
+
+- Live TV
+- Categories
+- EPG
+
+---
+
+## HDHomeRun
+
+Input
+
+- Device IP
+- Tuner configuration
+
+Returns
+
+- Live TV
+- Channels
+
+---
+
+## Custom
+
+Input
+
+- Custom configuration provided by user
+
+Returns
+
+- Depends on adapter
+
+---
+
+## Future
+
+Input
+
+- Determined by implementation
+
+Returns
+
+- Depends on implementation
+
+---
+
+## Supported Source Types
+
+- M3U
+- Xtream Codes
+- Stalker Portal
+- XMLTV
+- Local Playlist
+- Jellyfin
+- Plex
+- Emby
+- TVHeadend
+- HDHomeRun
+- Custom
+- Future
