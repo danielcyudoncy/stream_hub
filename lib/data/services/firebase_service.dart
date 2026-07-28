@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:get/get.dart';
 import '../../core/logging/logging_service.dart';
+import '../../firebase_options.dart';
 
 class FirebaseService extends GetxService {
   final LoggingService _logger = Get.find<LoggingService>();
@@ -12,7 +13,9 @@ class FirebaseService extends GetxService {
     _logger.info('Initializing Firebase services...', tag: 'FirebaseService');
     try {
       // Attempt Firebase initialization
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
       _isAvailable = true;
       _logger.info('Firebase initialization successful.', tag: 'FirebaseService');
     } catch (e) {

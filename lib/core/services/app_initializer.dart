@@ -9,31 +9,48 @@ import '../../data/services/firebase_service.dart';
 
 class AppInitializer {
   static Future<void> initialize() async {
-    // 1. Initialize Flutter bindings
-    WidgetsFlutterBinding.ensureInitialized();
+    try {
+      // 1. Initialize Flutter bindings
+      WidgetsFlutterBinding.ensureInitialized();
 
-    // 2. Register LoggingService first so other services can log
-    final logger = Get.put(LoggingService(), permanent: true);
-    logger.info('Starting StreamHub Pro bootstrap...', tag: 'AppInitializer');
+      // 2. Register LoggingService first so other services can log
+      final logger = Get.put(LoggingService(), permanent: true);
+      logger.info('Starting StreamHub Pro bootstrap...', tag: 'AppInitializer');
 
-    // 3. Initialize AppConfig (using Development environment for default startup configuration)
-    AppConfig.initialize(
-      environmentConfig: EnvironmentConfig.development(),
-      appName: AppConstants.appName,
-      appVersion: AppConstants.appVersion,
-      buildNumber: AppConstants.buildNumber,
-    );
+      // 3. Initialize AppConfig (using Development environment for default startup configuration)
+      AppConfig.initialize(
+        environmentConfig: EnvironmentConfig.development(),
+        appName: AppConstants.appName,
+        appVersion: AppConstants.appVersion,
+        buildNumber: AppConstants.buildNumber,
+      );
 
-    // 4. Initialize DatabaseService (Hive)
-    final dbService = DatabaseService();
-    Get.put(dbService, permanent: true);
-    await dbService.init();
+      // 4. Initialize DatabaseService (Hive) - critical for app functionality
+      final dbService = DatabaseService();
+      Get.put(dbService, permanent: true);
+      await dbService.init();
+      logger.info('DatabaseService initialized.', tag: 'AppInitializer');
 
-    // 5. Initialize Firebase Service safely
-    final firebaseService = FirebaseService();
-    Get.put(firebaseService, permanent: true);
-    await firebaseService.init();
+      // 5. Initialize Firebase Service safely - auth is critical for user management
+      final firebaseService = FirebaseService();
+      Get.put(firebaseService, permanent: true);
+      await firebaseService.init();
+      
+      if (!firebaseService.isAvailable) {
+        logger.warning('Firebase is unavailable - running in limited mode.', tag: 'AppInitializer');
+      }
 
-    logger.info('Bootstrap initialization complete.', tag: 'AppInitializer');
+      logger.info('Bootstrap initialization complete.', tag: 'AppInitializer');
+    } catch (e) {
+      // Ensure logging service is available even if initialization fails
+      try {
+        final logger = Get.isRegistered<LoggingService>() ? Get.find<LoggingService>() : LoggingService();
+        logger.error('Critical initialization failed: \${e.toString()}', tag: 'AppInitializer', error: e);
+      } catch (_) {
+        // Silent fallback if logging service also fails
+      }
+      // Continue without Firebase to maintain app functionality
+      rethrow;
+    }
   }
 }

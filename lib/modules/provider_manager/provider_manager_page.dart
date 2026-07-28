@@ -23,7 +23,7 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
             'Adding playlist providers will be available in Phase 2.',
             snackPosition: SnackPosition.BOTTOM,
             backgroundColor: colorScheme.surfaceContainerHighest,
-            colorText: colorScheme.onSurface,
+            colorText: colorScheme.onSurfaceVariant,
           );
         },
         backgroundColor: colorScheme.primary,

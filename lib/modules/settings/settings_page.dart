@@ -62,29 +62,47 @@ class SettingsPage extends GetView<SettingsController> {
                               ),
                             ],
                           ),
-                          Radio<ThemeMode>(
-                            value: ThemeMode.light,
-                            fillColor: WidgetStateProperty.resolveWith<Color?>(
-                              (Set<WidgetState> states) {
-                                if (states.contains(
-                                    WidgetState.selected)) {
-                                  return colorScheme.primary;
-                                }
-                                return null;
-                              },
-                            ),
+Row(
+                            children: [
+                              Radio<ThemeMode>(
+                                value: ThemeMode.light,
+                                fillColor: WidgetStateProperty.resolveWith<Color?>(
+                                  (Set<WidgetState> states) {
+                                    if (states.contains(
+                                        WidgetState.selected)) {
+                                      return colorScheme.primary;
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              Text(
+                                'Light',
+                                style: AppTypography.getBody(
+                                    color: colorScheme.onSurface),
+                              ),
+                            ],
                           ),
-                          Radio<ThemeMode>(
-                            value: ThemeMode.dark,
-                            fillColor: WidgetStateProperty.resolveWith<Color?>(
-                              (Set<WidgetState> states) {
-                                if (states.contains(
-                                    WidgetState.selected)) {
-                                  return colorScheme.primary;
-                                }
-                                return null;
-                              },
-                            ),
+                          Row(
+                            children: [
+                              Radio<ThemeMode>(
+                                value: ThemeMode.dark,
+                                fillColor: WidgetStateProperty.resolveWith<Color?>(
+                                  (Set<WidgetState> states) {
+                                    if (states.contains(
+                                        WidgetState.selected)) {
+                                      return colorScheme.primary;
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              ),
+                              Text(
+                                'Dark',
+                                style: AppTypography.getBody(
+                                    color: colorScheme.onSurface),
+                              ),
+                            ],
                           ),
                         ],
                       ),
