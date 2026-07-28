@@ -43,13 +43,12 @@ Controllers:
 - Expose observable data
 - Never call APIs directly
 
-Example:
+Examples:
 
-HomeController
-
-PlayerController
-
-SearchController
+- SettingsController
+- ProviderManagerController
+- ProfileController
+- AuthController
 
 ---
 
@@ -63,6 +62,13 @@ Responsibilities:
 - Cache data
 - Decide local vs remote source
 
+Examples:
+
+- SettingsRepository
+- ProviderRepository
+- ProfileRepository
+- AuthRepository
+
 ---
 
 ### Services
@@ -71,12 +77,11 @@ Services perform actual work.
 
 Examples:
 
-- M3U parsing
-- Xtream API
-- Stalker API
-- XMLTV parsing
-- Player
-- Downloads
+- SettingsService
+- CacheService
+- ProfileService
+- ProviderStorageService
+- DatabaseService
 
 ---
 
@@ -95,15 +100,12 @@ Each provider returns the same models.
 
 Example:
 
-Channel
-
-Movie
-
-Series
-
-Category
-
-EPG
+- ProviderModel
+- Category
+- Channel
+- Movie
+- Series
+- EPG
 
 ---
 
@@ -139,12 +141,14 @@ Player
 
 Hive stores:
 
-- Playlists
+- Settings
+- Providers
+- Profiles
 - Favorites
 - History
-- Settings
-- Profiles
+- Downloads
 - Watch Progress
+- Cache Info
 
 SQLite may be used later for:
 
@@ -170,17 +174,89 @@ Cloud sync should never block app startup.
 
 lib/
 
-core/
+    core/
 
-data/
+        config/
 
-modules/
+        constants/
 
-shared/
+        theme/
 
-database/
+        routes/
 
-services/
+        utils/
+
+        services/
+
+        localization/
+
+        errors/
+
+        logging/
+
+        bindings/
+
+    data/
+
+        models/
+
+        repositories/
+
+        services/
+
+        local/
+
+        remote/
+
+        parsers/
+
+        providers/
+
+    modules/
+
+        splash/
+
+        authentication/
+
+        provider_manager/
+
+        dashboard/
+
+        live_tv/
+
+        movies/
+
+        series/
+
+        search/
+
+        player/
+
+        downloads/
+
+        settings/
+
+        profiles/
+
+        favorites/
+
+        history/
+
+        epg/
+
+    shared/
+
+        widgets/
+
+        dialogs/
+
+        animations/
+
+        extensions/
+
+    database/
+
+    generated/
 
 ---
 
@@ -191,3 +267,6 @@ services/
 - Use repositories.
 - Reuse components.
 - Prefer composition.
+- One controller per module.
+- Services contain business logic.
+- Repositories communicate with services only.

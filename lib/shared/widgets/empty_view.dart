@@ -7,12 +7,16 @@ class EmptyView extends StatelessWidget {
   final String title;
   final String? description;
   final IconData icon;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   const EmptyView({
     super.key,
     required this.title,
     this.description,
     this.icon = AppIcons.empty,
+    this.actionLabel,
+    this.onAction,
   });
 
   @override
@@ -48,6 +52,14 @@ class EmptyView extends StatelessWidget {
                   color: colorScheme.onSurface.withValues(alpha: 0.5),
                 ),
                 textAlign: TextAlign.center,
+              ),
+            ],
+            if (actionLabel != null && onAction != null) ...[
+              AppSpacing.heightMD,
+              FilledButton.icon(
+                onPressed: onAction,
+                icon: Icon(AppIcons.add, size: 18),
+                label: Text(actionLabel!),
               ),
             ],
           ],

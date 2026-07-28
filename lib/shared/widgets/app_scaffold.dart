@@ -52,23 +52,23 @@ class AppScaffold extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    final List<NavigationDestination> destinations = [
-      const NavigationDestination(
-        icon: Icon(AppIcons.dashboard),
-        selectedIcon: Icon(AppIcons.dashboard, color: AppColors.darkPrimary),
-        label: 'Dashboard',
-      ),
-      const NavigationDestination(
-        icon: Icon(AppIcons.providers),
-        selectedIcon: Icon(AppIcons.providers, color: AppColors.darkPrimary),
-        label: 'Providers',
-      ),
-      const NavigationDestination(
-        icon: Icon(AppIcons.settings),
-        selectedIcon: Icon(AppIcons.settings, color: AppColors.darkPrimary),
-        label: 'Settings',
-      ),
-    ];
+      final List<NavigationDestination> destinations = [
+        const NavigationDestination(
+          icon: Icon(AppIcons.dashboard),
+          selectedIcon: Icon(AppIcons.dashboard),
+          label: 'Dashboard',
+        ),
+        const NavigationDestination(
+          icon: Icon(AppIcons.providers),
+          selectedIcon: Icon(AppIcons.providers),
+          label: 'Providers',
+        ),
+        const NavigationDestination(
+          icon: Icon(AppIcons.settings),
+          selectedIcon: Icon(AppIcons.settings),
+          label: 'Settings',
+        ),
+      ];
 
     return Scaffold(
       floatingActionButton: floatingActionButton,
@@ -101,8 +101,7 @@ class AppScaffold extends StatelessWidget {
                   selectedIndex: _getSelectedIndex(),
                   onDestinationSelected: _onItemTapped,
                   labelType: NavigationRailLabelType.all,
-                  backgroundColor:
-                      isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                  backgroundColor: colorScheme.surface,
                   selectedIconTheme:
                       IconThemeData(color: colorScheme.primary),
                   selectedLabelTextStyle:
@@ -150,8 +149,7 @@ class AppScaffold extends StatelessWidget {
                 return NavigationBar(
                   selectedIndex: _getSelectedIndex(),
                   onDestinationSelected: _onItemTapped,
-                  backgroundColor:
-                      isDark ? AppColors.darkSurface : AppColors.lightSurface,
+                  backgroundColor: colorScheme.surface,
                   indicatorColor:
                       colorScheme.primary.withValues(alpha: 0.12),
                   destinations: destinations,
@@ -168,7 +166,7 @@ class AppScaffold extends StatelessWidget {
     return Container(
       width: 260.0,
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
+        color: colorScheme.surface,
         border: Border(
           right: BorderSide(
             color: colorScheme.outline.withValues(alpha: 0.1),

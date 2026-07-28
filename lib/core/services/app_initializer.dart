@@ -1,56 +1,41 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../config/app_config.dart';
-import '../config/environment.dart';
-import '../constants/app_constants.dart';
-import '../logging/logging_service.dart';
-import '../../data/services/database_service.dart';
-import '../../data/services/firebase_service.dart';
+import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/data/services/database_service.dart';
+import 'package:stream_hub/data/services/settings_service.dart';
 
-class AppInitializer {
-  static Future<void> initialize() async {
+class AppInitializer extends GetxController {
+  final DatabaseService _databaseService;
+  final SettingsService _settingsService;
+  final LoggingService _logger = Get.find<LoggingService>();
+
+  AppInitializer({
+    required DatabaseService databaseService,
+    required SettingsService settingsService,
+  }) : _databaseService = databaseService,
+       _settingsService = settingsService;
+
+  final RxBool isInitialized = false.obs;
+  final RxString errorMessage = ''.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    initialize();
+  }
+
+  Future<void> initialize() async {
     try {
-      // 1. Initialize Flutter bindings
-      WidgetsFlutterBinding.ensureInitialized();
+      isInitialized.value = false;
+      errorMessage.value = '';
 
-      // 2. Register LoggingService first so other services can log
-      final logger = Get.put(LoggingService(), permanent: true);
-      logger.info('Starting StreamHub Pro bootstrap...', tag: 'AppInitializer');
+      await _databaseService.init();
+      await _settingsService.loadSettings();
 
-      // 3. Initialize AppConfig (using Development environment for default startup configuration)
-      AppConfig.initialize(
-        environmentConfig: EnvironmentConfig.development(),
-        appName: AppConstants.appName,
-        appVersion: AppConstants.appVersion,
-        buildNumber: AppConstants.buildNumber,
-      );
-
-      // 4. Initialize DatabaseService (Hive) - critical for app functionality
-      final dbService = DatabaseService();
-      Get.put(dbService, permanent: true);
-      await dbService.init();
-      logger.info('DatabaseService initialized.', tag: 'AppInitializer');
-
-      // 5. Initialize Firebase Service safely - auth is critical for user management
-      final firebaseService = FirebaseService();
-      Get.put(firebaseService, permanent: true);
-      await firebaseService.init();
-      
-      if (!firebaseService.isAvailable) {
-        logger.warning('Firebase is unavailable - running in limited mode.', tag: 'AppInitializer');
-      }
-
-      logger.info('Bootstrap initialization complete.', tag: 'AppInitializer');
+      isInitialized.value = true;
+      _logger.info('App initialized successfully', tag: 'AppInitializer');
     } catch (e) {
-      // Ensure logging service is available even if initialization fails
-      try {
-        final logger = Get.isRegistered<LoggingService>() ? Get.find<LoggingService>() : LoggingService();
-        logger.error('Critical initialization failed: \${e.toString()}', tag: 'AppInitializer', error: e);
-      } catch (_) {
-        // Silent fallback if logging service also fails
-      }
-      // Continue without Firebase to maintain app functionality
-      rethrow;
+      errorMessage.value = 'Failed to initialize app: $e';
+      _logger.error('App initialization failed', tag: 'AppInitializer', error: e);
     }
   }
 }
