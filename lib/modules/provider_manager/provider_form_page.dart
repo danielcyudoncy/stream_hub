@@ -15,9 +15,11 @@ import 'provider_manager_controller.dart';
 class ProviderFormPage extends GetView<ProviderManagerController> {
   final ProviderModel? provider;
 
-  const ProviderFormPage({super.key, this.provider});
+  ProviderFormPage({super.key, this.provider});
 
   bool get isEditing => provider != null;
+
+  final _formKey = GlobalKey<FormState>();
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +42,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
       body: Obx(() {
         final type = selectedType.value;
         return Form(
+          key: _formKey,
           child: ListView(
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
@@ -165,8 +168,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                     child: AppButton(
                       text: isEditing ? 'Save Changes' : 'Add Provider',
                       onPressed: () {
-                        final form = Form.of(context);
-                        if (form.validate()) {
+                        if (_formKey.currentState?.validate() ?? false) {
                           final trimmedName = nameController.text.trim();
                           final trimmedServerUrl = serverUrlController.text.trim().isEmpty ? null : serverUrlController.text.trim();
                           final trimmedUsername = usernameController.text.trim().isEmpty ? null : usernameController.text.trim();

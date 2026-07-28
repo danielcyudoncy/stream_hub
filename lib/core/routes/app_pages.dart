@@ -36,7 +36,8 @@ class AppPages {
     page: () => const Scaffold(
       body: EmptyView(
         title: 'Page Not Found',
-        description: 'The screen you are trying to access does not exist or has been moved.',
+        description:
+            'The screen you are trying to access does not exist or has been moved.',
       ),
     ),
   );
@@ -104,7 +105,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.providerForm,
-      page: () => const ProviderFormPage(),
+      page: () => ProviderFormPage(),
       binding: ProviderManagerBinding(),
     ),
     GetPage(
