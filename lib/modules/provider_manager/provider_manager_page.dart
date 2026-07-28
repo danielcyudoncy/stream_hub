@@ -24,10 +24,13 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
     return AppScaffold(
       title: 'Provider Manager',
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Get.to(() => const ProviderFormPage()),
+        onPressed: () => Get.to(() => ProviderFormPage()),
         backgroundColor: colorScheme.primary,
         icon: const Icon(AppIcons.add, color: Colors.white),
-        label: Text('Add Provider', style: AppTypography.getButton(color: Colors.white)),
+        label: Text(
+          'Add Provider',
+          style: AppTypography.getButton(color: Colors.white),
+        ),
       ),
       body: Column(
         children: [
@@ -47,7 +50,7 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
                   description: 'Add your first IPTV provider to get started.',
                   icon: AppIcons.providers,
                   actionLabel: 'Add Provider',
-                  onAction: () => Get.to(() => const ProviderFormPage()),
+                  onAction: () => Get.to(() => ProviderFormPage()),
                 );
               }
 
@@ -75,9 +78,13 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
                     final provider = filtered[index];
                     return ProviderCard(
                       provider: provider,
-                      onTap: () => Get.to(() => ProviderDetailsPage(providerId: provider.id)),
-                      onFavoriteToggle: () => controller.toggleFavorite(provider.id),
-                      onEnabledToggle: () => controller.toggleEnabled(provider.id),
+                      onTap: () => Get.to(
+                        () => ProviderDetailsPage(providerId: provider.id),
+                      ),
+                      onFavoriteToggle: () =>
+                          controller.toggleFavorite(provider.id),
+                      onEnabledToggle: () =>
+                          controller.toggleEnabled(provider.id),
                     );
                   },
                 ),
@@ -95,7 +102,10 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border(
-          bottom: BorderSide(color: colorScheme.outline.withValues(alpha: 0.08), width: 1),
+          bottom: BorderSide(
+            color: colorScheme.outline.withValues(alpha: 0.08),
+            width: 1,
+          ),
         ),
       ),
       child: Row(
@@ -104,19 +114,39 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'Search providers...',
-                hintStyle: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.5)),
-                prefixIcon: Icon(AppIcons.search, size: 20, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                hintStyle: AppTypography.getCaption(
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
+                prefixIcon: Icon(
+                  AppIcons.search,
+                  size: 20,
+                  color: colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
                 suffixIcon: Obx(() {
-                  if (controller.searchQuery.value.isEmpty) return const SizedBox.shrink();
+                  if (controller.searchQuery.value.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
                   return IconButton(
-                    icon: Icon(AppIcons.close, size: 18, color: colorScheme.onSurface.withValues(alpha: 0.5)),
+                    icon: Icon(
+                      AppIcons.close,
+                      size: 18,
+                      color: colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                     onPressed: () => controller.updateSearchQuery(''),
                   );
                 }),
                 filled: true,
-                fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                border: OutlineInputBorder(borderRadius: AppRadius.medium, borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+                fillColor: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: AppRadius.medium,
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
               ),
               onChanged: controller.updateSearchQuery,
             ),
@@ -124,14 +154,22 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
           AppSpacing.widthSM,
           IconButton(
             onPressed: () => _showFilterSheet(context),
-            icon: Icon(Icons.tune_outlined, color: colorScheme.onSurface.withValues(alpha: 0.7)),
+            icon: Icon(
+              Icons.tune_outlined,
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
             tooltip: 'Filters',
           ),
           PopupMenuButton<String>(
-            icon: Icon(Icons.sort_outlined, color: colorScheme.onSurface.withValues(alpha: 0.7)),
+            icon: Icon(
+              Icons.sort_outlined,
+              color: colorScheme.onSurface.withValues(alpha: 0.7),
+            ),
             tooltip: 'Sort',
             onSelected: (value) {
-              final field = ProviderSortField.values.firstWhereOrNull((f) => f.name == value);
+              final field = ProviderSortField.values.firstWhereOrNull(
+                (f) => f.name == value,
+              );
               if (field != null) controller.updateSortField(field);
             },
             itemBuilder: (context) => ProviderSortField.values.map((field) {
@@ -139,11 +177,15 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
                 value: field.name,
                 child: Row(
                   children: [
-                    Obx(() => Icon(
-                      Icons.check,
-                      size: 18,
-                      color: controller.sortField.value == field ? colorScheme.primary : Colors.transparent,
-                    )),
+                    Obx(
+                      () => Icon(
+                        Icons.check,
+                        size: 18,
+                        color: controller.sortField.value == field
+                            ? colorScheme.primary
+                            : Colors.transparent,
+                      ),
+                    ),
                     AppSpacing.widthXS,
                     Text(_sortLabel(field)),
                   ],
@@ -158,7 +200,8 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
 
   Widget _buildFilterChips(BuildContext context, ColorScheme colorScheme) {
     return Obx(() {
-      final hasActiveFilters = controller.filterType.value != ProviderFilterType.all ||
+      final hasActiveFilters =
+          controller.filterType.value != ProviderFilterType.all ||
           controller.filterProviderType.value != null ||
           controller.searchQuery.value.isNotEmpty;
 
@@ -169,17 +212,29 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
           scrollDirection: Axis.horizontal,
           children: [
             if (controller.filterType.value != ProviderFilterType.all)
-              _buildChip(context, _filterLabel(controller.filterType.value), () {
-                controller.updateFilterType(ProviderFilterType.all);
-              }),
+              _buildChip(
+                context,
+                _filterLabel(controller.filterType.value),
+                () {
+                  controller.updateFilterType(ProviderFilterType.all);
+                },
+              ),
             if (controller.filterProviderType.value != null)
-              _buildChip(context, controller.filterProviderType.value!.displayName, () {
-                controller.updateFilterProviderType(null);
-              }),
+              _buildChip(
+                context,
+                controller.filterProviderType.value!.displayName,
+                () {
+                  controller.updateFilterProviderType(null);
+                },
+              ),
             if (controller.searchQuery.value.isNotEmpty)
-              _buildChip(context, 'Search: ${controller.searchQuery.value}', () {
-                controller.updateSearchQuery('');
-              }),
+              _buildChip(
+                context,
+                'Search: ${controller.searchQuery.value}',
+                () {
+                  controller.updateSearchQuery('');
+                },
+              ),
           ],
         ),
       );
@@ -191,9 +246,18 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
     return Container(
       margin: const EdgeInsets.only(right: AppSpacing.xs),
       child: Chip(
-        label: Text(label, style: AppTypography.getCaption(color: colorScheme.onSecondaryContainer)),
+        label: Text(
+          label,
+          style: AppTypography.getCaption(
+            color: colorScheme.onSecondaryContainer,
+          ),
+        ),
         onDeleted: onRemove,
-        deleteIcon: Icon(Icons.close, size: 16, color: colorScheme.onSecondaryContainer),
+        deleteIcon: Icon(
+          Icons.close,
+          size: 16,
+          color: colorScheme.onSecondaryContainer,
+        ),
       ),
     );
   }
@@ -209,15 +273,21 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
         filterProviderType: controller.filterProviderType.value?.name,
         availableTypes: availableTypes.map((e) => e.displayName).toList(),
         onSortChanged: (value) {
-          final field = ProviderSortField.values.firstWhereOrNull((f) => f.name == value);
+          final field = ProviderSortField.values.firstWhereOrNull(
+            (f) => f.name == value,
+          );
           if (field != null) controller.updateSortField(field);
         },
         onFilterChanged: (value) {
-          final type = ProviderFilterType.values.firstWhereOrNull((f) => f.name == value);
+          final type = ProviderFilterType.values.firstWhereOrNull(
+            (f) => f.name == value,
+          );
           if (type != null) controller.updateFilterType(type);
         },
         onProviderTypeChanged: (value) {
-          final type = ProviderType.values.firstWhereOrNull((f) => f.displayName == value);
+          final type = ProviderType.values.firstWhereOrNull(
+            (f) => f.displayName == value,
+          );
           controller.updateFilterProviderType(type);
         },
         onApply: () => Get.back(),
