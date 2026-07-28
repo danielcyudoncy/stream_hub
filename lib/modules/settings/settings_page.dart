@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../core/theme/app_icons.dart';
-import '../../core/theme/app_spacing.dart';
-import '../../core/theme/app_typography.dart';
-import '../../shared/widgets/app_card.dart';
-import '../../shared/widgets/app_scaffold.dart';
-import '../../shared/widgets/section_header.dart';
+import 'package:stream_hub/core/theme/app_icons.dart';
+import 'package:stream_hub/core/theme/app_radius.dart';
+import 'package:stream_hub/core/theme/app_spacing.dart';
+import 'package:stream_hub/core/theme/app_typography.dart';
+import 'package:stream_hub/shared/widgets/app_card.dart';
+import 'package:stream_hub/shared/widgets/app_scaffold.dart';
+import 'package:stream_hub/shared/widgets/section_header.dart';
+import 'package:stream_hub/shared/widgets/settings_tile.dart';
+import 'package:stream_hub/shared/dialogs/confirmation_dialog.dart';
 import 'settings_controller.dart';
 
 class SettingsPage extends GetView<SettingsController> {
@@ -18,131 +21,397 @@ class SettingsPage extends GetView<SettingsController> {
 
     return AppScaffold(
       title: 'Settings',
-      body: SingleChildScrollView(
+      body: Obx(() {
+        if (controller.isLoading.value && controller.errorMessage.value.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        return ListView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          children: [
+            _buildAppearanceSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildAccountSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildProvidersSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildStorageSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildPlaybackSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildNotificationsSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildPrivacySection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildAboutSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildDeveloperSection(context, colorScheme),
+            AppSpacing.heightXXL,
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildAppearanceSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Appearance', subtitle: 'Customize the visual theme'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: Column(
+            children: [
+              SettingsTile(
+                title: 'Theme Mode',
+                subtitle: _themeLabel(controller.themeMode.value),
+                leadingIcon: Icons.brightness_6_outlined,
+                onTap: () => _showThemePicker(context),
+              ),
+              SettingsTile(
+                title: 'Language',
+                subtitle: controller.language.value == 'en' ? 'English' : controller.language.value,
+                leadingIcon: Icons.language_outlined,
+                onTap: () => _showLanguagePicker(context),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAccountSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Account', subtitle: 'Manage your account details'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: Column(
+            children: [
+              SettingsTile(
+                title: 'Edit Profile',
+                subtitle: 'Change your display name and photo',
+                leadingIcon: Icons.person_outline,
+                onTap: () => Get.toNamed('/profile'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Change Password',
+                subtitle: 'Update your account password',
+                leadingIcon: Icons.lock_outline,
+                onTap: () => _showChangePasswordDialog(context),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Sign Out',
+                leadingIcon: Icons.logout,
+                iconColor: colorScheme.error,
+                onTap: () => _showSignOutDialog(context),
+              ),
+              SettingsTile(
+                title: 'Delete Account',
+                leadingIcon: Icons.delete_outline,
+                iconColor: colorScheme.error,
+                onTap: () => _showDeleteAccountDialog(context),
+                showDivider: false,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProvidersSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Providers', subtitle: 'Manage your IPTV providers'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: SettingsTile(
+            title: 'Manage Providers',
+            subtitle: 'Add, edit, or remove IPTV providers',
+            leadingIcon: AppIcons.providers,
+            onTap: () => Get.offAllNamed('/provider-manager'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStorageSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Storage', subtitle: 'Manage local data and cache'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: Column(
+            children: [
+              SettingsTile(
+                title: 'Clear Cache',
+                subtitle: 'Delete cached logos, EPG, and temporary files',
+                leadingIcon: Icons.cleaning_services_outlined,
+                onTap: () => controller.clearCache(),
+              ),
+              SettingsTile(
+                title: 'Optimize Storage',
+                subtitle: 'Compact local database and remove orphaned data',
+                leadingIcon: Icons.storage_outlined,
+                onTap: () => _showOptimizeDialog(context),
+                showDivider: false,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlaybackSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Playback', subtitle: 'Video and audio settings'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: SettingsTile(
+            title: 'Playback Settings',
+            subtitle: 'Coming in a future update',
+            leadingIcon: Icons.play_circle_outline,
+            onTap: () {},
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildNotificationsSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Notifications', subtitle: 'Manage push notifications'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: SwitchListTile(
+            title: Text('Enable Notifications', style: AppTypography.getBody(color: colorScheme.onSurface)),
+            subtitle: Text('Receive updates about your providers', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+            value: controller.notificationsEnabled.value,
+            onChanged: (value) => controller.toggleNotifications(value),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrivacySection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Privacy', subtitle: 'Privacy and security settings'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: Column(
+            children: [
+              SwitchListTile(
+                title: Text('Parental Lock', style: AppTypography.getBody(color: colorScheme.onSurface)),
+                subtitle: Text('Restrict access to certain content', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                value: controller.parentalLockEnabled.value,
+                onChanged: (value) => controller.toggleParentalLock(value),
+              ),
+              SettingsTile(
+                title: 'Privacy Policy',
+                leadingIcon: Icons.privacy_tip_outlined,
+                onTap: () => Get.toNamed('/privacy-policy'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Terms of Service',
+                leadingIcon: Icons.description_outlined,
+                onTap: () => Get.toNamed('/terms-of-service'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                showDivider: false,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAboutSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'About', subtitle: 'Application information'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: SettingsTile(
+            title: 'About StreamHub Pro',
+            subtitle: 'Version 1.0.0 (Build 1)',
+            leadingIcon: Icons.info_outline,
+            onTap: () => Get.toNamed('/about'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDeveloperSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Developer', subtitle: 'Advanced options and diagnostics'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: SettingsTile(
+            title: 'Open Source Licenses',
+            leadingIcon: Icons.code_outlined,
+            onTap: () => Get.toNamed('/licenses'),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _themeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.light:
+        return 'Light';
+      case ThemeMode.dark:
+        return 'Dark';
+      default:
+        return 'System Default';
+    }
+  }
+
+  void _showThemePicker(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const SectionHeader(
-              title: 'Appearance',
-              subtitle: 'Customize the visual theme of StreamHub Pro',
-            ),
-            AppSpacing.heightXS,
-            AppCard(
-              child: Obx(
-                () => Column(
-                  children: [
-                    RadioGroup<ThemeMode>(
-                      groupValue: controller.themeMode.value,
-                      onChanged: (ThemeMode? mode) {
-                        if (mode != null) {
-                          controller.changeThemeMode(mode);
-                        }
-                      },
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Radio<ThemeMode>(
-                                value: ThemeMode.system,
-                                fillColor: WidgetStateProperty.resolveWith<Color?>(
-                                  (Set<WidgetState> states) {
-                                    if (states.contains(
-                                        WidgetState.selected)) {
-                                      return colorScheme.primary;
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                              Text(
-                                'System Default',
-                                style: AppTypography.getBody(
-                                    color: colorScheme.onSurface),
-                              ),
-                            ],
-                          ),
-Row(
-                            children: [
-                              Radio<ThemeMode>(
-                                value: ThemeMode.light,
-                                fillColor: WidgetStateProperty.resolveWith<Color?>(
-                                  (Set<WidgetState> states) {
-                                    if (states.contains(
-                                        WidgetState.selected)) {
-                                      return colorScheme.primary;
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                              Text(
-                                'Light',
-                                style: AppTypography.getBody(
-                                    color: colorScheme.onSurface),
-                              ),
-                            ],
-                          ),
-                          Row(
-                            children: [
-                              Radio<ThemeMode>(
-                                value: ThemeMode.dark,
-                                fillColor: WidgetStateProperty.resolveWith<Color?>(
-                                  (Set<WidgetState> states) {
-                                    if (states.contains(
-                                        WidgetState.selected)) {
-                                      return colorScheme.primary;
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                              Text(
-                                'Dark',
-                                style: AppTypography.getBody(
-                                    color: colorScheme.onSurface),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            AppSpacing.heightXL,
-            const SectionHeader(
-              title: 'Local Database',
-              subtitle: 'Storage and cache controls',
-            ),
-            AppSpacing.heightXS,
-            AppCard(
-              child: ListTile(
-                leading: Icon(AppIcons.delete, color: colorScheme.error),
-                title: Text(
-                  'Clear Offline Cache',
-                  style: AppTypography.getBody(color: colorScheme.onSurface),
-                ),
-                subtitle: Text(
-                  'Deletes all cached channel logos and EPG records.',
-                  style: AppTypography.getCaption(),
-                ),
-                trailing: const Icon(AppIcons.forward),
-                onTap: () {
-                  Get.snackbar(
-                    'Success',
-                    'Offline cache cleared.',
-                    snackPosition: SnackPosition.BOTTOM,
-                    backgroundColor: colorScheme.surfaceContainerHighest,
-                    colorText: colorScheme.onSurface,
-                  );
-                },
+            Text('Select Theme', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
+            AppSpacing.heightMD,
+            RadioGroup<ThemeMode>(
+              groupValue: controller.themeMode.value,
+              onChanged: (value) {
+                if (value != null) {
+                  controller.changeThemeMode(value);
+                  Get.back();
+                }
+              },
+              child: Column(
+                children: ThemeMode.values.map((mode) => InkWell(
+                  onTap: () => controller.changeThemeMode(mode),
+                  child: Row(
+                    children: [
+                      Radio<ThemeMode>(value: mode),
+                      AppSpacing.widthXS,
+                      Text(_themeLabel(mode), style: AppTypography.getBody(color: colorScheme.onSurface)),
+                    ],
+                  ),
+                )).toList(),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  void _showLanguagePicker(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Select Language', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
+            AppSpacing.heightMD,
+            RadioGroup<String>(
+              groupValue: controller.language.value,
+              onChanged: (value) {
+                if (value != null) {
+                  controller.changeLanguage(value);
+                  Get.back();
+                }
+              },
+              child: const Column(
+                children: [
+                  Row(
+                    children: [
+                      Radio<String>(value: 'en'),
+                      Text('English'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.large),
+        title: Text('Change Password', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
+        content: const Text('Password change is managed through your authentication provider.', style: TextStyle(fontSize: 14)),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  void _showSignOutDialog(BuildContext context) {
+    Get.dialog(ConfirmationDialog(
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      confirmText: 'Sign Out',
+      onConfirm: controller.logout,
+    ));
+  }
+
+  void _showDeleteAccountDialog(BuildContext context) {
+    Get.dialog(ConfirmationDialog(
+      title: 'Delete Account',
+      message: 'This action cannot be undone. All your data will be permanently removed.',
+      confirmText: 'Delete',
+      isDestructive: true,
+      onConfirm: () {
+        Get.back();
+        Get.snackbar(
+          'Account Deletion',
+          'Account deletion is not yet implemented in offline mode.',
+          snackPosition: SnackPosition.BOTTOM,
+        );
+      },
+    ));
+  }
+
+  void _showOptimizeDialog(BuildContext context) {
+    Get.snackbar(
+      'Optimize Storage',
+      'Storage optimization will be available in a future update.',
+      snackPosition: SnackPosition.BOTTOM,
     );
   }
 }

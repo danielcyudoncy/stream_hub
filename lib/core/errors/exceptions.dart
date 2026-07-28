@@ -45,6 +45,14 @@ class ParsingException extends ApplicationException {
   });
 }
 
+class ValidationException extends ApplicationException {
+  const ValidationException({
+    super.message = 'Validation failed.',
+    super.code = 'VALIDATION_ERROR',
+    super.originalError,
+  });
+}
+
 class UnknownException extends ApplicationException {
   const UnknownException({
     super.message = 'An unexpected error occurred. Please contact support.',

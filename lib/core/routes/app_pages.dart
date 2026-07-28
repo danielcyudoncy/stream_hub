@@ -17,6 +17,15 @@ import '../../modules/authentication/complete_profile_page.dart';
 import '../../modules/authentication/account_loading_page.dart';
 import '../../modules/provider_manager/provider_manager_page.dart';
 import '../../modules/provider_manager/provider_manager_binding.dart';
+import '../../modules/provider_manager/provider_form_page.dart';
+import '../../modules/provider_manager/provider_details_page.dart';
+import '../../modules/profiles/profile_page.dart';
+import '../../modules/profiles/profile_binding.dart';
+import '../../modules/about/about_page.dart';
+import '../../modules/legal/privacy_policy_page.dart';
+import '../../modules/legal/terms_of_service_page.dart';
+import '../../modules/legal/licenses_page.dart';
+import '../../modules/storage/storage_page.dart';
 import '../../shared/widgets/empty_view.dart';
 
 class AppPages {
@@ -92,6 +101,46 @@ class AppPages {
       name: AppRoutes.providerManager,
       page: () => const ProviderManagerPage(),
       binding: ProviderManagerBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.providerForm,
+      page: () => const ProviderFormPage(),
+      binding: ProviderManagerBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.providerDetails,
+      page: () => const ProviderDetailsPage(providerId: ''),
+      binding: ProviderManagerBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.profile,
+      page: () => const ProfilePage(),
+      binding: ProfileBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.about,
+      page: () => const AboutPage(),
+      binding: SettingsBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.privacyPolicy,
+      page: () => const PrivacyPolicyPage(),
+      binding: SettingsBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.termsOfService,
+      page: () => const TermsOfServicePage(),
+      binding: SettingsBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.licenses,
+      page: () => const LicensesPage(),
+      binding: SettingsBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.storage,
+      page: () => const StoragePage(),
+      binding: SettingsBinding(),
     ),
   ];
 }

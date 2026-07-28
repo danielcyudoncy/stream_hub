@@ -13,6 +13,7 @@ class SplashPage extends GetView<SplashController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.darkBackground,
       body: Container(
         decoration: AppDecorations.gradientBackgroundDark,
         child: Center(
@@ -49,8 +50,16 @@ class SplashPage extends GetView<SplashController> {
               Text(
                 'StreamHub Pro',
                 style: AppTypography.getDisplay(
-                  color: AppColors.darkTextPrimary,
+                  color: Colors.white,
                   scale: 1.1,
+                ).copyWith(
+                  shadows: const [
+                    Shadow(
+                      color: Color(0x66000000),
+                      offset: Offset(0, 1),
+                      blurRadius: 2,
+                    ),
+                  ],
                 ),
               ),
               AppSpacing.heightXXS,

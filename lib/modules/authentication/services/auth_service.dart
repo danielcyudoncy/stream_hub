@@ -10,7 +10,7 @@ import '../models/user_model.dart';
 
 class AuthService extends GetxService {
   final LoggingService _logger = Get.find<LoggingService>();
-  final FirebaseService _firebaseService = Get.find<FirebaseService>();
+  final FirebaseService? _firebaseService = Get.isRegistered<FirebaseService>() ? Get.find<FirebaseService>() : null;
   GoogleSignIn? _googleSignIn;
 
   firebase_auth.FirebaseAuth? _auth;
@@ -21,7 +21,7 @@ class AuthService extends GetxService {
     return _googleSignIn!;
   }
 
-  bool get isFirebaseAvailable => _firebaseService.isAvailable;
+  bool get isFirebaseAvailable => _firebaseService?.isAvailable ?? false;
   firebase_auth.User? get _firebaseUser => _auth?.currentUser;
 
   Future<AuthService> init() async {

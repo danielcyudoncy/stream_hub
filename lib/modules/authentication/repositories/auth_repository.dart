@@ -11,7 +11,7 @@ import '../services/auth_service.dart';
 class AuthRepository extends GetxService {
   final AuthService _authService;
   final AuthLocalStorageService _localStorage;
-  final FirebaseService _firebaseService;
+  final FirebaseService? _firebaseService;
 
   final StreamController<UserModel?> _userStreamController =
       StreamController<UserModel?>.broadcast();
@@ -19,16 +19,16 @@ class AuthRepository extends GetxService {
   AuthRepository({
     required AuthService authService,
     required AuthLocalStorageService localStorage,
-    required FirebaseService firebaseService,
+    FirebaseService? firebaseService,
   }) : _authService = authService,
-       _localStorage = localStorage,
-       _firebaseService = firebaseService;
+        _localStorage = localStorage,
+        _firebaseService = firebaseService;
 
   final LoggingService _logger = Get.find<LoggingService>();
 
   Stream<UserModel?> getCurrentUserStream() => _userStreamController.stream;
 
-  bool get isFirebaseAvailable => _firebaseService.isAvailable;
+  bool get isFirebaseAvailable => _firebaseService?.isAvailable ?? false;
 
   Future<void> initialize() async {
     await _authService.init();

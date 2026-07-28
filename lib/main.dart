@@ -1,15 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-
-import 'core/bindings/initial_binding.dart';
-import 'core/routes/app_pages.dart';
-import 'core/services/app_initializer.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'core/bindings/app_binding.dart';
+import 'core/constants/app_constants.dart';
+import 'core/localization/app_translations.dart';
+import 'core/logging/logging_service.dart';
 import 'core/theme/app_theme.dart';
+import 'core/routes/app_pages.dart';
+import 'data/models/settings_model.dart';
+import 'data/models/cache_info.dart';
+import 'modules/provider_manager/models/provider_model.dart';
+import 'modules/profiles/models/profile_model.dart';
+import 'data/services/database_service.dart';
+import 'data/services/firebase_service.dart';
 
-Future<void> main() async {
-  // Run the full bootstrap before the widget tree is rendered.
-  await AppInitializer.initialize();
-
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+  await Hive.initFlutter();
+  Hive.registerAdapter(ProviderModelAdapter());
+  Hive.registerAdapter(ProfileModelAdapter());
+  Hive.registerAdapter(CacheInfoAdapter());
+  Hive.registerAdapter(SettingsModelAdapter());
+  Get.put<LoggingService>(LoggingService(), permanent: true);
+  final databaseService = DatabaseService();
+  await databaseService.init();
+  Get.put<DatabaseService>(databaseService, permanent: true);
+  final firebaseService = FirebaseService();
+  Get.put<FirebaseService>(firebaseService, permanent: true);
+  await firebaseService.init();
   runApp(const StreamHubApp());
 }
 
@@ -19,26 +39,21 @@ class StreamHubApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      // ─── App Identity ──────────────────────────────────────────────────
-      title: 'StreamHub Pro',
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
-
-      // ─── Themes ────────────────────────────────────────────────────────
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark, // Defaults to dark; SettingsController can change this at runtime.
-
-      // ─── Routing ───────────────────────────────────────────────────────
-      initialRoute: AppPages.initial,
+      themeMode: ThemeMode.system,
+      initialBinding: AppBinding(),
+      initialRoute: AppConstants.splashRoute,
       getPages: AppPages.pages,
-      unknownRoute: AppPages.unknownRoute,
-
-      // ─── Global Dependency Injection ───────────────────────────────────
-      initialBinding: InitialBinding(),
-
-      // ─── Default Page Transition ────────────────────────────────────────
-      defaultTransition: Transition.fadeIn,
-      transitionDuration: const Duration(milliseconds: 300),
+      navigatorObservers: [GetObserver()],
+      translations: AppTranslations(),
+      locale: const Locale('en', 'US'),
+      fallbackLocale: const Locale('en', 'US'),
+      supportedLocales: const [
+        Locale('en', 'US'),
+      ],
     );
   }
 }
