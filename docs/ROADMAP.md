@@ -11,23 +11,30 @@ Project Foundation
 - Themes
 - Routing
 - Splash Screen
+- Settings Module
+- Provider Manager
+- User Profile
+- About Section
+- Legal Pages
+- Storage Management
+- Cache Management
+- Local Preferences
+- Theme Switching
+- Language Selection
+- Provider CRUD
+- Search / Filter / Sort
 
 ---
 
 ## Phase 2
 
-Provider Manager
+M3U Support
 
-- Add Provider
-- Edit Provider
-- Delete Provider
-- Multiple Providers
-
-Supported:
-
-- M3U
-- Xtream
-- XMLTV
+- M3U URL parsing
+- M3U file parsing
+- Category loading
+- Channel loading
+- Playlist caching
 
 ---
 

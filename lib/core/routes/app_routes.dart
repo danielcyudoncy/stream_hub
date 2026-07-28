@@ -11,5 +11,13 @@ class AppRoutes {
   static const String dashboard = '/dashboard';
   static const String settings = '/settings';
   static const String providerManager = '/provider-manager';
+  static const String providerForm = '/provider-form';
+  static const String providerDetails = '/provider-details';
+  static const String profile = '/profile';
+  static const String about = '/about';
+  static const String privacyPolicy = '/privacy-policy';
+  static const String termsOfService = '/terms-of-service';
+  static const String licenses = '/licenses';
+  static const String storage = '/storage';
   static const String unknown = '/unknown';
 }

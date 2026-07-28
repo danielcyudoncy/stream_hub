@@ -16,10 +16,11 @@ class AuthBinding extends Bindings {
     }
     if (!Get.isRegistered<AuthRepository>()) {
       try {
+        final firebaseService = Get.isRegistered<FirebaseService>() ? Get.find<FirebaseService>() : null;
         Get.put<AuthRepository>(AuthRepository(
               authService: Get.find<AuthService>(),
               localStorage: Get.find<AuthLocalStorageService>(),
-              firebaseService: Get.find<FirebaseService>(),
+              firebaseService: firebaseService,
             ), permanent: true);
       } catch (e) {
         Get.log('AuthRepository creation failed: $e');
