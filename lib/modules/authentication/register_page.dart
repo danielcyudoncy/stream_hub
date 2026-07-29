@@ -15,7 +15,14 @@ import 'auth_controller.dart';
 import '../../../core/logging/logging_service.dart';
 
 class RegisterPage extends GetView<AuthController> {
-  const RegisterPage({super.key});
+  RegisterPage({super.key});
+
+  final fullNameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+  final acceptedTerms = RxBool(false);
+  final password = ''.obs;
 
   double _calculatePasswordStrength(String password) {
     if (password.isEmpty) return 0.0;
@@ -51,14 +58,7 @@ class RegisterPage extends GetView<AuthController> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final fullNameController = TextEditingController();
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
-    final confirmPasswordController = TextEditingController();
-final acceptedTerms = RxBool(false);
-  final password = ''.obs;
-
-  emailController.text = controller.lastEmail.value;
+    emailController.text = controller.lastEmail.value;
 
     return AppScaffold(
       title: 'Create Account',

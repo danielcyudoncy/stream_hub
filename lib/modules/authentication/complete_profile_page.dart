@@ -12,14 +12,14 @@ import '../../../shared/widgets/app_text_field.dart';
 import 'auth_controller.dart';
 
 class CompleteProfilePage extends GetView<AuthController> {
-  const CompleteProfilePage({super.key});
+  CompleteProfilePage({super.key});
+
+  final displayNameController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    final displayNameController = TextEditingController();
 
     return AppScaffold(
       title: 'Complete Profile',

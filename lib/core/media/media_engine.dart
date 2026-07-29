@@ -1,12 +1,13 @@
 import 'dart:async';
 
-import 'package:stream_hub/core/media/enums/media_source_state.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/media_catalog.dart';
 import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/core/media/media_source_manager.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_sync_result.dart';
+import 'package:stream_hub/data/metadata/media_library_impl.dart';
+import 'package:stream_hub/data/repositories/catalog_repository.dart';
 
 abstract class MediaEngine {
   MediaCatalog get catalog;
@@ -27,15 +28,23 @@ abstract class MediaEngine {
   Future<List<MediaItem>> searchPrograms(String query);
   Future<List<MediaItem>> searchProviders(String query);
   Stream<MediaItem> get catalogUpdates;
+  Future<void> enrichMetadata(List<MediaItem> items);
+  Future<void> ingestItems(List<MediaItem> items);
 }
 
 class DefaultMediaEngine implements MediaEngine {
   final MediaCatalog _catalog;
   final MediaLibrary _library;
   final MediaSourceManager _sourceManager;
+  final CatalogRepository _catalogRepository;
   final StreamController<MediaItem> _catalogUpdatesController = StreamController<MediaItem>.broadcast();
 
-  DefaultMediaEngine(this._catalog, this._library, this._sourceManager);
+  DefaultMediaEngine(
+    this._catalog,
+    this._library,
+    this._sourceManager,
+    this._catalogRepository,
+  );
 
   @override
   MediaCatalog get catalog => _catalog;
@@ -88,11 +97,11 @@ class DefaultMediaEngine implements MediaEngine {
 
   @override
   Future<List<MediaItem>> search(String query) async {
-    final results = <MediaItem>[];
-    for (final source in _sourceManager.getEnabled()) {
-      if (source.state != MediaSourceState.connected) continue;
+    final items = _catalog.getAll();
+    if (_library is MediaLibraryImpl) {
+      return _library.searchEngine.search(query, items);
     }
-    return results;
+    return [];
   }
 
   @override
@@ -126,4 +135,19 @@ class DefaultMediaEngine implements MediaEngine {
 
   @override
   Stream<MediaItem> get catalogUpdates => _catalogUpdatesController.stream;
+
+  @override
+  Future<void> enrichMetadata(List<MediaItem> items) async {
+    if (_library is MediaLibraryImpl) {
+      await _library.enrichMetadata(items);
+    }
+  }
+
+  @override
+  Future<void> ingestItems(List<MediaItem> items) async {
+    if (_library is MediaLibraryImpl) {
+      await _library.ingest(items);
+    }
+    await _catalogRepository.upsertItems(items);
+  }
 }

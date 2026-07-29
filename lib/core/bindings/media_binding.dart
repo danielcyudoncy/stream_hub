@@ -6,6 +6,7 @@ import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/core/media/media_source_manager.dart';
 import 'package:stream_hub/core/media/media_source_factory.dart';
 import 'package:stream_hub/data/parsers/m3u_parser.dart';
+import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/catalog_repository_impl.dart';
 import 'package:stream_hub/data/repositories/media_repository_impl.dart';
 import 'package:stream_hub/data/repositories/media_source_repository_impl.dart';
@@ -24,6 +25,7 @@ class MediaBinding extends Bindings {
           Get.find<MediaCatalog>(),
           Get.find<MediaLibrary>(),
           Get.find<MediaSourceManager>(),
+          Get.find<CatalogRepository>(),
         ));
     
     Get.putAsync<PlaylistCacheService>(() => PlaylistCacheService(Get.find()).init());
