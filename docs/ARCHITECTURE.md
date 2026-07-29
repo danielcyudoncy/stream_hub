@@ -226,18 +226,60 @@ Responsibilities:
 
 ### Media Library
 
+The unified library is the ONLY data source consumed by UI.
+
 Exposes:
 
 - Live TV
 - Movies
 - Series
-- Favorites
-- Downloads
-- History
-- Recent
-- Recommended
-- Search
+- Episodes
+- Programs
 - Collections
+- Continue Watching
+- Favorites
+- History
+- Downloads
+- Recently Added
+- Recommended
+- Trending (future)
+
+The UI never knows provider types. Metadata providers enrich the catalog transparently.
+
+---
+
+### Canonical Media Item
+
+Every provider contributes data to a single `CanonicalMediaItem`.
+
+Fields:
+
+- id
+- title
+- originalTitle
+- sortTitle
+- description
+- tagline
+- poster
+- backdrop
+- logo
+- thumbnail
+- genres
+- language
+- country
+- rating
+- runtime
+- releaseDate
+- cast
+- crew
+- studio
+- providerOwnership
+- metadataSources
+- artworkSources
+- trailers
+- links
+
+Provider ownership is tracked so a favorite remains valid across providers.
 
 ---
 
@@ -257,6 +299,118 @@ Examples:
 - HealthService
 - SyncService
 - EventService
+- ArtworkService
+- HistoryService
+- FavoriteService
+- RecommendationService
+- CollectionService
+- IndexService
+
+---
+
+### Metadata Engine
+
+The heart of metadata enrichment.
+
+Responsibilities:
+
+- Collect metadata from all providers
+- Merge metadata into canonical items
+- Resolve conflicts
+- Normalize data
+- Update Media Catalog
+- Track metadata sources
+
+Supported metadata sources:
+
+- XMLTV
+- TMDB
+- TVMaze
+- IMDb
+- Trakt
+- Fanart.tv
+- Provider-native metadata
+- Local metadata
+- Custom metadata
+
+---
+
+### Metadata Providers
+
+Every metadata source implements `MetadataProvider`.
+
+Methods:
+
+- initialize()
+- refresh()
+- search()
+- lookup()
+- enrich()
+- validate()
+- dispose()
+
+Metadata providers behave exactly like media sources: they enrich the catalog but never dictate the UI.
+
+Future metadata providers can be added without modifying the UI.
+
+---
+
+### Merge Engine
+
+Responsibilities:
+
+- Merge duplicate media across providers
+- Resolve artwork
+- Merge cast and crew
+- Merge genres
+- Merge ratings
+- Merge descriptions
+- Track conflicts
+
+Configurable conflict resolution strategies:
+
+- Highest quality
+- Newest metadata
+- Preferred provider
+- Manual priority
+- First available
+
+---
+
+### Search Index
+
+Fast full-text search index.
+
+Indexed fields:
+
+- Title
+- Alternate title
+- Description
+- Genres
+- Cast
+- Crew
+- Language
+- Country
+- Provider
+- Category
+- Programs
+- Episodes
+
+---
+
+### Media Index
+
+Fast lookup structures.
+
+By:
+
+- ID
+- Title
+- Provider
+- Category
+- Genre
+- Language
+- Type
 
 ---
 
@@ -397,6 +551,10 @@ lib/
 
             m3u_models.dart
 
+            canonical_media_item.dart
+
+            metadata_models.dart
+
         repositories/
 
             media_repository.dart
@@ -404,6 +562,8 @@ lib/
             media_source_repository.dart
 
             catalog_repository.dart
+
+            media_library_repository.dart
 
             media_repository_impl.dart
 
@@ -445,6 +605,12 @@ lib/
 
             merge_service.dart
 
+            history_service.dart
+
+            favorite_service.dart
+
+            recommendation_service.dart
+
             m3u_download_service.dart
 
             playlist_cache_service.dart
@@ -453,9 +619,51 @@ lib/
 
             playlist_statistics_service.dart
 
+        metadata/
+
+            metadata_engine.dart
+
+            metadata_merge_engine.dart
+
+            artwork_service.dart
+
+            collection_engine.dart
+
+            media_library_impl.dart
+
+        indexes/
+
+            search_index.dart
+
+            search_engine.dart
+
+            media_index.dart
+
         providers/
 
             iptv_provider_interface.dart
+
+            metadata/
+
+                metadata_provider.dart
+
+                xmltv_metadata_provider.dart
+
+                tmdb_metadata_provider.dart
+
+                tvmaze_metadata_provider.dart
+
+                imdb_metadata_provider.dart
+
+                trakt_metadata_provider.dart
+
+                fanart_metadata_provider.dart
+
+                provider_native_metadata_provider.dart
+
+                local_metadata_provider.dart
+
+                custom_metadata_provider.dart
 
             m3u/
 

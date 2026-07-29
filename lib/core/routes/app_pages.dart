@@ -50,27 +50,27 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.auth,
-      page: () => const AuthWrapperPage(),
+      page: () => AuthWrapperPage(),
       binding: AuthBinding(),
     ),
     GetPage(
       name: AppRoutes.authWrapper,
-      page: () => const AuthWrapperPage(),
+      page: () => AuthWrapperPage(),
       binding: AuthBinding(),
     ),
     GetPage(
       name: AppRoutes.login,
-      page: () => const LoginPage(),
+      page: () => LoginPage(),
       binding: AuthBinding(),
     ),
     GetPage(
       name: AppRoutes.register,
-      page: () => const RegisterPage(),
+      page: () => RegisterPage(),
       binding: AuthBinding(),
     ),
     GetPage(
       name: AppRoutes.forgotPassword,
-      page: () => const ForgotPasswordPage(),
+      page: () => ForgotPasswordPage(),
       binding: AuthBinding(),
     ),
     GetPage(
@@ -80,7 +80,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.completeProfile,
-      page: () => const CompleteProfilePage(),
+      page: () => CompleteProfilePage(),
       binding: AuthBinding(),
     ),
     GetPage(
