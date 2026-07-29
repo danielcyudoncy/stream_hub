@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_decorations.dart';
 import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_shadows.dart';
 
 class AppCard extends StatelessWidget {
   final Widget child;
@@ -25,14 +25,13 @@ class AppCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final colorScheme = theme.colorScheme;
 
-    final baseDecoration = isDark
-        ? AppDecorations.cardDecorationDark
-        : AppDecorations.cardDecorationLight;
-
-    final decoration =
-        color != null ? baseDecoration.copyWith(color: color) : baseDecoration;
+    final decoration = BoxDecoration(
+      color: color ?? colorScheme.surface,
+      borderRadius: AppRadius.medium,
+      boxShadow: [AppShadows.card],
+    );
 
     Widget cardContent = Container(
       width: width,

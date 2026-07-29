@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -29,7 +30,7 @@ class AboutPage extends GetView {
                     height: 96,
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF4F46E5)]),
+                      gradient: LinearGradient(colors: AppColors.primaryGradient),
                     ),
                     child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 48),
                   ),

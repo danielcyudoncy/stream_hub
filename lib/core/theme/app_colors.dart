@@ -12,7 +12,7 @@ class AppColors {
   static const Color darkError = Color(0xFFEF4444); // Red
   static const Color darkSuccess = Color(0xFF10B981); // Green
   static const Color darkWarning = Color(0xFFF59E0B); // Amber
-  
+
   static const Color darkTextPrimary = Color(0xFFF8FAFC); // Slate 50
   static const Color darkTextSecondary = Color(0xFF94A3B8); // Slate 400
   static const Color darkTextMuted = Color(0xFF64748B); // Slate 500
@@ -34,8 +34,20 @@ class AppColors {
   static const Color lightTextMuted = Color(0xFF94A3B8); // Slate 400
 
   // Gradients
-  static const List<Color> darkBackgroundGradient = [Color(0xFF0F172A), Color(0xFF020617)];
-  static const List<Color> lightBackgroundGradient = [Color(0xFFF8FAFC), Color(0xFFE2E8F0)];
-  static const List<Color> primaryGradient = [Color(0xFF6366F1), Color(0xFF4F46E5)];
-  static const List<Color> secondaryGradient = [Color(0xFF14B8A6), Color(0xFF0D9488)];
+  static const List<Color> darkBackgroundGradient = [
+    Color(0xFF0F172A),
+    Color(0xFF020617),
+  ];
+  static const List<Color> lightBackgroundGradient = [
+    Color(0xFFF8FAFC),
+    Color(0xFFE2E8F0),
+  ];
+  static const List<Color> primaryGradient = [
+    Color(0xFF6366F1),
+    Color(0xFF4F46E5),
+  ];
+  static const List<Color> secondaryGradient = [
+    Color(0xFF14B8A6),
+    Color(0xFF0D9488),
+  ];
 }
