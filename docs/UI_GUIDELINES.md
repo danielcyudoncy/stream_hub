@@ -179,15 +179,11 @@ Drawer
 
 Back Button
 
----
-
 ### Tablet
 
 Navigation Rail
 
 Side Menu
-
----
 
 ### TV
 
@@ -200,8 +196,6 @@ Large cards
 Visible focus indicator
 
 Remote-friendly layout
-
----
 
 ### Desktop
 
@@ -280,3 +274,113 @@ Always handle errors.
 Provide pull-to-refresh where appropriate.
 
 Consistency is more important than complexity.
+
+---
+
+## Live TV UI Specifications
+
+### Channel Cards
+
+Channel cards are the primary visual element for browsing live TV content.
+
+**Card Layout:**
+
+- Logo (64x64 default, scalable)
+- Channel name (1 line, ellipsis)
+- Current program name (1 line, ellipsis)
+- Provider badge (small chip)
+- Favorite button (top-right overlay)
+- Channel number (top-left overlay)
+- Live indicator (top-left, red dot + "LIVE" text)
+- HD/FHD/UHD badge (top-right, above favorite)
+- Resolution badge (if available in metadata)
+
+**Card Grid:**
+
+- Phone: 2 columns
+- Tablet: 3 columns
+- Desktop: 4 columns
+- TV: 5 columns
+- Item aspect ratio: 0.75
+
+### Grid Layouts
+
+The Live TV browser supports multiple view modes:
+
+- **Grid View**: Default, cards in a responsive grid
+- **List View**: Single-column list with channel logos and info
+- **Compact View**: Smaller cards for dense browsing
+- **TV View**: Large focusable cards optimized for remote navigation
+- **Desktop View**: Wide grid with hover effects
+
+### Navigation Patterns
+
+- **Phone**: Bottom Navigation + AppBar
+- **Tablet**: Navigation Rail + AppBar
+- **Desktop**: Sidebar + AppBar
+- **TV**: Focus-based navigation with remote controls
+
+### Channel Details
+
+The channel detail screen provides comprehensive metadata:
+
+- Large logo/artwork
+- Channel name and number
+- Description (if available)
+- Current program banner
+- Upcoming programs section
+- Provider badge
+- Metadata row (resolution, language, country, genres)
+- Favorite toggle button
+- Share button (placeholder)
+- Play button (disabled until playback is implemented)
+
+### Provider Overview
+
+Provider statistics are displayed as a summary grid:
+
+- Provider name
+- Channel count
+- Provider type icon
+- Tap to filter channels by provider
+
+### Category Navigation
+
+Categories are displayed as chips that can be scrolled horizontally:
+
+- Sports
+- Movies
+- News
+- Kids
+- Music
+- Entertainment
+- International
+- Custom Groups
+- Recently Added
+- Favorites
+- All Channels
+
+### Favorite Management
+
+Favorites are managed through:
+
+- Favorite button on each channel card (toggle)
+- Favorites tab showing all favorited channels
+- Sort options: alphabetical, recently added, provider, country
+- Recently favorited section on home screen
+
+### Loading & Empty States
+
+- Skeleton loaders during initial data fetch
+- Shimmer placeholders for images
+- Progress indicators for async operations
+- EmptyLibrary widget for no-data scenarios
+- ErrorView widget for error states with retry action
+
+### Performance Guidelines
+
+- Lazy load channel cards in grid views
+- Cache channel logos using appropriate image caching
+- Use pagination for large channel lists
+- Avoid unnecessary rebuilds with Obx/GetBuilder
+- Virtualized lists for long channel collections
