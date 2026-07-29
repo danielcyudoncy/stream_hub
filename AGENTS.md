@@ -248,17 +248,17 @@ Example:
 
 abstract class IPTVProvider {
 
-Future<List`Category`> getCategories();
+Future<List<Category>> getCategories();
 
-Future<List`Channel`> getChannels();
+Future<List<Channel>> getChannels();
 
-Future<List`Movie`> getMovies();
+Future<List<Movie>> getMovies();
 
-Future<List`Series`> getSeries();
+Future<List<Series>> getSeries();
 
-Future<List`EpgProgram`> getEPG();
+Future<List<EpgProgram>> getEPG();
 
-Future`String` getStreamUrl();
+Future<String> getStreamUrl();
 
 }
 

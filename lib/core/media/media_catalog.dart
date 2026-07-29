@@ -1,4 +1,5 @@
 import 'package:stream_hub/core/media/enums/media_type.dart';
+import 'package:stream_hub/data/models/canonical_media_item.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 
 class MediaCatalog {
@@ -6,10 +7,13 @@ class MediaCatalog {
   final Map<String, List<MediaItem>> _byProvider = {};
   final Map<String, List<MediaItem>> _byCategory = {};
   final Map<String, List<MediaItem>> _byGenre = {};
+  final Map<String, CanonicalMediaItem> _canonical = {};
 
   List<MediaItem> getAll() => _items.values.toList();
 
   MediaItem? getById(String id) => _items[id];
+
+  CanonicalMediaItem? getCanonical(String id) => _canonical[id];
 
   List<MediaItem> getByProvider(String providerId) => _byProvider[providerId] ?? [];
 
@@ -27,6 +31,11 @@ class MediaCatalog {
     }
   }
 
+  void upsertCanonical(CanonicalMediaItem canonical) {
+    _canonical[canonical.id] = canonical;
+    _items[canonical.id] = canonical.toMediaItem();
+  }
+
   void remove(String id) {
     final item = _items.remove(id);
     if (item != null) {
@@ -35,6 +44,7 @@ class MediaCatalog {
         _byGenre[genre]?.remove(item);
       }
     }
+    _canonical.remove(id);
   }
 
   void clear() {
@@ -42,7 +52,10 @@ class MediaCatalog {
     _byProvider.clear();
     _byCategory.clear();
     _byGenre.clear();
+    _canonical.clear();
   }
 
   int get totalCount => _items.length;
+
+  int get canonicalCount => _canonical.length;
 }

@@ -152,6 +152,49 @@ Returns
 
 ---
 
+## Metadata Providers
+
+Metadata providers enrich existing media items with additional metadata
+without changing the UI.
+
+### MetadataProvider Interface
+
+Every metadata provider must implement:
+
+- initialize()
+- refresh()
+- search()
+- lookup()
+- enrich()
+- validate()
+- dispose()
+
+### Supported Metadata Sources
+
+- XMLTV
+- TMDB
+- TVMaze
+- IMDb
+- Trakt
+- Fanart.tv
+- Provider Native
+- Local
+- Custom
+
+### Metadata Source Types
+
+- xmltv
+- tmdb
+- tvmaze
+- imdb
+- trakt
+- fanart
+- provider
+- local
+- custom
+
+---
+
 ## XMLTV
 
 Input

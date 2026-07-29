@@ -15,11 +15,28 @@ import 'provider_manager_controller.dart';
 class ProviderFormPage extends GetView<ProviderManagerController> {
   final ProviderModel? provider;
 
-  ProviderFormPage({super.key, this.provider});
+  ProviderFormPage({super.key, this.provider}) {
+    _nameController = TextEditingController(text: provider?.name ?? '');
+    _serverUrlController = TextEditingController(text: provider?.serverUrl ?? '');
+    _usernameController = TextEditingController(text: provider?.username ?? '');
+    _passwordController = TextEditingController(text: provider?.password ?? '');
+    _macController = TextEditingController(text: provider?.macAddress ?? '');
+    _xmltvController = TextEditingController(text: provider?.xmltvUrl ?? '');
+    _notesController = TextEditingController(text: provider?.notes ?? '');
+    _selectedType = (provider?.providerType ?? ProviderType.m3u).obs;
+  }
 
   bool get isEditing => provider != null;
 
   final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _serverUrlController;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _passwordController;
+  late final TextEditingController _macController;
+  late final TextEditingController _xmltvController;
+  late final TextEditingController _notesController;
+  late final Rx<ProviderType> _selectedType;
 
   @override
   Widget build(BuildContext context) {
@@ -27,20 +44,10 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
     final colorScheme = theme.colorScheme;
     final isEditing = this.isEditing;
 
-    final nameController = TextEditingController(text: provider?.name ?? '');
-    final serverUrlController = TextEditingController(text: provider?.serverUrl ?? '');
-    final usernameController = TextEditingController(text: provider?.username ?? '');
-    final passwordController = TextEditingController(text: provider?.password ?? '');
-    final macController = TextEditingController(text: provider?.macAddress ?? '');
-    final xmltvController = TextEditingController(text: provider?.xmltvUrl ?? '');
-    final notesController = TextEditingController(text: provider?.notes ?? '');
-
-    final selectedType = (provider?.providerType ?? ProviderType.m3u).obs;
-
     return AppScaffold(
       title: isEditing ? 'Edit Provider' : 'Add Provider',
       body: Obx(() {
-        final type = selectedType.value;
+        final type = _selectedType.value;
         return Form(
           key: _formKey,
           child: ListView(
@@ -55,7 +62,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                 child: Column(
                   children: [
                     TextFormField(
-                      controller: nameController,
+                      controller: _nameController,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(labelText: 'Provider Name', hintText: 'Enter a memorable name'),
                       validator: (value) {
@@ -82,7 +89,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                           label: Text(pt.displayName),
                           selected: isSelected,
                           onSelected: (selected) {
-                            if (selected) selectedType.value = pt;
+                            if (selected) _selectedType.value = pt;
                           },
                         );
                       }).toList(),
@@ -90,7 +97,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                     AppSpacing.heightMD,
                     if (type != ProviderType.xmltv) ...[
                       TextFormField(
-                        controller: serverUrlController,
+                        controller: _serverUrlController,
                         decoration: const InputDecoration(labelText: 'Server URL', hintText: 'https://example.com'),
                         keyboardType: TextInputType.url,
                         validator: (value) {
@@ -105,12 +112,12 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                     ],
                     if (type == ProviderType.xtream || type == ProviderType.stalker) ...[
                       TextFormField(
-                        controller: usernameController,
+                        controller: _usernameController,
                         decoration: const InputDecoration(labelText: 'Username', hintText: 'Enter username'),
                       ),
                       AppSpacing.heightMD,
                       TextFormField(
-                        controller: passwordController,
+                        controller: _passwordController,
                         decoration: const InputDecoration(labelText: 'Password', hintText: 'Enter password'),
                         obscureText: true,
                       ),
@@ -118,7 +125,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                     ],
                     if (type == ProviderType.stalker) ...[
                       TextFormField(
-                        controller: macController,
+                        controller: _macController,
                         decoration: const InputDecoration(labelText: 'MAC Address', hintText: 'Required for Stalker Portal'),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) return null;
@@ -132,7 +139,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                     ],
                     if (type == ProviderType.xmltv) ...[
                       TextFormField(
-                        controller: xmltvController,
+                        controller: _xmltvController,
                         decoration: const InputDecoration(labelText: 'XMLTV URL', hintText: 'https://example.com/guide.xml'),
                         keyboardType: TextInputType.url,
                         validator: (value) {
@@ -146,7 +153,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                       AppSpacing.heightMD,
                     ],
                     TextFormField(
-                      controller: notesController,
+                      controller: _notesController,
                       decoration: const InputDecoration(labelText: 'Notes', hintText: 'Optional notes about this provider'),
                       maxLines: 3,
                       maxLength: AppConstants.maxNotesLength,
@@ -169,18 +176,18 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                       text: isEditing ? 'Save Changes' : 'Add Provider',
                       onPressed: () {
                         if (_formKey.currentState?.validate() ?? false) {
-                          final trimmedName = nameController.text.trim();
-                          final trimmedServerUrl = serverUrlController.text.trim().isEmpty ? null : serverUrlController.text.trim();
-                          final trimmedUsername = usernameController.text.trim().isEmpty ? null : usernameController.text.trim();
-                          final trimmedPassword = passwordController.text.trim().isEmpty ? null : passwordController.text.trim();
-                          final trimmedMac = macController.text.trim().isEmpty ? null : macController.text.trim();
-                          final trimmedXmltv = xmltvController.text.trim().isEmpty ? null : xmltvController.text.trim();
-                          final trimmedNotes = notesController.text.trim().isEmpty ? null : notesController.text.trim();
+                          final trimmedName = _nameController.text.trim();
+                          final trimmedServerUrl = _serverUrlController.text.trim().isEmpty ? null : _serverUrlController.text.trim();
+                          final trimmedUsername = _usernameController.text.trim().isEmpty ? null : _usernameController.text.trim();
+                          final trimmedPassword = _passwordController.text.trim().isEmpty ? null : _passwordController.text.trim();
+                          final trimmedMac = _macController.text.trim().isEmpty ? null : _macController.text.trim();
+                          final trimmedXmltv = _xmltvController.text.trim().isEmpty ? null : _xmltvController.text.trim();
+                          final trimmedNotes = _notesController.text.trim().isEmpty ? null : _notesController.text.trim();
 
                           if (isEditing) {
                             controller.updateProvider(provider!.copyWith(
                               name: trimmedName,
-                              providerType: selectedType.value,
+                              providerType: _selectedType.value,
                               serverUrl: trimmedServerUrl,
                               username: trimmedUsername,
                               password: trimmedPassword,
@@ -192,7 +199,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                             final newProvider = ProviderModel(
                               id: 'provider_${DateTime.now().millisecondsSinceEpoch}_${_randomSuffix()}',
                               name: trimmedName,
-                              providerType: selectedType.value,
+                              providerType: _selectedType.value,
                               serverUrl: trimmedServerUrl,
                               username: trimmedUsername,
                               password: trimmedPassword,

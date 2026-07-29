@@ -11,14 +11,14 @@ import '../../../shared/widgets/app_text_field.dart';
 import 'auth_controller.dart';
 
 class ForgotPasswordPage extends GetView<AuthController> {
-  const ForgotPasswordPage({super.key});
+  ForgotPasswordPage({super.key});
+
+  final emailController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-
-    final emailController = TextEditingController();
 
     return AppScaffold(
       title: 'Reset Password',

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:stream_hub/core/media/media_catalog.dart';
+import 'package:stream_hub/data/models/canonical_media_item.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_metadata.dart';
 import 'package:stream_hub/data/repositories/media_repository.dart';
@@ -73,4 +74,22 @@ class MediaRepositoryImpl implements MediaRepository {
   Stream<List<MediaItem>> watchAll() async* {
     yield _catalog.getAll();
   }
+
+  @override
+  Future<CanonicalMediaItem?> getCanonical(String id) async {
+    return _catalog.getCanonical(id);
+  }
+
+  @override
+  Future<void> saveCanonical(CanonicalMediaItem item) async {
+    _catalog.upsertCanonical(item);
+  }
+
+  @override
+  Future<List<MediaItem>> getDuplicates() async {
+    return [];
+  }
+
+  @override
+  Future<void> markAsDuplicate(String itemId, String canonicalId) async {}
 }

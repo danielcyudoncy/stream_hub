@@ -1,4 +1,5 @@
 import 'package:stream_hub/data/models/media_item.dart';
+import 'package:stream_hub/data/models/canonical_media_item.dart';
 import 'package:stream_hub/data/models/media_metadata.dart';
 
 abstract class MediaRepository {
@@ -11,4 +12,8 @@ abstract class MediaRepository {
   Future<MediaMetadata?> getMetadata(String itemId);
   Future<void> saveMetadata(String itemId, MediaMetadata metadata);
   Stream<List<MediaItem>> watchAll();
+  Future<CanonicalMediaItem?> getCanonical(String id);
+  Future<void> saveCanonical(CanonicalMediaItem item);
+  Future<List<MediaItem>> getDuplicates();
+  Future<void> markAsDuplicate(String itemId, String canonicalId);
 }
