@@ -59,11 +59,18 @@ Media Platform Core
 
 M3U Support
 
-- M3U URL parsing
-- M3U file parsing
-- Category loading
-- Channel loading
-- Playlist caching
+- [x] M3U URL parsing
+- [x] M3U file parsing
+- [x] Category loading
+- [x] Channel loading
+- [x] Playlist caching
+- [x] Streaming parser
+- [x] Validation
+- [x] Statistics
+- [x] Download service with retry/auth/cancellation
+- [x] Media Catalog integration
+- [x] Health monitoring
+- [x] Refresh support
 
 ---
 

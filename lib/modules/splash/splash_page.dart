@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/theme/app_colors.dart';
-import '../../core/theme/app_decorations.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
@@ -12,10 +11,22 @@ class SplashPage extends GetView<SplashController> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
     return Scaffold(
-      backgroundColor: AppColors.darkBackground,
+      backgroundColor: colorScheme.surface,
       body: Container(
-        decoration: AppDecorations.gradientBackgroundDark,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              colorScheme.surface,
+              colorScheme.surfaceContainerHighest,
+            ],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -32,16 +43,16 @@ class SplashPage extends GetView<SplashController> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.darkPrimary.withValues(alpha: 0.5),
+                      color: colorScheme.primary.withValues(alpha: 0.5),
                       blurRadius: 30.0,
                       spreadRadius: 2.0,
                     ),
                   ],
                 ),
-                child: const Icon(
+                child: Icon(
                   AppIcons.play,
                   size: 64.0,
-                  color: AppColors.darkTextPrimary,
+                  color: colorScheme.onPrimary,
                 ),
               ),
               AppSpacing.heightXL,
@@ -50,13 +61,13 @@ class SplashPage extends GetView<SplashController> {
               Text(
                 'StreamHub Pro',
                 style: AppTypography.getDisplay(
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                   scale: 1.1,
                 ).copyWith(
-                  shadows: const [
+                  shadows: [
                     Shadow(
-                      color: Color(0x66000000),
-                      offset: Offset(0, 1),
+                      color: colorScheme.shadow.withValues(alpha: 0.3),
+                      offset: const Offset(0, 1),
                       blurRadius: 2,
                     ),
                   ],
@@ -67,14 +78,14 @@ class SplashPage extends GetView<SplashController> {
               // Tagline
               Text(
                 'Premium IPTV Client',
-                style: AppTypography.getLabel(color: AppColors.darkTextSecondary),
+                style: AppTypography.getLabel(color: colorScheme.onSurfaceVariant),
               ),
               const SizedBox(height: 64.0),
 
               // Loading spinner
-              const CircularProgressIndicator(
+              CircularProgressIndicator(
                 valueColor:
-                    AlwaysStoppedAnimation<Color>(AppColors.darkSecondary),
+                    AlwaysStoppedAnimation<Color>(colorScheme.secondary),
                 strokeWidth: 3.0,
               ),
               AppSpacing.heightLG,
@@ -83,7 +94,7 @@ class SplashPage extends GetView<SplashController> {
               Obx(
                 () => Text(
                   controller.statusMessage.value,
-                  style: AppTypography.getCaption(color: AppColors.darkTextMuted),
+                  style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
                 ),
               ),
             ],

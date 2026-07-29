@@ -108,6 +108,7 @@ class DashboardPage extends GetView<DashboardController> {
     return AppCard(
       onTap: onTap,
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
@@ -124,15 +125,13 @@ class DashboardPage extends GetView<DashboardController> {
             style: AppTypography.getTitle(color: colorScheme.onSurface),
           ),
           AppSpacing.heightXXS,
-          Expanded(
-            child: Text(
-              description,
-              style: AppTypography.getCaption(
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
+          Text(
+            description,
+            style: AppTypography.getCaption(
+              color: colorScheme.onSurface.withValues(alpha: 0.6),
             ),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
