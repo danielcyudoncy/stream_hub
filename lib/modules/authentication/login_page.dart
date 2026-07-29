@@ -12,15 +12,16 @@ import '../../../shared/widgets/app_text_field.dart';
 import 'auth_controller.dart';
 
 class LoginPage extends GetView<AuthController> {
-  const LoginPage({super.key});
+  LoginPage({super.key});
+
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    final emailController = TextEditingController();
-    final passwordController = TextEditingController();
     final arguments = Get.arguments as Map<String, dynamic>?;
     final isAnonymousMode = arguments?['anonymous'] == true;
 

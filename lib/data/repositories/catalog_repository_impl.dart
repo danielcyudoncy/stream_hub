@@ -1,11 +1,11 @@
 import 'dart:async';
 
-import 'package:stream_hub/core/media/media_catalog.dart';
-import 'package:stream_hub/core/media/media_source_manager.dart';
+import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_sync_result.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
-import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/media_catalog.dart';
+import 'package:stream_hub/core/media/media_source_manager.dart';
 
 class CatalogRepositoryImpl implements CatalogRepository {
   final MediaCatalog _catalog;

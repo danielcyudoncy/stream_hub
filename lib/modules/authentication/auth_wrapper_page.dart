@@ -20,10 +20,10 @@ class AuthWrapperPage extends GetView<AuthController> {
 
     return Obx(() {
       if (controller.isLoading.value) {
-        return const AccountLoadingPage();
+        return AccountLoadingPage();
       }
       if (controller.isAuthenticated.value && controller.currentUser.value != null) {
-        return const CompleteProfilePage();
+        return CompleteProfilePage();
       }
       return Scaffold(
         body: Container(
