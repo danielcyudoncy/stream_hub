@@ -71,6 +71,7 @@ class AppScaffold extends StatelessWidget {
       ];
 
     return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: floatingActionButton,
       body: LayoutBuilder(
         builder: (context, constraints) {
