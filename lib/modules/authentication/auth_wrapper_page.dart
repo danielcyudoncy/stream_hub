@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
@@ -28,9 +27,12 @@ class AuthWrapperPage extends GetView<AuthController> {
       }
       return Scaffold(
         body: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
-              colors: [Color(0xFF0F172A), Color(0xFF020617)],
+              colors: [
+                colorScheme.surface,
+                colorScheme.surfaceContainerHighest,
+              ],
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
             ),
@@ -50,16 +52,16 @@ class AuthWrapperPage extends GetView<AuthController> {
                         gradient: AuthConstants.primaryGradient,
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.darkPrimary.withValues(alpha: 0.5),
+                            color: colorScheme.primary.withValues(alpha: 0.5),
                             blurRadius: 30.0,
                             spreadRadius: 2.0,
                           ),
                         ],
                       ),
-                      child: const Icon(
+                      child: Icon(
                         AppIcons.play,
                         size: 48.0,
-                        color: AppColors.darkTextPrimary,
+                        color: colorScheme.onPrimary,
                       ),
                     ),
                     AppSpacing.heightLG,

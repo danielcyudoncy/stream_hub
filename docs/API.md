@@ -41,6 +41,10 @@ Input
 
 - URL
 - Local File
+- Username/Password in URL
+- Basic HTTP Authentication
+- HTTPS
+- HTTP
 
 Returns
 
@@ -50,6 +54,61 @@ Returns
 Optional
 
 - XMLTV Guide
+
+### Supported Tags
+
+- `#EXTM3U` — Playlist header
+- `#EXTINF` — Channel metadata
+- `tvg-id` — XMLTV channel ID
+- `tvg-name` — Channel display name
+- `tvg-logo` — Logo URL
+- `group-title` — Category / group
+- `radio` — Radio station flag
+- `catchup` — Catch-up support flag
+- `catchup-days` — Catch-up availability window
+- `catchup-source` — Catch-up stream URL template
+- `audio-track` — Audio track information
+- `language` — Channel language
+- `country` — Channel country
+
+### Validation Rules
+
+- Missing `#EXTM3U` header triggers a warning, not a failure
+- Entries without a preceding `#EXTINF` line are flagged as malformed
+- Duplicate stream URLs are detected and counted
+- Empty channel names generate warnings
+- UTF-8 encoding is assumed; invalid UTF-8 sequences produce decode errors
+- Playlists with only whitespace or empty content are rejected
+
+### Authentication
+
+- Basic HTTP Authentication via `username` and `password` config fields
+- Credentials embedded in URL (`http://user:pass@host/playlist.m3u`)
+- Custom headers via `headers` map
+
+### Caching
+
+- Parsed playlists are cached locally with:
+  - Raw playlist text
+  - Parsed channel list
+  - Validation result
+  - Statistics
+  - Timestamp
+  - Content hash
+  - ETag
+  - Last-Modified
+
+### Statistics
+
+- Total items
+- TV channels
+- Radio stations
+- Categories
+- Languages
+- Countries
+- Invalid entries
+- Duplicates
+- Sync duration
 
 ---
 
