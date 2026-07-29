@@ -158,6 +158,49 @@ Example models:
 - Program
 - PlayableStream
 
+#### M3U Adapter
+
+The `M3UMediaSource` is the first concrete adapter. It:
+
+1. Accepts a remote URL or local file path
+2. Downloads the playlist via `M3UDownloadService`
+3. Parses the content line-by-line via `M3UParser`
+4. Validates structure and metadata
+5. Builds `MediaItem` instances from `M3UChannel` entries
+6. Caches results locally via `PlaylistCacheService`
+7. Publishes channels through broadcast streams
+8. Reports health and statistics
+
+The adapter does not know about UI, player, or EPG. It only produces a `MediaCatalog` of channels and categories.
+
+#### Catalog Flow
+
+```
+User adds M3U source
+         ↓
+MediaSourceManager.register()
+         ↓
+M3UMediaSource.initialize()
+         ↓
+M3UMediaSource.connect()
+         ↓
+M3UDownloadService.download()
+         ↓
+M3UParser.parse()
+         ↓
+PlaylistValidationService.validate()
+         ↓
+PlaylistStatisticsService.calculate()
+         ↓
+PlaylistCacheService.cachePlaylist()
+         ↓
+M3UMediaSource emits channelsStream
+         ↓
+CatalogRepository.upsertItems()
+         ↓
+MediaCatalog updated
+```
+
 ---
 
 ### Media Catalog
@@ -352,19 +395,107 @@ lib/
 
             media_sync_result.dart
 
+            m3u_models.dart
+
         repositories/
+
+            media_repository.dart
+
+            media_source_repository.dart
+
+            catalog_repository.dart
+
+            media_repository_impl.dart
+
+            media_source_repository_impl.dart
+
+            catalog_repository_impl.dart
 
         services/
 
+            cache_service.dart
+
+            event_service.dart
+
+            sync_service.dart
+
+            provider_storage_service.dart
+
+            catalog_service.dart
+
+            filter_service.dart
+
+            sort_service.dart
+
+            source_service.dart
+
+            metadata_service.dart
+
+            health_service.dart
+
+            profile_service.dart
+
+            firebase_service.dart
+
+            settings_service.dart
+
+            search_service.dart
+
+            database_service.dart
+
+            merge_service.dart
+
+            m3u_download_service.dart
+
+            playlist_cache_service.dart
+
+            playlist_validation_service.dart
+
+            playlist_statistics_service.dart
+
         providers/
 
+            iptv_provider_interface.dart
+
+            m3u/
+
+                m3u_media_source.dart
+
             stubs/
+
+                m3u_source.dart
+
+                custom_source.dart
+
+                emby_source.dart
+
+                future_source.dart
+
+                hd_home_run_source.dart
+
+                jellyfin_source.dart
+
+                local_playlist_source.dart
+
+                plex_source.dart
+
+                stalker_source.dart
+
+                tvheadend_source.dart
+
+                xmltv_source.dart
+
+                xtream_source.dart
+
+        parsers/
+
+            placeholder_parser.dart
+
+            m3u_parser.dart
 
         local/
 
         remote/
-
-        parsers/
 
     modules/
 

@@ -1,12 +1,13 @@
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/media_source.dart';
+import 'package:stream_hub/data/models/m3u_models.dart';
+import 'package:stream_hub/data/providers/m3u/m3u_media_source.dart';
 import 'package:stream_hub/data/providers/stubs/custom_source.dart';
 import 'package:stream_hub/data/providers/stubs/emby_source.dart';
 import 'package:stream_hub/data/providers/stubs/future_source.dart';
 import 'package:stream_hub/data/providers/stubs/hd_home_run_source.dart';
 import 'package:stream_hub/data/providers/stubs/jellyfin_source.dart';
 import 'package:stream_hub/data/providers/stubs/local_playlist_source.dart';
-import 'package:stream_hub/data/providers/stubs/m3u_source.dart';
 import 'package:stream_hub/data/providers/stubs/plex_source.dart';
 import 'package:stream_hub/data/providers/stubs/stalker_source.dart';
 import 'package:stream_hub/data/providers/stubs/tvheadend_source.dart';
@@ -22,7 +23,14 @@ class DefaultMediaSourceFactory implements MediaSourceFactory {
   MediaSource create(String id, MediaSourceType type, Map<String, dynamic> config) {
     switch (type) {
       case MediaSourceType.m3u:
-        return M3USource(id: id, config: config);
+        final m3uConfig = M3UConfig(
+          sourceUrl: config['sourceUrl'] as String? ?? '',
+          localPath: config['localPath'] as String?,
+          username: config['username'] as String?,
+          password: config['password'] as String?,
+          headers: Map<String, String>.from(config['headers'] as Map? ?? {}),
+        );
+        return M3UMediaSource(id: id, config: m3uConfig);
       case MediaSourceType.xtream:
         return XtreamSource(id: id, config: config);
       case MediaSourceType.stalker:

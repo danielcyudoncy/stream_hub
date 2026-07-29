@@ -43,7 +43,7 @@ class StreamHubApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.dark,
       initialBinding: AppBinding(),
       initialRoute: AppConstants.splashRoute,
       getPages: AppPages.pages,
