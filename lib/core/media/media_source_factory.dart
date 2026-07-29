@@ -1,7 +1,9 @@
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/media_source.dart';
 import 'package:stream_hub/data/models/m3u_models.dart';
+import 'package:stream_hub/data/models/xmltv_models.dart';
 import 'package:stream_hub/data/providers/m3u/m3u_media_source.dart';
+import 'package:stream_hub/data/providers/xmltv/xmltv_media_source.dart';
 import 'package:stream_hub/data/providers/stubs/custom_source.dart';
 import 'package:stream_hub/data/providers/stubs/emby_source.dart';
 import 'package:stream_hub/data/providers/stubs/future_source.dart';
@@ -11,7 +13,6 @@ import 'package:stream_hub/data/providers/stubs/local_playlist_source.dart';
 import 'package:stream_hub/data/providers/stubs/plex_source.dart';
 import 'package:stream_hub/data/providers/stubs/stalker_source.dart';
 import 'package:stream_hub/data/providers/stubs/tvheadend_source.dart';
-import 'package:stream_hub/data/providers/stubs/xmltv_source.dart';
 import 'package:stream_hub/data/providers/stubs/xtream_source.dart';
 
 abstract class MediaSourceFactory {
@@ -36,7 +37,21 @@ class DefaultMediaSourceFactory implements MediaSourceFactory {
       case MediaSourceType.stalker:
         return StalkerSource(id: id, config: config);
       case MediaSourceType.xmltv:
-        return XMLTVSource(id: id, config: config);
+        final xmltvConfig = XMLTVConfig(
+          sourceUrl: config['sourceUrl'] as String? ?? '',
+          localPath: config['localPath'] as String?,
+          username: config['username'] as String?,
+          password: config['password'] as String?,
+          headers: Map<String, String>.from(config['headers'] as Map? ?? {}),
+          timeout: Duration(seconds: config['timeout'] as int? ?? 60),
+          maxRetries: config['maxRetries'] as int? ?? 3,
+          retryDelay: Duration(seconds: config['retryDelay'] as int? ?? 2),
+          followRedirects: config['followRedirects'] as bool? ?? true,
+          maxRedirects: config['maxRedirects'] as int? ?? 5,
+          compressGz: config['compressGz'] as bool? ?? true,
+          guideVersion: config['guideVersion'] as String?,
+        );
+        return XMLTVMediaSource(id: id, config: xmltvConfig);
       case MediaSourceType.localPlaylist:
         return LocalPlaylistSource(id: id, config: config);
       case MediaSourceType.jellyfin:

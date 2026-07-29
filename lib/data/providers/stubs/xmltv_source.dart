@@ -6,57 +6,99 @@ import 'package:stream_hub/data/models/media_health.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_sync_result.dart';
 import 'package:stream_hub/data/models/media_statistics.dart';
+import 'package:stream_hub/data/models/xmltv_models.dart';
+import 'package:stream_hub/data/providers/xmltv/xmltv_media_source.dart';
 
 class XMLTVSource implements MediaSource {
+  final XMLTVMediaSource _delegate;
+
   @override
-  final String id;
+  String get id => _delegate.id;
+
   @override
   MediaSourceType get type => MediaSourceType.xmltv;
-  @override
-  MediaSourceState get state => MediaSourceState.created;
-  @override
-  MediaEventBus? get eventBus => null;
-
-  XMLTVSource({required this.id, Map<String, dynamic>? config});
 
   @override
-  Future<void> initialize() async {}
-  @override
-  Future<void> connect() async {}
-  @override
-  Future<void> disconnect() async {}
-  @override
-  Future<void> dispose() async {}
-  @override
-  Future<void> refresh() async {}
-  @override
-  Future<MediaSyncResult> sync() async => MediaSyncResult(sourceId: '', success: true, completedAt: DateTime.now());
-  @override
-  Future<bool> validate() async => true;
-  @override
-  Future<MediaHealth> health() async => MediaHealth();
-  @override
-  Future<MediaStatistics> statistics() async => MediaStatistics(lastSync: DateTime.now());
+  MediaSourceState get state => _delegate.state;
 
   @override
-  Stream<List<MediaItem>> get categoriesStream => const Stream.empty();
-  @override
-  Stream<List<MediaItem>> get channelsStream => const Stream.empty();
-  @override
-  Stream<List<MediaItem>> get moviesStream => const Stream.empty();
-  @override
-  Stream<List<MediaItem>> get seriesStream => const Stream.empty();
-  @override
-  Stream<List<MediaItem>> get programsStream => const Stream.empty();
+  MediaEventBus? get eventBus => _delegate.eventBus;
+
+  XMLTVSource({
+    required String id,
+    Map<String, dynamic>? config,
+  }) : _delegate = XMLTVMediaSource(
+          id: id,
+          config: XMLTVConfig(
+            sourceUrl: config?['sourceUrl'] as String? ?? '',
+            localPath: config?['localPath'] as String?,
+            username: config?['username'] as String?,
+            password: config?['password'] as String?,
+            headers: Map<String, String>.from(config?['headers'] as Map? ?? {}),
+            timeout: Duration(seconds: config?['timeout'] as int? ?? 60),
+            maxRetries: config?['maxRetries'] as int? ?? 3,
+            retryDelay: Duration(seconds: config?['retryDelay'] as int? ?? 2),
+            followRedirects: config?['followRedirects'] as bool? ?? true,
+            maxRedirects: config?['maxRedirects'] as int? ?? 5,
+            compressGz: config?['compressGz'] as bool? ?? true,
+            guideVersion: config?['guideVersion'] as String?,
+          ),
+        );
 
   @override
-  Future<List<MediaItem>> getCategories() async => [];
+  Future<void> initialize() async => _delegate.initialize();
+
   @override
-  Future<List<MediaItem>> getChannels() async => [];
+  Future<void> connect() async => _delegate.connect();
+
   @override
-  Future<List<MediaItem>> getMovies() async => [];
+  Future<void> disconnect() async => _delegate.disconnect();
+
   @override
-  Future<List<MediaItem>> getSeries() async => [];
+  Future<void> dispose() async => _delegate.dispose();
+
   @override
-  Future<List<MediaItem>> getPrograms() async => [];
+  Future<void> refresh() async => _delegate.refresh();
+
+  @override
+  Future<MediaSyncResult> sync() async => _delegate.sync();
+
+  @override
+  Future<bool> validate() async => _delegate.validate();
+
+  @override
+  Future<MediaHealth> health() async => _delegate.health();
+
+  @override
+  Future<MediaStatistics> statistics() async => _delegate.statistics();
+
+  @override
+  Stream<List<MediaItem>> get categoriesStream => _delegate.categoriesStream;
+
+  @override
+  Stream<List<MediaItem>> get channelsStream => _delegate.channelsStream;
+
+  @override
+  Stream<List<MediaItem>> get moviesStream => _delegate.moviesStream;
+
+  @override
+  Stream<List<MediaItem>> get seriesStream => _delegate.seriesStream;
+
+  @override
+  Stream<List<MediaItem>> get programsStream => _delegate.programsStream;
+
+  @override
+  Future<List<MediaItem>> getCategories() async => _delegate.getCategories();
+
+  @override
+  Future<List<MediaItem>> getChannels() async => _delegate.getChannels();
+
+  @override
+  Future<List<MediaItem>> getMovies() async => _delegate.getMovies();
+
+  @override
+  Future<List<MediaItem>> getSeries() async => _delegate.getSeries();
+
+  @override
+  Future<List<MediaItem>> getPrograms() async => _delegate.getPrograms();
 }

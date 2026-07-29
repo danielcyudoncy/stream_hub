@@ -203,6 +203,77 @@ MediaCatalog updated
 
 ---
 
+### XMLTV Adapter
+
+The `XMLTVMediaSource` is the XMLTV adapter. It:
+
+1. Accepts a remote URL, local file path, or compressed (.xml.gz) guide
+2. Downloads the guide via `XMLTVDownloadService`
+3. Parses the content using a streaming XML parser via `XMLTVParser`
+4. Validates structure and metadata
+5. Matches XMLTV channels to existing channels via `ChannelMatcher`
+6. Enriches the media catalog via `XMLTVMergeService`
+7. Stores programmes in `EPGEngine` and `TimelineEngine`
+8. Indexes programmes in `XMLTVSearchService`
+9. Caches results locally via `XMLTVCacheService`
+10. Publishes channels and programmes through broadcast streams
+11. Reports health and statistics
+
+#### XMLTV Flow
+
+```
+User adds XMLTV source
+          ↓
+MediaSourceManager.register()
+          ↓
+XMLTVMediaSource.initialize()
+          ↓
+XMLTVMediaSource.connect()
+          ↓
+XMLTVDownloadService.download()
+          ↓
+XMLTVParser.parse() (streaming)
+          ↓
+ChannelMatcher.matchChannels()
+          ↓
+XMLTVMergeService.enrichGuide()
+          ↓
+EPGEngine.storeGuide()
+          ↓
+TimelineEngine.loadGuide()
+          ↓
+XMLTVSearchService.indexGuide()
+          ↓
+XMLTVCacheService.cacheGuide()
+          ↓
+XMLTVMediaSource emits channelsStream and programsStream
+          ↓
+CatalogRepository.enrichWithXMLTV() / mergeXMLTVMetadata()
+          ↓
+MediaCatalog updated
+```
+
+#### Metadata Pipeline
+
+XMLTV enriches the Media Catalog through a metadata pipeline:
+
+1. **Download** — XMLTV guide is downloaded via HTTP/HTTPS or read from local storage
+2. **Parse** — Streaming XML parser processes the guide incrementally
+3. **Match** — ChannelMatcher matches XMLTV channels to existing media channels
+4. **Merge** — XMLTVMergeService merges XMLTV metadata into existing catalog entries
+5. **Store** — EPGEngine and TimelineEngine store and index programmes
+6. **Index** — XMLTVSearchService indexes programmes for search
+7. **Cache** — XMLTVCacheService persists the guide for offline use
+8. **Enrich** — MediaCatalog is updated with enriched channel and programme data
+
+The pipeline is designed so that:
+- The UI never knows where metadata originated
+- XMLTV metadata is transparently merged into existing catalog entries
+- No UI changes are required to display XMLTV-enriched data
+- The Media Catalog contains both channel data and TV guide data
+
+---
+
 ### Media Catalog
 
 Stores:
@@ -221,6 +292,8 @@ Responsibilities:
 - Merge duplicate content
 - Track provider ownership
 - Update metadata
+- Enrich with XMLTV data
+- Support XMLTV metadata pipeline
 
 ---
 
