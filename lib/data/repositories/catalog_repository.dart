@@ -1,5 +1,6 @@
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_sync_result.dart';
+import 'package:stream_hub/data/models/xmltv_models.dart';
 
 abstract class CatalogRepository {
   Future<List<MediaItem>> getAllItems();
@@ -11,4 +12,6 @@ abstract class CatalogRepository {
   Future<MediaSyncResult> syncSource(String sourceId);
   Future<void> refresh();
   Stream<List<MediaItem>> watchUpdates();
+  Future<void> enrichWithXMLTV(XMLTVGuide guide);
+  Future<void> mergeXMLTVMetadata(XMLTVGuide guide);
 }

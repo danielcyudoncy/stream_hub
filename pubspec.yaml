@@ -50,6 +50,9 @@ dependencies:
   # Google Sign-In
   google_sign_in: ^6.2.1
 
+  # XML Parsing
+  xml: ^6.5.0
+
   # Icons
   cupertino_icons: ^1.0.8
 
