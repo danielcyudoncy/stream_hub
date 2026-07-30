@@ -1,21 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/constants/app_constants.dart';
-import '../../../core/extensions/context_extensions.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
+import '../../../core/utils/responsive_helper.dart';
+
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/theme/app_animations.dart';
-import '../../../core/utils/responsive_helper.dart';
 import '../../../core/media/enums/media_type.dart';
-import '../../../data/models/category.dart';
 import '../../../data/models/media_item.dart';
-import '../../../data/models/channel.dart';
+import '../../../core/media/enums/media_source_type.dart';
+import '../../../data/models/category.dart';
 import '../controllers/category_controller.dart';
 import '../../../shared/widgets/channel_card.dart';
-import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
 
 class CategoriesPage extends GetView<CategoryController> {
@@ -27,7 +22,7 @@ class CategoriesPage extends GetView<CategoryController> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Categories'),
       ),
@@ -71,7 +66,7 @@ class CategoriesPage extends GetView<CategoryController> {
     return GridView.builder(
       padding: const EdgeInsets.all(AppSpacing.md),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: context.isPhone ? 2 : (context.isDesktop ? 4 : 3),
+        crossAxisCount: ResponsiveHelper.isPhone(context) ? 2 : (ResponsiveHelper.isDesktop(context) ? 4 : 3),
         crossAxisSpacing: AppSpacing.md,
         mainAxisSpacing: AppSpacing.md,
         childAspectRatio: 1.2,
@@ -99,13 +94,13 @@ class CategoriesPage extends GetView<CategoryController> {
                 Icon(
                   Icons.category_outlined,
                   size: 32,
-                  color: colorScheme.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 AppSpacing.heightXS,
                 Text(
                   category.name,
                   style: AppTypography.getBody(
-                    color: colorScheme.onSurface,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 2,
@@ -115,7 +110,7 @@ class CategoriesPage extends GetView<CategoryController> {
                 Text(
                   '${category.channelCount} channels',
                   style: AppTypography.getCaption(
-                    color: colorScheme.onSurfaceVariant,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
@@ -141,14 +136,14 @@ class CategoriesPage extends GetView<CategoryController> {
                 Text(
                   category.name,
                   style: AppTypography.getHeadline(
-                    color: colorScheme.onSurface,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                 ),
                 AppSpacing.heightXS,
                 Text(
                   '${category.channelCount} channels',
                   style: AppTypography.getBody(
-                    color: colorScheme.onSurfaceVariant,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
                 AppSpacing.heightMD,
@@ -173,7 +168,7 @@ class CategoriesPage extends GetView<CategoryController> {
           padding: const EdgeInsets.all(AppSpacing.md),
           sliver: SliverGrid(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: context.isPhone ? 2 : (context.isDesktop ? 4 : 3),
+              crossAxisCount: ResponsiveHelper.isPhone(context) ? 2 : (ResponsiveHelper.isDesktop(context) ? 4 : 3),
               crossAxisSpacing: AppSpacing.md,
               mainAxisSpacing: AppSpacing.md,
               childAspectRatio: 0.75,
@@ -186,7 +181,7 @@ class CategoriesPage extends GetView<CategoryController> {
                   channel: MediaItem(
                     id: item,
                     providerId: '',
-                    providerType: null,
+                    providerType: MediaSourceType.m3u,
                     mediaType: MediaType.channel,
                     title: item,
                     createdAt: DateTime.now(),

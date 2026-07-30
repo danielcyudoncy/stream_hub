@@ -25,8 +25,6 @@ class HorizontalScroller extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -57,7 +55,7 @@ class HorizontalScroller extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) trailing!,
+                trailing ?? const SizedBox.shrink(),
               ],
             ),
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
@@ -57,7 +58,7 @@ class EmptyLibrary extends StatelessWidget {
               AppSpacing.heightLG,
               Container(
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
+                  gradient: LinearGradient(
                     colors: AppColors.primaryGradient,
                   ),
                   borderRadius: BorderRadius.circular(8.0),

@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'media_binding.dart';
 import 'package:stream_hub/data/repositories/settings_repository.dart';
 import 'package:stream_hub/data/repositories/profile_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
@@ -27,6 +28,7 @@ import 'package:stream_hub/modules/live_tv/controllers/library_controller.dart';
 class AppBinding extends Bindings {
   @override
   void dependencies() {
+    MediaBinding().dependencies();
     Get.find<DatabaseService>();
     final settingsRepo = SettingsRepository();
     final profileRepo = ProfileRepository();

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
+import '../../../core/utils/responsive_helper.dart';
+
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/responsive_helper.dart';
-import '../../../data/models/media_item.dart';
+import '../../../core/theme/app_radius.dart';
 import '../controllers/provider_controller.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -20,7 +19,7 @@ class ProviderOverviewPage extends GetView<ProviderController> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Providers'),
       ),
@@ -55,7 +54,7 @@ class ProviderOverviewPage extends GetView<ProviderController> {
               ),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: context.isPhone ? 2 : 3,
+                  crossAxisCount: ResponsiveHelper.isPhone(context) ? 2 : 3,
                   crossAxisSpacing: AppSpacing.md,
                   mainAxisSpacing: AppSpacing.md,
                   childAspectRatio: 1.5,
@@ -125,7 +124,7 @@ class ProviderOverviewPage extends GetView<ProviderController> {
                 padding: const EdgeInsets.all(AppSpacing.md),
                 sliver: SliverGrid(
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: context.isPhone ? 2 : 3,
+                    crossAxisCount: ResponsiveHelper.isPhone(context) ? 2 : 3,
                     crossAxisSpacing: AppSpacing.md,
                     mainAxisSpacing: AppSpacing.md,
                     childAspectRatio: 0.75,

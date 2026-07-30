@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-extension ContextExtensions on BuildContext {
+extension ScreenExtensions on BuildContext {
   ThemeData get theme => Theme.of(this);
   ColorScheme get colors => theme.colorScheme;
   TextTheme get typography => theme.textTheme;
