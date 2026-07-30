@@ -11,6 +11,12 @@ class AppIcons {
   static const IconData favorites = Icons.favorite_border_outlined;
   static const IconData history = Icons.history_outlined;
   static const IconData search = Icons.search_outlined;
+  static const IconData library = Icons.photo_library_outlined;
+  static const IconData category = Icons.category_outlined;
+  static const IconData live = Icons.fiber_manual_record;
+  static const IconData hd = Icons.hd_outlined;
+  static const IconData sort = Icons.sort;
+  static const IconData filter = Icons.filter_list;
   
   // Actions
   static const IconData play = Icons.play_arrow_outlined;
