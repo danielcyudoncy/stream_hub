@@ -96,7 +96,7 @@ class CompleteProfilePage extends GetView<AuthController> {
                                 text: 'Continue',
                                 isLoading: controller.isLoading.value,
                                 onPressed: () {
-                                  Get.offAllNamed(AppRoutes.dashboard);
+                                  Get.offAllNamed(AppRoutes.home);
                                 },
                               )),
                         ],

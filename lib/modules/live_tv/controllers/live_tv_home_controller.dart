@@ -7,12 +7,12 @@ import '../../../data/repositories/catalog_repository.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
-class HomeController extends GetxController {
+class LiveTVHomeController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
 
-  HomeController({
+  LiveTVHomeController({
     required this.mediaEngine,
     required this.mediaLibrary,
     required this.catalogRepository,

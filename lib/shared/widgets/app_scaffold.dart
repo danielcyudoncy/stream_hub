@@ -26,21 +26,37 @@ class AppScaffold extends StatelessWidget {
 
   int _getSelectedIndex() {
     final route = Get.currentRoute;
-    if (route == AppRoutes.providerManager) return 1;
-    if (route == AppRoutes.settings) return 2;
+    if (route == AppRoutes.home) return 0;
+    if (route == AppRoutes.liveTV) return 1;
+    if (route == AppRoutes.library || route == AppRoutes.libraryOverview) return 2;
+    if (route == AppRoutes.search) return 3;
+    if (route == AppRoutes.settings ||
+        route == AppRoutes.providerManager ||
+        route == AppRoutes.providerForm ||
+        route == AppRoutes.providerDetails) {
+      return 4;
+    }
     return 0;
   }
 
   void _onItemTapped(int index) {
-    if (_getSelectedIndex() == index) return;
+    if (_getSelectedIndex() == index) {
+      return;
+    }
     switch (index) {
       case 0:
-        Get.offAllNamed(AppRoutes.dashboard);
+        Get.offAllNamed(AppRoutes.home);
         break;
       case 1:
-        Get.offAllNamed(AppRoutes.providerManager);
+        Get.offAllNamed(AppRoutes.liveTV);
         break;
       case 2:
+        Get.offAllNamed(AppRoutes.library);
+        break;
+      case 3:
+        Get.offAllNamed(AppRoutes.search);
+        break;
+      case 4:
         Get.offAllNamed(AppRoutes.settings);
         break;
     }
@@ -52,23 +68,33 @@ class AppScaffold extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-      final List<NavigationDestination> destinations = [
-        const NavigationDestination(
-          icon: Icon(AppIcons.dashboard),
-          selectedIcon: Icon(AppIcons.dashboard),
-          label: 'Dashboard',
-        ),
-        const NavigationDestination(
-          icon: Icon(AppIcons.providers),
-          selectedIcon: Icon(AppIcons.providers),
-          label: 'Providers',
-        ),
-        const NavigationDestination(
-          icon: Icon(AppIcons.settings),
-          selectedIcon: Icon(AppIcons.settings),
-          label: 'Settings',
-        ),
-      ];
+    final List<NavigationDestination> destinations = [
+      const NavigationDestination(
+        icon: Icon(AppIcons.home),
+        selectedIcon: Icon(AppIcons.home),
+        label: 'Home',
+      ),
+      const NavigationDestination(
+        icon: Icon(AppIcons.liveTv),
+        selectedIcon: Icon(AppIcons.liveTv),
+        label: 'Live TV',
+      ),
+      const NavigationDestination(
+        icon: Icon(AppIcons.library),
+        selectedIcon: Icon(AppIcons.library),
+        label: 'Library',
+      ),
+      const NavigationDestination(
+        icon: Icon(AppIcons.search),
+        selectedIcon: Icon(AppIcons.search),
+        label: 'Search',
+      ),
+      const NavigationDestination(
+        icon: Icon(AppIcons.settings),
+        selectedIcon: Icon(AppIcons.settings),
+        label: 'Settings',
+      ),
+    ];
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -214,26 +240,42 @@ class AppScaffold extends StatelessWidget {
                   const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
               children: [
                 _buildSidebarItem(
-                  icon: AppIcons.dashboard,
-                  label: 'Dashboard',
+                  icon: AppIcons.home,
+                  label: 'Home',
                   isSelected: selectedIndex == 0,
                   onTap: () => _onItemTapped(0),
                   colorScheme: colorScheme,
                 ),
                 AppSpacing.heightXXS,
                 _buildSidebarItem(
-                  icon: AppIcons.providers,
-                  label: 'Providers',
+                  icon: AppIcons.liveTv,
+                  label: 'Live TV',
                   isSelected: selectedIndex == 1,
                   onTap: () => _onItemTapped(1),
                   colorScheme: colorScheme,
                 ),
                 AppSpacing.heightXXS,
                 _buildSidebarItem(
-                  icon: AppIcons.settings,
-                  label: 'Settings',
+                  icon: AppIcons.library,
+                  label: 'Library',
                   isSelected: selectedIndex == 2,
                   onTap: () => _onItemTapped(2),
+                  colorScheme: colorScheme,
+                ),
+                AppSpacing.heightXXS,
+                _buildSidebarItem(
+                  icon: AppIcons.search,
+                  label: 'Search',
+                  isSelected: selectedIndex == 3,
+                  onTap: () => _onItemTapped(3),
+                  colorScheme: colorScheme,
+                ),
+                AppSpacing.heightXXS,
+                _buildSidebarItem(
+                  icon: AppIcons.settings,
+                  label: 'Settings',
+                  isSelected: selectedIndex == 4,
+                  onTap: () => _onItemTapped(4),
                   colorScheme: colorScheme,
                 ),
               ],
