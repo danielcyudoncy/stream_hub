@@ -41,6 +41,10 @@ import '../../modules/epg/pages/channel_timeline_page.dart';
 import '../../modules/epg/pages/guide_search_page.dart';
 import '../../modules/epg/pages/mini_guide_page.dart';
 import '../../modules/epg/bindings/epg_binding.dart';
+import '../../modules/player/bindings/player_binding.dart';
+import '../../modules/player/pages/fullscreen_player_page.dart';
+import '../../modules/player/pages/embedded_player_page.dart';
+import '../../modules/player/pages/mini_player_page.dart';
 import '../../shared/widgets/empty_view.dart';
 
 class AppPages {
@@ -222,6 +226,21 @@ class AppPages {
       name: AppRoutes.channelTimeline,
       page: () => const ChannelTimelinePage(),
       binding: EPGBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.fullscreenPlayer,
+      page: () => const FullscreenPlayerPage(),
+      binding: PlayerBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.embeddedPlayer,
+      page: () => const EmbeddedPlayerPage(),
+      binding: PlayerBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.miniPlayer,
+      page: () => const MiniPlayerPage(),
+      binding: PlayerBinding(),
     ),
   ];
 }

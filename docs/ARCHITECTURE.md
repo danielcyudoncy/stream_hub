@@ -378,6 +378,104 @@ Examples:
 - RecommendationService
 - CollectionService
 - IndexService
+- PlaybackService
+- BufferService
+- SubtitleService
+- AudioTrackService
+- PlaybackHistoryService
+- SessionService
+- PlaybackAnalyticsService
+- PlayerSettingsService
+
+---
+
+### Playback Engine
+
+The playback engine is the heart of media consumption.
+
+Responsibilities:
+
+- Create playback sessions
+- Manage playback state
+- Resume / Stop / Pause / Seek / Change streams
+- Buffer monitoring
+- Quality management
+- Playback analytics
+- Error recovery
+
+The engine is completely decoupled from provider implementations.
+
+The player only understands `MediaItem` and `PlayableMediaSession`.
+
+Future providers require zero player changes.
+
+---
+
+### Player Adapter
+
+Every player implementation must implement `PlayerAdapter`.
+
+Methods:
+
+- initialize()
+- dispose()
+- load()
+- play()
+- pause()
+- resume()
+- stop()
+- seek()
+- next()
+- previous()
+- setSpeed()
+- setAspectRatio()
+- setQuality()
+- setAudioTrack()
+- setSubtitleTrack()
+- setVolume()
+- getBufferInfo()
+
+Supported implementations:
+
+- MediaKitPlayerAdapter
+- AVPlayer
+- ExoPlayer
+- VLC
+- Web Player
+
+---
+
+### Playback Session
+
+Represents an active playback instance.
+
+Fields:
+
+- MediaItem
+- PlayableStream
+- Provider
+- Resume Position
+- Available Audio Tracks
+- Subtitle Tracks
+- Playback Capabilities
+- Session Metadata
+
+---
+
+### Playback States
+
+Enum:
+
+- Idle
+- Loading
+- Buffering
+- Playing
+- Paused
+- Stopped
+- Completed
+- Seeking
+- Error
+- Disposed
 
 ---
 
@@ -797,6 +895,14 @@ lib/
         search/
 
         player/
+
+            bindings/
+
+            controllers/
+
+            pages/
+
+            widgets/
 
         downloads/
 
