@@ -28,5 +28,9 @@ class AppRoutes {
   static const String search = '/search';
   static const String providerOverview = '/provider-overview';
   static const String libraryOverview = '/library-overview';
+  static const String guideSearch = '/guide-search';
+  static const String miniGuide = '/mini-guide';
+  static const String programDetails = '/program-details';
+  static const String channelTimeline = '/channel-timeline';
   static const String unknown = '/unknown';
 }

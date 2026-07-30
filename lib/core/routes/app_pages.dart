@@ -36,6 +36,11 @@ import '../../modules/live_tv/pages/search_page.dart';
 import '../../modules/live_tv/pages/provider_overview_page.dart';
 import '../../modules/live_tv/pages/library_overview_page.dart';
 import '../../modules/live_tv/bindings/live_tv_binding.dart';
+import '../../modules/epg/pages/program_details_page.dart';
+import '../../modules/epg/pages/channel_timeline_page.dart';
+import '../../modules/epg/pages/guide_search_page.dart';
+import '../../modules/epg/pages/mini_guide_page.dart';
+import '../../modules/epg/bindings/epg_binding.dart';
 import '../../shared/widgets/empty_view.dart';
 
 class AppPages {
@@ -197,6 +202,26 @@ class AppPages {
       name: AppRoutes.libraryOverview,
       page: () => const LibraryOverviewPage(),
       binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.guideSearch,
+      page: () => const GuideSearchPage(),
+      binding: EPGBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.miniGuide,
+      page: () => const MiniGuidePage(),
+      binding: EPGBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.programDetails,
+      page: () => const ProgramDetailsPage(),
+      binding: EPGBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.channelTimeline,
+      page: () => const ChannelTimelinePage(),
+      binding: EPGBinding(),
     ),
   ];
 }

@@ -119,6 +119,43 @@ Metadata Aggregation & Unified Media Library
 
 ---
 
+## Phase 3B
+
+EPG Experience
+
+- [x] TV Guide
+- [x] Timeline View
+- [x] Program Details
+- [x] Channel Timeline
+- [x] Guide Search
+- [x] Mini Guide
+- [x] Current Time indicator
+- [x] Timeline navigation (30min, 1h, 2h, 4h, 6h, 12h, 24h)
+- [x] Channel column with logo, name, number, provider badge, favorite
+- [x] Program cells with title, time, duration, progress, badges
+- [x] Current program highlight with progress and remaining time
+- [x] Upcoming program display
+- [x] Program details with full metadata
+- [x] Guide search (program name, channel, genre, cast, director, category, language)
+- [x] Filters (provider, genre, category, favorites, HD, country, language)
+- [x] Sorting (channel number, alphabetical, favorites, recently watched, provider)
+- [x] Time navigation (Now, Morning, Afternoon, Evening, Tomorrow, Specific Date)
+- [x] Responsive design (phone, tablet, desktop, TV)
+- [x] TV optimization (remote navigation, focus management, keyboard navigation)
+- [x] Virtualized scrolling and lazy loading
+- [x] Timeline caching
+- [x] Image caching
+- [x] Skeleton placeholders for loading states
+- [x] Empty states (no guide, no channels, no programs, guide unavailable)
+- [x] Error states (parsing errors, missing metadata, offline, provider unavailable)
+- [x] Smooth animations (timeline scrolling, fade transitions, focus animations)
+- [x] Accessibility (screen readers, keyboard navigation, high contrast, large text)
+- [x] Reminder architecture (ReminderService, ReminderRepository, ReminderModel)
+- [x] Recording architecture (RecordingService, RecordingRepository, RecordingModel)
+- [x] Catch-up architecture (CatchUpModel)
+
+---
+
 ## Phase 3
 
 Live TV
