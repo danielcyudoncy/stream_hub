@@ -7,17 +7,15 @@ import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
 class LibraryController extends GetxController {
-  final MediaEngine _mediaEngine;
-  final MediaLibrary _mediaLibrary;
-  final CatalogRepository _catalogRepository;
+  final MediaEngine mediaEngine;
+  final MediaLibrary mediaLibrary;
+  final CatalogRepository catalogRepository;
 
   LibraryController({
-    required MediaEngine mediaEngine,
-    required MediaLibrary mediaLibrary,
-    required CatalogRepository catalogRepository,
-  })  : _mediaEngine = mediaEngine,
-        _mediaLibrary = mediaLibrary,
-        _catalogRepository = catalogRepository;
+    required this.mediaEngine,
+    required this.mediaLibrary,
+    required this.catalogRepository,
+  });
 
   final RxList<MediaItem> allItems = <MediaItem>[].obs;
   final RxList<MediaItem> channels = <MediaItem>[].obs;
@@ -39,7 +37,7 @@ class LibraryController extends GetxController {
   Future<void> _loadLibrary() async {
     isLoading.value = true;
     try {
-      final allItems = await _catalogRepository.getAllItems();
+      final allItems = await catalogRepository.getAllItems();
       this.allItems.assignAll(allItems);
 
       channels.assignAll(
@@ -59,7 +57,7 @@ class LibraryController extends GetxController {
         allItems
             .where(
               (item) =>
-                  (item is Channel ? (item as Channel).isLive : false) &&
+                  item is Channel && item.isLive &&
                   item.mediaType == MediaType.channel,
             )
             .toList(),
@@ -104,12 +102,8 @@ class LibraryController extends GetxController {
     }
   }
 
+  @override
   void refresh() {
     _loadLibrary();
-  }
-
-  @override
-  void onClose() {
-    super.onClose();
   }
 }

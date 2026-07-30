@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_radius.dart';
-import '../../../data/models/media_item.dart';
+
 import '../controllers/live_tv_controller.dart';
+
+import '../../../core/theme/app_typography.dart';
+import '../../../core/media/enums/media_type.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/models/channel.dart';
+import '../../../data/models/program.dart';
 import '../../../shared/widgets/channel_logo.dart';
 import '../../../shared/widgets/live_badge.dart';
 import '../../../shared/widgets/program_banner.dart';
 import '../../../shared/widgets/metadata_row.dart';
 import '../../../shared/widgets/favorite_button.dart';
+import '../../../shared/widgets/empty_library.dart';
 
 class ChannelDetailsPage extends GetView<LiveTVController> {
   const ChannelDetailsPage({super.key});
@@ -24,7 +28,7 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       body: Obx(() {
         final channel = controller.channels.firstWhereOrNull(
           (c) => c.id == channelId,
@@ -67,10 +71,13 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
     ColorScheme colorScheme,
     MediaItem channel,
   ) {
+    final isChannel = channel is Channel;
+    final isLive = isChannel && channel.isLive;
+
     return SliverAppBar(
       expandedHeight: 200.0,
       pinned: true,
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       leading: IconButton(
         icon: const Icon(Icons.arrow_back),
         onPressed: () => Get.back(),
@@ -82,9 +89,9 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
               begin: Alignment.bottomCenter,
               end: Alignment.topCenter,
               colors: [
-                colorScheme.background,
-                colorScheme.background.withValues(alpha: 0.3),
-                colorScheme.background.withValues(alpha: 0.0),
+                colorScheme.surface,
+                colorScheme.surface.withValues(alpha: 0.3),
+                colorScheme.surface.withValues(alpha: 0.0),
               ],
             ),
           ),
@@ -92,7 +99,7 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
             child: ChannelLogo(
               channel: channel,
               size: 100.0,
-              showLiveIndicator: channel.isLive,
+              showLiveIndicator: isLive,
             ),
           ),
         ),
@@ -120,6 +127,10 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
     ColorScheme colorScheme,
     MediaItem channel,
   ) {
+    final isChannel = channel is Channel;
+    final isLive = isChannel && channel.isLive;
+    final channelNumber = isChannel ? channel.number : null;
+
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -138,9 +149,9 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
             ],
           ),
           AppSpacing.heightXS,
-          if (channel.number != null)
+          if (channelNumber != null)
             Text(
-              'Channel ${channel.number}',
+              'Channel $channelNumber',
               style: AppTypography.getBody(
                 color: colorScheme.primary,
               ),
@@ -148,7 +159,7 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
           AppSpacing.heightXS,
           Row(
             children: [
-              if (channel.isLive) const LiveBadge(),
+              if (isLive) const LiveBadge(),
               AppSpacing.widthXS,
               if (channel.language != null)
                 Text(
@@ -284,11 +295,10 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
     MediaItem channel,
   ) {
     final metadataItems = <MetadataItem>[
-      if (channel.providerType != null)
-        MetadataItem(
-          icon: Icons.network_check_outlined,
-          value: channel.providerType!.displayName,
-        ),
+      MetadataItem(
+        icon: Icons.network_check_outlined,
+        value: channel.providerType.displayName,
+      ),
       if (channel.language != null)
         MetadataItem(
           icon: Icons.language_outlined,

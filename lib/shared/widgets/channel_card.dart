@@ -142,7 +142,7 @@ class ChannelCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  if (showProviderBadge && channel.providerType != null) ...[
+                  if (showProviderBadge) ...[
                     const SizedBox(height: AppSpacing.xxs),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -155,7 +155,7 @@ class ChannelCard extends StatelessWidget {
                         borderRadius: AppRadius.small,
                       ),
                       child: Text(
-                        channel.providerType!.displayName,
+                        channel.providerType.displayName,
                         style: AppTypography.getCaption(
                           color: colorScheme.onPrimaryContainer,
                           scale: 0.7,

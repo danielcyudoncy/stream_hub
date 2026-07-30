@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
@@ -53,7 +52,7 @@ class ProviderChip extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.xxs),
             Text(
-              item.providerType?.displayName ?? 'Unknown',
+              item.providerType.displayName,
               style: AppTypography.getCaption(
                 color: isSelected
                     ? colorScheme.onPrimaryContainer

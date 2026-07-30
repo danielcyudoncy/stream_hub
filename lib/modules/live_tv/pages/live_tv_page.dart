@@ -2,18 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../../core/theme/app_animations.dart';
 import '../../../core/utils/responsive_helper.dart';
-import '../../../data/models/media_item.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_radius.dart';
+import '../../../core/theme/app_typography.dart';
+import '../../../data/models/channel.dart';
 import '../controllers/live_tv_controller.dart';
 import '../../../shared/widgets/channel_card.dart';
-import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
-import '../../../shared/widgets/provider_chip.dart';
-import '../../../shared/widgets/category_chip.dart';
+import '../../../shared/widgets/live_badge.dart';
 
 class LiveTVPage extends GetView<LiveTVController> {
   const LiveTVPage({super.key});
@@ -22,11 +19,10 @@ class LiveTVPage extends GetView<LiveTVController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isTV = context.isTV;
-    final isDesktop = context.isDesktop;
+    final isTV = ResponsiveHelper.isTV(context);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Live TV'),
         actions: [
@@ -58,7 +54,7 @@ class LiveTVPage extends GetView<LiveTVController> {
               }
 
               if (controller.filteredChannels.isEmpty) {
-                return const EmptyLibrary(
+                return EmptyLibrary(
                   title: 'No Channels',
                   description:
                       'No channels match your current filters. Try adjusting your filter criteria.',
@@ -67,7 +63,7 @@ class LiveTVPage extends GetView<LiveTVController> {
                 );
               }
 
-              return _buildChannelList(context, isTV);
+              return _buildChannelList(context, colorScheme, isTV);
             }),
           ),
         ],
@@ -144,12 +140,12 @@ class LiveTVPage extends GetView<LiveTVController> {
     );
   }
 
-  Widget _buildChannelList(BuildContext context, bool isTV) {
+  Widget _buildChannelList(BuildContext context, ColorScheme colorScheme, bool isTV) {
     if (controller.selectedView.value == 'grid') {
       return GridView.builder(
         padding: const EdgeInsets.all(AppSpacing.md),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: isTV ? 5 : (context.isDesktop ? 4 : (context.isTablet ? 3 : 2)),
+          crossAxisCount: isTV ? 5 : (ResponsiveHelper.isDesktop(context) ? 4 : (ResponsiveHelper.isTablet(context) ? 3 : 2)),
           crossAxisSpacing: AppSpacing.md,
           mainAxisSpacing: AppSpacing.md,
           childAspectRatio: isTV ? 0.6 : 0.75,
@@ -180,6 +176,8 @@ class LiveTVPage extends GetView<LiveTVController> {
       itemCount: controller.filteredChannels.length,
       itemBuilder: (context, index) {
         final item = controller.filteredChannels[index];
+        final isChannel = item is Channel;
+        final isLive = isChannel && item.isLive;
         return ListTile(
           leading: Container(
             width: 48,
@@ -201,7 +199,7 @@ class LiveTVPage extends GetView<LiveTVController> {
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (item.isLive) const LiveBadge(),
+              if (isLive) const LiveBadge(),
               IconButton(
                 icon: Icon(
                   item.favorite ? Icons.favorite : Icons.favorite_border,

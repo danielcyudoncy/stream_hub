@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/responsive_helper.dart';
-import '../../../data/models/media_item.dart';
+import '../../../core/media/enums/media_type.dart';
 import '../controllers/library_controller.dart';
+import '../../../core/utils/responsive_helper.dart';
+
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
@@ -20,7 +18,7 @@ class LibraryOverviewPage extends GetView<LibraryController> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Library'),
         actions: [
@@ -94,7 +92,7 @@ class LibraryOverviewPage extends GetView<LibraryController> {
               padding: const EdgeInsets.all(AppSpacing.md),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: context.isPhone ? 2 : (context.isDesktop ? 4 : 3),
+                  crossAxisCount: ResponsiveHelper.isPhone(context) ? 2 : (ResponsiveHelper.isDesktop(context) ? 4 : 3),
                   crossAxisSpacing: AppSpacing.md,
                   mainAxisSpacing: AppSpacing.md,
                   childAspectRatio: 0.75,

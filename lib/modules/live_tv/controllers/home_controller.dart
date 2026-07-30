@@ -8,17 +8,15 @@ import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
 class HomeController extends GetxController {
-  final MediaEngine _mediaEngine;
-  final MediaLibrary _mediaLibrary;
-  final CatalogRepository _catalogRepository;
+  final MediaEngine mediaEngine;
+  final MediaLibrary mediaLibrary;
+  final CatalogRepository catalogRepository;
 
   HomeController({
-    required MediaEngine mediaEngine,
-    required MediaLibrary mediaLibrary,
-    required CatalogRepository catalogRepository,
-  })  : _mediaEngine = mediaEngine,
-        _mediaLibrary = mediaLibrary,
-        _catalogRepository = catalogRepository;
+    required this.mediaEngine,
+    required this.mediaLibrary,
+    required this.catalogRepository,
+  });
 
   final RxList<MediaItem> recentlyAdded = <MediaItem>[].obs;
   final RxList<MediaItem> favoriteChannels = <MediaItem>[].obs;
@@ -41,7 +39,7 @@ class HomeController extends GetxController {
   Future<void> _loadHomeData() async {
     isLoading.value = true;
     try {
-      final allItems = await _catalogRepository.getAllItems();
+      final allItems = await catalogRepository.getAllItems();
       final channelItems = allItems
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
@@ -57,10 +55,7 @@ class HomeController extends GetxController {
 
       liveNow.assignAll(
         channelItems
-            .where(
-              (item) =>
-                  item is Channel && (item as Channel).isLive,
-            )
+            .where((item) => item is Channel && item.isLive)
             .toList(),
       );
 
@@ -114,7 +109,7 @@ class HomeController extends GetxController {
     if (selectedProviderFilter.value.isNotEmpty) {
       items = items
           .where((item) =>
-              item.providerType?.name == selectedProviderFilter.value)
+              item.providerType.name == selectedProviderFilter.value)
           .toList();
     }
     if (selectedCategoryFilter.value.isNotEmpty) {
@@ -131,7 +126,7 @@ class HomeController extends GetxController {
         break;
       case 'provider':
         items.sort((a, b) =>
-            (a.providerType?.name ?? '').compareTo(b.providerType?.name ?? ''));
+            a.providerType.name.compareTo(b.providerType.name));
         break;
       case 'country':
         items.sort((a, b) =>
@@ -141,12 +136,8 @@ class HomeController extends GetxController {
     return items;
   }
 
+  @override
   void refresh() {
     _loadHomeData();
-  }
-
-  @override
-  void onClose() {
-    super.onClose();
   }
 }

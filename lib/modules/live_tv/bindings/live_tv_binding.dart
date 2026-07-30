@@ -1,4 +1,7 @@
 import 'package:get/get.dart';
+import 'package:stream_hub/core/media/media_engine.dart';
+import 'package:stream_hub/core/media/media_library.dart';
+import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import '../controllers/home_controller.dart';
 import '../controllers/live_tv_controller.dart';
 import '../controllers/category_controller.dart';
@@ -10,22 +13,46 @@ class LiveTVBinding extends Bindings {
   @override
   void dependencies() {
     if (!Get.isRegistered<HomeController>()) {
-      Get.lazyPut<HomeController>(() => Get.find<HomeController>());
+      Get.lazyPut<HomeController>(() => HomeController(
+            mediaEngine: Get.find<MediaEngine>(),
+            mediaLibrary: Get.find<MediaLibrary>(),
+            catalogRepository: Get.find<CatalogRepository>(),
+          ));
     }
     if (!Get.isRegistered<LiveTVController>()) {
-      Get.lazyPut<LiveTVController>(() => Get.find<LiveTVController>());
+      Get.lazyPut<LiveTVController>(() => LiveTVController(
+            mediaEngine: Get.find<MediaEngine>(),
+            mediaLibrary: Get.find<MediaLibrary>(),
+            catalogRepository: Get.find<CatalogRepository>(),
+          ));
     }
     if (!Get.isRegistered<CategoryController>()) {
-      Get.lazyPut<CategoryController>(() => Get.find<CategoryController>());
+      Get.lazyPut<CategoryController>(() => CategoryController(
+            mediaEngine: Get.find<MediaEngine>(),
+            mediaLibrary: Get.find<MediaLibrary>(),
+            catalogRepository: Get.find<CatalogRepository>(),
+          ));
     }
     if (!Get.isRegistered<FavoritesController>()) {
-      Get.lazyPut<FavoritesController>(() => Get.find<FavoritesController>());
+      Get.lazyPut<FavoritesController>(() => FavoritesController(
+            mediaEngine: Get.find<MediaEngine>(),
+            mediaLibrary: Get.find<MediaLibrary>(),
+            catalogRepository: Get.find<CatalogRepository>(),
+          ));
     }
     if (!Get.isRegistered<ProviderController>()) {
-      Get.lazyPut<ProviderController>(() => Get.find<ProviderController>());
+      Get.lazyPut<ProviderController>(() => ProviderController(
+            mediaEngine: Get.find<MediaEngine>(),
+            mediaLibrary: Get.find<MediaLibrary>(),
+            catalogRepository: Get.find<CatalogRepository>(),
+          ));
     }
     if (!Get.isRegistered<LibraryController>()) {
-      Get.lazyPut<LibraryController>(() => Get.find<LibraryController>());
+      Get.lazyPut<LibraryController>(() => LibraryController(
+            mediaEngine: Get.find<MediaEngine>(),
+            mediaLibrary: Get.find<MediaLibrary>(),
+            catalogRepository: Get.find<CatalogRepository>(),
+          ));
     }
   }
 }

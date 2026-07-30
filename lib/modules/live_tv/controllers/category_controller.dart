@@ -7,17 +7,15 @@ import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
 class CategoryController extends GetxController {
-  final MediaEngine _mediaEngine;
-  final MediaLibrary _mediaLibrary;
-  final CatalogRepository _catalogRepository;
+  final MediaEngine mediaEngine;
+  final MediaLibrary mediaLibrary;
+  final CatalogRepository catalogRepository;
 
   CategoryController({
-    required MediaEngine mediaEngine,
-    required MediaLibrary mediaLibrary,
-    required CatalogRepository catalogRepository,
-  })  : _mediaEngine = mediaEngine,
-        _mediaLibrary = mediaLibrary,
-        _catalogRepository = catalogRepository;
+    required this.mediaEngine,
+    required this.mediaLibrary,
+    required this.catalogRepository,
+  });
 
   final RxList<Category> categories = <Category>[].obs;
   final RxList<MediaItem> selectedCategoryChannels = <MediaItem>[].obs;
@@ -33,7 +31,7 @@ class CategoryController extends GetxController {
   Future<void> _loadCategories() async {
     isLoading.value = true;
     try {
-      final allItems = await _catalogRepository.getAllItems();
+      final allItems = await catalogRepository.getAllItems();
       final channelItems = allItems
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
@@ -81,7 +79,7 @@ class CategoryController extends GetxController {
     );
 
     if (category.id.isNotEmpty) {
-      final allItems = await _catalogRepository.getAllItems();
+      final allItems = await catalogRepository.getAllItems();
       selectedCategoryChannels.assignAll(
         allItems.where((item) => item.genres.contains(category.name)).toList(),
       );
@@ -90,12 +88,8 @@ class CategoryController extends GetxController {
     }
   }
 
+  @override
   void refresh() {
     _loadCategories();
-  }
-
-  @override
-  void onClose() {
-    super.onClose();
   }
 }

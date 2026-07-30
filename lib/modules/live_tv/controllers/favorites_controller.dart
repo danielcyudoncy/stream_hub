@@ -1,26 +1,24 @@
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
-import '../../data/models/category.dart';
-import '../../data/models/media_item.dart';
-import '../../data/repositories/catalog_repository.dart';
-import '../../core/media/media_engine.dart';
-import '../../core/media/media_library.dart';
+import '../../../data/models/category.dart';
+import '../../../data/models/media_item.dart';
+import '../../../data/repositories/catalog_repository.dart';
+import '../../../core/media/media_engine.dart';
+import '../../../core/media/media_library.dart';
 
 class FavoritesController extends GetxController {
-  final MediaEngine _mediaEngine;
-  final MediaLibrary _mediaLibrary;
-  final CatalogRepository _catalogRepository;
+  final MediaEngine mediaEngine;
+  final MediaLibrary mediaLibrary;
+  final CatalogRepository catalogRepository;
 
   FavoritesController({
-    required MediaEngine mediaEngine,
-    required MediaLibrary mediaLibrary,
-    required CatalogRepository catalogRepository,
-  })  : _mediaEngine = mediaEngine,
-        _mediaLibrary = mediaLibrary,
-        _catalogRepository = catalogRepository;
+    required this.mediaEngine,
+    required this.mediaLibrary,
+    required this.catalogRepository,
+  });
 
   final RxList<MediaItem> favoriteChannels = <MediaItem>[].obs;
-  final RxList<MediaItem> recentlyViewed = <MediaItem>[].obs;
+  final RxList<MediaItem> recentlyFavorited = <MediaItem>[].obs;
   final RxList<Category> favoriteCategories = <Category>[].obs;
   final RxBool isLoading = true.obs;
   final RxString sortBy = 'alphabetical'.obs;
@@ -34,7 +32,7 @@ class FavoritesController extends GetxController {
   Future<void> _loadFavorites() async {
     isLoading.value = true;
     try {
-      final allItems = await _catalogRepository.getAllItems();
+      final allItems = await catalogRepository.getAllItems();
       final channelItems = allItems
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
@@ -68,7 +66,7 @@ class FavoritesController extends GetxController {
 
       final sorted = List<MediaItem>.from(favoriteChannels)
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      recentlyViewed.assignAll(sorted.take(20));
+      recentlyFavorited.assignAll(sorted.take(20));
     } catch (e) {
       // Log error
     } finally {
@@ -101,8 +99,8 @@ class FavoritesController extends GetxController {
             (a, b) => b.createdAt.compareTo(a.createdAt));
         break;
       case 'provider':
-        favoriteChannels.sort((a, b) => (a.providerType?.displayName ?? '')
-            .compareTo(b.providerType?.displayName ?? ''));
+        favoriteChannels.sort((a, b) => a.providerType.displayName
+            .compareTo(b.providerType.displayName));
         break;
       case 'country':
         favoriteChannels.sort(
@@ -112,12 +110,8 @@ class FavoritesController extends GetxController {
     favoriteChannels.refresh();
   }
 
+  @override
   void refresh() {
     _loadFavorites();
-  }
-
-  @override
-  void onClose() {
-    super.onClose();
   }
 }

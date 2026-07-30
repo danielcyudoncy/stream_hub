@@ -35,7 +35,7 @@ class ChannelLogo extends StatelessWidget {
                 ? DecorationImage(
                     image: NetworkImage(channel.poster!),
                     fit: BoxFit.cover,
-                    onError: (_, __) {},
+                    onError: (_, _) {},
                   )
                 : null,
           ),

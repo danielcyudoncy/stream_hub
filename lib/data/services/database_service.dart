@@ -18,9 +18,6 @@ class DatabaseService extends GetxService {
   Future<DatabaseService> init() async {
     _logger.info('Initializing Hive Database...', tag: 'DatabaseService');
     try {
-      await Hive.initFlutter();
-      
-      // Open all core boxes
       settingsBox = await _openBoxSafe(AppConstants.boxSettings);
       providersBox = await _openBoxSafe(AppConstants.boxProviders);
       favoritesBox = await _openBoxSafe(AppConstants.boxFavorites);

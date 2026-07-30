@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/responsive_helper.dart';
-import '../../../data/models/media_item.dart';
-import '../../../shared/widgets/app_search_bar.dart';
-import '../../../shared/widgets/channel_card.dart';
-import '../../../shared/widgets/section_header.dart';
-import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/search_bar.dart';
 
-class SearchPage extends GetView<FavoritesController> {
+class SearchPage extends StatelessWidget {
   const SearchPage({super.key});
 
   @override
@@ -20,7 +13,7 @@ class SearchPage extends GetView<FavoritesController> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Search'),
       ),

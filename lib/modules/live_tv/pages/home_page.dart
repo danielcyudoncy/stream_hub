@@ -1,22 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/utils/responsive_helper.dart';
+
 import '../../../core/routes/app_routes.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/theme/app_animations.dart';
-import '../../../core/utils/responsive_helper.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../data/models/media_item.dart';
-import '../../../data/models/category.dart';
 import '../controllers/home_controller.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/media_section.dart';
-import '../../../shared/widgets/empty_library.dart';
-import '../../../shared/widgets/provider_chip.dart';
 import '../../../shared/widgets/category_chip.dart';
 
 class HomePage extends GetView<HomeController> {
@@ -26,11 +22,11 @@ class HomePage extends GetView<HomeController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isTV = context.isTV;
-    final isDesktop = context.isDesktop;
+    final isTV = ResponsiveHelper.isTV(context);
+    final isDesktop = ResponsiveHelper.isDesktop(context);
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(
@@ -116,7 +112,7 @@ class HomePage extends GetView<HomeController> {
       expandedHeight: isTV ? 200.0 : (isDesktop ? 160.0 : 120.0),
       pinned: true,
       stretch: false,
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -142,7 +138,7 @@ class HomePage extends GetView<HomeController> {
               end: Alignment.bottomCenter,
               colors: [
                 colorScheme.primary.withValues(alpha: 0.1),
-                colorScheme.background,
+                colorScheme.surface,
               ],
             ),
           ),

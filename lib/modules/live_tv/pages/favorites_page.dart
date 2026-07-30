@@ -1,12 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
-import '../../../core/theme/app_animations.dart';
 import '../../../core/utils/responsive_helper.dart';
-import '../../../data/models/media_item.dart';
+
 import '../controllers/favorites_controller.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -21,7 +17,7 @@ class FavoritesPage extends GetView<FavoritesController> {
     final colorScheme = theme.colorScheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.background,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text('Favorites'),
         actions: [
@@ -122,7 +118,7 @@ class FavoritesPage extends GetView<FavoritesController> {
               padding: const EdgeInsets.all(AppSpacing.md),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: context.isPhone ? 2 : (context.isDesktop ? 4 : 3),
+                  crossAxisCount: ResponsiveHelper.isPhone(context) ? 2 : (ResponsiveHelper.isDesktop(context) ? 4 : 3),
                   crossAxisSpacing: AppSpacing.md,
                   mainAxisSpacing: AppSpacing.md,
                   childAspectRatio: 0.75,
