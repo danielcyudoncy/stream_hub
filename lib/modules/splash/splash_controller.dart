@@ -30,7 +30,7 @@ class SplashController extends GetxController {
           final user = await authRepository.tryAutoLogin();
           if (user != null) {
             statusMessage.value = 'Welcome back!';
-            _navigateAway(AppRoutes.dashboard);
+            _navigateAway(AppRoutes.home);
             return;
           }
         } catch (e) {

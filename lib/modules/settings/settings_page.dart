@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
@@ -29,17 +28,19 @@ class SettingsPage extends GetView<SettingsController> {
         return ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
+            _buildMediaSourcesSection(context, colorScheme),
+            AppSpacing.heightXL,
             _buildAppearanceSection(context, colorScheme),
-            AppSpacing.heightXL,
-            _buildAccountSection(context, colorScheme),
-            AppSpacing.heightXL,
-            _buildProvidersSection(context, colorScheme),
-            AppSpacing.heightXL,
-            _buildStorageSection(context, colorScheme),
             AppSpacing.heightXL,
             _buildPlaybackSection(context, colorScheme),
             AppSpacing.heightXL,
+            _buildDownloadsSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildStorageSection(context, colorScheme),
+            AppSpacing.heightXL,
             _buildNotificationsSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildAccountSection(context, colorScheme),
             AppSpacing.heightXL,
             _buildPrivacySection(context, colorScheme),
             AppSpacing.heightXL,
@@ -50,6 +51,109 @@ class SettingsPage extends GetView<SettingsController> {
           ],
         );
       }),
+    );
+  }
+
+  Widget _buildMediaSourcesSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Media Sources', subtitle: 'Manage your IPTV providers and streaming sources'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: Column(
+            children: [
+              SettingsTile(
+                title: 'Add Source',
+                subtitle: 'Connect a new media source',
+                leadingIcon: Icons.add_circle_outline,
+                onTap: () => Get.toNamed('/provider-manager'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'M3U',
+                subtitle: 'M3U playlist URL or file',
+                leadingIcon: Icons.video_library_outlined,
+                onTap: () => Get.toNamed('/provider-manager'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Xtream Codes',
+                subtitle: 'Xtream Codes API connection',
+                leadingIcon: Icons.api_outlined,
+                onTap: () => Get.toNamed('/provider-manager'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Stalker Portal',
+                subtitle: 'Stalker Portal (MAC) connection',
+                leadingIcon: Icons.satellite_alt_outlined,
+                onTap: () => Get.toNamed('/provider-manager'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'XMLTV',
+                subtitle: 'XMLTV guide source',
+                leadingIcon: Icons.public_outlined,
+                onTap: () => Get.toNamed('/provider-manager'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Plex',
+                subtitle: 'Plex media server',
+                leadingIcon: Icons.live_tv_outlined,
+                onTap: () => Get.toNamed('/provider-manager'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Jellyfin',
+                subtitle: 'Jellyfin media server',
+                leadingIcon: Icons.movie_outlined,
+                onTap: () => Get.toNamed('/provider-manager'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Emby',
+                subtitle: 'Emby media server',
+                leadingIcon: Icons.video_collection_outlined,
+                onTap: () => Get.toNamed('/provider-manager'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                showDivider: false,
+              ),
+            ],
+          ),
+        ),
+      ],
+     );
+  }
+
+  Widget _buildDownloadsSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'Downloads', subtitle: 'Manage downloaded content'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: Column(
+            children: [
+              SettingsTile(
+                title: 'Download Manager',
+                subtitle: 'View and manage your downloaded content',
+                leadingIcon: Icons.download_outlined,
+                onTap: () {},
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+              ),
+              SettingsTile(
+                title: 'Storage Usage',
+                subtitle: 'Check download storage usage',
+                leadingIcon: Icons.storage_outlined,
+                onTap: () {},
+                showDivider: false,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -118,25 +222,6 @@ class SettingsPage extends GetView<SettingsController> {
                 showDivider: false,
               ),
             ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProvidersSection(BuildContext context, ColorScheme colorScheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SectionHeader(title: 'Providers', subtitle: 'Manage your IPTV providers'),
-        AppSpacing.heightXS,
-        AppCard(
-          child: SettingsTile(
-            title: 'Manage Providers',
-            subtitle: 'Add, edit, or remove IPTV providers',
-            leadingIcon: AppIcons.providers,
-            onTap: () => Get.offAllNamed('/provider-manager'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
           ),
         ),
       ],

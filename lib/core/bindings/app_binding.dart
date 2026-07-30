@@ -7,6 +7,12 @@ import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/catalog_repository_impl.dart';
 import 'package:stream_hub/data/repositories/media_repository.dart';
 import 'package:stream_hub/data/repositories/media_repository_impl.dart';
+import 'package:stream_hub/data/repositories/history_repository.dart';
+import 'package:stream_hub/data/repositories/history_repository_impl.dart';
+import 'package:stream_hub/data/repositories/favorite_repository.dart';
+import 'package:stream_hub/data/repositories/favorite_repository_impl.dart';
+import 'package:stream_hub/data/services/history_service.dart';
+import 'package:stream_hub/data/services/favorite_service.dart';
 import 'package:stream_hub/data/services/settings_service.dart';
 import 'package:stream_hub/data/services/profile_service.dart';
 import 'package:stream_hub/data/services/provider_storage_service.dart';
@@ -18,12 +24,13 @@ import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/core/media/media_catalog.dart';
 import 'package:stream_hub/core/media/media_source_manager.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
-import 'package:stream_hub/modules/live_tv/controllers/home_controller.dart';
+import 'package:stream_hub/data/repositories/media_source_repository.dart';
+import 'package:stream_hub/modules/live_tv/controllers/live_tv_home_controller.dart';
 import 'package:stream_hub/modules/live_tv/controllers/live_tv_controller.dart';
 import 'package:stream_hub/modules/live_tv/controllers/category_controller.dart';
 import 'package:stream_hub/modules/live_tv/controllers/favorites_controller.dart';
 import 'package:stream_hub/modules/live_tv/controllers/provider_controller.dart';
-import 'package:stream_hub/modules/live_tv/controllers/library_controller.dart';
+import 'package:stream_hub/modules/live_tv/controllers/live_tv_library_controller.dart';
 
 class AppBinding extends Bindings {
   @override
@@ -46,6 +53,7 @@ class AppBinding extends Bindings {
     final mediaCatalog = Get.find<MediaCatalog>();
     final mediaSourceManager = Get.find<MediaSourceManager>();
     final loggingService = Get.find<LoggingService>();
+    Get.find<MediaSourceRepository>();
 
     final catalogRepo = CatalogRepositoryImpl(
       mediaCatalog,
@@ -57,8 +65,8 @@ class AppBinding extends Bindings {
     Get.put<CatalogRepository>(catalogRepo, permanent: true);
     Get.put<MediaRepository>(mediaRepo, permanent: true);
 
-    Get.put<HomeController>(
-      HomeController(
+    Get.put<LiveTVHomeController>(
+      LiveTVHomeController(
         mediaEngine: Get.find<MediaEngine>(),
         mediaLibrary: Get.find<MediaLibrary>(),
         catalogRepository: catalogRepo,
@@ -97,8 +105,8 @@ class AppBinding extends Bindings {
       ),
       permanent: true,
     );
-    Get.put<LibraryController>(
-      LibraryController(
+    Get.put<LiveTVLibraryController>(
+      LiveTVLibraryController(
         mediaEngine: Get.find<MediaEngine>(),
         mediaLibrary: Get.find<MediaLibrary>(),
         catalogRepository: catalogRepo,
@@ -109,5 +117,10 @@ class AppBinding extends Bindings {
     if (!Get.isRegistered<FirebaseService>()) {
       Get.put<FirebaseService>(FirebaseService(), permanent: true);
     }
+
+    Get.put<HistoryService>(HistoryService(logger: loggingService), permanent: true);
+    Get.put<FavoriteService>(FavoriteService(logger: loggingService), permanent: true);
+    Get.put<HistoryRepository>(HistoryRepositoryImpl(Get.find<HistoryService>()), permanent: true);
+    Get.put<FavoriteRepository>(FavoriteRepositoryImpl(Get.find<FavoriteService>()), permanent: true);
   }
 }

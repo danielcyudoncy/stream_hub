@@ -8,6 +8,7 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/channel.dart';
 import '../controllers/live_tv_controller.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/live_badge.dart';
@@ -21,27 +22,8 @@ class LiveTVPage extends GetView<LiveTVController> {
     final colorScheme = theme.colorScheme;
     final isTV = ResponsiveHelper.isTV(context);
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Live TV'),
-        actions: [
-          Obx(() => IconButton(
-                icon: Icon(
-                  controller.selectedView.value == 'grid'
-                      ? Icons.grid_view_outlined
-                      : Icons.list,
-                ),
-                onPressed: () {
-                  controller.setView(
-                    controller.selectedView.value == 'grid'
-                        ? 'list'
-                        : 'grid',
-                  );
-                },
-              )),
-        ],
-      ),
+    return AppScaffold(
+      title: 'Live TV',
       body: Column(
         children: [
           _buildFilterBar(context, colorScheme),

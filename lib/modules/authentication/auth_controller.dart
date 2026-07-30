@@ -67,7 +67,7 @@ class AuthController extends GetxController {
             if (user != null) {
               currentUser.value = user;
               isAuthenticated.value = true;
-              Get.offAllNamed(AppRoutes.dashboard);
+              Get.offAllNamed(AppRoutes.home);
             } else {
               currentUser.value = null;
               isAuthenticated.value = false;
@@ -94,11 +94,11 @@ class AuthController extends GetxController {
       if (user != null && rememberMe.value) {
         currentUser.value = user;
         isAuthenticated.value = true;
-        Get.offAllNamed(AppRoutes.dashboard);
+        Get.offAllNamed(AppRoutes.home);
       } else if (user != null) {
         currentUser.value = user;
         isAuthenticated.value = true;
-        Get.offAllNamed(AppRoutes.dashboard);
+        Get.offAllNamed(AppRoutes.home);
       } else {
         isAuthenticated.value = false;
       }
@@ -137,7 +137,7 @@ class AuthController extends GetxController {
         final expiry = DateTime.now().add(AuthConstants.sessionDuration);
         await _repository.setSessionExpiry(expiry);
       }
-      Get.offAllNamed(AppRoutes.dashboard);
+      Get.offAllNamed(AppRoutes.home);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -228,7 +228,7 @@ class AuthController extends GetxController {
       final user = await _repository.signInWithGoogle();
       currentUser.value = user;
       isAuthenticated.value = true;
-      Get.offAllNamed(AppRoutes.dashboard);
+      Get.offAllNamed(AppRoutes.home);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -252,7 +252,7 @@ class AuthController extends GetxController {
       final user = await _repository.signInAnonymously();
       currentUser.value = user;
       isAuthenticated.value = true;
-      Get.offAllNamed(AppRoutes.dashboard);
+      Get.offAllNamed(AppRoutes.home);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
