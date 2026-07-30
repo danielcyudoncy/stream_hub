@@ -9,13 +9,13 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../data/models/media_item.dart';
-import '../controllers/home_controller.dart';
+import '../controllers/live_tv_home_controller.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/media_section.dart';
 import '../../../shared/widgets/category_chip.dart';
 
-class HomePage extends GetView<HomeController> {
+class HomePage extends GetView<LiveTVHomeController> {
   const HomePage({super.key});
 
   @override

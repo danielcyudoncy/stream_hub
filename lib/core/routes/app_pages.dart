@@ -3,8 +3,8 @@ import 'package:get/get.dart';
 import 'app_routes.dart';
 import '../../modules/splash/splash_page.dart';
 import '../../modules/splash/splash_binding.dart';
-import '../../modules/dashboard/dashboard_page.dart';
-import '../../modules/dashboard/dashboard_binding.dart';
+import '../../modules/home/home_page.dart';
+import '../../modules/home/home_binding.dart';
 import '../../modules/settings/settings_page.dart';
 import '../../modules/settings/settings_binding.dart';
 import '../../modules/authentication/auth_wrapper_page.dart';
@@ -26,16 +26,18 @@ import '../../modules/legal/privacy_policy_page.dart';
 import '../../modules/legal/terms_of_service_page.dart';
 import '../../modules/legal/licenses_page.dart';
 import '../../modules/storage/storage_page.dart';
-import '../../modules/live_tv/pages/home_page.dart';
 import '../../modules/live_tv/pages/live_tv_page.dart';
 import '../../modules/live_tv/pages/categories_page.dart';
 import '../../modules/live_tv/pages/channel_details_page.dart';
 import '../../modules/live_tv/pages/favorites_page.dart';
 import '../../modules/live_tv/pages/recent_page.dart';
-import '../../modules/live_tv/pages/search_page.dart';
 import '../../modules/live_tv/pages/provider_overview_page.dart';
 import '../../modules/live_tv/pages/library_overview_page.dart';
 import '../../modules/live_tv/bindings/live_tv_binding.dart';
+import '../../modules/library/library_page.dart';
+import '../../modules/library/library_binding.dart';
+import '../../modules/search/search_hub_page.dart';
+import '../../modules/search/search_hub_binding.dart';
 import '../../modules/epg/pages/program_details_page.dart';
 import '../../modules/epg/pages/channel_timeline_page.dart';
 import '../../modules/epg/pages/guide_search_page.dart';
@@ -108,9 +110,9 @@ class AppPages {
       binding: AuthBinding(),
     ),
     GetPage(
-      name: AppRoutes.dashboard,
-      page: () => const DashboardPage(),
-      binding: DashboardBinding(),
+      name: AppRoutes.home,
+      page: () => const HomePage(),
+      binding: HomeBinding(),
     ),
     GetPage(
       name: AppRoutes.settings,
@@ -163,14 +165,19 @@ class AppPages {
       binding: SettingsBinding(),
     ),
     GetPage(
-      name: AppRoutes.home,
-      page: () => const HomePage(),
-      binding: LiveTVBinding(),
-    ),
-    GetPage(
       name: AppRoutes.liveTV,
       page: () => const LiveTVPage(),
       binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.library,
+      page: () => const LibraryPage(),
+      binding: LibraryBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.search,
+       page: () => SearchHubPage(),
+      binding: SearchHubBinding(),
     ),
     GetPage(
       name: AppRoutes.categories,
@@ -190,11 +197,6 @@ class AppPages {
     GetPage(
       name: AppRoutes.recent,
       page: () => const RecentPage(),
-      binding: LiveTVBinding(),
-    ),
-    GetPage(
-      name: AppRoutes.search,
-      page: () => const SearchPage(),
       binding: LiveTVBinding(),
     ),
     GetPage(

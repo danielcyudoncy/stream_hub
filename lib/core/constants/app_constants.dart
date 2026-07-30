@@ -33,7 +33,10 @@ class AppConstants {
   // Routes
   static const String splashRoute = '/splash';
   static const String authRoute = '/auth';
-  static const String dashboardRoute = '/dashboard';
+  static const String homeRoute = '/home';
+  static const String liveTVRoute = '/live-tv';
+  static const String libraryRoute = '/library';
+  static const String searchRoute = '/search';
   static const String settingsRoute = '/settings';
   static const String providerManagerRoute = '/provider-manager';
 
