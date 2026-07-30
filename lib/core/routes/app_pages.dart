@@ -26,6 +26,16 @@ import '../../modules/legal/privacy_policy_page.dart';
 import '../../modules/legal/terms_of_service_page.dart';
 import '../../modules/legal/licenses_page.dart';
 import '../../modules/storage/storage_page.dart';
+import '../../modules/live_tv/pages/home_page.dart';
+import '../../modules/live_tv/pages/live_tv_page.dart';
+import '../../modules/live_tv/pages/categories_page.dart';
+import '../../modules/live_tv/pages/channel_details_page.dart';
+import '../../modules/live_tv/pages/favorites_page.dart';
+import '../../modules/live_tv/pages/recent_page.dart';
+import '../../modules/live_tv/pages/search_page.dart';
+import '../../modules/live_tv/pages/provider_overview_page.dart';
+import '../../modules/live_tv/pages/library_overview_page.dart';
+import '../../modules/live_tv/bindings/live_tv_binding.dart';
 import '../../shared/widgets/empty_view.dart';
 
 class AppPages {
@@ -142,6 +152,51 @@ class AppPages {
       name: AppRoutes.storage,
       page: () => const StoragePage(),
       binding: SettingsBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.home,
+      page: () => const HomePage(),
+      binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.liveTV,
+      page: () => const LiveTVPage(),
+      binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.categories,
+      page: () => const CategoriesPage(),
+      binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.channelDetails,
+      page: () => const ChannelDetailsPage(),
+      binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.favorites,
+      page: () => const FavoritesPage(),
+      binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.recent,
+      page: () => const RecentPage(),
+      binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.search,
+      page: () => const SearchPage(),
+      binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.providerOverview,
+      page: () => const ProviderOverviewPage(),
+      binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.libraryOverview,
+      page: () => const LibraryOverviewPage(),
+      binding: LiveTVBinding(),
     ),
   ];
 }

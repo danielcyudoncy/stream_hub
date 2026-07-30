@@ -19,5 +19,14 @@ class AppRoutes {
   static const String termsOfService = '/terms-of-service';
   static const String licenses = '/licenses';
   static const String storage = '/storage';
+  static const String liveTV = '/live-tv';
+  static const String home = '/home';
+  static const String categories = '/categories';
+  static const String channelDetails = '/channel-details';
+  static const String favorites = '/favorites';
+  static const String recent = '/recent';
+  static const String search = '/search';
+  static const String providerOverview = '/provider-overview';
+  static const String libraryOverview = '/library-overview';
   static const String unknown = '/unknown';
 }
