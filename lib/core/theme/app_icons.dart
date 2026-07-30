@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 class AppIcons {
   // Navigation / Tabs
+  static const IconData home = Icons.home_outlined;
   static const IconData dashboard = Icons.dashboard_outlined;
   static const IconData liveTv = Icons.live_tv_outlined;
   static const IconData movies = Icons.movie_outlined;

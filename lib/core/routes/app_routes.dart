@@ -8,7 +8,10 @@ class AppRoutes {
   static const String emailVerification = '/email-verification';
   static const String completeProfile = '/complete-profile';
   static const String accountLoading = '/account-loading';
-  static const String dashboard = '/dashboard';
+  static const String home = '/home';
+  static const String liveTV = '/live-tv';
+  static const String library = '/library';
+  static const String search = '/search';
   static const String settings = '/settings';
   static const String providerManager = '/provider-manager';
   static const String providerForm = '/provider-form';
@@ -19,13 +22,10 @@ class AppRoutes {
   static const String termsOfService = '/terms-of-service';
   static const String licenses = '/licenses';
   static const String storage = '/storage';
-  static const String liveTV = '/live-tv';
-  static const String home = '/home';
   static const String categories = '/categories';
   static const String channelDetails = '/channel-details';
   static const String favorites = '/favorites';
   static const String recent = '/recent';
-  static const String search = '/search';
   static const String providerOverview = '/provider-overview';
   static const String libraryOverview = '/library-overview';
   static const String guideSearch = '/guide-search';

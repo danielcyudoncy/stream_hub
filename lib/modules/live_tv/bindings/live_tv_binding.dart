@@ -2,18 +2,18 @@ import 'package:get/get.dart';
 import 'package:stream_hub/core/media/media_engine.dart';
 import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
-import '../controllers/home_controller.dart';
+import '../controllers/live_tv_home_controller.dart';
 import '../controllers/live_tv_controller.dart';
 import '../controllers/category_controller.dart';
 import '../controllers/favorites_controller.dart';
 import '../controllers/provider_controller.dart';
-import '../controllers/library_controller.dart';
+import '../controllers/live_tv_library_controller.dart';
 
 class LiveTVBinding extends Bindings {
   @override
   void dependencies() {
-    if (!Get.isRegistered<HomeController>()) {
-      Get.lazyPut<HomeController>(() => HomeController(
+    if (!Get.isRegistered<LiveTVHomeController>()) {
+      Get.lazyPut<LiveTVHomeController>(() => LiveTVHomeController(
             mediaEngine: Get.find<MediaEngine>(),
             mediaLibrary: Get.find<MediaLibrary>(),
             catalogRepository: Get.find<CatalogRepository>(),
@@ -47,8 +47,8 @@ class LiveTVBinding extends Bindings {
             catalogRepository: Get.find<CatalogRepository>(),
           ));
     }
-    if (!Get.isRegistered<LibraryController>()) {
-      Get.lazyPut<LibraryController>(() => LibraryController(
+    if (!Get.isRegistered<LiveTVLibraryController>()) {
+      Get.lazyPut<LiveTVLibraryController>(() => LiveTVLibraryController(
             mediaEngine: Get.find<MediaEngine>(),
             mediaLibrary: Get.find<MediaLibrary>(),
             catalogRepository: Get.find<CatalogRepository>(),

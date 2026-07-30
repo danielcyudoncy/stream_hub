@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/media/enums/media_type.dart';
-import '../controllers/library_controller.dart';
+import '../controllers/live_tv_library_controller.dart';
 import '../../../core/utils/responsive_helper.dart';
 
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
 
-class LibraryOverviewPage extends GetView<LibraryController> {
+class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
   const LibraryOverviewPage({super.key});
 
   @override

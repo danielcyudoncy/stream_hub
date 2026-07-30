@@ -599,3 +599,91 @@ Quick navigation buttons for jumping to specific time ranges:
 - Large text support
 - Semantic labels for program cells
 - Live region announcements for time updates
+
+---
+
+## Home Dashboard
+
+The Home screen is the central hub of the application after login. It provides a personalized dashboard that transforms the application from a provider configuration tool into a premium streaming platform.
+
+### Navigation
+
+The application uses a bottom navigation bar with five tabs:
+
+| Tab | Route | Description |
+| --- | --- | --- |
+| Home | `/home` | Personalized dashboard |
+| Live TV | `/live-tv` | Live TV browsing |
+| Library | `/library` | Movies, Series, Favorites, Downloads, History |
+| Search | `/search` | Global search |
+| Settings | `/settings` | All settings including Media Sources |
+
+Providers are moved from the bottom navigation into Settings under "Media Sources".
+
+### Dashboard Sections
+
+The Home dashboard includes the following sections, each independently refreshable:
+
+1. **Greeting** — Displays user avatar, name, current workspace, and time-based greeting (Good Morning / Good Afternoon / Good Evening)
+2. **Quick Actions** — Grid of shortcut cards for common actions (Watch Live TV, Browse Movies, Browse Series, Search, TV Guide, Downloads, Media Sources, Settings)
+3. **Provider Summary** — Compact card showing connected provider count and last sync time
+4. **Continue Watching** — Horizontal carousel of content with active watch progress
+5. **Live TV** — Horizontal list of recently watched and popular channels
+6. **Movies** — Trending, Recently Added, and Continue Watching rows
+7. **Series** — Continue Watching, Recently Added, and Popular rows
+8. **TV Guide** — Currently Airing, Next Programs, and Guide Shortcut
+9. **Favorites** — Favorite Channels, Movies, and Series
+10. **Recently Added** — Latest content from all providers
+11. **Recently Played** — Playback history across channels, movies, and series
+12. **Downloads** — Downloaded content, download queue, and storage usage
+
+### Empty States
+
+Every section must have a polished empty state. No blank screens are allowed. Empty states should:
+
+- Display a friendly icon and message
+- Guide users toward adding media sources
+- Provide an "Add Media Source" button where applicable
+- Include a "Learn More" placeholder where appropriate
+
+If no providers are connected, the dashboard displays a Welcome Card instead of an empty dashboard:
+
+- Welcome message
+- Explanation of what the app does
+- Feature preview chips (Live TV, Movies, Series, TV Guide, Favorites, Downloads)
+- Primary action: "Add Media Source" button
+- Secondary action: "Learn More" placeholder
+
+### Responsive Layout
+
+The Home dashboard adapts to all screen sizes:
+
+- **Phone**: Single column with bottom navigation
+- **Tablet**: Navigation rail with optimized spacing
+- **Desktop**: Sidebar navigation with wider content area
+- **Android TV / Apple TV**: Focus-based navigation with large cards and visible focus indicators
+- **Landscape**: Adjusted grid layouts for wider viewports
+
+### Loading States
+
+- Skeleton cards during initial data fetch
+- Placeholder rows for content that is loading
+- Animated shimmer effects for image placeholders
+- Indeterminate progress indicators for async operations
+
+### Reusable Components
+
+The following reusable components are used throughout the Home dashboard:
+
+| Component | Purpose |
+| --- | --- |
+| `GreetingHeader` | Displays greeting, user avatar, name, and workspace |
+| `DashboardSection` | Wraps dashboard sections with title, subtitle, and divider |
+| `MediaCarousel` | Horizontal scrolling carousel for media items |
+| `ContinueWatchingRow` | Horizontal row for continue watching items |
+| `QuickActionGrid` | Grid of quick action cards |
+| `ProviderSummaryCard` | Compact summary of connected providers |
+| `EmptyLibraryCard` | Polished empty state for library sections |
+| `FeatureCard` | Feature preview card for welcome screen |
+| `RecentActivityCard` | Row card for recent activity items |
+| `StorageCard` | Storage usage indicator with progress bar |
