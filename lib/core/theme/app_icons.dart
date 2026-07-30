@@ -27,6 +27,7 @@ class AppIcons {
   static const IconData refresh = Icons.refresh;
   static const IconData back = Icons.arrow_back;
   static const IconData forward = Icons.arrow_forward_ios;
+  static const IconData skipForward = Icons.forward_30;
   static const IconData close = Icons.close;
   
   // Status / Feedback
@@ -36,4 +37,24 @@ class AppIcons {
   static const IconData empty = Icons.inbox_outlined;
   static const IconData profile = Icons.account_circle_outlined;
   static const IconData downloads = Icons.download_outlined;
+
+  // Player
+  static const IconData replay = Icons.replay_outlined;
+  static const IconData rewind = Icons.replay_10_outlined;
+  static const IconData next = Icons.skip_next_outlined;
+  static const IconData previous = Icons.skip_previous_outlined;
+  static const IconData fullscreen = Icons.fullscreen;
+  static const IconData fullscreenExit = Icons.fullscreen_exit;
+  static const IconData aspectRatio = Icons.aspect_ratio_outlined;
+  static const IconData subtitles = Icons.closed_caption_outlined;
+  static const IconData audioTrack = Icons.audio_file_outlined;
+  static const IconData speed = Icons.speed_outlined;
+  static const IconData quality = Icons.hd_outlined;
+  static const IconData sleep = Icons.bedtime_outlined;
+  static const IconData pip = Icons.picture_in_picture_alt_outlined;
+  static const IconData cast = Icons.cast_outlined;
+  static const IconData mute = Icons.volume_off_outlined;
+  static const IconData volume = Icons.volume_up_outlined;
+  static const IconData channelUp = Icons.arrow_upward;
+  static const IconData channelDown = Icons.arrow_downward;
 }

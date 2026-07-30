@@ -32,5 +32,8 @@ class AppRoutes {
   static const String miniGuide = '/mini-guide';
   static const String programDetails = '/program-details';
   static const String channelTimeline = '/channel-timeline';
+  static const String fullscreenPlayer = '/fullscreen-player';
+  static const String embeddedPlayer = '/embedded-player';
+  static const String miniPlayer = '/mini-player';
   static const String unknown = '/unknown';
 }
