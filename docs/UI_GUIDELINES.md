@@ -384,3 +384,218 @@ Favorites are managed through:
 - Use pagination for large channel lists
 - Avoid unnecessary rebuilds with Obx/GetBuilder
 - Virtualized lists for long channel collections
+
+---
+
+## EPG UI Specifications
+
+### TV Guide
+
+The TV Guide is the primary EPG browsing screen. It displays a grid of channels with their current and upcoming programs across a configurable time window.
+
+**Layout:**
+
+- Channel column on the left (logo, name, number, provider badge, favorite button)
+- Timeline grid on the right (horizontal scrolling)
+- Current time indicator (red vertical line)
+- Program cells with title, time, progress bar, and badges
+
+**Responsive behavior:**
+
+- Phone: Single channel list with program details
+- Tablet: Split view with channel list and timeline
+- Desktop: Full guide grid with horizontal scrolling
+- TV: Large focusable grid with remote navigation
+
+### Timeline View
+
+The Timeline View displays a single channel's program schedule across a configurable time window.
+
+**Features:**
+
+- Horizontal scrolling timeline
+- Time ruler with hour markers
+- Current time indicator
+- Program cells with progress indicators
+- Past, current, and future program sections
+- Infinite horizontal scrolling for loading more data
+
+**Time Window Options:**
+
+- 30 minutes
+- 1 hour
+- 2 hours
+- 4 hours
+- 6 hours
+- 12 hours
+- 24 hours
+
+### Program Details
+
+The Program Details screen shows comprehensive information about a selected program.
+
+**Layout:**
+
+- Poster/backdrop image at the top
+- Title and subtitle
+- Live indicator (if currently playing)
+- Progress bar with remaining time (if currently playing)
+- Metadata rows: start time, end time, duration, channel, episode, season
+- Cast and directors
+- Genre tags
+- Rating
+- Description
+- Action buttons: Favorite, Remind, Record (future), Play (disabled)
+
+### Channel Timeline
+
+The Channel Timeline displays a single channel's full schedule with infinite horizontal scrolling.
+
+**Features:**
+
+- Past programs (grayed out)
+- Current program (highlighted with progress)
+- Future programs (normal)
+- Navigation buttons: Now, Morning, Afternoon, Evening, Tomorrow, Specific Date
+- Load more on scroll
+
+### Mini Guide
+
+The Mini Guide is a floating guide widget designed for overlay use.
+
+**Features:**
+
+- Compact layout showing next 5-10 programs
+- Time labels
+- Live badge for current programs
+- "View All" action to open full guide
+- Intended for use while video plays (future integration)
+
+### Guide Search
+
+The Guide Search screen allows users to search and filter programs.
+
+**Search Fields:**
+
+- Program name
+- Channel
+- Genre
+- Cast
+- Director
+- Category
+- Language
+
+**Filters:**
+
+- Provider
+- Genre
+- Category
+- Favorites only
+- HD only
+- Country
+- Language
+
+**Sorting:**
+
+- Channel number
+- Alphabetical
+- Favorites first
+- Recently watched
+- Provider
+
+### Time Navigation
+
+Quick navigation buttons for jumping to specific time ranges:
+
+- Now (current time)
+- Morning (6:00 - 18:00)
+- Afternoon (12:00 - 00:00)
+- Evening (18:00 - 06:00)
+- Tomorrow (next day)
+- Specific Date (date picker)
+
+### Loading & Empty States
+
+**Loading:**
+
+- Skeleton placeholders during initial guide load
+- Shimmer effect for program cards
+- Progress indicators for async operations
+
+**Empty:**
+
+- No Guide: Display when no EPG data is available
+- No Channels: Display when guide has no channels
+- No Programs: Display when no programs match filters
+- Guide Unavailable: Display when guide source is unavailable
+
+**Error:**
+
+- Guide parsing errors with retry action
+- Missing metadata fallback UI
+- Offline mode indicator
+- Provider unavailable message
+
+### TV Navigation
+
+**Remote Controls:**
+
+- D-pad navigation between channels and programs
+- OK/Select to open program details
+- Back to return to guide grid
+- Guide button to toggle mini guide overlay
+- Channel up/down for quick channel switching
+
+**Focus Management:**
+
+- Visible focus indicator on all interactive elements
+- Large touch targets (minimum 48x48 dp)
+- Focus moves in logical grid order
+- Smooth focus animations
+
+### Responsive Design
+
+**Phone:**
+
+- Single column layout
+- Bottom navigation
+- Compact program list
+- Mini guide as overlay
+
+**Tablet:**
+
+- Split view: channel list + timeline
+- Navigation rail
+- Medium program cards
+
+**Desktop:**
+
+- Full guide grid with horizontal scrolling
+- Sidebar navigation
+- Hover effects on program cells
+- Keyboard shortcuts for navigation
+
+**Android TV / Apple TV:**
+
+- Focus-based navigation with remote
+- Large focusable cards
+- Visible focus indicator
+- Remote-friendly layout
+- Large text and controls
+
+### Animations
+
+- Smooth timeline scrolling (200-300ms)
+- Fade transitions between screens
+- Focus animations for TV navigation
+- Program selection highlight animation
+- Progress bar smooth updates
+
+### Accessibility
+
+- Screen reader support for all EPG elements
+- Keyboard navigation (Tab, Arrow keys, Enter)
+- High contrast mode support
+- Large text support
+- Semantic labels for program cells
+- Live region announcements for time updates
