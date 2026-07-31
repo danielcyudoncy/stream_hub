@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import '../../../data/models/category.dart';
@@ -10,6 +12,7 @@ class CategoryController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
+  StreamSubscription? _catalogSubscription;
 
   CategoryController({
     required this.mediaEngine,
@@ -26,6 +29,13 @@ class CategoryController extends GetxController {
   void onInit() {
     super.onInit();
     _loadCategories();
+    _catalogSubscription = catalogRepository.watchUpdates().listen((_) => refresh());
+  }
+
+  @override
+  void onClose() {
+    _catalogSubscription?.cancel();
+    super.onClose();
   }
 
   Future<void> _loadCategories() async {

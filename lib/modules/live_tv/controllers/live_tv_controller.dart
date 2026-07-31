@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
+import 'package:stream_hub/core/media/stream_resolver.dart';
+import 'package:stream_hub/core/media/stream_resolvers/m3u_stream_resolver.dart';
+import 'package:stream_hub/core/routes/app_routes.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/repositories/catalog_repository.dart';
+import '../../../data/repositories/favorite_repository.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
@@ -9,12 +15,17 @@ class LiveTVController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
+  final FavoriteRepository? favoriteRepository;
+  final StreamResolver streamResolver;
+  StreamSubscription? _catalogSubscription;
 
   LiveTVController({
     required this.mediaEngine,
     required this.mediaLibrary,
     required this.catalogRepository,
-  });
+    this.favoriteRepository,
+    StreamResolver? streamResolver,
+  }) : streamResolver = streamResolver ?? M3UStreamResolver();
 
   final RxList<MediaItem> channels = <MediaItem>[].obs;
   final RxList<MediaItem> filteredChannels = <MediaItem>[].obs;
@@ -40,6 +51,13 @@ class LiveTVController extends GetxController {
   void onInit() {
     super.onInit();
     _loadLiveTVData();
+    _catalogSubscription = catalogRepository.watchUpdates().listen((_) => refresh());
+  }
+
+  @override
+  void onClose() {
+    _catalogSubscription?.cancel();
+    super.onClose();
   }
 
   Future<void> _loadLiveTVData() async {
@@ -51,8 +69,11 @@ class LiveTVController extends GetxController {
           .toList();
       channels.assignAll(liveChannels);
       filteredChannels.assignAll(liveChannels);
+
+      final favList = await favoriteRepository?.getAll() ?? [];
       favorites.assignAll(
-        liveChannels.where((item) => item.favorite).toList(),
+        liveChannels.where((item) =>
+            favList.any((f) => f.id == item.id) || item.favorite).toList(),
       );
 
       final providerSet = <String>{};
@@ -198,7 +219,26 @@ class LiveTVController extends GetxController {
     filteredChannels.assignAll(result);
   }
 
-  void toggleFavorite(MediaItem item) {
+  void openChannel(MediaItem channel) {
+    Get.toNamed(
+      AppRoutes.fullscreenPlayer,
+      arguments: {
+        'items': filteredChannels.toList(),
+        'currentId': channel.id,
+      },
+    );
+  }
+
+  Future<void> toggleFavorite(MediaItem item) async {
+    if (favoriteRepository == null) {
+      _loadLiveTVData();
+      return;
+    }
+    if (item.favorite) {
+      await favoriteRepository!.remove(item.id);
+    } else {
+      await favoriteRepository!.add(item);
+    }
     _loadLiveTVData();
   }
 

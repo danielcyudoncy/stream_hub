@@ -1,94 +1,229 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:media_kit_video/media_kit_video.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
-import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
+import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
+import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/player/widgets/player_controls.dart';
-import 'package:stream_hub/modules/player/widgets/gesture_detector.dart';
 
-class FullscreenPlayerPage extends StatelessWidget {
+class FullscreenPlayerPage extends StatefulWidget {
   const FullscreenPlayerPage({super.key});
+
+  @override
+  State<FullscreenPlayerPage> createState() => _FullscreenPlayerPageState();
+}
+
+class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
+  final PlayerController _controller = Get.find<PlayerController>();
+  VideoController? _videoController;
+  StreamSubscription<PlaybackState>? _stateSub;
+  bool _controlsVisible = true;
+  Timer? _controlsTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveVideoController();
+    _stateSub = _controller.playbackController.engine.stateRx.listen((state) {
+      if (mounted) setState(() {});
+      if (state == PlaybackState.playing) {
+        _autoHideControls();
+      }
+    });
+    _autoHideControls();
+  }
+
+  void _resolveVideoController() {
+    final adapter =
+        _controller.playbackController.engine.adapter;
+    if (adapter is MediaKitPlayerAdapter) {
+      _videoController = adapter.videoController;
+    }
+  }
+
+  void _autoHideControls() {
+    _controlsTimer?.cancel();
+    _controlsTimer = Timer(const Duration(seconds: 4), () {
+      if (mounted && _controlsVisible) {
+        setState(() => _controlsVisible = false);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _stateSub?.cancel();
+    _controlsTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _handleBack();
+      },
       child: Scaffold(
         backgroundColor: Colors.black,
         body: SafeArea(
-          child: Column(
-            children: [
-              Expanded(
-                child: PlayerGestureDetector(
-                  onTap: () => _toggleControls(context),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Obx(() {
-                        final aspect = Get.find<PlayerController>().playbackController
-                            .engine.aspectRatioRx.value;
-                        return AspectRatio(
-                          aspectRatio: _getAspectRatio(aspect),
-                          child: Container(
-                            color: Colors.black,
-                            child: const Center(
-                              child: Icon(
-                                AppIcons.play,
-                                size: 64,
-                                color: Colors.white54,
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
-                      Obx(() {
-                        final state = Get.find<PlayerController>().state;
-                        if (state == PlaybackState.buffering ||
-                            state == PlaybackState.loading) {
-                          return const Center(
-                            child: CircularProgressIndicator(
-                              color: Colors.white,
-                            ),
-                          );
-                        }
-                        if (state == PlaybackState.error) {
-                          return Center(
-                            child: Column(
-                              children: [
-                                const Icon(
-                                  AppIcons.error,
-                                  size: 48,
-                                  color: Colors.red,
-                                ),
-                                AppSpacing.heightMD,
-                                ElevatedButton.icon(
-                                  onPressed: () =>
-                                      Get.find<PlayerController>().playbackController.retry(),
-                                  icon: const Icon(AppIcons.refresh),
-                                  label: const Text('Retry'),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      }),
-                    ],
+          child: GestureDetector(
+            onTap: _toggleControls,
+            child: Stack(
+              children: [
+                _buildVideoLayer(),
+                _buildStateOverlay(),
+                if (_controlsVisible) _buildControlsOverlay(context),
+                _buildTopBar(context),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoLayer() {
+    if (_videoController != null) {
+      return Positioned.fill(
+        child: Video(controller: _videoController!),
+      );
+    }
+    return Positioned.fill(
+      child: Container(color: Colors.black),
+    );
+  }
+
+  Widget _buildStateOverlay() {
+    return Obx(() {
+      final state = _controller.playbackController.engine.stateRx.value;
+      if (state == PlaybackState.loading ||
+          state == PlaybackState.buffering) {
+        return Positioned.fill(
+          child: Container(
+            color: Colors.black54,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: Colors.white),
+                  AppSpacing.heightMD,
+                  Text(
+                    state == PlaybackState.loading
+                        ? 'Connecting...'
+                        : 'Buffering...',
+                    style: AppTypography.getBody(color: Colors.white70),
                   ),
-                ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      if (state == PlaybackState.error) {
+        return Positioned.fill(
+          child: Container(
+            color: Colors.black87,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(AppIcons.error, size: 48, color: Colors.red),
+                  AppSpacing.heightMD,
+                  Text(
+                    'Playback Error',
+                    style: AppTypography.getTitle(color: Colors.white),
+                  ),
+                  AppSpacing.heightSM,
+                  Text(
+                    'Unable to play this stream.',
+                    style: AppTypography.getBody(color: Colors.white70),
+                  ),
+                  AppSpacing.heightMD,
+                  ElevatedButton.icon(
+                    onPressed: () =>
+                        _controller.playbackController.retry(),
+                    icon: const Icon(AppIcons.refresh),
+                    label: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+      return const SizedBox.shrink();
+    });
+  }
+
+  Widget _buildControlsOverlay(BuildContext context) {
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildChannelInfo(),
+          PlayerControls(
+            controller: _controller,
+            isFullscreen: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopBar(BuildContext context) {
+    return Positioned(
+      top: 0,
+      left: 0,
+      right: 0,
+      child: AnimatedOpacity(
+        opacity: _controlsVisible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.8),
+                Colors.transparent,
+              ],
+            ),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                icon: const Icon(AppIcons.back, color: Colors.white),
+                onPressed: _handleBack,
+              ),
+              Expanded(
+                child: Obx(() {
+                  final title =
+                      _controller.session?.metadata.title ?? 'Player';
+                  return Text(
+                    title,
+                    style: AppTypography.getBody(color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }),
               ),
               Obx(() {
-                final visible = Get.find<PlayerController>().playbackController.engine.bufferInfoRx.value != null;
-                return AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: visible
-                      ? PlayerControls(
-                          controller: Get.find<PlayerController>(),
-                          isFullscreen: true,
-                        )
-                      : const SizedBox.shrink(),
+                final isFav =
+                    _controller.currentItem?.favorite ?? false;
+                return IconButton(
+                  icon: Icon(
+                    isFav ? Icons.favorite : Icons.favorite_border,
+                    color: isFav ? Colors.red : Colors.white70,
+                  ),
+                  onPressed: _controller.toggleFavorite,
                 );
               }),
             ],
@@ -98,22 +233,78 @@ class FullscreenPlayerPage extends StatelessWidget {
     );
   }
 
-  void _toggleControls(BuildContext context) {
-    Get.find<PlayerController>().playbackController.engine.bufferInfoRx.value = null;
+  Widget _buildChannelInfo() {
+    return Obx(() {
+      final item = _controller.currentItem;
+      if (item == null) return const SizedBox.shrink();
+      return Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.transparent,
+              Colors.black.withValues(alpha: 0.6),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            if (item.poster != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: Image.network(
+                  item.poster!,
+                  width: 32,
+                  height: 32,
+                  errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                ),
+              ),
+              AppSpacing.widthSM,
+            ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    style: AppTypography.getLabel(color: Colors.white),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (item.subtitle != null)
+                    Text(
+                      item.subtitle!,
+                      style: AppTypography.getCaption(color: Colors.white70),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    });
   }
 
-  double _getAspectRatio(AspectRatioMode mode) {
-    switch (mode) {
-      case AspectRatioMode.ratio16x9:
-        return 16 / 9;
-      case AspectRatioMode.ratio4x3:
-        return 4 / 3;
-      case AspectRatioMode.original:
-      case AspectRatioMode.fit:
-      case AspectRatioMode.fill:
-      case AspectRatioMode.stretch:
-      case AspectRatioMode.zoom:
-        return 16 / 9;
+  void _handleBack() {
+    Get.back();
+  }
+
+  void _toggleControls() {
+    setState(() {
+      _controlsVisible = !_controlsVisible;
+    });
+    if (_controlsVisible) {
+      _autoHideControls();
+    } else {
+      _controlsTimer?.cancel();
     }
   }
 }

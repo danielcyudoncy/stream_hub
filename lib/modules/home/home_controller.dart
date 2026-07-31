@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
@@ -15,6 +17,7 @@ class HomeController extends GetxController {
   final HistoryRepository historyRepository;
   final FavoriteRepository favoriteRepository;
   final MediaSourceRepository mediaSourceRepository;
+  StreamSubscription? _catalogSubscription;
 
   HomeController({
     required this.mediaEngine,
@@ -43,6 +46,13 @@ class HomeController extends GetxController {
   void onInit() {
     super.onInit();
     _loadHomeData();
+    _catalogSubscription = catalogRepository.watchUpdates().listen((_) => refresh());
+  }
+
+  @override
+  void onClose() {
+    _catalogSubscription?.cancel();
+    super.onClose();
   }
 
   Future<void> _loadHomeData() async {
@@ -91,11 +101,6 @@ class HomeController extends GetxController {
           .where((item) => item.mediaType == MediaType.series)
           .toList();
 
-      continueWatching.assignAll(
-        allItems.toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
-      );
-
       liveChannels.assignAll(channelItems);
 
       movies.assignAll(
@@ -108,17 +113,23 @@ class HomeController extends GetxController {
           ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
       );
 
-      favorites.assignAll(
-        allItems.where((item) => item.favorite).toList(),
-      );
-
       recentlyAdded.assignAll(
         allItems.toList()
           ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
       );
 
+      final favItems = await favoriteRepository.getAll();
+      final favIds = favItems.map((f) => f.id).toSet();
+      favorites.assignAll(
+        allItems.where((item) => favIds.contains(item.id)).toList(),
+      );
+
       final history = await historyRepository.getRecent(limit: 20);
       recentlyPlayed.assignAll(history);
+
+      continueWatching.assignAll(
+        history.where((item) => item.mediaType == MediaType.channel).toList(),
+      );
     } catch (e) {
       // Log error
     }

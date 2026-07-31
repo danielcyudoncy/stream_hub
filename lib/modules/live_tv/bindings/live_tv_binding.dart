@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:stream_hub/core/media/media_engine.dart';
 import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
+import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import '../controllers/live_tv_home_controller.dart';
 import '../controllers/live_tv_controller.dart';
 import '../controllers/category_controller.dart';
@@ -24,6 +25,9 @@ class LiveTVBinding extends Bindings {
             mediaEngine: Get.find<MediaEngine>(),
             mediaLibrary: Get.find<MediaLibrary>(),
             catalogRepository: Get.find<CatalogRepository>(),
+            favoriteRepository: Get.isRegistered<FavoriteRepository>()
+                ? Get.find<FavoriteRepository>()
+                : null,
           ));
     }
     if (!Get.isRegistered<CategoryController>()) {
@@ -38,6 +42,9 @@ class LiveTVBinding extends Bindings {
             mediaEngine: Get.find<MediaEngine>(),
             mediaLibrary: Get.find<MediaLibrary>(),
             catalogRepository: Get.find<CatalogRepository>(),
+            favoriteRepository: Get.isRegistered<FavoriteRepository>()
+                ? Get.find<FavoriteRepository>()
+                : null,
           ));
     }
     if (!Get.isRegistered<ProviderController>()) {

@@ -4,7 +4,11 @@ import 'dart:math';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/enums/media_source_type.dart';
+import 'package:stream_hub/core/media/media_source_factory.dart';
 import 'package:stream_hub/data/models/cache_info.dart';
+import 'package:stream_hub/data/repositories/catalog_repository.dart';
+import 'package:stream_hub/data/repositories/media_source_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
 import 'package:stream_hub/data/services/cache_service.dart';
 import 'package:stream_hub/data/services/provider_storage_service.dart';
@@ -19,6 +23,9 @@ class ProviderManagerController extends GetxController {
   final CacheService _cacheService;
   // ignore: unused_field
   final SettingsService _settingsService;
+  final MediaSourceFactory _sourceFactory;
+  final MediaSourceRepository _sourceRepo;
+  final CatalogRepository _catalogRepo;
   final LoggingService _logger = Get.find<LoggingService>();
 
   ProviderManagerController({
@@ -26,10 +33,16 @@ class ProviderManagerController extends GetxController {
     required ProviderStorageService storageService,
     required CacheService cacheService,
     required SettingsService settingsService,
+    required MediaSourceFactory sourceFactory,
+    required MediaSourceRepository sourceRepo,
+    required CatalogRepository catalogRepo,
   }) : _repository = repository,
        _storageService = storageService,
        _cacheService = cacheService,
-       _settingsService = settingsService;
+       _settingsService = settingsService,
+       _sourceFactory = sourceFactory,
+       _sourceRepo = sourceRepo,
+       _catalogRepo = catalogRepo;
 
   final RxList<ProviderModel> providers = <ProviderModel>[].obs;
   final RxBool isLoading = false.obs;
@@ -72,9 +85,10 @@ class ProviderManagerController extends GetxController {
       }
       await _repository.createProvider(provider);
       await loadProviders();
+      unawaited(_syncProvider(provider));
       Get.snackbar(
         'Success',
-        'Provider "${provider.name}" created.',
+        'Provider "${provider.name}" created. Importing playlist...',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
         colorText: Get.theme.colorScheme.onSurface,
@@ -88,6 +102,69 @@ class ProviderManagerController extends GetxController {
     }
   }
 
+  Future<void> _syncProvider(ProviderModel provider) async {
+    final sourceType = _toMediaSourceType(provider.providerType);
+    if (sourceType == null) return;
+
+    try {
+      final config = <String, dynamic>{
+        'sourceUrl': provider.serverUrl ?? '',
+      };
+      if (provider.username != null) config['username'] = provider.username;
+      if (provider.password != null) config['password'] = provider.password;
+
+      final source = _sourceFactory.create(provider.id, sourceType, config);
+      await _sourceRepo.register(source);
+      final result = await _catalogRepo.syncSource(provider.id);
+
+      if (result.success) {
+        await _repository.updateProvider(
+          provider.copyWith(
+            status: ProviderStatus.active,
+            lastSync: DateTime.now(),
+          ),
+        );
+      } else {
+        await _repository.updateProvider(
+          provider.copyWith(status: ProviderStatus.error),
+        );
+        errorMessage.value = result.error ?? 'Failed to sync provider.';
+        Get.snackbar(
+          'Sync Failed',
+          result.error ?? 'Could not connect to "${provider.name}". Check your URL and credentials.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Get.theme.colorScheme.errorContainer,
+          colorText: Get.theme.colorScheme.onErrorContainer,
+        );
+      }
+    } catch (e) {
+      _logger.warning('Provider sync failed', tag: 'ProviderManagerController', error: e);
+      errorMessage.value = 'Sync failed: ${e.toString()}';
+      try {
+        await _repository.updateProvider(
+          provider.copyWith(status: ProviderStatus.error),
+        );
+      } catch (_) {}
+    } finally {
+      await loadProviders();
+    }
+  }
+
+  MediaSourceType? _toMediaSourceType(ProviderType type) {
+    switch (type) {
+      case ProviderType.m3u:
+        return MediaSourceType.m3u;
+      case ProviderType.xtream:
+        return MediaSourceType.xtream;
+      case ProviderType.stalker:
+        return MediaSourceType.stalker;
+      case ProviderType.xmltv:
+        return MediaSourceType.xmltv;
+      case ProviderType.custom:
+        return MediaSourceType.custom;
+    }
+  }
+
   Future<void> updateProvider(ProviderModel provider) async {
     try {
       isLoading.value = true;
@@ -96,8 +173,9 @@ class ProviderManagerController extends GetxController {
       if (exists) {
         throw const ValidationException(message: 'A provider with this name already exists.');
       }
-      await _repository.updateProvider(provider);
+      final updated = await _repository.updateProvider(provider);
       await loadProviders();
+      unawaited(_syncProvider(updated));
       Get.snackbar(
         'Success',
         'Provider "${provider.name}" updated.',
@@ -166,6 +244,7 @@ class ProviderManagerController extends GetxController {
       );
       await _repository.createProvider(duplicate);
       await loadProviders();
+      unawaited(_syncProvider(duplicate));
       Get.snackbar(
         'Duplicated',
         'Provider duplicated successfully.',
@@ -179,6 +258,16 @@ class ProviderManagerController extends GetxController {
       errorMessage.value = 'Failed to duplicate provider.';
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> syncProviderById(String id) async {
+    try {
+      final provider = await _repository.getProviderById(id);
+      if (provider == null) return;
+      await _syncProvider(provider);
+    } catch (e) {
+      _logger.warning('Failed to sync provider', tag: 'ProviderManagerController', error: e);
     }
   }
 
