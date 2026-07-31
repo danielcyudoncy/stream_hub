@@ -353,9 +353,7 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
         children: [
           Expanded(
             child: FilledButton.icon(
-              onPressed: () {
-                /* Playback disabled - not yet available */
-              },
+              onPressed: () => controller.openChannel(channel),
               icon: const Icon(Icons.play_arrow),
               label: const Text('Play'),
               style: FilledButton.styleFrom(

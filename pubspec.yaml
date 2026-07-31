@@ -58,6 +58,8 @@ dependencies:
 
   # Media Player
   media_kit: ^1.1.0
+  media_kit_video: ^1.1.0
+  media_kit_libs_video: ^1.0.0
 
   # Localization
   flutter_localizations:

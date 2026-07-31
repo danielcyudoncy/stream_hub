@@ -65,6 +65,12 @@ class AppBinding extends Bindings {
     Get.put<CatalogRepository>(catalogRepo, permanent: true);
     Get.put<MediaRepository>(mediaRepo, permanent: true);
 
+    Get.put<HistoryService>(HistoryService(logger: loggingService), permanent: true);
+    Get.put<FavoriteService>(FavoriteService(logger: loggingService), permanent: true);
+    Get.put<HistoryRepository>(HistoryRepositoryImpl(Get.find<HistoryService>()), permanent: true);
+    final favoriteRepo = FavoriteRepositoryImpl(Get.find<FavoriteService>());
+    Get.put<FavoriteRepository>(favoriteRepo, permanent: true);
+
     Get.put<LiveTVHomeController>(
       LiveTVHomeController(
         mediaEngine: Get.find<MediaEngine>(),
@@ -73,11 +79,13 @@ class AppBinding extends Bindings {
       ),
       permanent: true,
     );
+
     Get.put<LiveTVController>(
       LiveTVController(
         mediaEngine: Get.find<MediaEngine>(),
         mediaLibrary: Get.find<MediaLibrary>(),
         catalogRepository: catalogRepo,
+        favoriteRepository: favoriteRepo,
       ),
       permanent: true,
     );
@@ -94,6 +102,7 @@ class AppBinding extends Bindings {
         mediaEngine: Get.find<MediaEngine>(),
         mediaLibrary: Get.find<MediaLibrary>(),
         catalogRepository: catalogRepo,
+        favoriteRepository: favoriteRepo,
       ),
       permanent: true,
     );
@@ -117,10 +126,5 @@ class AppBinding extends Bindings {
     if (!Get.isRegistered<FirebaseService>()) {
       Get.put<FirebaseService>(FirebaseService(), permanent: true);
     }
-
-    Get.put<HistoryService>(HistoryService(logger: loggingService), permanent: true);
-    Get.put<FavoriteService>(FavoriteService(logger: loggingService), permanent: true);
-    Get.put<HistoryRepository>(HistoryRepositoryImpl(Get.find<HistoryService>()), permanent: true);
-    Get.put<FavoriteRepository>(FavoriteRepositoryImpl(Get.find<FavoriteService>()), permanent: true);
   }
 }

@@ -156,27 +156,35 @@ EPG Experience
 
 ---
 
-## Phase 3
+## Phase 3 — Live TV
 
-Live TV
-
-- Categories
-- Channels
-- Favorites
-- Search
-- Recently Watched
+- [x] Categories
+- [x] Channels (tap-to-play via PlaybackEngine)
+- [x] Favorites (wired to FavoriteRepository)
+- [x] Search
+- [x] Recently Watched (wired to HistoryRepository)
+- [x] Direct channel playback from category list
+- [x] Channel switching (next/previous)
+- [x] Channel details page with working play button
+- [x] M3U stream resolution (M3UStreamResolver)
 
 ---
 
-## Phase 4
+## Phase 4 — Player
 
-Player
-
-- Play Streams
-- Resume
-- PiP
-- Audio Tracks
-- Subtitles
+- [x] Play streams via real media_kit integration (MediaKitPlayerAdapter)
+- [x] Fullscreen video page with Video widget + overlays
+- [x] Play/Pause/Resume/Stop/Seek/Replay
+- [x] Channel switching (next/previous)
+- [x] Error handling with retry UI
+- [x] Loading/buffering/connecting overlay states
+- [x] Current program info overlay (XMLTV subtitle via MediaItem)
+- [x] Favorites toggle from player
+- [x] Auto-record playback history for Continue Watching
+- [ ] Resume playback position
+- [ ] Picture-in-Picture
+- [ ] Audio tracks
+- [ ] Subtitles
 
 ---
 

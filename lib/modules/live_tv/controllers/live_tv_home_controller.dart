@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import '../../../data/models/category.dart';
@@ -11,6 +13,7 @@ class LiveTVHomeController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
+  StreamSubscription? _catalogSubscription;
 
   LiveTVHomeController({
     required this.mediaEngine,
@@ -34,6 +37,13 @@ class LiveTVHomeController extends GetxController {
   void onInit() {
     super.onInit();
     _loadHomeData();
+    _catalogSubscription = catalogRepository.watchUpdates().listen((_) => refresh());
+  }
+
+  @override
+  void onClose() {
+    _catalogSubscription?.cancel();
+    super.onClose();
   }
 
   Future<void> _loadHomeData() async {
