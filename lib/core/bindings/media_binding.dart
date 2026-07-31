@@ -34,10 +34,9 @@ class MediaBinding extends Bindings {
 
     Get.lazyPut<M3UDownloadService>(() => M3UDownloadService(Get.find()));
     Get.lazyPut<M3UParser>(() => M3UParser());
-    Get.lazyPut<PlaylistCacheService>(() => PlaylistCacheService(Get.find()), fenix: true);
     Get.lazyPut<PlaylistValidationService>(() => PlaylistValidationService(Get.find()));
     Get.lazyPut<PlaylistStatisticsService>(() => PlaylistStatisticsService(Get.find()));
-    Get.lazyPut<MediaSourceFactory>(() => DefaultMediaSourceFactory());
+    Get.lazyPut<MediaSourceFactory>(() => DefaultMediaSourceFactory(), fenix: true);
 
     Get.lazyPut<MediaRepositoryImpl>(() => MediaRepositoryImpl(
           Get.find<MediaCatalog>(),
@@ -45,7 +44,7 @@ class MediaBinding extends Bindings {
     Get.lazyPut<MediaSourceRepository>(() => MediaSourceRepositoryImpl(
           Get.find<MediaSourceManager>(),
           Get.find<LoggingService>(),
-        ));
+        ), fenix: true);
     Get.lazyPut<CatalogRepositoryImpl>(() => CatalogRepositoryImpl(
           Get.find<MediaCatalog>(),
           Get.find<MediaSourceManager>(),

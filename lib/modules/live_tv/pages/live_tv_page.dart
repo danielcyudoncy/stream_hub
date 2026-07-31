@@ -136,10 +136,7 @@ class LiveTVPage extends GetView<LiveTVController> {
         itemBuilder: (context, index) {
           final item = controller.filteredChannels[index];
           return GestureDetector(
-            onTap: () => Get.toNamed(
-              AppRoutes.channelDetails,
-              parameters: {'channelId': item.id},
-            ),
+            onTap: () => controller.openChannel(item),
             child: ChannelCard(
               channel: item,
               showFavoriteButton: true,

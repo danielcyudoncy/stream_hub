@@ -55,32 +55,36 @@ class ProviderCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 AppSpacing.heightXXS,
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withValues(alpha: 0.6),
-                        borderRadius: AppRadius.small,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                          borderRadius: AppRadius.small,
+                        ),
+                        child: Text(
+                          provider.providerType.displayName,
+                          style: AppTypography.getCaption(color: colorScheme.primary),
+                        ),
                       ),
-                      child: Text(
-                        provider.providerType.displayName,
-                        style: AppTypography.getCaption(color: colorScheme.primary),
+                      AppSpacing.widthXS,
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colorScheme.outline.withValues(alpha: 0.15),
+                          borderRadius: AppRadius.small,
+                        ),
+                        child: Text(
+                          provider.status.displayName,
+                          style: AppTypography.getCaption(color: colorScheme.outline),
+                        ),
                       ),
-                    ),
-                    AppSpacing.widthXS,
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: colorScheme.outline.withValues(alpha: 0.15),
-                        borderRadius: AppRadius.small,
-                      ),
-                      child: Text(
-                        provider.status.displayName,
-                        style: AppTypography.getCaption(color: colorScheme.outline),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ],
             ),

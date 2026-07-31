@@ -12,6 +12,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
   final MediaCatalog _catalog;
   final MediaSourceManager _sourceManager;
   final LoggingService _logger;
+  final StreamController<void> _updateController = StreamController<void>.broadcast();
 
   CatalogRepositoryImpl(this._catalog, this._sourceManager, this._logger);
 
@@ -30,17 +31,20 @@ class CatalogRepositoryImpl implements CatalogRepository {
     for (final item in items) {
       _catalog.upsert(item);
     }
+    _updateController.add(null);
     _logger.info('Upserted ${items.length} items into catalog', tag: 'CatalogRepository');
   }
 
   @override
   Future<void> deleteItem(String id) async {
     _catalog.remove(id);
+    _updateController.add(null);
   }
 
   @override
   Future<void> clear() async {
     _catalog.clear();
+    _updateController.add(null);
   }
 
   @override
@@ -59,7 +63,26 @@ class CatalogRepositoryImpl implements CatalogRepository {
         completedAt: DateTime.now(),
       );
     }
-    return await source.sync();
+    final result = await source.sync();
+    if (result.success) {
+      final items = <MediaItem>[];
+      try {
+        items.addAll(await source.getChannels());
+        items.addAll(await source.getCategories());
+        items.addAll(await source.getMovies());
+        items.addAll(await source.getSeries());
+        items.addAll(await source.getPrograms());
+      } catch (_) {}
+      for (final item in items) {
+        _catalog.upsert(item);
+      }
+      _updateController.add(null);
+      _logger.info(
+        'Ingested ${items.length} items from source $sourceId',
+        tag: 'CatalogRepository',
+      );
+    }
+    return result;
   }
 
   @override
@@ -69,7 +92,9 @@ class CatalogRepositoryImpl implements CatalogRepository {
 
   @override
   Stream<List<MediaItem>> watchUpdates() async* {
-    yield _catalog.getAll();
+    await for (final _ in _updateController.stream) {
+      yield _catalog.getAll();
+    }
   }
 
   @override
