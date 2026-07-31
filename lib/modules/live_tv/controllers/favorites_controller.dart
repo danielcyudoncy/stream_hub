@@ -3,6 +3,7 @@ import 'package:stream_hub/core/media/enums/media_type.dart';
 import '../../../data/models/category.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/repositories/catalog_repository.dart';
+import '../../../data/repositories/favorite_repository.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
@@ -10,11 +11,13 @@ class FavoritesController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
+  final FavoriteRepository? favoriteRepository;
 
   FavoritesController({
     required this.mediaEngine,
     required this.mediaLibrary,
     required this.catalogRepository,
+    this.favoriteRepository,
   });
 
   final RxList<MediaItem> favoriteChannels = <MediaItem>[].obs;
@@ -32,16 +35,21 @@ class FavoritesController extends GetxController {
   Future<void> _loadFavorites() async {
     isLoading.value = true;
     try {
+      final favItems = await favoriteRepository?.getAll() ?? [];
       final allItems = await catalogRepository.getAllItems();
       final channelItems = allItems
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
 
+      final favIds = favItems.map((f) => f.id).toSet();
       favoriteChannels.assignAll(
-        channelItems.where((item) => item.favorite).toList(),
+        channelItems.where((item) => favIds.contains(item.id)).toList(),
       );
-      favoriteChannels.sort(
-          (a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+      if (favoriteChannels.isNotEmpty) {
+        favoriteChannels.sort(
+            (a, b) => b.updatedAt.compareTo(a.updatedAt));
+      }
 
       final groupByCategory = <String, List<MediaItem>>{};
       for (final item in favoriteChannels) {
@@ -74,11 +82,12 @@ class FavoritesController extends GetxController {
     }
   }
 
-  void toggleFavorite(MediaItem item) {
+  Future<void> toggleFavorite(MediaItem item) async {
+    if (favoriteRepository == null) return;
     if (item.favorite) {
-      // Remove from favorites (placeholder - no active repository)
+      await favoriteRepository!.remove(item.id);
     } else {
-      // Add to favorites (placeholder - no active repository)
+      await favoriteRepository!.add(item);
     }
     _loadFavorites();
   }
