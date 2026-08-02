@@ -112,6 +112,12 @@ class ProviderManagerController extends GetxController {
       };
       if (provider.username != null) config['username'] = provider.username;
       if (provider.password != null) config['password'] = provider.password;
+      if (sourceType == MediaSourceType.stalker) {
+        config['portalUrl'] = provider.serverUrl ?? '';
+        if (provider.macAddress != null) {
+          config['macAddress'] = provider.macAddress;
+        }
+      }
 
       final source = _sourceFactory.create(provider.id, sourceType, config);
       await _sourceRepo.register(source);
@@ -125,13 +131,14 @@ class ProviderManagerController extends GetxController {
           ),
         );
       } else {
+        final message = _friendlySyncMessage(result.error, provider);
         await _repository.updateProvider(
           provider.copyWith(status: ProviderStatus.error),
         );
-        errorMessage.value = result.error ?? 'Failed to sync provider.';
+        errorMessage.value = message;
         Get.snackbar(
           'Sync Failed',
-          result.error ?? 'Could not connect to "${provider.name}". Check your URL and credentials.',
+          message,
           snackPosition: SnackPosition.BOTTOM,
           backgroundColor: Get.theme.colorScheme.errorContainer,
           colorText: Get.theme.colorScheme.onErrorContainer,
@@ -139,7 +146,11 @@ class ProviderManagerController extends GetxController {
       }
     } catch (e) {
       _logger.warning('Provider sync failed', tag: 'ProviderManagerController', error: e);
-      errorMessage.value = 'Sync failed: ${e.toString()}';
+      final message = _friendlySyncMessage(
+        e is ApplicationException ? e.message : null,
+        provider,
+      );
+      errorMessage.value = message;
       try {
         await _repository.updateProvider(
           provider.copyWith(status: ProviderStatus.error),
@@ -148,6 +159,19 @@ class ProviderManagerController extends GetxController {
     } finally {
       await loadProviders();
     }
+  }
+
+  String _friendlySyncMessage(String? raw, ProviderModel provider) {
+    if (raw == null || raw.isEmpty) {
+      return 'Could not connect to "${provider.name}". Check that the server is online and your credentials are correct.';
+    }
+    if (raw.contains('SocketException') || raw.contains('Failed host lookup')) {
+      return 'Could not reach "${provider.name}" server. Check that the server URL is correct and you are online.';
+    }
+    if (raw.contains('TimeoutException') || raw.toLowerCase().contains('timed out')) {
+      return 'Connection to "${provider.name}" timed out. Please try again.';
+    }
+    return raw;
   }
 
   MediaSourceType? _toMediaSourceType(ProviderType type) {

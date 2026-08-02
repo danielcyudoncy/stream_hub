@@ -10,6 +10,7 @@ import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/playback_engine.dart';
+import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playable_stream.dart';
 
@@ -58,6 +59,19 @@ class PlaybackController extends GetxController {
       mediaItem,
       stream,
       providerId: providerId,
+      resumePosition: resumePosition,
+    );
+  }
+
+  /// Plays an authenticated session produced by the Stream Engine.
+  Future<PlayableMediaSession> playSession(
+    PlayableSession session, {
+    MediaItem? mediaItem,
+    Duration? resumePosition,
+  }) async {
+    return engine.playFromStreamEngine(
+      session,
+      mediaItem: mediaItem,
       resumePosition: resumePosition,
     );
   }

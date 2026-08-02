@@ -10,8 +10,9 @@ import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/playback_controller.dart';
-import 'package:stream_hub/core/media/stream_resolver.dart';
-import 'package:stream_hub/core/media/stream_resolvers/m3u_stream_resolver.dart';
+import 'package:stream_hub/core/streaming/models/playable_session.dart';
+import 'package:stream_hub/core/streaming/models/provider_session.dart';
+import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playable_stream.dart';
@@ -20,7 +21,7 @@ import 'package:stream_hub/data/repositories/favorite_repository.dart';
 
 class PlayerController extends GetxController {
   final PlaybackController playbackController;
-  final StreamResolver streamResolver;
+  final StreamRepository streamRepository;
   final HistoryRepository? historyRepository;
   final FavoriteRepository? favoriteRepository;
 
@@ -36,7 +37,7 @@ class PlayerController extends GetxController {
     PlayerAdapter? adapter,
     PlayerSettings? settings,
     LoggingService? logger,
-    StreamResolver? streamResolver,
+    StreamRepository? streamRepository,
     this.historyRepository,
     this.favoriteRepository,
   })  : playbackController = PlaybackController(
@@ -44,7 +45,7 @@ class PlayerController extends GetxController {
           settings: settings,
           logger: logger,
         ),
-        streamResolver = streamResolver ?? M3UStreamResolver();
+        streamRepository = streamRepository ?? Get.find<StreamRepository>();
 
   PlayableMediaSession? get session => playbackController.engine.currentSession;
   PlaybackState get state => playbackController.engine.currentState;
@@ -81,8 +82,16 @@ class PlayerController extends GetxController {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
-    final stream = PlayableStream(url: url);
-    await playMedia(mediaItem, stream);
+    final session = await streamRepository.resolveStream(
+      mediaItemId: id,
+      url: url,
+      providerSession: ProviderSession(
+        providerId: 'unknown',
+        providerType: MediaSourceType.m3u,
+        sessionId: 'direct_$id',
+      ),
+    );
+    await playWithSession(mediaItem, session);
   }
 
   Future<void> playMedia(
@@ -100,13 +109,29 @@ class PlayerController extends GetxController {
     _recordPlayback(mediaItem);
   }
 
+  /// Plays an authenticated session produced by the Stream Engine.
+  Future<void> playWithSession(
+    MediaItem mediaItem,
+    PlayableSession session, {
+    Duration? resumePosition,
+  }) async {
+    await playbackController.playSession(
+      session,
+      mediaItem: mediaItem,
+      resumePosition: resumePosition,
+    );
+    _recordPlayback(mediaItem);
+  }
+
   Future<void> playMediaItem(MediaItem item) async {
-    final stream = await streamResolver.resolve(item);
-    final isValid = await streamResolver.validate(stream);
-    if (!isValid) {
-      throw Exception('Invalid stream for ${item.title}');
-    }
-    await playMedia(item, stream);
+    final session = await streamRepository.resolvePlayback(
+      mediaItemId: item.id,
+      providerType: item.providerType,
+      itemMetadata: item.metadata,
+      providerId: item.providerId,
+      fallbackUrl: item.id,
+    );
+    await playWithSession(item, session);
   }
 
   void setChannelList(List<MediaItem> channels, {String? currentId}) {

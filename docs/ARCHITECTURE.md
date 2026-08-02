@@ -387,6 +387,141 @@ Examples:
 - PlaybackAnalyticsService
 - PlayerSettingsService
 
+### Network Resilience
+
+HTTP clients that talk to provider endpoints use a DNS-over-HTTPS (DoH)
+fallback (`lib/core/network/doh_http_client.dart`).
+
+Rationale: IPTV CDN hosts often "flux" — the DNS record briefly disappears or
+the device resolver (e.g. Android emulators, some ISPs) fails a lookup even
+though the record is published. A plain `Socket.connect(host, ...)` gives up at
+the first `SocketException: Failed host lookup`.
+
+How it works:
+
+1. `DohResolver` queries public DoH endpoints (Cloudflare, Google) for A/AAAA
+   records, caching with a short TTL and sharing one in-flight future per host.
+2. `createDohAwareHttpClient()` installs an `HttpClient.connectionFactory` that
+   resolves the host via DoH and connects to the returned IP directly.
+   HTTPS connections are wrapped with `SecureSocket.secure(host: ...)`, so SNI
+   and certificate validation still run against the real hostname — security is
+   not bypassed.
+3. If DoH is unreachable or returns nothing, the client falls back to the
+   platform resolver (identical behavior to a plain `HttpClient`).
+
+All outbound HTTP paths use this client: provider sources (`StalkerPortalClient`,
+`XtreamSource`), playlist/EPG downloads (`M3UDownloadService`,
+`XMLTVDownloadService`), and stream probing (`DartHttpProbe`). A transient DNS
+failure is retried through DoH on the next attempt instead of surfacing
+immediately to the user.
+
+---
+
+### Stream Engine
+
+The single source of truth for preparing all playback and download sessions.
+
+Every media item passes through the same provider-independent pipeline:
+
+```
+Media Item
+  ↓
+Provider Config (ProviderConfigProvider)
+  ↓
+SessionManager.getOrCreateSession()
+  ↓
+ProviderSessionFactory (per provider type)
+  ↓
+ProviderSession (authenticated, provider-specific context)
+  ↓
+StreamResolver.resolve()
+  ↓
+AuthenticationEngine.applyAuthenticationToUrl()
+  ↓
+UrlNormalizer.canonicalize()
+  ↓
+CookieManager + HeaderEngine (headers, cookies, bearer)
+  ↓
+PlayableSessionFactory.create()
+  ↓
+StreamValidator.validate()
+  ↓
+PlayableSession → Playback Engine / Download Engine
+```
+
+**Invariant:** the Playback Engine and the Download Engine only ever receive
+`PlayableSession` objects. No provider URL, provider model, or provider header
+set ever reaches the player directly.
+
+Responsibilities:
+
+- Create, reuse, refresh, and persist provider sessions (`SessionManager`)
+- Resolve raw source URLs into `StreamResolution`s (`StreamResolver`)
+- Apply provider authentication (token refresh, URL signing, portal tokens)
+- Attach headers, cookies, user agent, referer, origin, and bearer tokens
+- Normalize and sanitize stream URLs (`UrlNormalizer`)
+- Validate streams before playback/download (`StreamValidator`)
+- Cache playable sessions (`StreamCache`) and encrypted provider sessions
+  (`SessionCache` → Hive)
+- Track stream health (`StreamHealthMonitor`)
+- Fail over to backup URLs (`FailoverManager`)
+- Prepare authenticated downloads (`DownloadPreparationService`)
+- Publish stream lifecycle events (`StreamEventBus`)
+- Run background session refresh tasks (`StreamTaskManager`)
+
+#### ProviderSession
+
+The authenticated, provider-specific context required to request streams from a
+single IPTV provider. Produced by a `ProviderSessionFactory` registered for the
+provider's `MediaSourceType`.
+
+Fields:
+
+- providerId, providerType, sessionId
+- cookies, headers, bearerToken, macAddress, deviceId, portalToken
+- username, password, expiresAt
+- userAgent, referer, origin
+- timeout, retryPolicy, capabilities, baseUrl
+
+Every provider type has a factory:
+
+- `M3UProviderSessionFactory`
+- `XtreamProviderSessionFactory`
+- `StalkerProviderSessionFactory`
+- `BearerServerProviderSessionFactory` (Plex / Jellyfin / Emby)
+
+#### PlayableSession
+
+The single object understood by the Playback Engine and the Download Engine.
+
+Fields:
+
+- sessionId, mediaItemId, providerId, providerType
+- streamUrl, streamType, mimeType
+- headers, cookies, queryParameters, bearerToken, referer, origin, userAgent
+- expiresAt
+- capabilities (seeking, pause, recording, download, catchup, timeshift,
+  subtitles, audio tracks)
+- drmInformation
+- networkTimeout, retryPolicy, metadata
+
+Sensitive fields are never logged; `SensitiveDataRedactor` scrubs tokens,
+cookies, credentials, and MAC addresses from all log output.
+
+#### Session Lifecycle
+
+1. `getOrCreateSession` loads the cached session or builds one through the
+   provider factory.
+2. `AuthenticationEngine.ensureValidSession` validates the session, refreshing
+   it when expired, unauthenticated, or rejected by a quick check.
+3. Valid sessions are persisted (encrypted) through `SessionCache`.
+4. Sessions are invalidated on logout or provider removal.
+
+#### Session Storage
+
+Hive box `provider_sessions` (typeId 20) stores encrypted `ProviderSession`
+data. Tokens, cookies, and credentials are encrypted before touching disk.
+
 ---
 
 ### Playback Engine
@@ -405,7 +540,9 @@ Responsibilities:
 
 The engine is completely decoupled from provider implementations.
 
-The player only understands `MediaItem` and `PlayableMediaSession`.
+The player only understands `MediaItem` and `PlayableMediaSession`, and always
+consumes streams through the `StreamEngine`, which produces `PlayableSession`
+objects. The player never receives a raw provider URL or provider headers.
 
 Future providers require zero player changes.
 
@@ -600,11 +737,23 @@ Repository / MediaEngine
 
 ↓
 
-MediaSource (adapter)
+StreamEngine.resolvePlayback()
 
 ↓
 
-Stream URL
+ProviderSession → Resolver → Authentication → Headers → Cookies →
+
+↓
+
+URL Normalization → Validation → PlayableSession
+
+↓
+
+PlaybackEngine.playFromStreamEngine()
+
+↓
+
+PlayerAdapter.playSession(PlayableSession)
 
 ↓
 
@@ -624,6 +773,7 @@ Hive stores:
 - Downloads
 - Watch Progress
 - Cache Info
+- Provider Sessions (encrypted via `SessionCache`, box `provider_sessions`)
 
 SQLite may be used later for:
 
@@ -662,6 +812,10 @@ lib/
 
         utils/
 
+        network/
+
+            doh_http_client.dart
+
         services/
 
         localization/
@@ -693,6 +847,48 @@ lib/
             media_library.dart
 
             stream_resolver.dart
+
+        streaming/
+
+            stream_engine.dart
+
+            models/
+
+            errors/
+
+            events/
+
+            security/
+
+            network/
+
+            auth/
+
+                providers/
+
+            resolver/
+
+            validation/
+
+            health/
+
+            cache/
+
+            factory/
+
+            failover/
+
+            download/
+
+            background/
+
+            session/
+
+                factories/
+
+            repositories/
+
+            controllers/
 
     data/
 
@@ -840,6 +1036,12 @@ lib/
 
                 m3u_media_source.dart
 
+            stalker/
+
+                stalker_portal_client.dart
+
+                stalker_media_source.dart
+
             stubs/
 
                 m3u_source.dart
@@ -857,8 +1059,6 @@ lib/
                 local_playlist_source.dart
 
                 plex_source.dart
-
-                stalker_source.dart
 
                 tvheadend_source.dart
 
@@ -945,3 +1145,6 @@ lib/
 - UI never knows provider types.
 - Media sources are replaceable adapters.
 - Everything is interface-based.
+- All playback and downloads go through the Stream Engine.
+- Players and download engines only receive `PlayableSession` objects.
+- Stream URLs, tokens, cookies, and credentials are never logged.

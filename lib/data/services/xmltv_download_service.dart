@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/data/models/xmltv_models.dart';
 
 class DownloadProgress {
@@ -43,7 +44,7 @@ class CancellationToken {
 
 class XMLTVDownloadService {
   final LoggingService _logger;
-  final HttpClient _client = HttpClient();
+  final HttpClient _client = createDohAwareHttpClient();
 
   XMLTVDownloadService(this._logger);
 

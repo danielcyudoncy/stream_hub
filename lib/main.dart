@@ -51,9 +51,7 @@ class StreamHubApp extends StatelessWidget {
       translations: AppTranslations(),
       locale: const Locale('en', 'US'),
       fallbackLocale: const Locale('en', 'US'),
-      supportedLocales: const [
-        Locale('en', 'US'),
-      ],
+      supportedLocales: const [Locale('en', 'US')],
     );
   }
 }
