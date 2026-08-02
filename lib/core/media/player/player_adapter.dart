@@ -5,12 +5,18 @@ import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
+import 'package:stream_hub/core/streaming/models/playable_session.dart';
 
 abstract class PlayerAdapter {
   Future<void> initialize();
   Future<void> dispose();
 
   Future<void> load(PlayableMediaSession session);
+
+  /// Loads an authenticated stream produced by the Stream Engine. The player
+  /// must never be given a raw provider URL or header set.
+  Future<void> playSession(PlayableSession session);
+
   Future<void> play();
   Future<void> pause();
   Future<void> resume();
