@@ -11,7 +11,7 @@ import 'package:stream_hub/data/providers/stubs/hd_home_run_source.dart';
 import 'package:stream_hub/data/providers/stubs/jellyfin_source.dart';
 import 'package:stream_hub/data/providers/stubs/local_playlist_source.dart';
 import 'package:stream_hub/data/providers/stubs/plex_source.dart';
-import 'package:stream_hub/data/providers/stubs/stalker_source.dart';
+import 'package:stream_hub/data/providers/stalker/stalker_media_source.dart';
 import 'package:stream_hub/data/providers/stubs/tvheadend_source.dart';
 import 'package:stream_hub/data/providers/stubs/xtream_source.dart';
 
@@ -35,7 +35,7 @@ class DefaultMediaSourceFactory implements MediaSourceFactory {
       case MediaSourceType.xtream:
         return XtreamSource(id: id, config: config);
       case MediaSourceType.stalker:
-        return StalkerSource(id: id, config: config);
+        return StalkerMediaSource(id: id, config: config);
       case MediaSourceType.xmltv:
         final xmltvConfig = XMLTVConfig(
           sourceUrl: config['sourceUrl'] as String? ?? '',
