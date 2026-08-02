@@ -63,26 +63,196 @@ Use repositories and services.
 
 ---
 
-## Architecture
+## IPTV Provider Architecture
 
-Presentation
+Providers MUST NEVER communicate directly with:
+
+- UI
+- Player
+- Download Engine
+
+Every provider must implement a common ProviderAdapter interface.
+
+Providers only produce normalized media models.
+
+The playback pipeline must remain provider-independent.
+
+Pipeline
+
+Provider
 
 ↓
 
-Controller (GetX)
+Provider Adapter
 
 ↓
 
-Repository
+Media Engine
 
 ↓
 
-Service
+Media Library
 
 ↓
 
-Remote API / Local Database
+Stream Engine
 
+↓
+
+Playback Engine
+
+↓
+
+Player Adapter
+
+↓
+
+Native Player
+
+## IPTV Core
+
+The IPTV Core is responsible for transforming provider media into playable media.
+
+The IPTV Core includes:
+
+- Provider Detection
+- Playlist Analysis
+- Provider Session Management
+- Authentication
+- Stream Resolution
+- URL Normalization
+- Header Injection
+- Cookie Management
+- Capability Detection
+- Stream Validation
+- Stream Negotiation
+
+The IPTV Core must remain provider-independent.
+
+All provider implementations eventually produce the same object:
+
+PlayableSession
+
+## Stream Engine
+
+The Stream Engine is the only component allowed to prepare media for playback.
+
+Responsibilities
+
+- Resolve stream URLs
+- Authenticate requests
+- Inject HTTP headers
+- Manage cookies
+- Validate streams
+- Handle redirects
+- Handle retries
+- Generate PlayableSession objects
+- Prepare downloads
+- Monitor stream health
+
+The Player must never receive a raw provider URL.
+
+## PlayableSession
+
+The Player receives only a PlayableSession.
+
+Never
+
+- M3UChannel
+- XtreamChannel
+- StalkerChannel
+- Raw URL
+
+PlayableSession contains
+
+- Stream URL
+- Headers
+- Cookies
+- Authentication
+- Metadata
+- Stream Capabilities
+- Session Information
+- Timeout
+- Retry Policy
+
+## Capability System
+
+Every playable stream exposes capabilities.
+
+Examples
+
+- Seek
+- Pause
+- Download
+- Record
+- Catch-up
+- Timeshift
+- PiP
+- Chromecast
+- AirPlay
+- Subtitles
+- Multiple Audio Tracks
+
+The UI should respond to capabilities rather than provider types.
+
+## Player Independence
+
+The Playback Engine controls playback.
+
+The UI never communicates directly with:
+
+- MediaKit
+- VLC
+- ExoPlayer
+- AVPlayer
+
+All playback passes through
+
+PlaybackEngine
+
+↓
+
+PlayerAdapter
+
+↓
+
+Native Player
+
+This allows player implementations to be replaced without affecting business logic.
+
+## Provider Independence
+
+The application must never contain provider-specific UI.
+
+The UI consumes only normalized models.
+
+Examples
+
+MediaItem
+
+Channel
+
+Movie
+
+Series
+
+Category
+
+EpgProgram
+
+PlayableSession
+
+Never
+
+XtreamMovie
+
+XtreamChannel
+
+M3UChannel
+
+StalkerChannel
+
+inside widgets.
 ---
 
 ## Folder Structure
@@ -522,11 +692,12 @@ Phase 7
 Before making changes to this project, review the following documents:
 
 | Document | Purpose |
-| ---------- | --------- |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Overall system architecture, data flow, module interactions, repositories, services, and provider adapters. |
-| [`docs/API.md`](docs/API.md) | IPTV provider specifications including M3U, Xtream, Stalker, XMLTV, and future providers. |
-| [`docs/UI_GUIDELINES.md`](docs/UI_GUIDELINES.md) | Design system, responsive layouts, themes, TV navigation, spacing, typography, and UI standards. |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | Development phases, milestones, completed work, and future features. |
+|----------|---------|
+| docs/ARCHITECTURE.md | Overall software architecture and system design |
+| docs/IPTV_ARCHITECTURE_RESEARCH.md | Research into IPTV application architecture, playback pipelines, provider systems, and engineering decisions |
+| docs/API.md | IPTV provider specifications |
+| docs/UI_GUIDELINES.md | Design system and UI standards |
+| docs/ROADMAP.md | Project roadmap and milestones |
 
 These documents are considered part of this project's source of truth.
 
@@ -553,21 +724,20 @@ Follow the highest-priority document.
 
 This repository is designed to be AI-friendly.
 
-Before starting any task:
+Before making ANY code changes, AI agents MUST read the following documents in order.
 
-- Read this AGENTS.md file first.
-- Read every document listed in the Project Documentation section.
-- Follow the established architecture and coding standards.
-- Do not introduce new architectural patterns without updating
-`docs/ARCHITECTURE.md`.
-- Do not add new provider types without updating `docs/API.md`.
-- Do not create new UI patterns without updating `docs/UI_GUIDELINES.md`.
-- Update `docs/ROADMAP.md` whenever a milestone is completed or priorities
-change.
+1. AGENTS.md
+2. docs/ARCHITECTURE.md
+3. docs/IPTV_ARCHITECTURE_RESEARCH.md
+4. docs/API.md
+5. docs/UI_GUIDELINES.md
+6. docs/ROADMAP.md
 
-When introducing significant features or structural changes, update the relevant
-documentation in the same pull request so the documentation remains accurate.
+These documents collectively define the project's architecture and coding standards.
 
+If conflicts exist, resolve them using the order above.
+
+No architectural changes should be introduced without updating the relevant documentation.
 ## AI Agent Role
 
 You are an experienced senior Flutter engineer and software architect
@@ -642,3 +812,65 @@ After writing code:
 - Remove dead code.
 - Ensure consistent formatting.
 - Update relevant documentation if behavior changes.
+
+## Engineering Research Rule
+
+Before introducing a major subsystem, AI agents should determine whether mature streaming applications solve the same problem using a well-established architectural pattern.
+
+Research should inform architecture.
+
+The project should learn from mature streaming applications while remaining an original implementation.
+
+Research documents should be updated whenever new architectural insights are discovered.
+
+
+## Diagnostics
+
+The application should never silently fail.
+
+Every subsystem should expose meaningful diagnostics.
+
+Examples
+
+- Playlist parsing
+- Provider authentication
+- Session creation
+- Stream resolution
+- Playback initialization
+- Download preparation
+
+When playback fails, the application should identify the failing stage whenever possible.
+
+## Testing Philosophy
+
+Every subsystem should be independently testable.
+
+Provider
+
+↓
+
+Media Engine
+
+↓
+
+Stream Engine
+
+↓
+
+Playback Engine
+
+↓
+
+Player
+
+Each layer must be testable in isolation.
+
+Avoid testing multiple architectural layers simultaneously when debugging playback issues.
+
+## Golden Rule
+
+The application is NOT an IPTV player.
+
+It is a modular media platform capable of supporting multiple content providers, playback technologies, metadata services, and future media ecosystems.
+
+Architecture decisions should prioritize long-term maintainability, extensibility, and provider independence over short-term implementation convenience.
