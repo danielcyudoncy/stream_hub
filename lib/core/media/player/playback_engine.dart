@@ -13,6 +13,8 @@ import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/playback_analytics.dart';
+import 'package:stream_hub/core/streaming/models/playable_session.dart';
+import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playable_stream.dart';
 
@@ -140,6 +142,102 @@ class PlaybackEngine {
       _handleError('Failed to load session: $e', st);
       rethrow;
     }
+  }
+
+  /// Plays an authenticated session produced by the Stream Engine.
+  ///
+  /// The engine consumes a [PlayableSession] and adapts it into the internal
+  /// [PlayableMediaSession]; the player adapter only ever sees the session.
+  Future<PlayableMediaSession> playFromStreamEngine(
+    PlayableSession session, {
+    MediaItem? mediaItem,
+    Duration? resumePosition,
+  }) async {
+    final item = mediaItem ??
+        MediaItem(
+          id: session.mediaItemId,
+          providerId: session.providerId,
+          providerType: session.providerType,
+          mediaType: MediaType.channel,
+          title: session.metadata['title']?.toString() ?? session.mediaItemId,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+    final headers = <String, String>{...session.headers};
+    if (session.userAgent != null) {
+      headers['User-Agent'] = session.userAgent!;
+    }
+    if (session.referer != null) {
+      headers['Referer'] = session.referer!;
+    }
+    if (session.origin != null) {
+      headers['Origin'] = session.origin!;
+    }
+    if (session.requiresBearerToken) {
+      headers['Authorization'] = 'Bearer ${session.bearerToken}';
+    }
+    if (session.cookies.isNotEmpty) {
+      headers['Cookie'] = CookieManager.serializeCookies(session.cookies);
+    }
+
+    final playableMediaSession = PlayableMediaSession(
+      id: session.sessionId,
+      mediaItem: item,
+      stream: PlayableStream(
+        url: session.streamUrl,
+        headers: headers,
+        expires: session.expiresAt,
+        drm: session.drmInformation?.toMap(),
+      ),
+      providerId: session.providerId,
+      resumePosition: resumePosition ?? Duration.zero,
+      capabilities: PlaybackCapabilities(
+        canResume: true,
+        canPause: session.supportsPause,
+        canSeek: session.supportsSeeking,
+        canChangeSpeed: true,
+        canChangeAspectRatio: true,
+        canPictureInPicture: true,
+        canChangeQuality: false,
+        supportsMultipleQualities: false,
+      ),
+      metadata: SessionMetadata(
+        title: item.title,
+        description: item.description,
+        posterUrl: item.poster,
+        providerType: item.providerType.name,
+        isLive: item.mediaType == MediaType.channel,
+      ),
+    );
+
+    _currentSession = playableMediaSession;
+    _retryCount = 0;
+    _analytics = PlaybackAnalytics(
+      sessionId: playableMediaSession.id,
+      itemId: item.id,
+      providerType: item.providerType.name,
+      startedAt: DateTime.now(),
+    );
+
+    _setState(PlaybackState.loading);
+    try {
+      await adapter.playSession(session);
+      _setState(PlaybackState.buffering);
+      await adapter.play();
+      _setState(PlaybackState.playing);
+      _startAnalytics();
+      _startBufferMonitoring();
+      _retryCount = 0;
+      logger.info(
+        'Stream engine session loaded: ${session.mediaItemId}',
+        tag: 'PlaybackEngine',
+      );
+    } catch (e, st) {
+      _handleError('Failed to load stream session: $e', st);
+      rethrow;
+    }
+    return playableMediaSession;
   }
 
   Future<void> play() async {

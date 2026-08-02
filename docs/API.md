@@ -4,6 +4,115 @@ Every media source must expose the same data.
 
 ---
 
+## Stream Engine
+
+All playback and downloads flow through the Stream Engine, which produces
+authenticated, validated `PlayableSession` objects. The Playback Engine and the
+Download Engine never receive raw provider URLs, provider models, or provider
+headers.
+
+### Pipeline
+
+```
+Media Item
+  → ProviderConfigProvider (optional credentials/headers lookup)
+  → SessionManager.getOrCreateSession()
+  → ProviderSessionFactory (M3U / Xtream / Stalker / Bearer server)
+  → ProviderSession
+  → StreamResolver.resolve()
+  → AuthenticationEngine.applyAuthenticationToUrl()
+  → UrlNormalizer.canonicalize()
+  → CookieManager + HeaderEngine
+  → PlayableSessionFactory.create()
+  → StreamValidator.validate()
+  → PlayableSession
+```
+
+### Public API
+
+`StreamEngine`:
+
+- `resolvePlayback(...)` — resolve a media item into a validated `PlayableSession`
+- `resolveStream(...)` — resolve a raw URL against an existing `ProviderSession`
+- `prepareDownload(...)` — produce a `PreparedDownload` for authenticated downloads
+- `validateStream(session)` — probe and validate a session
+- `selectWorkingStream(session)` — fail over to a working backup URL
+- `healthFor(sessionId)` — current health snapshot
+- `cachedSession(providerId, mediaItemId)` — retrieve a cached session
+- `startBackgroundTasks()` / `stopBackgroundTasks()` / `dispose()`
+
+### Provider Session
+
+Every provider type registers a `ProviderSessionFactory`:
+
+| Provider type | Factory |
+| --- | --- |
+| M3U | `M3UProviderSessionFactory` |
+| Xtream | `XtreamProviderSessionFactory` |
+| Stalker | `StalkerProviderSessionFactory` |
+| Plex / Jellyfin / Emby | `BearerServerProviderSessionFactory` |
+
+Sessions carry cookies, headers, tokens, credentials, expiry, user agent,
+referer, origin, timeout, retry policy, capabilities, and the provider base URL.
+Sensitive fields are encrypted before persistence (Hive box `provider_sessions`)
+and are never logged.
+
+### Session Lifecycle
+
+1. `getOrCreateSession` reuses a cached session or builds one via the factory.
+2. `AuthenticationEngine.ensureValidSession` validates the session and refreshes
+   it when expired, unauthenticated, or rejected.
+3. Sessions are persisted encrypted and invalidated on logout/provider removal.
+
+### Authentication
+
+Each provider registers an `AuthenticationProvider`:
+
+- `M3UAuthenticationProvider`
+- `XtreamAuthenticationProvider`
+- `StalkerAuthenticationProvider`
+- `BearerTokenAuthenticationProvider`
+
+A provider advertises `supportsRefresh`; the engine refreshes before failing.
+
+### Stream Resolution
+
+`StreamResolver` implementations resolve provider URLs into `StreamResolution`s:
+
+- `DefaultStreamResolver` — relative URL resolution, redirect following with loop
+  detection, stream-type/mime detection, quality/capability detection, DRM
+  discovery, backup URL collection, expiration detection
+- Provider-specific resolvers may extend or replace it
+
+### Validation
+
+`StreamValidator` performs:
+
+- URL syntax and scheme checks
+- Expiry checks
+- Header integrity (no header injection)
+- HTTP(S) reachability probes (content-type, status code, redirects)
+
+Supported schemes: `http`, `https`, `rtsp`, `rtmp`, `rtmps`, `mms`.
+
+### Failover
+
+`FailoverManager` selects a working candidate from primary + backup URLs. The
+player only ever sees a single valid `PlayableSession`.
+
+### Downloads
+
+`DownloadPreparationService` produces `PreparedDownload` objects with suggested
+file names and extensions. Downloads reuse the exact cookies/headers of playback.
+
+### Events
+
+Stream events (session created/refreshed/expired, authentication failed, stream
+resolved, playback ready, download ready, health updated) are published on a
+shared `StreamEventBus`.
+
+---
+
 ## Common Models
 
 All sources should return:
@@ -146,9 +255,58 @@ Returns
 
 - Live TV
 - Movies
-- Series
+- Series (with episodes)
 - Categories
-- EPG
+- EPG (via XMLTV enrichment)
+
+### Protocol
+
+The Stalker (MAG/STB middleware) portal is accessed over HTTP POST to its
+load script. The script path is auto-detected in order: `/server/load.php`,
+`/stalker_portal/server/load.php`, `/portal.php`. Requests are sent as
+`application/x-www-form-urlencoded` with `JsHttpRequest=1-xml`, so responses
+are wrapped in a `js` envelope.
+
+Every request includes:
+
+- `type=stb`
+- `action=<action>`
+- `token=<portal token>` (empty during the initial handshake)
+- `Mac=<AA:BB:CC:DD:EE:FF>` (normalized to uppercase, colon-separated)
+- `sn=<serial or MAC>`
+
+### Actions
+
+| Action | Purpose |
+| ------ | ------- |
+| `handshake` | Exchanges the MAC for a short-lived portal token (`js.token`, `js.serial`). |
+| `get_profile` | Subscriber profile; `auth_status == 1` confirms the MAC is accepted. |
+| `get_categories` | Category list for `type=live`, `type=vod`, or `type=series`. |
+| `get_ordered_list` | Live TV channels for `type=live`. |
+| `get_vod_categories` / `get_vod_list` | VOD categories and movies. |
+| `get_series_categories` / `get_series_list` | Series list; each show embeds `seasons[]` with `episodes[]`. |
+| `create_link` | Turns a stored `cmd` (plus `type`, `genre`) into a short-lived playable URL. |
+
+### Stream Resolution
+
+Playback is deferred to `create_link` at play time. The response provides
+either a direct `js.url` or an `js.cmd` (`ffmpeg -i 'URL' ...`) from which the
+stream URL is extracted. Items that expose a direct source (e.g.
+`direct_source` in live channels) are played directly without the exchange.
+
+### Components
+
+- `StalkerPortalClient` — low-level portal HTTP client
+  (`lib/data/providers/stalker/stalker_portal_client.dart`).
+- `StalkerMediaSource` — `MediaSource` implementation performing handshake +
+  catalog ingestion (`lib/data/providers/stalker/stalker_media_source.dart`).
+- `StalkerStreamResolver` — `create_link`-based playback resolver
+  (`lib/core/streaming/resolver/stalker_stream_resolver.dart`), routed through
+  `CompositeStreamResolver`.
+- `StalkerAuthenticationProvider` — token validation + real-handshake refresh
+  (`lib/core/streaming/auth/providers/stalker_authentication_provider.dart`).
+- `StalkerProviderSessionFactory` — builds the `ProviderSession`
+  (`lib/core/streaming/session/factories/stalker_provider_session_factory.dart`).
 
 ---
 

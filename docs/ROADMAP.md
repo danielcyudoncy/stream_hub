@@ -170,6 +170,38 @@ EPG Experience
 
 ---
 
+## Phase 3Z — Stream Engine
+
+Provider-independent playback and download preparation pipeline.
+
+- [x] Stream Engine orchestration (`StreamEngine`)
+- [x] ProviderSession model and lifecycle (create, reuse, refresh, invalidate)
+- [x] ProviderSessionFactoryRegistry + factories (M3U, Xtream, Stalker, Bearer server)
+- [x] SessionManager + encrypted SessionCache (Hive box `provider_sessions`)
+- [x] AuthenticationEngine + AuthenticationProvider SPI (M3U, Xtream, Stalker, Bearer token)
+- [x] StreamResolver SPI + DefaultStreamResolver (relative URLs, redirects, DRM, backups)
+- [x] HeaderEngine (UA, Referer, Origin, Authorization, Bearer, Cookies, custom)
+- [x] CookieManager (per-provider cookies, expiry, restore)
+- [x] UrlNormalizer (canonicalization, query dedup, user-info extraction, relative resolution)
+- [x] StreamValidator (URL, scheme, expiry, header integrity, HTTP probes)
+- [x] PlayableSessionFactory (immutable session assembly)
+- [x] StreamCache (TTL in-memory session cache)
+- [x] FailoverManager (primary + backup URL selection)
+- [x] StreamHealthMonitor (availability, latency, failures, bitrate)
+- [x] DownloadPreparationService (PreparedDownload, file naming)
+- [x] StreamEventBus + lifecycle events
+- [x] SensitiveDataRedactor + DataEncryption (no credentials in logs/disk)
+- [x] StreamTaskManager (background session refresh, persists refreshed sessions)
+- [x] Repositories (StreamRepository, AuthenticationRepository, StreamCacheRepository)
+- [x] Controllers (SessionController, PlaybackSessionController, StreamHealthController, AuthenticationController)
+- [x] StreamEngineBinding (DI graph, wired before MediaBinding)
+- [x] Player integration (PlaybackEngine.playFromStreamEngine, PlayerAdapter.playSession, MediaKit header/cookie/bearer injection)
+- [x] PlayerController resolves through Stream Engine (no raw provider URLs)
+- [x] Docs updated (ARCHITECTURE.md, API.md)
+- [x] 90 Stream Engine tests passing (190 total)
+
+---
+
 ## Phase 4 — Player
 
 - [x] Play streams via real media_kit integration (MediaKitPlayerAdapter)
@@ -214,11 +246,12 @@ EPG
 
 Stalker Portal
 
-- MAC Login
-- Categories
-- Channels
-- Movies
-- Series
+- [x] MAC Login
+- [x] Categories
+- [x] Channels
+- [x] Movies
+- [x] Series
+- [x] Network resilience — DNS-over-HTTPS fallback for fluxing provider hosts
 
 ---
 

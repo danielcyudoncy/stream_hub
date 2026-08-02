@@ -9,18 +9,23 @@ import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/events/media_event_bus.dart';
 import 'package:stream_hub/core/media/media_source.dart';
+import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/data/models/media_health.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_sync_result.dart';
 import 'package:stream_hub/data/models/media_statistics.dart';
 
 class XtreamSource implements MediaSource {
+  static const Duration _kRequestTimeout = Duration(seconds: 15);
+
   final String _id;
   final String _serverUrl;
   final String _username;
   final String _password;
+  final int _maxRetries;
+  final Duration _retryDelay;
   final LoggingService _logger;
-  final HttpClient _client = HttpClient();
+  final HttpClient _client = createDohAwareHttpClient();
 
   MediaSourceState _state = MediaSourceState.created;
 
@@ -56,6 +61,8 @@ class XtreamSource implements MediaSource {
         _serverUrl = (config?['sourceUrl'] as String? ?? '').replaceAll(RegExp(r'/+$'), ''),
         _username = config?['username'] as String? ?? '',
         _password = config?['password'] as String? ?? '',
+        _maxRetries = (config?['maxRetries'] as int? ?? 3).clamp(0, 10).toInt(),
+        _retryDelay = Duration(seconds: (config?['retryDelay'] as int? ?? 2).clamp(1, 60).toInt()),
         _logger = logger ?? Get.find<LoggingService>();
 
   @override
@@ -93,6 +100,31 @@ class XtreamSource implements MediaSource {
     _state = MediaSourceState.syncing;
     final syncStartedAt = DateTime.now();
 
+    for (var attempt = 0; attempt <= _maxRetries; attempt++) {
+      final result = await _trySyncOnce(syncStartedAt);
+      if (result != null) return result;
+
+      if (attempt < _maxRetries) {
+        final delay = _retryDelay * (1 << attempt);
+        _logger.warning(
+          'Xtream sync failed, retrying in ${delay.inSeconds}s (attempt ${attempt + 1}/$_maxRetries)...',
+          tag: 'XtreamSource',
+        );
+        await Future.delayed(delay);
+      }
+    }
+
+    _state = MediaSourceState.error;
+    return MediaSyncResult(
+      sourceId: _id,
+      success: false,
+      error:
+          'Could not connect to "$_serverUrl". Check that the server is online and the URL is correct.',
+      completedAt: DateTime.now(),
+    );
+  }
+
+  Future<MediaSyncResult?> _trySyncOnce(DateTime syncStartedAt) async {
     try {
       final channels = await _fetchLiveChannels(syncStartedAt);
       final categories = await _fetchLiveCategories(syncStartedAt);
@@ -116,6 +148,12 @@ class XtreamSource implements MediaSource {
         added: channels.length,
         completedAt: _lastSync,
       );
+    } on SocketException catch (e) {
+      _logger.warning('Xtream sync network error', tag: 'XtreamSource', error: e);
+      return null;
+    } on TimeoutException catch (e) {
+      _logger.warning('Xtream sync timed out', tag: 'XtreamSource', error: e);
+      return null;
     } catch (e) {
       _state = MediaSourceState.error;
       _logger.error('Xtream sync failed', tag: 'XtreamSource', error: e);
@@ -226,11 +264,11 @@ class XtreamSource implements MediaSource {
   }
 
   Future<String?> _getJson(Uri uri) async {
-    final request = await _client.getUrl(uri);
+    final request = await _client.getUrl(uri).timeout(_kRequestTimeout);
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
     request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
 
-    final response = await request.close();
+    final response = await request.close().timeout(_kRequestTimeout);
     if (response.statusCode != 200) {
       _logger.warning(
         'Xtream API returned ${response.statusCode} for $uri',
@@ -249,11 +287,11 @@ class XtreamSource implements MediaSource {
       final uri = Uri.parse(
         '$_serverUrl/player_api.php?username=$_username&password=$_password',
       );
-      final request = await _client.getUrl(uri);
+      final request = await _client.getUrl(uri).timeout(_kRequestTimeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
 
-      final response = await request.close();
+      final response = await request.close().timeout(_kRequestTimeout);
       if (response.statusCode != 200) return false;
 
       final bytes = await response.fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
@@ -274,9 +312,9 @@ class XtreamSource implements MediaSource {
         '$_serverUrl/player_api.php?username=$_username&password=$_password',
       );
       final stopwatch = Stopwatch()..start();
-      final request = await _client.getUrl(uri);
+      final request = await _client.getUrl(uri).timeout(_kRequestTimeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      final response = await request.close();
+      final response = await request.close().timeout(_kRequestTimeout);
       stopwatch.stop();
 
       final isConnected = response.statusCode == 200;

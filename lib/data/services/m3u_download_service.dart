@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/data/models/m3u_models.dart';
 
 class DownloadProgress {
@@ -23,7 +24,7 @@ class DownloadProgress {
 
 class M3UDownloadService {
   final LoggingService _logger;
-  final HttpClient _client = HttpClient();
+  final HttpClient _client = createDohAwareHttpClient();
 
   M3UDownloadService(this._logger);
 

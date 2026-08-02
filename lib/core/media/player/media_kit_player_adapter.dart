@@ -9,6 +9,8 @@ import 'package:stream_hub/core/media/player/buffer_info.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/streaming/models/playable_session.dart';
+import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
 
 class MediaKitPlayerAdapter implements PlayerAdapter {
   mk.Player? _player;
@@ -137,6 +139,35 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     final media = mk.Media(session.stream.url,
         httpHeaders: session.stream.headers);
     await _player!.open(media);
+    _currentDuration = Duration.zero;
+  }
+
+  @override
+  Future<void> playSession(PlayableSession session) async {
+    if (_player == null) return;
+    final uri = Uri.tryParse(session.streamUrl);
+    if (uri == null || !uri.isAbsolute) {
+      throw Exception('Invalid stream URL: ${session.streamUrl}');
+    }
+
+    final headers = <String, String>{...session.headers};
+    if (session.userAgent != null && session.userAgent!.isNotEmpty) {
+      headers['User-Agent'] = session.userAgent!;
+    }
+    if (session.referer != null && session.referer!.isNotEmpty) {
+      headers['Referer'] = session.referer!;
+    }
+    if (session.origin != null && session.origin!.isNotEmpty) {
+      headers['Origin'] = session.origin!;
+    }
+    if (session.requiresBearerToken) {
+      headers['Authorization'] = 'Bearer ${session.bearerToken}';
+    }
+    if (session.cookies.isNotEmpty) {
+      headers['Cookie'] = CookieManager.serializeCookies(session.cookies);
+    }
+
+    await _player!.open(mk.Media(session.streamUrl, httpHeaders: headers));
     _currentDuration = Duration.zero;
   }
 
