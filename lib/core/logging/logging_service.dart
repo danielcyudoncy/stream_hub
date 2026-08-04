@@ -23,7 +23,13 @@ class LoggingService {
   void _log(String level, String message, {String? tag, Object? error, StackTrace? stackTrace}) {
     final logTag = tag != null ? '[$tag]' : '[App]';
     final formattedMessage = '$level $logTag: $message';
-    
+
+    // In debug builds, mirror to the console so logs are visible in logcat
+    // during on-device testing (developer.log only reaches the VM service).
+    if (kDebugMode) {
+      debugPrint(formattedMessage);
+    }
+
     developer.log(
       formattedMessage,
       name: 'StreamHubPro',

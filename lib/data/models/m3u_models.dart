@@ -223,7 +223,7 @@ class M3UPlaylistCache {
 }
 
 extension M3UChannelToMediaItem on M3UChannel {
-  MediaItem toMediaItem(String providerId) {
+  MediaItem toMediaItem(String providerId, {MediaType? mediaType}) {
     final genres = <String>[];
     if (group != null && group!.isNotEmpty) genres.add(group!);
     if (language != null && language!.isNotEmpty) genres.add(language!);
@@ -233,7 +233,7 @@ extension M3UChannelToMediaItem on M3UChannel {
       id: id,
       providerId: providerId,
       providerType: MediaSourceType.m3u,
-      mediaType: isRadio ? MediaType.channel : MediaType.channel,
+      mediaType: mediaType ?? MediaType.channel,
       title: title,
       subtitle: tvgName,
       description: tvgId,

@@ -522,6 +522,33 @@ Never raw URLs.
 
 ---
 
+## IPTV Core & Diagnostics
+
+Mature IPTV apps (TiviMate, Sparkle TV, Televizo) expose "test connection" /
+"check provider" flows that resolve a provider and stream quickly and explain
+failure. StreamHub implements this as a provider-independent IPTV Core.
+
+Learned from research:
+
+- **Diagnose by stage, not by result.** Failures are attributed to a pipeline
+  stage (detection, session, resolution, validation, negotiation) via
+  `StreamDiagnosticsReport`, which records per-step status, detail, and timing.
+- **Negotiation is decision-only.** `PlayerNegotiator` returns an ordered
+  preference (engine, support level, fallbacks) without instantiating players,
+  mirroring how TiviMate keeps player selection behind a capability query.
+- **Capabilities over provider types.** UI and negotiation respond to
+  `ProviderCapabilities`, not to whether a source is M3U/Xtream/Stalker.
+- **Bounded analysis.** Manifest probing (`StreamAnalyzer`) is capped in bytes
+  and timeout so "test connection" never hangs on a slow provider.
+- **Debug mode is a runtime toggle.** `DebugModeService` flips per-category
+  logging live; production builds stay quiet.
+
+These decisions keep the IPTV Core extendable: new provider kinds, players, and
+protocols slot in without touching the UI, the diagnostics builder, or the test
+tools.
+
+---
+
 # Applications to Evaluate
 
 Current research list

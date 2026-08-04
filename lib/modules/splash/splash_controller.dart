@@ -27,6 +27,7 @@ class SplashController extends GetxController {
       if (Get.isRegistered<AuthRepository>()) {
         try {
           final authRepository = Get.find<AuthRepository>();
+          await authRepository.initialize();
           final user = await authRepository.tryAutoLogin();
           if (user != null) {
             statusMessage.value = 'Welcome back!';

@@ -35,5 +35,9 @@ class AppRoutes {
   static const String fullscreenPlayer = '/fullscreen-player';
   static const String embeddedPlayer = '/embedded-player';
   static const String miniPlayer = '/mini-player';
+  static const String developer = '/developer';
+  static const String playbackTest = '/developer/playback-test';
+  static const String providerTest = '/developer/provider-test';
+  static const String streamTest = '/developer/stream-test';
   static const String unknown = '/unknown';
 }

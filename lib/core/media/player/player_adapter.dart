@@ -54,6 +54,6 @@ abstract class PlayerAdapter {
   Stream<PlaybackState> get stateStream;
   Stream<Duration> get positionStream;
   Stream<Duration> get bufferStream;
-  Stream<PlaybackState> get errorStream;
+  Stream<String> get errorStream;
   Stream<String> get subtitleStream;
 }

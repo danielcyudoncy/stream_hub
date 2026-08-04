@@ -57,6 +57,21 @@ class ProviderModel extends HiveObject {
   @HiveField(16)
   String? icon;
 
+  @HiveField(17)
+  DateTime? accountCreatedAt;
+
+  @HiveField(18)
+  DateTime? accountExpiresAt;
+
+  @HiveField(19)
+  String? accountStatus;
+
+  @HiveField(20)
+  bool? accountIsTrial;
+
+  @HiveField(21)
+  int? accountMaxConnections;
+
   ProviderModel({
     required this.id,
     required this.name,
@@ -75,6 +90,11 @@ class ProviderModel extends HiveObject {
     this.status = ProviderStatus.inactive,
     this.color,
     this.icon,
+    this.accountCreatedAt,
+    this.accountExpiresAt,
+    this.accountStatus,
+    this.accountIsTrial,
+    this.accountMaxConnections,
   });
 
   ProviderModel copyWith({
@@ -93,6 +113,11 @@ class ProviderModel extends HiveObject {
     ProviderStatus? status,
     String? color,
     String? icon,
+    DateTime? accountCreatedAt,
+    DateTime? accountExpiresAt,
+    String? accountStatus,
+    bool? accountIsTrial,
+    int? accountMaxConnections,
   }) {
     return ProviderModel(
       id: id,
@@ -112,6 +137,11 @@ class ProviderModel extends HiveObject {
       status: status ?? this.status,
       color: color ?? this.color,
       icon: icon ?? this.icon,
+      accountCreatedAt: accountCreatedAt ?? this.accountCreatedAt,
+      accountExpiresAt: accountExpiresAt ?? this.accountExpiresAt,
+      accountStatus: accountStatus ?? this.accountStatus,
+      accountIsTrial: accountIsTrial ?? this.accountIsTrial,
+      accountMaxConnections: accountMaxConnections ?? this.accountMaxConnections,
     );
   }
 }

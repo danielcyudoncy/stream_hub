@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'media_binding.dart';
 import 'stream_engine_binding.dart';
+import 'iptv_core_binding.dart';
 import 'package:stream_hub/data/repositories/settings_repository.dart';
 import 'package:stream_hub/data/repositories/profile_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
@@ -37,6 +38,7 @@ class AppBinding extends Bindings {
   @override
   void dependencies() {
     StreamEngineBinding().dependencies();
+    IptvCoreBinding().dependencies();
     MediaBinding().dependencies();
     Get.find<DatabaseService>();
     final settingsRepo = SettingsRepository();

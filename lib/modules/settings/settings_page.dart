@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
@@ -353,6 +354,16 @@ class SettingsPage extends GetView<SettingsController> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader(title: 'Developer', subtitle: 'Advanced options and diagnostics'),
+        AppSpacing.heightXS,
+        AppCard(
+          child: SettingsTile(
+            title: 'Developer Tools',
+            subtitle: 'Stream, provider and playback diagnostics',
+            leadingIcon: Icons.bug_report_outlined,
+            onTap: () => Get.toNamed(AppRoutes.developer),
+            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          ),
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: SettingsTile(

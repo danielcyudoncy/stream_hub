@@ -49,7 +49,7 @@ class MiniPlayerPage extends GetView<PlayerController> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 child: Obx(() {
-                  final title = controller.session?.metadata.title ?? 'Live';
+                  final title = controller.sessionRx.value?.metadata.title ?? 'Live';
                   return Text(
                     title,
                     style: theme.textTheme.bodyMedium,
@@ -60,7 +60,7 @@ class MiniPlayerPage extends GetView<PlayerController> {
               ),
             ),
             Obx(() {
-              final state = controller.state;
+              final state = controller.stateRx.value;
               if (state == PlaybackState.playing) {
                 return IconButton(
                   onPressed: () => controller.pause(),

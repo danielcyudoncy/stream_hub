@@ -3,9 +3,12 @@ import 'dart:io';
 
 /// A lightweight in-process Stalker portal used by unit tests.
 ///
-/// Responds to POST requests on the configured script path. A custom handler
-/// can answer per `action`; the default returns a canned response map. Set
-/// [missingScript] to simulate a deployment where the primary script path
+/// Responds to GET requests (the portal transport) on the configured script
+/// path. A custom handler can answer per `action`; the default returns a
+/// canned response map. Include an `'__status__': <int>` entry to answer with
+/// that HTTP status, or `'__empty__': true` to answer with a 200 and no body
+/// (some portals do this for actions they do not implement).
+/// Set [missingScript] to simulate a deployment where the primary script path
 /// does not exist (404) so path auto-detection can be exercised.
 class PortalTestServer {
   final HttpServer _server;
@@ -17,6 +20,7 @@ class PortalTestServer {
   late final String baseUrl;
 
   int requestCount = 0;
+  String? lastCookieHeader;
 
   PortalTestServer._(this._server, this._scriptPath, this._handler, this._missingScript);
 
@@ -41,11 +45,13 @@ class PortalTestServer {
 
   Future<void> _onRequest(HttpRequest request) async {
     requestCount++;
-    if (request.method != 'POST') {
+    if (request.method != 'GET') {
       request.response.statusCode = 405;
       await request.response.close();
       return;
     }
+
+    lastCookieHeader = request.headers.value('cookie');
 
     final path = request.uri.path;
     if (path != _scriptPath) {
@@ -60,12 +66,22 @@ class PortalTestServer {
       return;
     }
 
-    final body = await utf8.decoder.bind(request).join();
-    final params = Uri.splitQueryString(body);
+    final params = request.uri.queryParameters;
     final action = params['action'] ?? '';
 
     if (_handler != null) {
       final response = _handler(action, params);
+      final status = response['__status__'];
+      if (status is int) {
+        request.response.statusCode = status;
+        await request.response.close();
+        return;
+      }
+      if (response['__empty__'] == true) {
+        request.response.statusCode = 200;
+        await request.response.close();
+        return;
+      }
       request.response.headers.contentType = ContentType.json;
       request.response.write(json.encode(response));
       await request.response.close();

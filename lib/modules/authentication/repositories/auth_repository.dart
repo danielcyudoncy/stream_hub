@@ -25,14 +25,17 @@ class AuthRepository extends GetxService {
         _firebaseService = firebaseService;
 
   final LoggingService _logger = Get.find<LoggingService>();
+  bool _initialized = false;
 
   Stream<UserModel?> getCurrentUserStream() => _userStreamController.stream;
 
   bool get isFirebaseAvailable => _firebaseService?.isAvailable ?? false;
 
   Future<void> initialize() async {
+    if (_initialized) return;
     await _authService.init();
     await _localStorage.init();
+    _initialized = true;
   }
 
   Future<UserModel?> getCurrentUser() async {
@@ -174,12 +177,11 @@ class AuthRepository extends GetxService {
       return null;
     }
     try {
-      return await _authService.getCurrentUser();
-    } on ApplicationException {
-      await _localStorage.clearAuthSession();
-      return null;
+      return await _authService.getCachedCurrentUser();
     } catch (e) {
-      await _localStorage.clearAuthSession();
+      // Never clear a valid local session on a transient check failure; the
+      // next launch can retry offline-first.
+      _logger.warning('Auto-login check failed: $e', tag: 'AuthRepository', error: e);
       return null;
     }
   }
