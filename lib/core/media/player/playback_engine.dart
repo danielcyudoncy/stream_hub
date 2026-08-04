@@ -24,6 +24,7 @@ class PlaybackEngine {
   final LoggingService logger;
 
   PlayableMediaSession? _currentSession;
+  final Rx<PlayableMediaSession?> sessionRx = Rx<PlayableMediaSession?>(null);
   PlaybackState _state = PlaybackState.idle;
   final Rx<PlaybackState> stateRx = PlaybackState.idle.obs;
   final Rx<Duration> positionRx = Duration.zero.obs;
@@ -35,6 +36,7 @@ class PlaybackEngine {
   final Rx<AspectRatioMode> aspectRatioRx = AspectRatioMode.fit.obs;
   final Rx<PlayerQuality> qualityRx = PlayerQuality.auto.obs;
   final Rx<BufferInfo?> bufferInfoRx = Rx<BufferInfo?>(null);
+  final Rx<String> errorMessageRx = ''.obs;
 
   final List<void Function(PlaybackState)> _stateListeners = [];
   final List<void Function(Duration)> _positionListeners = [];
@@ -43,7 +45,7 @@ class PlaybackEngine {
   StreamSubscription<PlaybackState>? _stateSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<Duration>? _bufferSub;
-  StreamSubscription<PlaybackState>? _errorSub;
+  StreamSubscription<String>? _errorSub;
   StreamSubscription<String>? _subtitleSub;
 
   PlaybackAnalytics? _analytics;
@@ -112,6 +114,7 @@ class PlaybackEngine {
     );
 
     _currentSession = session;
+    sessionRx.value = session;
     _retryCount = 0;
     _analytics = PlaybackAnalytics(
       sessionId: session.id,
@@ -212,6 +215,7 @@ class PlaybackEngine {
     );
 
     _currentSession = playableMediaSession;
+    sessionRx.value = playableMediaSession;
     _retryCount = 0;
     _analytics = PlaybackAnalytics(
       sessionId: playableMediaSession.id,
@@ -434,6 +438,9 @@ class PlaybackEngine {
   void _setState(PlaybackState newState) {
     _state = newState;
     stateRx.value = newState;
+    if (newState != PlaybackState.error) {
+      errorMessageRx.value = '';
+    }
     for (final listener in List.from(_stateListeners)) {
       listener(newState);
     }
@@ -466,7 +473,7 @@ class PlaybackEngine {
     });
 
     _errorSub = adapter.errorStream.listen((error) {
-      _handleError('Adapter error: $error');
+      _handleError('Player error: $error');
     });
 
     _subtitleSub = adapter.subtitleStream.listen((text) {
@@ -485,12 +492,24 @@ class PlaybackEngine {
     logger.info('Playback completed', tag: 'PlaybackEngine');
   }
 
+  /// Records a user-facing playback failure and transitions to the error state.
+  ///
+  /// Used for failures that happen before a [PlayableSession] reaches the
+  /// engine (e.g. stream resolution) so the UI can show why playback failed
+  /// instead of hanging on a loading state.
+  void failPlayback(String message, {StackTrace? stackTrace}) {
+    _handleError(message, stackTrace);
+  }
+
   void _handleError(String message, [StackTrace? stackTrace]) {
+    errorMessageRx.value = message;
+    if (_analytics != null) {
+      _analytics = _analytics!.copyWith(
+        errorCount: _analytics!.errorCount + 1,
+        lastError: message,
+      );
+    }
     _setState(PlaybackState.error);
-    _analytics = _analytics!.copyWith(
-      errorCount: _analytics!.errorCount + 1,
-      lastError: message,
-    );
     _publishEvent(PlaybackErrorEvent(
       sessionId: _currentSession?.id ?? 'unknown',
       error: message,
@@ -582,6 +601,7 @@ class PlaybackEngine {
     _bufferListeners.clear();
     _eventListeners.clear();
     _currentSession = null;
+    sessionRx.value = null;
     _analytics = null;
     _setState(PlaybackState.idle);
   }

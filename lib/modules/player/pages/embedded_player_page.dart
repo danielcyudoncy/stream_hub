@@ -18,7 +18,7 @@ class EmbeddedPlayerPage extends GetView<PlayerController> {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final state = controller.state;
+      final state = controller.stateRx.value;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

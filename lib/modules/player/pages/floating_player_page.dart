@@ -50,7 +50,7 @@ class FloatingPlayerPage extends GetView<PlayerController> {
                       color: Colors.white54, size: 40),
                 ),
                 Obx(() {
-                  final state = controller.state;
+                  final state = controller.stateRx.value;
                   if (state == PlaybackState.buffering ||
                       state == PlaybackState.loading) {
                     return const Center(

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/constants/app_constants.dart';
+import '../../../core/media/enums/media_type.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../data/models/media_item.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -89,16 +91,12 @@ class HomePage extends GetView<HomeController> {
         children: [
           Text(
             AppConstants.appName,
-            style: AppTypography.getHeadline(
-              color: colorScheme.primary,
-            ),
+            style: AppTypography.getHeadline(color: colorScheme.primary),
           ),
           AppSpacing.heightXXS,
           Text(
             controller.greetingMessage.value,
-            style: AppTypography.getBody(
-              color: colorScheme.onSurfaceVariant,
-            ),
+            style: AppTypography.getBody(color: colorScheme.onSurfaceVariant),
           ),
         ],
       ),
@@ -131,27 +129,18 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildWelcomeCard(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildWelcomeCard(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: AppCard(
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           children: [
-            Icon(
-              AppIcons.play,
-              size: 48.0,
-              color: colorScheme.primary,
-            ),
+            Icon(AppIcons.play, size: 48.0, color: colorScheme.primary),
             AppSpacing.heightMD,
             Text(
               'Welcome to StreamHub Pro',
-              style: AppTypography.getHeadline(
-                color: colorScheme.onSurface,
-              ),
+              style: AppTypography.getHeadline(color: colorScheme.onSurface),
               textAlign: TextAlign.center,
             ),
             AppSpacing.heightSM,
@@ -207,10 +196,7 @@ class HomePage extends GetView<HomeController> {
               label: const Text('Add Media Source'),
             ),
             AppSpacing.heightSM,
-            TextButton(
-              onPressed: () {},
-              child: const Text('Learn More'),
-            ),
+            TextButton(onPressed: () {}, child: const Text('Learn More')),
           ],
         ),
       ),
@@ -238,19 +224,14 @@ class HomePage extends GetView<HomeController> {
           AppSpacing.widthXS,
           Text(
             label,
-            style: AppTypography.getCaption(
-              color: colorScheme.onSurface,
-            ),
+            style: AppTypography.getCaption(color: colorScheme.onSurface),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGreetingHeader(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildGreetingHeader(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Row(
@@ -298,9 +279,7 @@ class HomePage extends GetView<HomeController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            title: 'Quick Actions',
-          ),
+          SectionHeader(title: 'Quick Actions'),
           AppSpacing.heightXS,
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -399,9 +378,7 @@ class HomePage extends GetView<HomeController> {
             AppSpacing.widthXS,
             Text(
               label,
-              style: AppTypography.getCaption(
-                color: colorScheme.onSurface,
-              ),
+              style: AppTypography.getCaption(color: colorScheme.onSurface),
             ),
           ],
         ),
@@ -438,9 +415,7 @@ class HomePage extends GetView<HomeController> {
                 children: [
                   Text(
                     'Media Sources',
-                    style: AppTypography.getTitle(
-                      color: colorScheme.onSurface,
-                    ),
+                    style: AppTypography.getTitle(color: colorScheme.onSurface),
                   ),
                   AppSpacing.heightXXS,
                   Text(
@@ -454,9 +429,7 @@ class HomePage extends GetView<HomeController> {
             ),
             Text(
               'Manage',
-              style: AppTypography.getCaption(
-                color: colorScheme.primary,
-              ),
+              style: AppTypography.getCaption(color: colorScheme.primary),
             ),
             Icon(
               AppIcons.forward,
@@ -515,10 +488,7 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildLiveTVSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildLiveTVSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -563,10 +533,7 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildMoviesSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildMoviesSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -609,10 +576,7 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildSeriesSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildSeriesSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -655,10 +619,7 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildTVGuideSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildTVGuideSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -678,10 +639,7 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildGuidePreviewCard(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildGuidePreviewCard(BuildContext context, ColorScheme colorScheme) {
     return AppCard(
       onTap: () {},
       child: Column(
@@ -710,9 +668,7 @@ class HomePage extends GetView<HomeController> {
               children: [
                 Text(
                   'Currently Airing',
-                  style: AppTypography.getTitle(
-                    color: colorScheme.onSurface,
-                  ),
+                  style: AppTypography.getTitle(color: colorScheme.onSurface),
                 ),
                 AppSpacing.heightXXS,
                 Text(
@@ -743,10 +699,7 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildGuideTimeSlot(
-    String label,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildGuideTimeSlot(String label, ColorScheme colorScheme) {
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
@@ -758,17 +711,12 @@ class HomePage extends GetView<HomeController> {
       ),
       child: Text(
         label,
-        style: AppTypography.getCaption(
-          color: colorScheme.onSurfaceVariant,
-        ),
+        style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant),
       ),
     );
   }
 
-  Widget _buildFavoritesSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildFavoritesSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -903,10 +851,7 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildDownloadsSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildDownloadsSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -951,18 +896,21 @@ class HomePage extends GetView<HomeController> {
 
   Widget _buildMediaCard(
     BuildContext context,
-    dynamic item,
+    MediaItem item,
     ColorScheme colorScheme, {
     required double width,
   }) {
-    return Container(
-      width: width,
-      margin: const EdgeInsets.only(right: AppSpacing.md),
-      child: AppCard(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    final poster = item.poster ?? item.thumbnail;
+    return GestureDetector(
+      onTap: () => _openItem(item),
+      child: Container(
+        width: width,
+        margin: const EdgeInsets.only(right: AppSpacing.md),
+        child: AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               ClipRRect(
                 borderRadius: AppRadius.medium,
                 child: Container(
@@ -971,57 +919,81 @@ class HomePage extends GetView<HomeController> {
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
                   ),
-                  child: Center(
-                    child: Icon(
-                      _getMediaIcon(item),
-                      size: 32.0,
-                      color: colorScheme.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
+                  child: poster != null && poster.isNotEmpty
+                      ? Image.network(
+                          poster,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Icon(
+                              _getMediaIcon(item),
+                              size: 32.0,
+                              color: colorScheme.primary.withValues(alpha: 0.3),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Icon(
+                            _getMediaIcon(item),
+                            size: 32.0,
+                            color: colorScheme.primary.withValues(alpha: 0.3),
+                          ),
+                        ),
                 ),
               ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title ?? 'Unknown',
-                    style: AppTypography.getCaption(
-                      color: colorScheme.onSurface,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (item.subtitle != null) ...[
-                    AppSpacing.heightXXS,
+              Padding(
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      item.subtitle ?? '',
+                      item.title,
                       style: AppTypography.getCaption(
-                        color: colorScheme.onSurfaceVariant,
-                        scale: 0.8,
+                        color: colorScheme.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (item.subtitle != null) ...[
+                      AppSpacing.heightXXS,
+                      Text(
+                        item.subtitle ?? '',
+                        style: AppTypography.getCaption(
+                          color: colorScheme.onSurfaceVariant,
+                          scale: 0.8,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  IconData _getMediaIcon(dynamic item) {
-    if (item.mediaType == 'movie' || item.mediaType == 'Movie') {
-      return AppIcons.movies;
+  IconData _getMediaIcon(MediaItem item) {
+    switch (item.mediaType) {
+      case MediaType.movie:
+        return AppIcons.movies;
+      case MediaType.series:
+        return AppIcons.series;
+      default:
+        return AppIcons.liveTv;
     }
-    if (item.mediaType == 'series' || item.mediaType == 'Series') {
-      return AppIcons.series;
-    }
-    return AppIcons.liveTv;
+  }
+
+  void _openItem(MediaItem item) {
+    Get.toNamed(
+      AppRoutes.fullscreenPlayer,
+      arguments: {
+        'items': [item],
+        'currentId': item.id,
+      },
+    );
   }
 
   Widget _buildEmptySection(

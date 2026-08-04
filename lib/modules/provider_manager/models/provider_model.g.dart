@@ -34,13 +34,18 @@ class ProviderModelAdapter extends TypeAdapter<ProviderModel> {
       status: fields[14] as dynamic,
       color: fields[15] as String?,
       icon: fields[16] as String?,
+      accountCreatedAt: fields[17] as DateTime?,
+      accountExpiresAt: fields[18] as DateTime?,
+      accountStatus: fields[19] as String?,
+      accountIsTrial: fields[20] as bool?,
+      accountMaxConnections: fields[21] as int?,
     );
   }
 
   @override
   void write(BinaryWriter writer, ProviderModel obj) {
     writer
-      ..writeByte(17)
+      ..writeByte(22)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -74,7 +79,17 @@ class ProviderModelAdapter extends TypeAdapter<ProviderModel> {
       ..writeByte(15)
       ..write(obj.color)
       ..writeByte(16)
-      ..write(obj.icon);
+      ..write(obj.icon)
+      ..writeByte(17)
+      ..write(obj.accountCreatedAt)
+      ..writeByte(18)
+      ..write(obj.accountExpiresAt)
+      ..writeByte(19)
+      ..write(obj.accountStatus)
+      ..writeByte(20)
+      ..write(obj.accountIsTrial)
+      ..writeByte(21)
+      ..write(obj.accountMaxConnections);
   }
 
   @override

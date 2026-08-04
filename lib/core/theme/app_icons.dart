@@ -26,6 +26,8 @@ class AppIcons {
   static const IconData delete = Icons.delete_outline;
   static const IconData edit = Icons.edit_outlined;
   static const IconData refresh = Icons.refresh;
+  static const IconData paste = Icons.content_paste_go_outlined;
+  static const IconData copy = Icons.copy_outlined;
   static const IconData back = Icons.arrow_back;
   static const IconData forward = Icons.arrow_forward_ios;
   static const IconData skipForward = Icons.forward_30;

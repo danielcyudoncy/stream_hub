@@ -13,7 +13,7 @@ import 'package:stream_hub/data/providers/stubs/local_playlist_source.dart';
 import 'package:stream_hub/data/providers/stubs/plex_source.dart';
 import 'package:stream_hub/data/providers/stalker/stalker_media_source.dart';
 import 'package:stream_hub/data/providers/stubs/tvheadend_source.dart';
-import 'package:stream_hub/data/providers/stubs/xtream_source.dart';
+import 'package:stream_hub/data/providers/xtream/xtream_media_source.dart';
 
 abstract class MediaSourceFactory {
   MediaSource create(String id, MediaSourceType type, Map<String, dynamic> config);
@@ -33,7 +33,7 @@ class DefaultMediaSourceFactory implements MediaSourceFactory {
         );
         return M3UMediaSource(id: id, config: m3uConfig);
       case MediaSourceType.xtream:
-        return XtreamSource(id: id, config: config);
+        return XtreamMediaSource(id: id, config: config);
       case MediaSourceType.stalker:
         return StalkerMediaSource(id: id, config: config);
       case MediaSourceType.xmltv:

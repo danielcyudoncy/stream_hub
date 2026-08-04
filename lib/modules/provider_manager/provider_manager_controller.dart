@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/account_metadata_provider.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/media_source_factory.dart';
 import 'package:stream_hub/data/models/cache_info.dart';
@@ -124,10 +125,18 @@ class ProviderManagerController extends GetxController {
       final result = await _catalogRepo.syncSource(provider.id);
 
       if (result.success) {
+        final account = source is AccountMetadataProvider
+            ? (source as AccountMetadataProvider).accountMetadata
+            : null;
         await _repository.updateProvider(
           provider.copyWith(
             status: ProviderStatus.active,
             lastSync: DateTime.now(),
+            accountCreatedAt: account?.createdAt,
+            accountExpiresAt: account?.expiresAt,
+            accountStatus: account?.status,
+            accountIsTrial: account?.isTrial,
+            accountMaxConnections: account?.maxConnections,
           ),
         );
       } else {

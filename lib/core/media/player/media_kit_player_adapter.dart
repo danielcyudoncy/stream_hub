@@ -20,7 +20,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   final _stateController = StreamController<PlaybackState>.broadcast();
   final _positionController = StreamController<Duration>.broadcast();
   final _bufferController = StreamController<Duration>.broadcast();
-  final _errorController = StreamController<PlaybackState>.broadcast();
+  final _errorController = StreamController<String>.broadcast();
   final _subtitleController = StreamController<String>.broadcast();
 
   PlaybackState _currentState = PlaybackState.idle;
@@ -82,6 +82,8 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     _bufferingSub = _player!.stream.buffering.listen((buffering) {
       if (buffering) {
         _setPlaybackState(PlaybackState.buffering);
+      } else {
+        _syncStateFromPlayer();
       }
     });
 
@@ -93,7 +95,9 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
 
     _errorSub = _player!.stream.error.listen((error) {
       _setPlaybackState(PlaybackState.error);
-      _errorController.add(PlaybackState.error);
+      _errorController.add(
+        _describePlayerError(error),
+      );
       _logger.error(
         'Player error: $error',
         tag: 'Player',
@@ -102,10 +106,35 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     });
   }
 
+  /// Normalizes a media_kit player error message for display.
+  static String _describePlayerError(String error) {
+    final detail = error.trim();
+    if (detail.isEmpty) return 'Unknown player error.';
+    return detail;
+  }
+
   void _setPlaybackState(PlaybackState state) {
     if (state != _currentState) {
       _currentState = state;
       _stateController.add(state);
+    }
+  }
+
+  /// Derives the playback state from the native player after buffering ends.
+  ///
+  /// media_kit's `buffering` stream only signals the transition into and out of
+  /// the buffering state; the `playing` stream fires on its own transitions.
+  /// Without reconciling here, a buffering event that arrives after the initial
+  /// `playing` transition would leave the engine stuck in a buffering state
+  /// while video plays underneath the UI overlay.
+  void _syncStateFromPlayer() {
+    if (_player == null) return;
+    if (_player!.state.playing) {
+      _setPlaybackState(PlaybackState.playing);
+    } else if (_player!.state.completed) {
+      _setPlaybackState(PlaybackState.completed);
+    } else {
+      _setPlaybackState(PlaybackState.paused);
     }
   }
 
@@ -131,7 +160,9 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
 
   @override
   Future<void> load(PlayableMediaSession session) async {
-    if (_player == null) return;
+    if (_player == null) {
+      await initialize();
+    }
     final uri = Uri.tryParse(session.stream.url);
     if (uri == null || !uri.isAbsolute) {
       throw Exception('Invalid stream URL: ${session.stream.url}');
@@ -144,7 +175,9 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
 
   @override
   Future<void> playSession(PlayableSession session) async {
-    if (_player == null) return;
+    if (_player == null) {
+      await initialize();
+    }
     final uri = Uri.tryParse(session.streamUrl);
     if (uri == null || !uri.isAbsolute) {
       throw Exception('Invalid stream URL: ${session.streamUrl}');
@@ -320,7 +353,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   Stream<Duration> get bufferStream => _bufferController.stream;
 
   @override
-  Stream<PlaybackState> get errorStream => _errorController.stream;
+  Stream<String> get errorStream => _errorController.stream;
 
   @override
   Stream<String> get subtitleStream => _subtitleController.stream;

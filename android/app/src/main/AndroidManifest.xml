@@ -3,6 +3,12 @@
         android:label="stream_hub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Disables Flutter Impeller. media_kit's Android video output fails to
+             create an EGL context under Impeller on emulators (EGL_BAD_ATTRIBUTE),
+             producing audio with a black screen. Skia renders correctly. -->
+        <meta-data
+            android:name="io.flutter.embedding.android.EnableImpeller"
+            android:value="false" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

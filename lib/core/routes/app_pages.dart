@@ -47,6 +47,11 @@ import '../../modules/player/bindings/player_binding.dart';
 import '../../modules/player/pages/fullscreen_player_page.dart';
 import '../../modules/player/pages/embedded_player_page.dart';
 import '../../modules/player/pages/mini_player_page.dart';
+import '../../modules/developer/developer_page.dart';
+import '../../modules/developer/developer_binding.dart';
+import '../../modules/developer/pages/playback_test_page.dart';
+import '../../modules/developer/pages/provider_test_page.dart';
+import '../../modules/developer/pages/stream_test_page.dart';
 import '../../shared/widgets/empty_view.dart';
 
 class AppPages {
@@ -243,6 +248,26 @@ class AppPages {
       name: AppRoutes.miniPlayer,
       page: () => const MiniPlayerPage(),
       binding: PlayerBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.developer,
+      page: () => const DeveloperPage(),
+      binding: DeveloperBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.playbackTest,
+      page: () => const PlaybackTestPage(),
+      binding: DeveloperBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.providerTest,
+      page: () => const ProviderTestPage(),
+      binding: DeveloperBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.streamTest,
+      page: () => const StreamTestPage(),
+      binding: DeveloperBinding(),
     ),
   ];
 }

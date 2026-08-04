@@ -194,6 +194,17 @@ class StalkerMediaSource implements MediaSource {
       final movieItems = _buildMovies(movies, vodCategories, syncStartedAt);
       final seriesItems = _buildSeries(series, seriesCategories, syncStartedAt);
 
+      // A portal that throttles may answer with empty bodies across the board.
+      // Retrying the sync rather than reporting a successful-but-empty library
+      // avoids silently losing the user's content on a transient throttle.
+      if (channelItems.isEmpty && movieItems.isEmpty && seriesItems.isEmpty) {
+        _logger.warning(
+          'Stalker sync loaded no media (possibly throttled), will retry',
+          tag: 'StalkerMediaSource',
+        );
+        return null;
+      }
+
       _cachedCategories = categories;
       _cachedChannels = channelItems;
       _cachedMovies = movieItems;
@@ -225,6 +236,17 @@ class StalkerMediaSource implements MediaSource {
       _logger.warning('Stalker sync timed out', tag: 'StalkerMediaSource', error: e);
       return null;
     } on StalkerPortalException catch (e) {
+      final status = e.statusCode;
+      final transient = e.isEmptyResponse ||
+          (status != null && const {429, 500, 502, 503, 504}.contains(status));
+      if (transient) {
+        _logger.warning(
+          'Stalker portal throttled (${e.message}), will retry',
+          tag: 'StalkerMediaSource',
+          error: e,
+        );
+        return null;
+      }
       _state = MediaSourceState.error;
       _logger.error('Stalker portal error during sync', tag: 'StalkerMediaSource', error: e);
       return MediaSyncResult(

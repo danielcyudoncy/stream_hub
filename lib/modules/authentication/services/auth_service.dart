@@ -66,6 +66,18 @@ class AuthService extends GetxService {
     }
   }
 
+  /// Returns the locally persisted Firebase user without a network refresh.
+  ///
+  /// Used during cold-start session restoration so authentication never blocks
+  /// startup or depends on connectivity (offline-first principle). The user may
+  /// be stale until a later explicit refresh.
+  Future<UserModel?> getCachedCurrentUser() async {
+    if (!_isReady) return null;
+    final user = _auth!.currentUser;
+    if (user == null) return null;
+    return _mapFirebaseUser(user);
+  }
+
   Future<UserModel> loginWithEmail(String email, String password) async {
     if (!_isReady) {
       throw const AuthenticationException(message: 'Firebase is unavailable. Please try again later.');

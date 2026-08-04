@@ -12,6 +12,9 @@ void main() {
         expect(headers['Accept'], '*/*');
         expect(headers['Accept-Language'], isNotNull);
         expect(headers['User-Agent'], HeaderEngine.kDefaultUserAgent);
+        // Panels and CDNs commonly reject generic application agents; the
+        // default must be a media-player agent so probes and playback pass.
+        expect(HeaderEngine.kDefaultUserAgent, startsWith('libmpv'));
       });
 
       test('applies user agent, referer, and origin', () {

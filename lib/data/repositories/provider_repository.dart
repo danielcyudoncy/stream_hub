@@ -97,6 +97,11 @@ class ProviderRepository extends GetxService {
       'status': model.status.name,
       'color': model.color,
       'icon': model.icon,
+      'accountCreatedAt': model.accountCreatedAt?.millisecondsSinceEpoch,
+      'accountExpiresAt': model.accountExpiresAt?.millisecondsSinceEpoch,
+      'accountStatus': model.accountStatus,
+      'accountIsTrial': model.accountIsTrial,
+      'accountMaxConnections': model.accountMaxConnections,
     };
   }
 
@@ -119,6 +124,11 @@ class ProviderRepository extends GetxService {
       final statusStr = map['status'] as String?;
       final color = map['color'] as String?;
       final icon = map['icon'] as String?;
+      final accountCreatedAtRaw = map['accountCreatedAt'] as int?;
+      final accountExpiresAtRaw = map['accountExpiresAt'] as int?;
+      final accountStatus = map['accountStatus'] as String?;
+      final accountIsTrial = map['accountIsTrial'] as bool?;
+      final accountMaxConnections = map['accountMaxConnections'] as int?;
 
       if (id == null || name == null || providerTypeStr == null) return null;
 
@@ -158,6 +168,15 @@ class ProviderRepository extends GetxService {
         status: status,
         color: color,
         icon: icon,
+        accountCreatedAt: accountCreatedAtRaw != null
+            ? DateTime.fromMillisecondsSinceEpoch(accountCreatedAtRaw)
+            : null,
+        accountExpiresAt: accountExpiresAtRaw != null
+            ? DateTime.fromMillisecondsSinceEpoch(accountExpiresAtRaw)
+            : null,
+        accountStatus: accountStatus,
+        accountIsTrial: accountIsTrial,
+        accountMaxConnections: accountMaxConnections,
       );
     } catch (e) {
       _logger.warning('Failed to map provider from hive', tag: 'ProviderRepository', error: e);
