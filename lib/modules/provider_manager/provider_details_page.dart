@@ -95,10 +95,26 @@ class ProviderDetailsPage extends GetView<ProviderManagerController> {
                     _detailRow(context, 'XMLTV URL', provider.xmltvUrl!),
                   if (provider.notes != null && provider.notes!.isNotEmpty)
                     _detailRow(context, 'Notes', provider.notes!),
-                  _detailRow(context, 'Created', _formatDate(provider.createdAt)),
+                  _detailRow(context, 'Added Locally', _formatDate(provider.createdAt)),
                   _detailRow(context, 'Last Updated', _formatDate(provider.updatedAt)),
                   if (provider.lastSync != null)
                     _detailRow(context, 'Last Sync', _formatDate(provider.lastSync!)),
+                  if (provider.accountCreatedAt != null)
+                    _detailRow(context, 'Account Created', _formatDate(provider.accountCreatedAt!)),
+                  if (provider.accountExpiresAt != null || provider.accountStatus != null)
+                    _detailRow(
+                      context,
+                      'Expires',
+                      provider.accountExpiresAt != null
+                          ? _formatDate(provider.accountExpiresAt!)
+                          : 'Never',
+                    ),
+                  if (provider.accountStatus != null)
+                    _detailRow(context, 'Account Status', provider.accountStatus!),
+                  if (provider.accountIsTrial != null)
+                    _detailRow(context, 'Trial', provider.accountIsTrial! ? 'Yes' : 'No'),
+                  if (provider.accountMaxConnections != null)
+                    _detailRow(context, 'Max Connections', '${provider.accountMaxConnections}'),
                 ],
               ),
             ),
@@ -120,6 +136,12 @@ class ProviderDetailsPage extends GetView<ProviderManagerController> {
                   ),
                 ),
               ],
+            ),
+            AppSpacing.heightMD,
+            AppButton(
+              text: 'Sync Now',
+              type: ButtonType.secondary,
+              onPressed: () => controller.syncProviderById(provider.id),
             ),
             AppSpacing.heightMD,
             AppButton(

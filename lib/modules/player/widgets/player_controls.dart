@@ -47,7 +47,7 @@ class PlayerControls extends StatelessWidget {
                   ),
                   Expanded(
                     child: Obx(() {
-                      final title = controller.session?.metadata.title ?? '';
+                      final title = controller.sessionRx.value?.metadata.title ?? '';
                       return Text(
                         title,
                         style: AppTypography.getBody(color: Colors.white),
@@ -80,7 +80,7 @@ class PlayerControls extends StatelessWidget {
                   size: isFullscreen ? 32 : 24,
                 ),
                 Obx(() {
-                  final state = controller.state;
+                  final state = controller.stateRx.value;
                   final isPlaying = state == PlaybackState.playing;
                   return _ControlButton(
                     icon: isPlaying ? AppIcons.pause : AppIcons.play,
@@ -101,47 +101,59 @@ class PlayerControls extends StatelessWidget {
                   size: isFullscreen ? 32 : 24,
                 ),
                 const Spacer(),
-                _PopupMenuButton<AspectRatioMode>(
-                  icon: AppIcons.aspectRatio,
-                  items: AspectRatioMode.values,
-                  labelBuilder: (mode) => Text(mode.displayName),
-                  onSelected: (mode) =>
-                      controller.setAspectRatio(mode),
+                Flexible(
+                  flex: 2,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _PopupMenuButton<AspectRatioMode>(
+                          icon: AppIcons.aspectRatio,
+                          items: AspectRatioMode.values,
+                          labelBuilder: (mode) => Text(mode.displayName),
+                          onSelected: (mode) =>
+                              controller.setAspectRatio(mode),
+                        ),
+                        _PopupMenuButton<PlaybackSpeed>(
+                          icon: AppIcons.speed,
+                          items: PlaybackSpeed.values,
+                          labelBuilder: (speed) => Text(speed.label),
+                          onSelected: (speed) => controller.setSpeed(speed),
+                        ),
+                        if (isFullscreen) ...[
+                          _PopupMenuButton<PlayerQuality>(
+                            icon: AppIcons.quality,
+                            items: PlayerQuality.values,
+                            labelBuilder: (q) => Text(q.displayName),
+                            onSelected: (q) => controller.setQuality(q),
+                          ),
+                          IconButton(
+                            onPressed: () {},
+                            icon: const Icon(AppIcons.subtitles,
+                                color: Colors.white),
+                          ),
+                          IconButton(
+                            onPressed: () {},
+                            icon: const Icon(AppIcons.audioTrack,
+                                color: Colors.white),
+                          ),
+                          IconButton(
+                            onPressed: () {},
+                            icon: const Icon(AppIcons.sleep,
+                                color: Colors.white),
+                          ),
+                          IconButton(
+                            onPressed: () => _toggleFullscreen(context),
+                            icon: const Icon(AppIcons.fullscreenExit,
+                                color: Colors.white),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ),
-                _PopupMenuButton<PlaybackSpeed>(
-                  icon: AppIcons.speed,
-                  items: PlaybackSpeed.values,
-                  labelBuilder: (speed) => Text(speed.label),
-                  onSelected: (speed) => controller.setSpeed(speed),
-                ),
-                if (isFullscreen) ...[
-                  _PopupMenuButton<PlayerQuality>(
-                    icon: AppIcons.quality,
-                    items: PlayerQuality.values,
-                    labelBuilder: (q) => Text(q.displayName),
-                    onSelected: (q) => controller.setQuality(q),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(AppIcons.subtitles,
-                        color: Colors.white),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(AppIcons.audioTrack,
-                        color: Colors.white),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(AppIcons.sleep,
-                        color: Colors.white),
-                  ),
-                  IconButton(
-                    onPressed: () => _toggleFullscreen(context),
-                    icon: const Icon(AppIcons.fullscreenExit,
-                        color: Colors.white),
-                  ),
-                ],
               ],
             ),
           ),

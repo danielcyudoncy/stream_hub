@@ -27,15 +27,15 @@ class PlaybackController extends GetxController {
     LoggingService? logger,
   })  : adapter = adapter ?? MediaKitPlayerAdapter(),
         settings = settings ?? const PlayerSettings(),
-        logger = logger ?? LoggingService();
-
-  @override
-  void onInit() {
-    super.onInit();
+        logger = logger ?? LoggingService() {
+    // Created eagerly (not in onInit) because this controller is composed
+    // manually inside PlayerController and is never registered with GetX, so
+    // GetX lifecycle hooks (onInit) would never fire and `engine` would stay
+    // uninitialized, causing a LateInitializationError on first access.
     engine = PlaybackEngine(
-      adapter: adapter,
-      settings: settings,
-      logger: logger,
+      adapter: this.adapter,
+      settings: this.settings,
+      logger: this.logger,
     );
   }
 

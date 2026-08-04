@@ -173,6 +173,14 @@ The `M3UMediaSource` is the first concrete adapter. It:
 
 The adapter does not know about UI, player, or EPG. It only produces a `MediaCatalog` of channels and categories.
 
+Xtream panel exports: when the configured URL is an Xtream export (`get.php` /
+`player_api.php`, detected by `XtreamUrlDetector`), `M3UMediaSource` delegates
+the entire sync to an internal `XtreamMediaSource` instead of downloading the
+playlist. Getters and health/statistics delegate to the same source, so an M3U
+provider pointing at a panel behaves exactly like an Xtream provider. This is
+required for panels whose exports are far larger than their JSON API or that
+refuse to serve the full export.
+
 #### Catalog Flow
 
 ```
@@ -410,7 +418,7 @@ How it works:
    platform resolver (identical behavior to a plain `HttpClient`).
 
 All outbound HTTP paths use this client: provider sources (`StalkerPortalClient`,
-`XtreamSource`), playlist/EPG downloads (`M3UDownloadService`,
+`XtreamMediaSource`), playlist/EPG downloads (`M3UDownloadService`,
 `XMLTVDownloadService`), and stream probing (`DartHttpProbe`). A transient DNS
 failure is retried through DoH on the next attempt instead of surfacing
 immediately to the user.
@@ -521,6 +529,73 @@ cookies, credentials, and MAC addresses from all log output.
 
 Hive box `provider_sessions` (typeId 20) stores encrypted `ProviderSession`
 data. Tokens, cookies, and credentials are encrypted before touching disk.
+
+---
+
+### IPTV Core
+
+The provider-independent analysis and negotiation layer between the Stream
+Engine and the Playback Engine. It transforms provider media into playable,
+diagnosable streams without ever touching a provider or a player directly.
+
+The IPTV Core is exposed through the `IptvCore` facade (`lib/core/iptv`),
+constructed by `IptvCoreBinding` with a real `StreamEngine`, `StreamValidator`,
+and `LoggingService`.
+
+Pipeline:
+
+```
+Provider Input (URL / content)
+  ↓
+ProviderDetector        → ProviderDetectionResult (kind, transport, compression)
+  ↓
+ProviderCapabilityAnalyzer → ProviderCapabilities
+  ↓
+PlaylistAnalyzer        → PlaylistAnalysis (M3U classification, stats, headers)
+  ↓
+StreamEngine            → PlayableSession (existing pipeline)
+  ↓
+StreamNegotiationEngine → NegotiatedStream (protocol, player, capabilities)
+  ↓
+StreamAnalyzer          → StreamAnalysis (codec, resolution, DRM, variants)
+  ↓
+StreamDiagnosticsBuilder → StreamDiagnosticsReport
+```
+
+Subsystems:
+
+- **Detection** — `ProviderDetector` (evidence-based provider kind detection:
+  M3U, Xtream, Stalker, XMLTV, local; HTTP/HTTPS/file/inline transport; ZIP/GZIP
+  compression), `ProviderCapabilityAnalyzer` (normalized capability set).
+- **Playlist Analysis** — `PlaylistAnalyzer` classifies M3U entries into
+  channels/movies/series/radio, extracts header attributes (EPG URLs, user
+  agent, referer, custom headers), and computes protocol distribution.
+- **Negotiation** — `StreamNegotiationEngine` runs protocol detection →
+  capability detection → player negotiation → header negotiation → stream
+  analysis, producing a single `NegotiatedStream`.
+  - `ProtocolDetector` (`StreamProtocol`: HLS, DASH, MPEG-TS, MP4, MKV, RTSP,
+    RTMP/S, UDP/RTP, HTTP/S)
+  - `CapabilityDetector` (`StreamCapabilities`)
+  - `PlayerNegotiator` (`PlayerNegotiation`: preferred engine, support level,
+    fallbacks) — architecture only, never instantiates players
+  - `HeaderNegotiator` (auth headers, cookies, UA, referer, origin)
+- **Analysis** — `StreamAnalyzer` fetches bounded HLS/DASH manifests and derives
+  codec, container, resolution, bitrate, DRM, and adaptive variants.
+- **Diagnostics** — `StreamDiagnosticsBuilder` assembles a
+  `StreamDiagnosticsReport` (steps, errors, warnings, root cause, timings) so
+  every playback failure is traceable to a stage.
+- **Recovery** — `ErrorRecoveryEngine` converts failures into actionable
+  `RecoveryResult` categories (auth, network, protocol, retry, media, abort).
+- **Debug Mode** — `DebugModeService` (reactive `DebugConfig`, per-category
+  toggles), `DebugSessionLog` (bounded, chronological trace of a session).
+- **Test Tools** — internal-only tools used by the Developer module:
+  - `PlaybackTestTool` (resolve → validate → negotiate a URL)
+  - `ProviderTestTool` (detect + capabilities + playlist analysis)
+  - `StreamTestTool` (run a stored media item through the full pipeline)
+
+**Invariant:** the UI and player never receive provider models or raw provider
+URLs. The Negotiation output (`NegotiatedStream`) and `PlayableSession` are the
+only stream representations that cross subsystem boundaries.
 
 ---
 
@@ -890,6 +965,26 @@ lib/
 
             controllers/
 
+        iptv/
+
+            iptv_core.dart
+
+            models/
+
+            detection/
+
+            playlist/
+
+            negotiation/
+
+            analysis/
+
+            recovery/
+
+            debug/
+
+            tools/
+
     data/
 
         models/
@@ -1036,11 +1131,19 @@ lib/
 
                 m3u_media_source.dart
 
+                m3u_content_classifier.dart
+
             stalker/
 
                 stalker_portal_client.dart
 
                 stalker_media_source.dart
+
+            xtream/
+
+                xtream_media_source.dart
+
+                xtream_url_detector.dart
 
             stubs/
 
@@ -1063,8 +1166,6 @@ lib/
                 tvheadend_source.dart
 
                 xmltv_source.dart
-
-                xtream_source.dart
 
         parsers/
 
@@ -1107,6 +1208,12 @@ lib/
         downloads/
 
         settings/
+
+        developer/
+
+            pages/
+
+            widgets/
 
         profiles/
 

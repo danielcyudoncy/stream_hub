@@ -156,6 +156,37 @@ void main() {
     });
 
     test(
+      'skips the network probe for MPEG-TS live sessions (local checks only)',
+      () async {
+        // An unreachable probe would otherwise reject the session.
+        probe.throwException = true;
+        final session = await engine.resolvePlayback(
+          mediaItemId: 'ch-1',
+          providerType: MediaSourceType.m3u,
+          itemMetadata: metadataFor('https://cdn.example.com/live/ch1.ts'),
+          providerId: 'ch',
+        );
+
+        expect(session.streamUrl, 'https://cdn.example.com/live/ch1.ts');
+        expect(session.streamType, StreamType.mpegTs);
+        expect(probe.headProbes, 0);
+      },
+    );
+
+    test('still probes finite content (m3u8) during validation', () async {
+      probe.throwException = true;
+      expect(
+        () => engine.resolvePlayback(
+          mediaItemId: 'ch-1',
+          providerType: MediaSourceType.m3u,
+          itemMetadata: metadataFor('https://example.com/live/ch1.m3u8'),
+          providerId: 'ch',
+        ),
+        throwsA(isA<StreamValidationException>()),
+      );
+    });
+
+    test(
       'throws StreamResolutionException when no source URL exists',
       () async {
         expect(
