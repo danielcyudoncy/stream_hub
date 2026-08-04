@@ -8,6 +8,22 @@ import 'package:stream_hub/core/network/doh_http_client.dart';
 /// Content types supported by the Stalker portal API.
 enum StalkerContentType { live, vod, series }
 
+/// Stalker API `type` value used for each content type.
+///
+/// The portal uses `itv` (not `live`) for the live TV channel list.
+extension StalkerContentTypeMapping on StalkerContentType {
+  String get apiType {
+    switch (this) {
+      case StalkerContentType.live:
+        return 'itv';
+      case StalkerContentType.vod:
+        return 'vod';
+      case StalkerContentType.series:
+        return 'series';
+    }
+  }
+}
+
 /// Result of the Stalker portal handshake.
 class StalkerHandshakeResult {
   final String token;
@@ -24,14 +40,22 @@ class StalkerHandshakeResult {
 /// Raised when the portal responds with an HTTP error or an unexpected
 /// payload. Network failures ([SocketException], [TimeoutException]) are NOT
 /// wrapped so callers can retry them.
+///
+/// [statusCode] is set when the portal answered with a non-200 HTTP status.
+/// Callers can use it to detect transient conditions such as rate limiting
+/// (HTTP 429).
 class StalkerPortalException implements Exception {
   final String message;
   final String? action;
+  final int? statusCode;
+  final bool isEmptyResponse;
   final Object? originalError;
 
   const StalkerPortalException(
     this.message, {
     this.action,
+    this.statusCode,
+    this.isEmptyResponse = false,
     this.originalError,
   });
 
@@ -56,22 +80,37 @@ class StalkerPortalException implements Exception {
 /// `/server/load.php` or `/stalker_portal/server/load.php`, some at
 /// `/portal.php`. The first path that answers with valid JSON wins and is
 /// reused for the rest of the session.
+///
+/// Requests are issued with GET (the standard portal transport). The portal
+/// also requires a `Cookie` carrying the device MAC, and serves responses only
+/// to a STB-style User-Agent. POST requests are rejected by many portal
+/// deployments (Cloudflare 444 / HTML block page), so the client never POSTs.
 class StalkerPortalClient {
   static const Duration _kRequestTimeout = Duration(seconds: 15);
+  static const String _kUserAgent =
+      'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 '
+      '(KHTML, like Gecko) MAG200 stbapp ver: 4.8.0 rev: 1.0';
   static const List<String> _kScriptCandidates = [
     '/server/load.php',
     '/stalker_portal/server/load.php',
     '/portal.php',
   ];
+  static const int _kMaxHttpRetries = 3;
+  static const int _kMaxEmptyRetries = 2;
+  static const Duration _kRetryBaseDelay = Duration(milliseconds: 800);
+  static const Duration _kMinRequestInterval = Duration(milliseconds: 1200);
+  static const Set<int> _kRetryableStatusCodes = {429, 500, 502, 503, 504};
 
   final String _baseUrl;
   final String _macAddress;
   final String? _serial;
   final LoggingService _logger;
   final HttpClient _httpClient;
+  final Duration _retryBaseDelay;
 
   String? _token;
-  String? _scriptPath;
+  Uri? _scriptUri;
+  DateTime? _lastRequestAt;
 
   StalkerPortalClient({
     required String baseUrl,
@@ -80,12 +119,14 @@ class StalkerPortalClient {
     String? token,
     LoggingService? logger,
     HttpClient? httpClient,
-  }) : _baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), ''),
+    Duration retryBaseDelay = _kRetryBaseDelay,
+  }) : _baseUrl = _normalizeBaseUrl(baseUrl),
        _macAddress = _normalizeMac(macAddress),
        _serial = serial,
        _token = token,
        _logger = logger ?? LoggingService(),
-       _httpClient = httpClient ?? createDohAwareHttpClient();
+       _httpClient = httpClient ?? createDohAwareHttpClient(),
+       _retryBaseDelay = retryBaseDelay;
 
   String? get token => _token;
   String get macAddress => _macAddress;
@@ -117,8 +158,15 @@ class StalkerPortalClient {
   }
 
   /// Returns the authenticated subscriber profile.
+  ///
+  /// An empty portal response (some portals throttle with an empty body) is
+  /// retried, then tolerated and yields an empty profile.
   Future<Map<String, dynamic>> getProfile() async {
-    final data = await _request('get_profile');
+    final data = await _request(
+      'get_profile',
+      allowEmpty: true,
+      retryEmpty: true,
+    );
     final js = _envelope(data);
     final profile = js['data'];
     if (profile is Map) {
@@ -128,40 +176,130 @@ class StalkerPortalClient {
   }
 
   /// Live TV / VOD / Series categories.
+  ///
+  /// Not every portal implements `get_categories`; some answer with an empty
+  /// body. Such portals simply yield no categories, so empty responses are
+  /// tolerated immediately rather than retried.
   Future<List<Map<String, dynamic>>> getCategories(
     StalkerContentType type,
   ) async {
     final data = await _request(
       'get_categories',
-      extra: {'type': type.name},
+      extra: {'type': type.apiType},
+      allowEmpty: true,
     );
     return _asMapList(_envelope(data)['data']);
   }
 
-  /// Live TV channel list (`get_ordered_list?type=live`).
+  /// Live TV channel list (`get_ordered_list?type=itv`), fetching all pages.
   Future<List<Map<String, dynamic>>> getOrderedList(
     StalkerContentType type,
   ) async {
-    final data = await _request(
+    return _fetchPaginatedList(
       'get_ordered_list',
-      extra: {'type': type.name},
+      extra: {'type': type.apiType},
     );
-    return _asMapList(_envelope(data)['data']);
   }
 
-  /// VOD movie list.
+  /// VOD movie list, fetching all pages.
+  ///
+  /// Tries the dedicated `get_vod_list` action first, then falls back to
+  /// `get_ordered_list?type=vod` because some portals (notably Ministra-based
+  /// deployments) only serve VOD through the shared ordered-list action.
   Future<List<Map<String, dynamic>>> getVodList() async {
-    final data = await _request('get_vod_list', extra: {'type': 'vod'});
-    return _asMapList(_envelope(data)['data']);
+    final movies = await _fetchPaginatedList(
+      'get_vod_list',
+      extra: {'type': 'vod'},
+    );
+    if (movies.isNotEmpty) return movies;
+
+    return _fetchPaginatedList(
+      'get_ordered_list',
+      extra: {'type': 'vod'},
+    );
   }
 
-  /// Series list (each show carries its own `seasons`/`episodes`).
+  /// Series list (each show carries its own `seasons`/`episodes`), fetching all pages.
+  ///
+  /// Tries the dedicated `get_series_list` action first, then falls back to
+  /// `get_ordered_list?type=series` for portals that only serve series
+  /// through the shared ordered-list action.
   Future<List<Map<String, dynamic>>> getSeriesList() async {
-    final data = await _request(
+    final series = await _fetchPaginatedList(
       'get_series_list',
       extra: {'type': 'series'},
     );
-    return _asMapList(_envelope(data)['data']);
+    if (series.isNotEmpty) return series;
+
+    return _fetchPaginatedList(
+      'get_ordered_list',
+      extra: {'type': 'series'},
+    );
+  }
+
+  /// Fetches a paginated catalog action from the Stalker portal.
+  Future<List<Map<String, dynamic>>> _fetchPaginatedList(
+    String action, {
+    Map<String, dynamic>? extra,
+    int maxItems = 10000,
+  }) async {
+    final allItems = <Map<String, dynamic>>[];
+    final seenIds = <String>{};
+    var page = 1;
+
+    while (allItems.length < maxItems) {
+      final params = <String, dynamic>{
+        ...?extra,
+        'p': page,
+        'page': page,
+        'max_rows': 1000,
+      };
+      final data = await _request(
+        action,
+        extra: params,
+        allowEmpty: true,
+        retryEmpty: page == 1,
+      );
+
+      final envelope = _envelope(data);
+      final rawData = envelope['data'];
+      final batch = _asMapList(rawData);
+      if (batch.isEmpty) break;
+
+      var addedInBatch = 0;
+      for (final item in batch) {
+        final id =
+            item['id']?.toString() ?? item['stream_id']?.toString() ?? '';
+        if (id.isNotEmpty) {
+          if (!seenIds.contains(id)) {
+            seenIds.add(id);
+            allItems.add(item);
+            addedInBatch++;
+          }
+        } else {
+          allItems.add(item);
+          addedInBatch++;
+        }
+      }
+
+      final totalRaw = envelope['total_items'] ?? envelope['total'];
+      final totalItems = int.tryParse(totalRaw?.toString() ?? '');
+      if (totalItems != null && allItems.length >= totalItems) {
+        break;
+      }
+
+      if (addedInBatch == 0 || (batch.length < 10 && page > 1)) {
+        break;
+      }
+
+      if (page == 1 && totalItems == null && batch.length < 14) {
+        break;
+      }
+
+      page++;
+    }
+
+    return allItems;
   }
 
   /// Converts a stored `cmd` into a playable stream URL.
@@ -177,7 +315,7 @@ class StalkerPortalClient {
     final data = await _request(
       'create_link',
       extra: {
-        'type': type.name,
+        'type': type.apiType,
         'cmd': cmd,
         if (genre != null && genre.isNotEmpty) 'genre': genre,
       },
@@ -207,6 +345,8 @@ class StalkerPortalClient {
   Future<Map<String, dynamic>> _request(
     String action, {
     Map<String, dynamic>? extra,
+    bool allowEmpty = false,
+    bool retryEmpty = false,
   }) async {
     final params = <String, dynamic>{
       'type': 'stb',
@@ -219,15 +359,26 @@ class StalkerPortalClient {
       ...?extra,
     };
 
-    if (_scriptPath != null) {
-      return _postJson(_scriptPath!, params);
+    if (_scriptUri != null) {
+      return _getJson(
+        _scriptUri!,
+        params,
+        allowEmpty: allowEmpty,
+        retryEmpty: retryEmpty,
+      );
     }
 
+    final candidates = _scriptCandidates();
     Object? lastError;
-    for (final candidate in _kScriptCandidates) {
+    for (final uri in candidates) {
       try {
-        final response = await _postJson(candidate, params);
-        _scriptPath = candidate;
+        final response = await _getJson(
+          uri,
+          params,
+          allowEmpty: allowEmpty,
+          retryEmpty: retryEmpty,
+        );
+        _scriptUri = uri;
         return response;
       } on StalkerPortalException catch (e) {
         lastError = e;
@@ -235,27 +386,116 @@ class StalkerPortalClient {
     }
 
     throw StalkerPortalException(
-      'Could not reach the Stalker portal script at $_baseUrl.',
+      'Could not reach the Stalker portal script at $_baseUrl. '
+      'Tried: ${candidates.join(', ')}.',
       action: action,
       originalError: lastError,
     );
   }
 
-  Future<Map<String, dynamic>> _postJson(
-    String path,
+  /// Absolute URIs to probe for the portal script.
+  ///
+  /// Absolute path candidates like `/server/load.php` are resolved against the
+  /// origin (scheme://host:port) as well as against the base URL path, because
+  /// some portals serve the UI from a subpath (e.g. `/c/`) while the API lives
+  /// at the web root (`/server/load.php`).
+  List<Uri> _scriptCandidates() {
+    final base = Uri.tryParse(_baseUrl);
+    final origin = base != null && base.hasScheme
+        ? Uri(scheme: base.scheme, host: base.host, port: base.hasPort ? base.port : null)
+        : null;
+
+    final candidates = <Uri>[];
+    for (final path in _kScriptCandidates) {
+      if (origin != null) {
+        candidates.add(origin.resolve(path));
+      }
+      final appended = Uri.tryParse('$_baseUrl$path');
+      if (appended != null && !candidates.contains(appended)) {
+        candidates.add(appended);
+      }
+    }
+    return candidates;
+  }
+
+  /// Builds the portal cookie header.
+  ///
+  /// The Stalker API identifies the device from the `mac` cookie and also
+  /// honours `sn` (serial number) and `stb_lang`/`timezone`. Portals return an
+  /// empty body when the MAC cookie is missing.
+  String _cookieHeader() {
+    final mac = Uri.encodeComponent(_macAddress);
+    final serial = (_serial ?? _macAddress).isNotEmpty
+        ? Uri.encodeComponent(_serial ?? _macAddress)
+        : mac;
+    return 'mac=$mac; sn=$serial; stb_lang=en; timezone=UTC';
+  }
+
+  Future<Map<String, dynamic>> _getJson(
+    Uri uri,
+    Map<String, dynamic> params, {
+    bool allowEmpty = false,
+    bool retryEmpty = false,
+  }) async {
+    var attempt = 0;
+    var emptyAttempt = 0;
+    while (true) {
+      await _throttle();
+      try {
+        return await _getJsonOnce(uri, params);
+      } on StalkerPortalException catch (e) {
+        if (e.isEmptyResponse) {
+          // Portals throttle by answering with an empty body. Data actions
+          // retry it like a 429; when the budget is exhausted they either
+          // degrade to an empty result (allowEmpty) or fail.
+          if (retryEmpty && emptyAttempt < _kMaxEmptyRetries) {
+            emptyAttempt++;
+            final delay = _retryDelayFor(emptyAttempt, e);
+            _logger.warning(
+              'Stalker portal returned an empty response (possibly '
+              'throttled); retrying in ${delay.inMilliseconds}ms '
+              '(attempt $emptyAttempt/$_kMaxEmptyRetries)...',
+              tag: 'StalkerPortalClient',
+              error: e,
+            );
+            await Future.delayed(delay);
+            continue;
+          }
+          if (allowEmpty) return const {};
+          rethrow;
+        }
+
+        final retryable = _isRetryable(e);
+        if (!retryable || attempt >= _kMaxHttpRetries) rethrow;
+
+        attempt++;
+        final delay = _retryDelayFor(attempt, e);
+        _logger.warning(
+          'Stalker request throttled (${e.message}); retrying in '
+          '${delay.inMilliseconds}ms (attempt $attempt/$_kMaxHttpRetries)...',
+          tag: 'StalkerPortalClient',
+          error: e,
+        );
+        await Future.delayed(delay);
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> _getJsonOnce(
+    Uri uri,
     Map<String, dynamic> params,
   ) async {
-    final uri = Uri.parse('$_baseUrl$path');
-    final request = await _httpClient.postUrl(uri).timeout(_kRequestTimeout);
-    request.headers.set(
-      HttpHeaders.contentTypeHeader,
-      'application/x-www-form-urlencoded',
-    );
-    request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-    request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
-    request.write(
-      Uri(queryParameters: params.map((key, value) => MapEntry(key, '$value'))).query,
-    );
+    final query = Uri(
+      queryParameters: params.map((key, value) => MapEntry(key, '$value')),
+    ).query;
+    final requestUri = query.isEmpty ? uri : uri.replace(query: query);
+
+    final request = await _httpClient.getUrl(requestUri).timeout(_kRequestTimeout);
+    request.headers.set(HttpHeaders.userAgentHeader, _kUserAgent);
+    request.headers.set(HttpHeaders.cookieHeader, _cookieHeader());
+    if (_token != null && _token!.isNotEmpty) {
+      request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $_token');
+    }
 
     final response = await request.close().timeout(_kRequestTimeout);
     final bytes = await response.fold<List<int>>(
@@ -267,6 +507,7 @@ class StalkerPortalClient {
     if (response.statusCode != 200) {
       throw StalkerPortalException(
         'Portal returned HTTP ${response.statusCode}.',
+        statusCode: response.statusCode,
         originalError: body.isNotEmpty ? body : null,
       );
     }
@@ -279,11 +520,67 @@ class StalkerPortalClient {
       );
     }
 
+    if (body.trim().isEmpty) {
+      throw const StalkerPortalException(
+        'Portal returned an empty response.',
+        isEmptyResponse: true,
+      );
+    }
+
     final decoded = json.decode(body);
     if (decoded is! Map) {
       throw const StalkerPortalException('Unexpected portal response format.');
     }
     return Map<String, dynamic>.from(decoded);
+  }
+
+  /// Whether [e] describes a transient failure worth retrying.
+  ///
+  /// Rate limiting (429) and gateway errors (500/502/503/504) are retried
+  /// because the portal throttles requests per source IP and a brief backoff
+  /// usually resolves them. All other failures are treated as permanent.
+  static bool _isRetryable(StalkerPortalException e) {
+    final code = e.statusCode;
+    return code != null && _kRetryableStatusCodes.contains(code);
+  }
+
+  /// Computes the retry delay: the portal's `Retry-After` header when present,
+  /// otherwise exponential backoff with a small random jitter.
+  Duration _retryDelayFor(int attempt, StalkerPortalException e) {
+    final retryAfter = _retryAfterSeconds(e.originalError);
+    if (retryAfter != null) {
+      return Duration(seconds: retryAfter.clamp(1, 30));
+    }
+
+    final random = attempt * 173 + DateTime.now().millisecondsSinceEpoch % 97;
+    final jitter = random % 250;
+    return _retryBaseDelay * (1 << (attempt - 1)) +
+        Duration(milliseconds: jitter);
+  }
+
+  /// Reads a numeric `Retry-After` value from a 429 error payload if present.
+  static int? _retryAfterSeconds(Object? originalError) {
+    final body = originalError?.toString();
+    if (body == null || body.isEmpty) return null;
+    final match = RegExp(r'Retry-After:\s*(\d+)', caseSensitive: false)
+        .firstMatch(body);
+    return match == null ? null : int.tryParse(match.group(1)!);
+  }
+
+  /// Enforces a minimum interval between portal requests.
+  ///
+  /// Portals commonly rate-limit by IP and reject bursts of requests with
+  /// HTTP 429. Staggering catalog sync requests reduces how often the limiter
+  /// trips in the first place.
+  Future<void> _throttle() async {
+    final last = _lastRequestAt;
+    if (last != null) {
+      final remaining = _kMinRequestInterval - DateTime.now().difference(last);
+      if (remaining > Duration.zero) {
+        await Future.delayed(remaining);
+      }
+    }
+    _lastRequestAt = DateTime.now();
   }
 
   static Map<String, dynamic> _envelope(Map<String, dynamic> data) {
@@ -354,6 +651,21 @@ class StalkerPortalClient {
   static bool _looksLikeHtml(String body) {
     final trimmed = body.trimLeft();
     return trimmed.startsWith('<') && trimmed.toLowerCase().contains('<html');
+  }
+
+  /// Ensures the portal URL carries a scheme so [Uri] resolution works.
+  ///
+  /// Users often paste a bare host like `portal.example.com` (optionally with a
+  /// path such as `/c/`). Without a scheme, `Uri.parse` treats the host as a
+  /// path, producing an empty `host` and a confusing `ArgumentError` later.
+  static String _normalizeBaseUrl(String raw) {
+    final trimmed = raw.trim().replaceAll(RegExp(r'/+$'), '');
+    if (trimmed.isEmpty) return trimmed;
+    final uri = Uri.tryParse(trimmed);
+    if (uri == null || uri.scheme.isEmpty) {
+      return 'http://$trimmed';
+    }
+    return trimmed;
   }
 
   static String _normalizeMac(String mac) {

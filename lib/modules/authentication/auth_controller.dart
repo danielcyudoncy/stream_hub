@@ -112,6 +112,11 @@ class AuthController extends GetxController {
     }
   }
 
+  Future<void> _persistSession() async {
+    final expiry = DateTime.now().add(AuthConstants.sessionDuration);
+    await _repository?.setSessionExpiry(expiry);
+  }
+
   Future<void> loginWithEmail(String email, String password) async {
     if (isLoading.value) return;
     if (!Validators.isValidEmail(email)) {
@@ -133,10 +138,7 @@ class AuthController extends GetxController {
       currentUser.value = user;
       isAuthenticated.value = true;
       await _repository.setRememberMe(rememberMe.value);
-      if (rememberMe.value) {
-        final expiry = DateTime.now().add(AuthConstants.sessionDuration);
-        await _repository.setSessionExpiry(expiry);
-      }
+      await _persistSession();
       Get.offAllNamed(AppRoutes.home);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
@@ -196,6 +198,7 @@ class AuthController extends GetxController {
       );
       currentUser.value = user;
       isAuthenticated.value = true;
+      await _persistSession();
       Get.offAllNamed(AppRoutes.emailVerification);
     } on ApplicationException catch (e) {
       _logger.warning(
@@ -228,6 +231,7 @@ class AuthController extends GetxController {
       final user = await _repository.signInWithGoogle();
       currentUser.value = user;
       isAuthenticated.value = true;
+      await _persistSession();
       Get.offAllNamed(AppRoutes.home);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
@@ -252,6 +256,7 @@ class AuthController extends GetxController {
       final user = await _repository.signInAnonymously();
       currentUser.value = user;
       isAuthenticated.value = true;
+      await _persistSession();
       Get.offAllNamed(AppRoutes.home);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;

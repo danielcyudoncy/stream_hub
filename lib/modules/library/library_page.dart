@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -55,10 +56,7 @@ class LibraryPage extends GetView<LibraryController> {
     );
   }
 
-  Widget _buildLibraryStats(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildLibraryStats(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Row(
@@ -127,10 +125,7 @@ class LibraryPage extends GetView<LibraryController> {
     );
   }
 
-  Widget _buildMoviesSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildMoviesSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -145,7 +140,12 @@ class LibraryPage extends GetView<LibraryController> {
           ),
           AppSpacing.heightXS,
           controller.movies.isEmpty
-              ? _buildEmptyLibrary(context, colorScheme, 'No movies', 'Add a provider with movie content.')
+              ? _buildEmptyLibrary(
+                  context,
+                  colorScheme,
+                  'No movies',
+                  'Add a provider with movie content.',
+                )
               : SizedBox(
                   height: 220,
                   child: ListView.builder(
@@ -154,7 +154,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.movies[index];
-                      return _buildLibraryCard(context, item, colorScheme, width: 140);
+                      return _buildLibraryCard(
+                        context,
+                        item,
+                        colorScheme,
+                        width: 140,
+                      );
                     },
                   ),
                 ),
@@ -163,10 +168,7 @@ class LibraryPage extends GetView<LibraryController> {
     );
   }
 
-  Widget _buildSeriesSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildSeriesSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -181,7 +183,12 @@ class LibraryPage extends GetView<LibraryController> {
           ),
           AppSpacing.heightXS,
           controller.series.isEmpty
-              ? _buildEmptyLibrary(context, colorScheme, 'No series', 'Add a provider with series content.')
+              ? _buildEmptyLibrary(
+                  context,
+                  colorScheme,
+                  'No series',
+                  'Add a provider with series content.',
+                )
               : SizedBox(
                   height: 220,
                   child: ListView.builder(
@@ -190,7 +197,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.series[index];
-                      return _buildLibraryCard(context, item, colorScheme, width: 140);
+                      return _buildLibraryCard(
+                        context,
+                        item,
+                        colorScheme,
+                        width: 140,
+                      );
                     },
                   ),
                 ),
@@ -199,10 +211,7 @@ class LibraryPage extends GetView<LibraryController> {
     );
   }
 
-  Widget _buildFavoritesSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildFavoritesSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -217,7 +226,12 @@ class LibraryPage extends GetView<LibraryController> {
           ),
           AppSpacing.heightXS,
           controller.favorites.isEmpty
-              ? _buildEmptyLibrary(context, colorScheme, 'No favorites', 'Add favorites from Live TV, Movies, or Series.')
+              ? _buildEmptyLibrary(
+                  context,
+                  colorScheme,
+                  'No favorites',
+                  'Add favorites from Live TV, Movies, or Series.',
+                )
               : SizedBox(
                   height: 180,
                   child: ListView.builder(
@@ -226,7 +240,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.favorites[index];
-                      return _buildLibraryCard(context, item, colorScheme, width: 160);
+                      return _buildLibraryCard(
+                        context,
+                        item,
+                        colorScheme,
+                        width: 160,
+                      );
                     },
                   ),
                 ),
@@ -253,7 +272,12 @@ class LibraryPage extends GetView<LibraryController> {
           ),
           AppSpacing.heightXS,
           controller.continueWatching.isEmpty
-              ? _buildEmptyLibrary(context, colorScheme, 'No continue watching', 'Start watching content to see it here.')
+              ? _buildEmptyLibrary(
+                  context,
+                  colorScheme,
+                  'No continue watching',
+                  'Start watching content to see it here.',
+                )
               : SizedBox(
                   height: 180,
                   child: ListView.builder(
@@ -262,7 +286,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.continueWatching[index];
-                      return _buildLibraryCard(context, item, colorScheme, width: 160);
+                      return _buildLibraryCard(
+                        context,
+                        item,
+                        colorScheme,
+                        width: 160,
+                      );
                     },
                   ),
                 ),
@@ -271,10 +300,7 @@ class LibraryPage extends GetView<LibraryController> {
     );
   }
 
-  Widget _buildDownloadsSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildDownloadsSection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -289,7 +315,12 @@ class LibraryPage extends GetView<LibraryController> {
           ),
           AppSpacing.heightXS,
           controller.downloads.isEmpty
-              ? _buildEmptyLibrary(context, colorScheme, 'No downloads', 'Download content to watch offline.')
+              ? _buildEmptyLibrary(
+                  context,
+                  colorScheme,
+                  'No downloads',
+                  'Download content to watch offline.',
+                )
               : SizedBox(
                   height: 180,
                   child: ListView.builder(
@@ -298,7 +329,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.downloads[index];
-                      return _buildLibraryCard(context, item, colorScheme, width: 140);
+                      return _buildLibraryCard(
+                        context,
+                        item,
+                        colorScheme,
+                        width: 140,
+                      );
                     },
                   ),
                 ),
@@ -307,10 +343,7 @@ class LibraryPage extends GetView<LibraryController> {
     );
   }
 
-  Widget _buildHistorySection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
+  Widget _buildHistorySection(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Column(
@@ -325,7 +358,12 @@ class LibraryPage extends GetView<LibraryController> {
           ),
           AppSpacing.heightXS,
           controller.history.isEmpty
-              ? _buildEmptyLibrary(context, colorScheme, 'No history', 'Your playback history will appear here.')
+              ? _buildEmptyLibrary(
+                  context,
+                  colorScheme,
+                  'No history',
+                  'Your playback history will appear here.',
+                )
               : SizedBox(
                   height: 180,
                   child: ListView.builder(
@@ -334,7 +372,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.history[index];
-                      return _buildLibraryCard(context, item, colorScheme, width: 160);
+                      return _buildLibraryCard(
+                        context,
+                        item,
+                        colorScheme,
+                        width: 160,
+                      );
                     },
                   ),
                 ),
@@ -349,14 +392,17 @@ class LibraryPage extends GetView<LibraryController> {
     ColorScheme colorScheme, {
     required double width,
   }) {
-    return Container(
-      width: width,
-      margin: const EdgeInsets.only(right: AppSpacing.md),
-      child: AppCard(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    final poster = item.poster ?? item.thumbnail;
+    return GestureDetector(
+      onTap: () => _openItem(item),
+      child: Container(
+        width: width,
+        margin: const EdgeInsets.only(right: AppSpacing.md),
+        child: AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               ClipRRect(
                 borderRadius: AppRadius.medium,
                 child: Container(
@@ -365,50 +411,80 @@ class LibraryPage extends GetView<LibraryController> {
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
                   ),
-                  child: Center(
-                    child: Icon(
-                      item.mediaType == MediaType.movie
-                          ? AppIcons.movies
-                          : item.mediaType == MediaType.series
-                              ? AppIcons.series
-                              : AppIcons.liveTv,
-                      size: 32.0,
-                      color: colorScheme.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
+                  child: poster != null && poster.isNotEmpty
+                      ? Image.network(
+                          poster,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildPosterPlaceholder(
+                                context,
+                                item,
+                                colorScheme,
+                              ),
+                        )
+                      : _buildPosterPlaceholder(context, item, colorScheme),
                 ),
               ),
               Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   Text(
-                     item.title,
-                    style: AppTypography.getCaption(
-                      color: colorScheme.onSurface,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (item.subtitle != null) ...[
-                    AppSpacing.heightXXS,
-                  Text(
-                     item.subtitle!,
+                padding: const EdgeInsets.all(AppSpacing.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item.title,
                       style: AppTypography.getCaption(
-                        color: colorScheme.onSurfaceVariant,
-                        scale: 0.8,
+                        color: colorScheme.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    if (item.subtitle != null) ...[
+                      AppSpacing.heightXXS,
+                      Text(
+                        item.subtitle!,
+                        style: AppTypography.getCaption(
+                          color: colorScheme.onSurfaceVariant,
+                          scale: 0.8,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPosterPlaceholder(
+    BuildContext context,
+    MediaItem item,
+    ColorScheme colorScheme,
+  ) {
+    return Center(
+      child: Icon(
+        item.mediaType == MediaType.movie
+            ? AppIcons.movies
+            : item.mediaType == MediaType.series
+            ? AppIcons.series
+            : AppIcons.liveTv,
+        size: 32.0,
+        color: colorScheme.primary.withValues(alpha: 0.3),
+      ),
+    );
+  }
+
+  void _openItem(MediaItem item) {
+    Get.toNamed(
+      AppRoutes.fullscreenPlayer,
+      arguments: {
+        'items': [item],
+        'currentId': item.id,
+      },
     );
   }
 

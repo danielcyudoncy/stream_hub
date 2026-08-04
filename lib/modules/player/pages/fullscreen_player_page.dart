@@ -29,7 +29,10 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
     super.initState();
     _resolveVideoController();
     _stateSub = _controller.playbackController.engine.stateRx.listen((state) {
-      if (mounted) setState(() {});
+      if (mounted) {
+        _resolveVideoController();
+        setState(() {});
+      }
       if (state == PlaybackState.playing) {
         _autoHideControls();
       }
@@ -38,6 +41,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   }
 
   void _resolveVideoController() {
+    if (_videoController != null) return;
     final adapter =
         _controller.playbackController.engine.adapter;
     if (adapter is MediaKitPlayerAdapter) {
@@ -125,6 +129,8 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         );
       }
       if (state == PlaybackState.error) {
+        final errorMessage = _controller
+            .playbackController.engine.errorMessageRx.value;
         return Positioned.fill(
           child: Container(
             color: Colors.black87,
@@ -139,14 +145,22 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                     style: AppTypography.getTitle(color: Colors.white),
                   ),
                   AppSpacing.heightSM,
-                  Text(
-                    'Unable to play this stream.',
-                    style: AppTypography.getBody(color: Colors.white70),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Text(
+                      errorMessage.isNotEmpty
+                          ? errorMessage
+                          : 'Unable to play this stream.',
+                      style: AppTypography.getBody(color: Colors.white70),
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   AppSpacing.heightMD,
                   ElevatedButton.icon(
                     onPressed: () =>
-                        _controller.playbackController.retry(),
+                        _controller.retry(),
                     icon: const Icon(AppIcons.refresh),
                     label: const Text('Retry'),
                   ),
@@ -206,7 +220,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
               Expanded(
                 child: Obx(() {
                   final title =
-                      _controller.session?.metadata.title ?? 'Player';
+                      _controller.sessionRx.value?.metadata.title ?? 'Player';
                   return Text(
                     title,
                     style: AppTypography.getBody(color: Colors.white),
@@ -216,8 +230,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                 }),
               ),
               Obx(() {
-                final isFav =
-                    _controller.currentItem?.favorite ?? false;
+                final isFav = _controller.isFavoriteRx.value;
                 return IconButton(
                   icon: Icon(
                     isFav ? Icons.favorite : Icons.favorite_border,
@@ -235,7 +248,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
 
   Widget _buildChannelInfo() {
     return Obx(() {
-      final item = _controller.currentItem;
+      final item = _controller.sessionRx.value?.mediaItem;
       if (item == null) return const SizedBox.shrink();
       return Container(
         padding: const EdgeInsets.symmetric(

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/constants/app_constants.dart';
+import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/core/utils/validators.dart';
+import 'package:stream_hub/data/providers/xtream/xtream_url_detector.dart';
 import 'package:stream_hub/shared/widgets/app_button.dart';
 import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
@@ -24,6 +27,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
     _xmltvController = TextEditingController(text: provider?.xmltvUrl ?? '');
     _notesController = TextEditingController(text: provider?.notes ?? '');
     _selectedType = (provider?.providerType ?? ProviderType.m3u).obs;
+    _serverUrlController.addListener(_handleServerUrlChanged);
   }
 
   bool get isEditing => provider != null;
@@ -100,7 +104,11 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                         if (type != ProviderType.xmltv) ...[
                           TextFormField(
                             controller: _serverUrlController,
-                            decoration: const InputDecoration(labelText: 'Server URL', hintText: 'https://example.com'),
+                            decoration: InputDecoration(
+                              labelText: 'Server URL',
+                              hintText: 'https://example.com',
+                              suffixIcon: _buildPasteButton(_serverUrlController),
+                            ),
                             keyboardType: TextInputType.url,
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
@@ -156,7 +164,11 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                         if (type == ProviderType.xmltv) ...[
                           TextFormField(
                             controller: _xmltvController,
-                            decoration: const InputDecoration(labelText: 'XMLTV URL', hintText: 'https://example.com/guide.xml'),
+                            decoration: InputDecoration(
+                              labelText: 'XMLTV URL',
+                              hintText: 'https://example.com/guide.xml',
+                              suffixIcon: _buildPasteButton(_xmltvController),
+                            ),
                             keyboardType: TextInputType.url,
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) return null;
@@ -247,5 +259,42 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
   String _randomSuffix() {
     final random = DateTime.now().microsecond % 10000;
     return random.toString().padLeft(4, '0');
+  }
+
+  /// When an Xtream panel export URL (e.g. `get.php?username=X&password=Y`)
+  /// is entered, switch to the Xtream provider type and extract the
+  /// credentials and base server URL from the link.
+  void _handleServerUrlChanged() {
+    final text = _serverUrlController.text;
+    final parts = XtreamUrlDetector.parse(text);
+    if (parts == null) return;
+
+    _selectedType.value = ProviderType.xtream;
+    final username = parts.username;
+    if (username != null && _usernameController.text.trim().isEmpty) {
+      _usernameController.text = username;
+    }
+    final password = parts.password;
+    if (password != null && _passwordController.text.trim().isEmpty) {
+      _passwordController.text = password;
+    }
+    _serverUrlController.text = parts.serverUrl;
+    _serverUrlController.selection = TextSelection.collapsed(
+      offset: _serverUrlController.text.length,
+    );
+  }
+
+  Widget _buildPasteButton(TextEditingController controller) {
+    return IconButton(
+      icon: const Icon(AppIcons.paste, size: 20),
+      tooltip: 'Paste',
+      onPressed: () async {
+        final data = await Clipboard.getData(Clipboard.kTextPlain);
+        final text = data?.text;
+        if (text != null && text.trim().isNotEmpty) {
+          controller.text = text.trim();
+        }
+      },
+    );
   }
 }

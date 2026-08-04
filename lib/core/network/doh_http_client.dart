@@ -164,17 +164,35 @@ HttpClient createDohAwareHttpClient({DohResolver? resolver}) {
     final host = uri.host;
     final port = uri.port;
 
+    // First try the standard platform resolver.
+    SocketException? platformError;
+    try {
+      final socket = isSecure
+          ? await SecureSocket.connect(host, port,
+              timeout: const Duration(seconds: 5))
+          : await Socket.connect(host, port,
+              timeout: const Duration(seconds: 5));
+      return ConnectionTask.fromSocket(Future.value(socket), socket.destroy);
+    } on SocketException catch (e) {
+      // Platform resolution/connection failed, attempt DoH fallback.
+      platformError = e;
+    } catch (_) {
+      // Fall through to DoH
+    }
+
     final addresses = await doh.resolve(host);
     if (addresses.isNotEmpty) {
       SocketException? lastError;
       for (final address in addresses) {
         try {
-          final raw = await Socket.connect(address, port);
+          final raw = await Socket.connect(address, port,
+              timeout: const Duration(seconds: 5));
           if (!isSecure) {
             return ConnectionTask.fromSocket(Future.value(raw), raw.destroy);
           }
           final secure = await SecureSocket.secure(raw, host: host);
-          return ConnectionTask.fromSocket(Future.value(secure), secure.destroy);
+          return ConnectionTask.fromSocket(
+              Future.value(secure), secure.destroy);
         } on SocketException catch (e) {
           lastError = e;
         }
@@ -184,10 +202,13 @@ HttpClient createDohAwareHttpClient({DohResolver? resolver}) {
       }
     }
 
-    final socket = isSecure
-        ? await SecureSocket.connect(host, port)
-        : await Socket.connect(host, port);
-    return ConnectionTask.fromSocket(Future.value(socket), socket.destroy);
+    // DoH produced no usable addresses. Surface the original platform error
+    // instead of re-attempting the (potentially long) platform lookup a second
+    // time, which is what caused connections to hang on flaky resolvers.
+    if (platformError != null) {
+      throw platformError;
+    }
+    throw const SocketException('Could not resolve host');
   };
 
   return client;

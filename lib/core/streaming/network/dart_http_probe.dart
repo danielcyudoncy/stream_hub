@@ -9,6 +9,10 @@ import 'package:stream_hub/core/streaming/models/stream_probe.dart';
 class DartHttpProbe implements HttpProbe {
   const DartHttpProbe();
 
+  /// Maximum body bytes read during a GET fallback probe. Live streams are
+  /// endless, so the probe reads a bounded prefix and cancels the connection.
+  static const int kMaxProbeBytes = 256 * 1024;
+
   @override
   Future<HttpProbeResult> probe(
     String url, {
@@ -27,11 +31,10 @@ class DartHttpProbe implements HttpProbe {
       );
     } on HttpException {
       return await _getProbe(url, headers, timeout, stopwatch, followRedirects);
-    } on SocketException catch (e) {
-      throw StreamNetworkException(
-        message: 'Network error while probing stream: ${e.message}',
-        originalError: e,
-      );
+    } on SocketException {
+      // Some panels close the connection outright on HEAD (empty reply)
+      // rather than answering with 405. Treat it like "HEAD unsupported".
+      return await _getProbe(url, headers, timeout, stopwatch, followRedirects);
     } on TimeoutException {
       throw StreamTimeoutException(
         message: 'Timed out while probing stream URL.',
@@ -80,9 +83,27 @@ class DartHttpProbe implements HttpProbe {
       request.followRedirects = followRedirects;
       request.maxRedirects = followRedirects ? 5 : 0;
       final response = await request.close().timeout(timeout);
-      // Bounded drain to avoid buffering large payloads.
-      final sub = response.listen((_) {});
-      await response.drain<void>();
+      // Bounded read: live streams never end, so draining would block until
+      // the timeout. Read a prefix to confirm the stream is delivering data,
+      // then cancel the connection.
+      final completer = Completer<void>();
+      var received = 0;
+      final sub = response.listen(
+        (chunk) {
+          received += chunk.length;
+          if (received >= kMaxProbeBytes && !completer.isCompleted) {
+            completer.complete();
+          }
+        },
+        onDone: () {
+          if (!completer.isCompleted) completer.complete();
+        },
+        onError: (Object _) {
+          if (!completer.isCompleted) completer.complete();
+        },
+        cancelOnError: true,
+      );
+      await completer.future.timeout(timeout);
       await sub.cancel();
       return _buildResult(response, url, stopwatch);
     } finally {

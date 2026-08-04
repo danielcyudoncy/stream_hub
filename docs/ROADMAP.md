@@ -202,6 +202,48 @@ Provider-independent playback and download preparation pipeline.
 
 ---
 
+## Phase 3ZZ — IPTV Core & Playback Negotiation Engine
+
+Provider-independent analysis, negotiation, and diagnostics layer that sits
+between the Stream Engine and the Playback Engine.
+
+- [x] `ProviderDetector` (M3U, Xtream, Stalker, XMLTV, local; transport; ZIP/GZIP compression)
+- [x] `ProviderCapabilityAnalyzer` (normalized capability set; config overrides)
+- [x] `PlaylistAnalyzer` (M3U classification, stats, header attributes, protocol distribution)
+- [x] `StreamNegotiationEngine` (protocol → capability → player → header → analysis)
+- [x] `ProtocolDetector` / `CapabilityDetector` / `PlayerNegotiator` / `HeaderNegotiator`
+- [x] `StreamAnalyzer` (codec, resolution, bitrate, DRM, HLS/DASH variants)
+- [x] `StreamDiagnosticsBuilder` + `StreamDiagnosticsReport` (steps, root cause, timings)
+- [x] `ErrorRecoveryEngine` + `RecoveryResult` (actionable failure categories)
+- [x] `DebugModeService` (reactive per-category toggles) + `DebugSessionLog`
+- [x] `IptvCore` facade + `IptvCoreBinding` (DI, wired to real `StreamEngine`)
+- [x] Test tools (`PlaybackTestTool`, `ProviderTestTool`, `StreamTestTool`)
+- [x] Developer module (Settings → Developer Tools → Playback/Provider/Stream Test)
+- [x] Docs updated (ARCHITECTURE.md)
+- [x] 28 IPTV Core tests passing (243 total)
+
+---
+
+## Phase 3ZZZ — Xtream Provider & Unified VOD Playback
+
+Full Xtream Codes panel support and VOD playback across providers.
+
+- [x] `XtreamMediaSource` (live, VOD movies, series, live/VOD/series categories)
+- [x] `XtreamStreamResolver` (direct live/VOD; series via `get_series_info`)
+- [x] Xtream wired into `MediaSourceFactory` and `StreamEngineBinding`
+- [x] Removed obsolete Xtream stub (`data/providers/stubs/xtream_source.dart`)
+- [x] M3U movie/series classification (`M3UContentClassifier`: `tvg-type`, URL, group)
+- [x] Library + Home movie/series cards playable via `AppRoutes.fullscreenPlayer`
+- [x] Xtream export detection (`XtreamUrlDetector`): M3U `get.php`/`player_api.php` links sync via the Xtream JSON API
+- [x] `XtreamMediaSource` falls back to `get_live_streams` when a panel ignores `action=live`
+- [x] `XtreamMediaSource` parses bare top-level array payloads (non-standard panels)
+- [x] Tolerant parsing of non-string metadata values (e.g. `backdrop_path` emitted as a list)
+- [x] Account metadata (account created / expiry / trial / connections) captured from `user_info` and shown in provider details
+- [x] Provider form auto-detects Xtream exports and prefills credentials
+- [x] Tests: Xtream source + resolver, M3U classifier, export detection (291 total)
+
+---
+
 ## Phase 4 — Player
 
 - [x] Play streams via real media_kit integration (MediaKitPlayerAdapter)

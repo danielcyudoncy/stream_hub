@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:get/get.dart';
+import 'package:stream_hub/core/iptv/iptv_core.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
@@ -7,6 +8,7 @@ import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
+import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/playback_controller.dart';
@@ -24,12 +26,16 @@ class PlayerController extends GetxController {
   final StreamRepository streamRepository;
   final HistoryRepository? historyRepository;
   final FavoriteRepository? favoriteRepository;
+  final IptvCore? iptvCore;
 
   final String? itemId;
   final String? streamUrl;
 
   final RxList<MediaItem> channelList = <MediaItem>[].obs;
+  final RxBool isFavoriteRx = false.obs;
   int _currentChannelIndex = -1;
+  MediaItem? _pendingItem;
+  late final Worker _sessionWorker;
 
   PlayerController({
     this.itemId,
@@ -40,14 +46,19 @@ class PlayerController extends GetxController {
     StreamRepository? streamRepository,
     this.historyRepository,
     this.favoriteRepository,
+    IptvCore? iptvCore,
   })  : playbackController = PlaybackController(
           adapter: adapter,
           settings: settings,
           logger: logger,
         ),
-        streamRepository = streamRepository ?? Get.find<StreamRepository>();
+        streamRepository = streamRepository ?? Get.find<StreamRepository>(),
+        iptvCore = iptvCore ??
+            (Get.isRegistered<IptvCore>() ? Get.find<IptvCore>() : null);
 
   PlayableMediaSession? get session => playbackController.engine.currentSession;
+  Rx<PlayableMediaSession?> get sessionRx => playbackController.engine.sessionRx;
+  Rx<PlaybackState> get stateRx => playbackController.engine.stateRx;
   PlaybackState get state => playbackController.engine.currentState;
   Duration get position => playbackController.engine.positionRx.value;
   Duration get duration => playbackController.engine.durationRx.value;
@@ -59,6 +70,9 @@ class PlayerController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    _sessionWorker = ever(sessionRx, (session) {
+      isFavoriteRx.value = session?.mediaItem.favorite ?? false;
+    });
     if (itemId != null && streamUrl != null) {
       _autoStart(itemId!, streamUrl!);
     }
@@ -67,6 +81,7 @@ class PlayerController extends GetxController {
 
   @override
   void onClose() {
+    _sessionWorker.dispose();
     playbackController.removeEventListener(_onPlaybackEvent);
     playbackController.stop();
     super.onClose();
@@ -124,20 +139,97 @@ class PlayerController extends GetxController {
   }
 
   Future<void> playMediaItem(MediaItem item) async {
-    final session = await streamRepository.resolvePlayback(
-      mediaItemId: item.id,
-      providerType: item.providerType,
-      itemMetadata: item.metadata,
-      providerId: item.providerId,
-      fallbackUrl: item.id,
+    final startedAt = DateTime.now();
+    PlayableSession? session;
+    _pendingItem = item;
+    try {
+      if (playbackController.engine.adapter is MediaKitPlayerAdapter) {
+        final adapter =
+            playbackController.engine.adapter as MediaKitPlayerAdapter;
+        if (adapter.player == null) {
+          await playbackController.engine.initialize();
+        }
+      }
+
+      session = await streamRepository.resolvePlayback(
+        mediaItemId: item.id,
+        providerType: item.providerType,
+        itemMetadata: item.metadata,
+        providerId: item.providerId,
+        fallbackUrl: item.id,
+      );
+      await playWithSession(item, session);
+    } catch (e, st) {
+      await _handlePlaybackFailure(item, session, e, st, startedAt);
+    }
+  }
+
+  /// Attempts IPTV Core error recovery and records diagnostics, then surfaces
+  /// the failure through the engine so the player never hangs silently.
+  Future<void> _handlePlaybackFailure(
+    MediaItem item,
+    PlayableSession? session,
+    Object error,
+    StackTrace stackTrace,
+    DateTime startedAt,
+  ) async {
+    final core = iptvCore;
+    if (core != null && session != null) {
+      try {
+        final recovery = await core.errorRecovery.recover(
+          session,
+          error,
+          itemMetadata: item.metadata,
+        );
+        if (recovery.recovered && recovery.finalSession != null) {
+          try {
+            await playWithSession(item, recovery.finalSession!);
+            return;
+          } catch (replayError) {
+            core.diagnosticsBuilder.build(
+              inputUrl: item.id,
+              session: recovery.finalSession,
+              extraErrors: [recovery.message, 'Replay failed: $replayError'],
+              startedAt: startedAt,
+              completedAt: DateTime.now(),
+            );
+          }
+        } else {
+          core.diagnosticsBuilder.build(
+            inputUrl: item.id,
+            session: session,
+            extraErrors: [error.toString(), recovery.message],
+            startedAt: startedAt,
+            completedAt: DateTime.now(),
+          );
+        }
+      } catch (recoveryError, recoveryStack) {
+        playbackController.engine.logger.error(
+          'Error recovery failed: $recoveryError',
+          tag: 'PlayerController',
+          error: recoveryError,
+          stackTrace: recoveryStack,
+        );
+      }
+    }
+
+    final message = 'Failed to resolve and play media item ${item.id}: $error';
+    playbackController.engine.logger.error(
+      message,
+      tag: 'PlayerController',
+      error: error,
+      stackTrace: stackTrace,
     );
-    await playWithSession(item, session);
+    playbackController.engine.failPlayback(message, stackTrace: stackTrace);
   }
 
   void setChannelList(List<MediaItem> channels, {String? currentId}) {
     channelList.assignAll(channels);
     _currentChannelIndex =
         currentId != null ? channels.indexWhere((c) => c.id == currentId) : -1;
+    if (_currentChannelIndex != -1) {
+      playMediaItem(channels[_currentChannelIndex]);
+    }
   }
 
   Future<void> switchToChannel(int index) async {
@@ -167,7 +259,14 @@ class PlayerController extends GetxController {
   Future<void> replay() => playbackController.replay();
   Future<void> next() => switchToNextChannel();
   Future<void> previous() => switchToPreviousChannel();
-  Future<void> retry() => playbackController.retry();
+  Future<void> retry() async {
+    final pending = _pendingItem;
+    if (pending != null) {
+      await playMediaItem(pending);
+    } else {
+      await playbackController.retry();
+    }
+  }
 
   Future<void> setSpeed(PlaybackSpeed speed) =>
       playbackController.setSpeed(speed);
@@ -191,6 +290,7 @@ class PlayerController extends GetxController {
     } else {
       await favoriteRepository!.add(item.copyWith(favorite: true));
     }
+    isFavoriteRx.value = !item.favorite;
   }
 
   void _recordPlayback(MediaItem item) {

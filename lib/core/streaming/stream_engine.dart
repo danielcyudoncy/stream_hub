@@ -10,6 +10,7 @@ import 'package:stream_hub/core/streaming/events/stream_events.dart';
 import 'package:stream_hub/core/streaming/failover/failover_manager.dart';
 import 'package:stream_hub/core/streaming/factory/playable_session_factory.dart';
 import 'package:stream_hub/core/streaming/health/stream_health_monitor.dart';
+import 'package:stream_hub/core/media/enums/stream_type.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/models/prepared_download.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
@@ -90,7 +91,10 @@ class StreamEngine {
     if (useCache) {
       final cached = streamCache.getSession(cacheKey);
       if (cached != null && !cached.isExpired && validate) {
-        final validation = await streamValidator.validate(cached);
+        final validation = await streamValidator.validate(
+          cached,
+          probeNetwork: _shouldProbeNetwork(cached),
+        );
         if (validation.isValid) {
           logger.debug(
             'Stream cache hit for $mediaItemId',
@@ -126,7 +130,10 @@ class StreamEngine {
     streamCache.putSession(playable);
 
     if (validate) {
-      final validation = await streamValidator.validate(playable);
+      final validation = await streamValidator.validate(
+        playable,
+        probeNetwork: _shouldProbeNetwork(playable),
+      );
       if (!validation.isValid) {
         throw StreamValidationException(
           message: validation.errors.isNotEmpty
@@ -343,6 +350,19 @@ class StreamEngine {
       if (candidate != null && candidate.isNotEmpty) return candidate;
     }
     return null;
+  }
+
+  /// Whether an end-to-end network probe should gate playback.
+  ///
+  /// Authenticated raw MPEG-TS live sessions are endless streams served
+  /// through token redirects and panel CDNs. Probing them is unreliable:
+  /// panels often reject HEAD, CDNs enforce connection limits and return
+  /// transient 403/503 responses, and the body never ends. Validation is
+  /// therefore limited to local checks (URL, scheme, expiry, headers) and the
+  /// player surfaces any real failure during playback. Finite content (HLS,
+  /// DASH, MP4, MKV) is still probed so 404/401 issues are caught early.
+  bool _shouldProbeNetwork(PlayableSession playable) {
+    return playable.streamType != StreamType.mpegTs;
   }
 
   String _resolveProviderId(Map<String, dynamic> itemMetadata) {

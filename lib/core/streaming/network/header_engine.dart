@@ -6,7 +6,14 @@ import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart'
 /// stream. Supports User-Agent, Referer, Origin, Authorization, Bearer Token,
 /// Cookies, Accept, Accept-Language, Accept-Encoding, and custom headers.
 class HeaderEngine {
-  static const String kDefaultUserAgent = 'StreamHubPro/1.0';
+  /// Default stream User-Agent.
+  ///
+  /// Streams are delivered through media_kit (libmpv). Many panels and CDNs
+  /// reject generic application User-Agents (and bare SDK User-Agents) with
+  /// 403/409 while serving libmpv-style agents without requiring a Referer.
+  /// Using the same agent our player presents keeps header injection and the
+  /// stream probe consistent with real playback.
+  static const String kDefaultUserAgent = 'libmpv/0.37.0';
 
   /// Builds the header set for a stream request.
   ///
