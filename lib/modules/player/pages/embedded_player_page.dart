@@ -28,16 +28,18 @@ class EmbeddedPlayerPage extends GetView<PlayerController> {
               color: Colors.black,
               borderRadius: BorderRadius.circular(12),
             ),
+            clipBehavior: Clip.antiAlias,
             child: Stack(
               alignment: Alignment.center,
               children: [
-                const Center(
-                  child: Icon(
+                _buildVideoLayer(),
+                if (controller.sessionRx.value == null &&
+                    state != PlaybackState.loading)
+                  const Icon(
                     Icons.play_circle_outline,
                     size: 48,
                     color: Colors.white54,
                   ),
-                ),
                 if (state == PlaybackState.buffering ||
                     state == PlaybackState.loading)
                   const Center(
@@ -59,6 +61,30 @@ class EmbeddedPlayerPage extends GetView<PlayerController> {
               ),
             ),
         ],
+      );
+    });
+  }
+
+  /// Renders the active backend's video surface. Watches [engineKindRx] so the
+  /// layer swaps to the newly selected adapter (MediaKit or VLC) when the
+  /// engine switches backends, and [stateRx] so the surface mounts once the
+  /// adapter initializes its video controller during the load flow.
+  ///
+  /// Without the [stateRx] dependency the layer would lock in the adapter's
+  /// pre-initialization `SizedBox.shrink()`: the engine initializes the
+  /// adapter lazily inside `playMediaItem`, and on desktop the engine kind
+  /// never changes (VLC is unavailable), so nothing ever rebuilt the surface
+  /// and playback ran audio-only with a black frame.
+  Widget _buildVideoLayer() {
+    return Obx(() {
+      final engine = controller.playbackController.engine;
+      engine.engineKindRx.value;
+      controller.stateRx.value;
+      return Positioned.fill(
+        child: ColoredBox(
+          color: Colors.black,
+          child: engine.adapter.buildPlayerWidget(),
+        ),
       );
     });
   }

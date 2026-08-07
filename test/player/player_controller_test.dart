@@ -1,4 +1,6 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
@@ -21,6 +23,15 @@ class _FakePlayerAdapter implements PlayerAdapter {
   int initializeCount = 0;
   int playSessionCount = 0;
   final List<PlayableSession> playedSessions = [];
+
+  @override
+  PlaybackEngineKind get kind => PlaybackEngineKind.mediaKit;
+
+  @override
+  bool get isInitialized => false;
+
+  @override
+  Widget buildPlayerWidget() => const SizedBox.shrink();
 
   @override
   Future<void> initialize() async {

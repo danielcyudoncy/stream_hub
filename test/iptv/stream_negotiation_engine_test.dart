@@ -21,15 +21,15 @@ void main() {
       );
     }
 
-    test('negotiates HLS with a native MediaKit player', () async {
+    test('negotiates HLS with a VLC-preferred player', () async {
       final negotiated = await engine.negotiate(
         session: sessionFor('https://example.com/live/ch1.m3u8'),
         withAnalysis: false,
       );
       expect(negotiated.protocol, StreamProtocol.hls);
       expect(negotiated.streamType, StreamType.hls);
-      expect(negotiated.playerName, 'MediaKit');
-      expect(negotiated.playerNegotiation.supportLevel, PlayerSupportLevel.native);
+      expect(negotiated.playerName, 'VLC');
+      expect(negotiated.playerNegotiation.supportLevel, PlayerSupportLevel.supported);
       expect(negotiated.isPlayable, isTrue);
       expect(negotiated.isAdaptive, isTrue);
     });
@@ -62,13 +62,13 @@ void main() {
       expect(negotiated.playerNegotiation.engine, PlaybackEngineKind.fallback);
     });
 
-    test('negotiates degraded UDP multicast with fallbacks', () async {
+    test('negotiates UDP multicast for VLC with fallbacks', () async {
       final negotiated = await engine.negotiate(
         session: sessionFor('udp://239.0.0.1:1234'),
         withAnalysis: false,
       );
       expect(negotiated.protocol, StreamProtocol.udp);
-      expect(negotiated.playerNegotiation.supportLevel, PlayerSupportLevel.degraded);
+      expect(negotiated.playerNegotiation.supportLevel, PlayerSupportLevel.supported);
       expect(negotiated.playerNegotiation.fallbackEngines, isNotEmpty);
       expect(negotiated.isPlayable, isTrue);
     });

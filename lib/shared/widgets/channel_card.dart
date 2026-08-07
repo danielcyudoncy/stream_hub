@@ -13,10 +13,8 @@ class ChannelCard extends StatelessWidget {
   final VoidCallback? onTap;
   final VoidCallback? onFavorite;
   final bool showFavoriteButton;
-  final bool showProviderBadge;
   final bool showChannelNumber;
   final bool showHD;
-  final bool showCurrentProgram;
 
   const ChannelCard({
     super.key,
@@ -24,10 +22,8 @@ class ChannelCard extends StatelessWidget {
     this.onTap,
     this.onFavorite,
     this.showFavoriteButton = true,
-    this.showProviderBadge = true,
     this.showChannelNumber = true,
     this.showHD = true,
-    this.showCurrentProgram = true,
   });
 
   @override
@@ -52,61 +48,63 @@ class ChannelCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Stack(
-              children: [
-                Container(
-                  width: double.infinity,
-                  height: 120.0,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                      ),
+                    ),
                   ),
-                  child: Center(
+                  Center(
                     child: ChannelLogo(
                       channel: channel,
                       size: 64.0,
                       showLiveIndicator: isLive,
                     ),
                   ),
-                ),
-                if (isLive)
-                  Positioned(
-                    top: AppSpacing.xxs,
-                    left: AppSpacing.xxs,
-                    child: LiveBadge(isLive: true),
-                  ),
-                if (showHD && channel.metadata['resolution'] != null)
-                  Positioned(
-                    top: AppSpacing.xxs,
-                    right: AppSpacing.xxs,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4.0,
-                        vertical: 1.0,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.7),
-                        borderRadius: AppRadius.small,
-                      ),
-                      child: Text(
-                        channel.metadata['resolution'] as String? ?? '',
-                        style: TextStyle(
-                          fontSize: 9.0,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                  if (isLive)
+                    Positioned(
+                      top: AppSpacing.xxs,
+                      left: AppSpacing.xxs,
+                      child: LiveBadge(isLive: true),
+                    ),
+                  if (showHD && channel.metadata['resolution'] != null)
+                    Positioned(
+                      top: AppSpacing.xxs,
+                      right: AppSpacing.xxs,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4.0,
+                          vertical: 1.0,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.7),
+                          borderRadius: AppRadius.small,
+                        ),
+                        child: Text(
+                          channel.metadata['resolution'] as String? ?? '',
+                          style: TextStyle(
+                            fontSize: 9.0,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                if (showFavoriteButton)
-                  Positioned(
-                    top: AppSpacing.xxs,
-                    right: AppSpacing.xxs,
-                    child: _FavoriteButton(
-                      isFavorite: channel.favorite,
-                      onTap: onFavorite,
+                  if (showFavoriteButton)
+                    Positioned(
+                      top: AppSpacing.xxs,
+                      right: AppSpacing.xxs,
+                      child: _FavoriteButton(
+                        isFavorite: channel.favorite,
+                        onTap: onFavorite,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(AppSpacing.sm),
@@ -131,38 +129,6 @@ class ChannelCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (showCurrentProgram && channel.subtitle != null) ...[
-                    const SizedBox(height: 2.0),
-                    Text(
-                      channel.subtitle!,
-                      style: AppTypography.getCaption(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                  if (showProviderBadge) ...[
-                    const SizedBox(height: AppSpacing.xxs),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6.0,
-                        vertical: 1.0,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer
-                            .withValues(alpha: 0.3),
-                        borderRadius: AppRadius.small,
-                      ),
-                      child: Text(
-                        channel.providerType.displayName,
-                        style: AppTypography.getCaption(
-                          color: colorScheme.onPrimaryContainer,
-                          scale: 0.7,
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

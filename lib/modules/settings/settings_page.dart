@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
@@ -265,12 +266,26 @@ class SettingsPage extends GetView<SettingsController> {
         const SectionHeader(title: 'Playback', subtitle: 'Video and audio settings'),
         AppSpacing.heightXS,
         AppCard(
-          child: SettingsTile(
-            title: 'Playback Settings',
-            subtitle: 'Coming in a future update',
-            leadingIcon: Icons.play_circle_outline,
-            onTap: () {},
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          child: Column(
+            children: [
+              Obx(
+                () => SettingsTile(
+                  title: 'Preferred Player',
+                  subtitle: _playerLabel(controller.preferredPlayer.value),
+                  leadingIcon: Icons.play_circle_outline,
+                  onTap: () => _showPlayerPicker(context),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
+              ),
+              const SettingsTile(
+                title: 'Playback Settings',
+                subtitle: 'Coming in a future update',
+                leadingIcon: Icons.tune_outlined,
+                onTap: null,
+                trailing: Icon(Icons.arrow_forward_ios, size: 16),
+                showDivider: false,
+              ),
+            ],
           ),
         ),
       ],
@@ -386,6 +401,90 @@ class SettingsPage extends GetView<SettingsController> {
       default:
         return 'System Default';
     }
+  }
+
+  String _playerLabel(PlaybackEnginePreference preference) {
+    switch (preference) {
+      case PlaybackEnginePreference.mediaKit:
+        return 'MediaKit';
+      case PlaybackEnginePreference.vlc:
+        return 'VLC';
+      case PlaybackEnginePreference.auto:
+        return 'Auto (Recommended)';
+    }
+  }
+
+  String _playerDescription(PlaybackEnginePreference preference) {
+    switch (preference) {
+      case PlaybackEnginePreference.mediaKit:
+        return 'Always use MediaKit. Best for VOD files.';
+      case PlaybackEnginePreference.vlc:
+        return 'Always use VLC. Best for problematic live streams.';
+      case PlaybackEnginePreference.auto:
+        return 'Pick the best engine per stream. Prefers VLC for live TV.';
+    }
+  }
+
+  void _showPlayerPicker(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Preferred Player', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
+            AppSpacing.heightMD,
+            RadioGroup<PlaybackEnginePreference>(
+              groupValue: controller.preferredPlayer.value,
+              onChanged: (value) {
+                if (value != null) {
+                  controller.changePreferredPlayer(value);
+                  Get.back();
+                }
+              },
+              child: Column(
+                children: PlaybackEnginePreference.values.map((preference) {
+                  final selected = controller.preferredPlayer.value == preference;
+                  return InkWell(
+                    onTap: () => controller.changePreferredPlayer(preference),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+                      child: Row(
+                        children: [
+                          Radio<PlaybackEnginePreference>(value: preference),
+                          AppSpacing.widthXS,
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _playerLabel(preference),
+                                  style: AppTypography.getBody(color: colorScheme.onSurface),
+                                ),
+                                Text(
+                                  _playerDescription(preference),
+                                  style: AppTypography.getCaption(
+                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (selected)
+                            Icon(Icons.check, color: colorScheme.primary),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showThemePicker(BuildContext context) {

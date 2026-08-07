@@ -6,6 +6,7 @@ import '../../../core/utils/responsive_helper.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/validators.dart';
 import '../../../data/models/channel.dart';
 import '../controllers/live_tv_controller.dart';
 import '../../../shared/widgets/app_scaffold.dart';
@@ -140,10 +141,8 @@ class LiveTVPage extends GetView<LiveTVController> {
             child: ChannelCard(
               channel: item,
               showFavoriteButton: true,
-              showProviderBadge: true,
               showChannelNumber: true,
               showHD: true,
-              showCurrentProgram: !isTV,
             ),
           );
         },
@@ -174,7 +173,10 @@ class LiveTVPage extends GetView<LiveTVController> {
             ),
           ),
           title: Text(item.title),
-          subtitle: Text(item.subtitle ?? ''),
+          subtitle: item.subtitle != null &&
+                  !Validators.isValidUrl(item.subtitle)
+              ? Text(item.subtitle!)
+              : null,
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
