@@ -41,6 +41,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    packaging {
+        jniLibs {
+            // flutter_vlc_player ships large libvlc .so files per ABI; keep
+            // them uncompressed so Android can load them at runtime.
+            useLegacyPackaging = true
+        }
+    }
 }
 
 flutter {

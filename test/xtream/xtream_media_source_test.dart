@@ -296,6 +296,52 @@ void main() {
       expect(await source.validate(), isTrue);
     });
 
+    test('resolves channel genres to category names, not raw ids', () async {
+      final server = await XtreamTestServer.start(handler: (action, params) {
+        if (action == 'live') {
+          return {
+            'user_info': {'auth': 1},
+            'server_info': const <String, dynamic>{},
+          };
+        }
+        if (action == 'get_live_streams') {
+          return [
+            {
+              'stream_id': 401,
+              'name': 'News 24',
+              'category_id': '1',
+              'container_extension': 'ts',
+            },
+          ];
+        }
+        if (action == 'get_live_categories') {
+          return [
+            {'category_id': '1', 'category_name': 'News'},
+          ];
+        }
+        return const <dynamic>[];
+      });
+      addTearDown(server.close);
+
+      final source = XtreamMediaSource(
+        id: 'p1',
+        config: {
+          'sourceUrl': server.baseUrl,
+          'username': 'demo',
+          'password': 'secret',
+        },
+        logger: LoggingService(),
+      );
+
+      final result = await source.sync();
+
+      expect(result.success, isTrue);
+      final channels = await source.getChannels();
+      expect(channels, hasLength(1));
+      expect(channels.first.genres, ['News']);
+      expect(channels.first.metadata['categoryId'], '1');
+    });
+
     test('tolerates non-string values for string metadata fields', () async {
       final server = await XtreamTestServer.start(handler: (action, params) {
         if (action == '') {
@@ -415,6 +461,60 @@ void main() {
 
       expect(result.success, isFalse);
       expect(source.state, MediaSourceState.error);
+    });
+
+    test('fails sync with an invalid-credentials message when the panel '
+        'reports auth=0', () async {
+      final server = await XtreamTestServer.start(handler: (action, params) {
+        if (action == '') {
+          return {
+            'user_info': {'auth': 0, 'status': 'Invalid credentials'},
+            'server_info': const <String, dynamic>{},
+          };
+        }
+        return {'data': <dynamic>[]};
+      });
+      addTearDown(server.close);
+
+      final source = XtreamMediaSource(
+        id: 'p1',
+        config: {
+          'sourceUrl': server.baseUrl,
+          'username': 'demo',
+          'password': 'wrong',
+        },
+        logger: LoggingService(),
+      );
+
+      final result = await source.sync();
+
+      expect(result.success, isFalse);
+      expect(source.state, MediaSourceState.error);
+      expect(result.error, contains('rejected the username or password'));
+    });
+
+    test('fails sync with an actionable message when every list is empty and '
+        'user_info cannot be verified', () async {
+      final server = await XtreamTestServer.start(handler: (action, params) {
+        return <dynamic>[];
+      });
+      addTearDown(server.close);
+
+      final source = XtreamMediaSource(
+        id: 'p1',
+        config: {
+          'sourceUrl': server.baseUrl,
+          'username': 'demo',
+          'password': 'secret',
+        },
+        logger: LoggingService(),
+      );
+
+      final result = await source.sync();
+
+      expect(result.success, isFalse);
+      expect(source.state, MediaSourceState.error);
+      expect(result.error, contains('returned no content'));
     });
   });
 }

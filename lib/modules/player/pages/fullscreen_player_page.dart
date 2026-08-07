@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:media_kit_video/media_kit_video.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
-import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
@@ -19,7 +17,6 @@ class FullscreenPlayerPage extends StatefulWidget {
 
 class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   final PlayerController _controller = Get.find<PlayerController>();
-  VideoController? _videoController;
   StreamSubscription<PlaybackState>? _stateSub;
   bool _controlsVisible = true;
   Timer? _controlsTimer;
@@ -27,10 +24,10 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   @override
   void initState() {
     super.initState();
-    _resolveVideoController();
     _stateSub = _controller.playbackController.engine.stateRx.listen((state) {
       if (mounted) {
-        _resolveVideoController();
+        // Rebuild so the video layer reflects the engine's active backend
+        // (MediaKit or VLC) and the state overlays stay in sync.
         setState(() {});
       }
       if (state == PlaybackState.playing) {
@@ -38,15 +35,6 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       }
     });
     _autoHideControls();
-  }
-
-  void _resolveVideoController() {
-    if (_videoController != null) return;
-    final adapter =
-        _controller.playbackController.engine.adapter;
-    if (adapter is MediaKitPlayerAdapter) {
-      _videoController = adapter.videoController;
-    }
   }
 
   void _autoHideControls() {
@@ -92,13 +80,12 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   }
 
   Widget _buildVideoLayer() {
-    if (_videoController != null) {
-      return Positioned.fill(
-        child: Video(controller: _videoController!),
-      );
-    }
+    final adapter = _controller.playbackController.engine.adapter;
     return Positioned.fill(
-      child: Container(color: Colors.black),
+      child: ColoredBox(
+        color: Colors.black,
+        child: adapter.buildPlayerWidget(),
+      ),
     );
   }
 

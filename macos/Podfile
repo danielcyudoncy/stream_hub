@@ -39,4 +39,58 @@ post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_macos_build_settings(target)
   end
+
+  # CocoaPods defines POD_CONFIGURATION_DEBUG at the Pods project Debug level
+  # and every pod target re-inherits it through `$(inherited)`, so clang gets
+  # `-DPOD_CONFIGURATION_DEBUG=1` twice and emits a "'POD_CONFIGURATION_DEBUG'
+  # macro redefined" warning for every compiled file. No pod source code uses
+  # this macro, and DEBUG=1 still covers debug builds, so drop the explicit
+  # project-level definition to remove the duplicate.
+  installer.pods_project.build_configurations.each do |config|
+    next unless config.name == 'Debug'
+
+    definitions = config.build_settings['GCC_PREPROCESSOR_DEFINITIONS']
+    if definitions.is_a?(Array)
+      definitions.reject! { |definition| definition == 'POD_CONFIGURATION_DEBUG=1' }
+    end
+  end
+
+  # Several pods declare a lower macOS minimum (10.11/10.12) than the app
+  # (10.15), which Xcode warns is below the supported deployment target range.
+  # Raise every pod target to match the app's deployment target.
+  installer.pods_project.targets.each do |target|
+    target.build_configurations.each do |config|
+      config.build_settings['MACOSX_DEPLOYMENT_TARGET'] = '10.15'
+    end
+  end
+
+  # gRPC-Core ~1.62 uses `Traits::template CallSeqFactory(...)` where the
+  # `template` keyword is not followed by an argument list. Xcode 26's clang
+  # treats -Wmissing-template-arg-list-after-template-kw as a default error,
+  # which fails the build. Suppress the diagnostic for the gRPC targets.
+  installer.pods_project.targets.each do |target|
+    next unless target.name.start_with?('gRPC-Core', 'gRPC-C++')
+
+    target.build_configurations.each do |config|
+      flags = config.build_settings['OTHER_CPLUSPLUSFLAGS'] || '$(inherited)'
+      unless flags.include?('-Wno-missing-template-arg-list-after-template-kw')
+        config.build_settings['OTHER_CPLUSPLUSFLAGS'] =
+          "#{flags} -Wno-missing-template-arg-list-after-template-kw"
+      end
+    end
+  end
+
+  # The vendored gRPC BoringSSL podspec sets the malformed per-file compiler
+  # flag `-GCC_WARN_INHIBIT_ALL_WARNINGS`. Newer clang rejects it as
+  # `unsupported option '-G'`, failing the whole macOS build. The token is a
+  # no-op and safe to strip; `-w` (also set by the podspec) keeps warnings off.
+  installer.pods_project.objects.select { |object| object.isa == 'PBXBuildFile' }.each do |file|
+    settings = file.settings
+    next unless settings.is_a?(Hash)
+
+    flags = settings['COMPILER_FLAGS']
+    next unless flags.is_a?(String) && flags.include?('-GCC_WARN_INHIBIT_ALL_WARNINGS')
+
+    settings['COMPILER_FLAGS'] = flags.gsub(/-GCC_WARN_INHIBIT_ALL_WARNINGS/, '').squeeze(' ').strip
+  end
 end

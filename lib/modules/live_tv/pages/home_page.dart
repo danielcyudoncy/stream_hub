@@ -168,10 +168,8 @@ class HomePage extends GetView<LiveTVHomeController> {
       child: ChannelCard(
         channel: item,
         showFavoriteButton: true,
-        showProviderBadge: !isTV,
         showChannelNumber: true,
         showHD: true,
-        showCurrentProgram: !isTV,
       ),
     );
   }
