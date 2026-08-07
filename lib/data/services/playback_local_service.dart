@@ -141,7 +141,11 @@ class PlaybackLocalService {
   PlaybackLocalService({LoggingService? logger})
       : logger = logger ?? LoggingService();
 
-  Future<void> init() async {
+  /// Opens the Hive boxes backing sessions, analytics, and player settings.
+  ///
+  /// Safe to call more than once: boxes are only opened when not already open,
+  /// so the type adapters are never registered twice.
+  Future<PlaybackLocalService> init() async {
     if (!Hive.isBoxOpen(boxSessions)) {
       Hive.registerAdapter(PlaybackSessionModelAdapter());
       _sessionsBox = await Hive.openBox<PlaybackSessionModel>(boxSessions);
@@ -155,6 +159,7 @@ class PlaybackLocalService {
       _settingsBox = await Hive.openBox<PlayerSettingsModel>(boxSettings);
     }
     logger.info('PlaybackLocalService initialized', tag: 'PlaybackLocalService');
+    return this;
   }
 
   Future<void> saveSession(PlaybackSessionModel model) async {

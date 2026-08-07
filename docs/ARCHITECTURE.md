@@ -629,6 +629,9 @@ Every player implementation must implement `PlayerAdapter`.
 
 Methods:
 
+- kind
+- isInitialized
+- buildPlayerWidget()
 - initialize()
 - dispose()
 - load()
@@ -647,13 +650,42 @@ Methods:
 - setVolume()
 - getBufferInfo()
 
-Supported implementations:
+Implemented backends:
 
 - MediaKitPlayerAdapter
-- AVPlayer
-- ExoPlayer
-- VLC
-- Web Player
+- VlcPlayerAdapter (Android/iOS only)
+
+Future backends may implement the same contract without any player-page or
+business-logic changes: AVPlayer, ExoPlayer, Web Player.
+
+---
+
+### Playback Engine Selection
+
+The `PlaybackEngine` owns backend selection; the UI never chooses a player.
+
+Modes:
+
+- **Auto (default)** — the engine selects the backend per session using the
+  `PlayerSelectionStrategy`, which considers the stream URL, protocol, media
+  type (live vs VOD) and the persisted `PlayerSettings.preferredPlayer`. If a
+  load fails and the preference is `auto`, the engine swaps to the alternate
+  backend and retries once per session (`allowEngineFallback`).
+- **Explicit** — a forced `PlaybackEngineKind` (or an injected `PlayerAdapter`,
+  e.g. in tests) disables selection and fallback.
+
+Policy (Auto mode):
+
+- RTSP, RTMP, RTMPS, UDP, RTP always → VLC
+- HLS, MPEG-TS, live HTTP/HTTPS relays → VLC
+- DASH, MP4, MKV, progressive HTTP(S) → MediaKit
+- VLC unavailable (non-Android/iOS) → MediaKit
+
+The `PlayerNegotiator` (protocol-only) and the `PlayerSelectionStrategy`
+(protocol + media type + preference) must stay consistent.
+
+`PlayerAdapterFactory.create()` is the only place that maps an engine kind to a
+concrete adapter.
 
 ---
 

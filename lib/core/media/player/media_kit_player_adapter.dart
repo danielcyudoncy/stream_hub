@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
@@ -40,6 +42,10 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   StreamSubscription<bool>? _bufferingSub;
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<Object>? _errorSub;
+  StreamSubscription<mk.VideoParams>? _videoParamsSub;
+
+  int _videoWidth = 0;
+  int _videoHeight = 0;
 
   MediaKitPlayerAdapter({LoggingService? logger})
       : _logger = logger ?? LoggingService();
@@ -48,7 +54,31 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   VideoController? get videoController => _videoController;
 
   @override
+  PlaybackEngineKind get kind => PlaybackEngineKind.mediaKit;
+
+  /// True once media_kit has decoded a frame with real pixel dimensions.
+  ///
+  /// On some Android devices (e.g. Unisoc/Mali) the native decoder produces
+  /// frames but Flutter's external-texture consumer never samples them and
+  /// the screen stays black (logcat: `dequeueBuffer: BufferQueue has been
+  /// abandoned`, codec output buffers never recycled). This flag lets the
+  /// engine detect that silent failure and fall back to VLC, whose platform
+  /// view does not use Flutter external textures.
+  bool get hasVideoFrames => _videoWidth > 0 && _videoHeight > 0;
+
+  @override
+  bool get isInitialized => _player != null;
+
+  @override
+  Widget buildPlayerWidget() {
+    final controller = _videoController;
+    if (controller == null) return const SizedBox.shrink();
+    return Video(controller: controller);
+  }
+
+  @override
   Future<void> initialize() async {
+    if (_player != null) return;
     _player = mk.Player();
     _videoController = VideoController(_player!);
     _bindStreams();
@@ -64,6 +94,11 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     _bufferSub = _player!.stream.buffer.listen((buf) {
       _currentBuffer = buf;
       _bufferController.add(buf);
+    });
+
+    _videoParamsSub = _player!.stream.videoParams.listen((params) {
+      _videoWidth = params.w ?? _videoWidth;
+      _videoHeight = params.h ?? _videoHeight;
     });
 
     _volumeSub = _player!.stream.volume.listen((vol) {
@@ -147,6 +182,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     await _bufferingSub?.cancel();
     await _completedSub?.cancel();
     await _errorSub?.cancel();
+    await _videoParamsSub?.cancel();
     await _player?.dispose();
     await _stateController.close();
     await _positionController.close();
@@ -339,6 +375,8 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
           ? (buf.inMilliseconds / dur.inMilliseconds * 100).clamp(0, 100)
           : 0.0,
       bufferHealthMs: buf.inMilliseconds,
+      videoWidth: _videoWidth,
+      videoHeight: _videoHeight,
       measuredAt: DateTime.now(),
     );
   }
