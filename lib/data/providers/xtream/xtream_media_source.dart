@@ -11,6 +11,7 @@ import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/events/media_event_bus.dart';
 import 'package:stream_hub/core/media/media_source.dart';
 import 'package:stream_hub/core/network/doh_http_client.dart';
+import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart';
 import 'package:stream_hub/data/models/account_metadata.dart';
 import 'package:stream_hub/data/models/media_health.dart';
 import 'package:stream_hub/data/models/media_item.dart';
@@ -35,6 +36,10 @@ import 'package:stream_hub/data/models/media_statistics.dart';
 class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   static const Duration _kRequestTimeout = Duration(seconds: 20);
 
+  static const String _kLiveCategoryPrefix = 'xtream-cat-';
+  static const String _kVodCategoryPrefix = 'xtream-vod-cat-';
+  static const String _kSeriesCategoryPrefix = 'xtream-series-cat-';
+
   final String _id;
   final String _serverUrl;
   final String _username;
@@ -47,6 +52,13 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   MediaSourceState _state = MediaSourceState.created;
 
   AccountMetadata? _accountMetadata;
+
+  /// Whether the panel authenticated the supplied credentials.
+  ///
+  /// `null` until the panel answers `user_info`; `0` means the credentials were
+  /// rejected (the panel reports `"Invalid credentials"`); `1` means the
+  /// subscription is valid.
+  int? _auth;
 
   @override
   AccountMetadata? get accountMetadata => _accountMetadata;
@@ -84,15 +96,15 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     required String id,
     Map<String, dynamic>? config,
     LoggingService? logger,
-  })  : _id = id,
-        _serverUrl = _normalizeServerUrl(config?['sourceUrl'] as String? ?? ''),
-        _username = config?['username'] as String? ?? '',
-        _password = config?['password'] as String? ?? '',
-        _maxRetries = (config?['maxRetries'] as int? ?? 3).clamp(0, 10).toInt(),
-        _retryDelay = Duration(
-          seconds: (config?['retryDelay'] as int? ?? 2).clamp(1, 60).toInt(),
-        ),
-        _logger = logger ?? Get.find<LoggingService>();
+  }) : _id = id,
+       _serverUrl = _normalizeServerUrl(config?['sourceUrl'] as String? ?? ''),
+       _username = config?['username'] as String? ?? '',
+       _password = config?['password'] as String? ?? '',
+       _maxRetries = (config?['maxRetries'] as int? ?? 3).clamp(0, 10).toInt(),
+       _retryDelay = Duration(
+         seconds: (config?['retryDelay'] as int? ?? 2).clamp(1, 60).toInt(),
+       ),
+       _logger = logger ?? Get.find<LoggingService>();
 
   static String _normalizeServerUrl(String raw) {
     var url = raw.trim();
@@ -184,6 +196,46 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       _cachedSeries = results[3] as List<MediaItem>;
       _lastSync = DateTime.now();
 
+      _cachedChannels = _resolveCategoryNames(
+        _cachedChannels,
+        _categoryNameMap(_cachedCategories, _kLiveCategoryPrefix),
+      );
+      _cachedMovies = _resolveCategoryNames(
+        _cachedMovies,
+        _categoryNameMap(_cachedCategories, _kVodCategoryPrefix),
+      );
+      _cachedSeries = _resolveCategoryNames(
+        _cachedSeries,
+        _categoryNameMap(_cachedCategories, _kSeriesCategoryPrefix),
+      );
+
+      final totalItems =
+          _cachedChannels.length + _cachedMovies.length + _cachedSeries.length;
+
+      if (_auth == 0) {
+        _state = MediaSourceState.error;
+        return MediaSyncResult(
+          sourceId: _id,
+          success: false,
+          error:
+              'The Xtream server rejected the username or password. '
+              'Double-check the credentials for "$_serverUrl".',
+          completedAt: DateTime.now(),
+        );
+      }
+
+      if (totalItems == 0 && _accountMetadata == null) {
+        _state = MediaSourceState.error;
+        return MediaSyncResult(
+          sourceId: _id,
+          success: false,
+          error:
+              'The panel at "$_serverUrl" returned no content and the account '
+              'could not be verified. Check the server URL and credentials.',
+          completedAt: DateTime.now(),
+        );
+      }
+
       _channelsController.add(_cachedChannels);
       _categoriesController.add(_cachedCategories);
       _moviesController.add(_cachedMovies);
@@ -208,14 +260,27 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
         completedAt: _lastSync,
       );
     } on SocketException catch (e) {
-      _logger.warning('Xtream sync network error', tag: 'XtreamMediaSource', error: e);
+      _logger.warning(
+        'Xtream sync network error',
+        tag: 'XtreamMediaSource',
+        error: e,
+      );
       return null;
     } on TimeoutException catch (e) {
-      _logger.warning('Xtream sync timed out', tag: 'XtreamMediaSource', error: e);
+      _logger.warning(
+        'Xtream sync timed out',
+        tag: 'XtreamMediaSource',
+        error: e,
+      );
       return null;
     } catch (e, s) {
       _state = MediaSourceState.error;
-      _logger.error('Xtream sync failed', tag: 'XtreamMediaSource', error: e, stackTrace: s);
+      _logger.error(
+        'Xtream sync failed',
+        tag: 'XtreamMediaSource',
+        error: e,
+        stackTrace: s,
+      );
       return MediaSyncResult(
         sourceId: _id,
         success: false,
@@ -441,13 +506,17 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   }
 
   Future<List<MediaItem>> _fetchLiveCategories(DateTime createdAt) async {
-    return _fetchCategories('action=get_live_categories', 'xtream-cat', createdAt);
+    return _fetchCategories(
+      'action=get_live_categories',
+      _kLiveCategoryPrefix,
+      createdAt,
+    );
   }
 
   Future<List<MediaItem>> _fetchMovieCategories(DateTime createdAt) async {
     return _fetchCategories(
       'action=get_vod_categories',
-      'xtream-vod-cat',
+      _kVodCategoryPrefix,
       createdAt,
     );
   }
@@ -455,7 +524,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   Future<List<MediaItem>> _fetchSeriesCategories(DateTime createdAt) async {
     return _fetchCategories(
       'action=get_series_categories',
-      'xtream-series-cat',
+      _kSeriesCategoryPrefix,
       createdAt,
     );
   }
@@ -482,10 +551,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           providerType: MediaSourceType.xtream,
           mediaType: MediaType.collection,
           title: categoryName,
-          metadata: {
-            'categoryId': categoryId,
-            'parentId': item['parent_id'],
-          },
+          metadata: {'categoryId': categoryId, 'parentId': item['parent_id']},
           createdAt: createdAt,
           updatedAt: createdAt,
         ),
@@ -493,6 +559,42 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     }
 
     return categories;
+  }
+
+  /// Builds a `category_id -> category_name` lookup for one category type.
+  ///
+  /// Category IDs are only unique within a type (live / VOD / series), so the
+  /// categories are filtered by their `xtream-...-` prefix before indexing.
+  Map<String, String> _categoryNameMap(
+    List<MediaItem> categories,
+    String prefix,
+  ) {
+    return {
+      for (final category in categories)
+        if (category.id.startsWith(prefix) &&
+            category.metadata['categoryId'] is String)
+          category.metadata['categoryId'] as String: category.title,
+    };
+  }
+
+  /// Replaces raw `category_id` values in a channel's genres with their display
+  /// names, falling back to the raw value when no category name is known.
+  ///
+  /// The raw category id remains available in `metadata['categoryId']`.
+  List<MediaItem> _resolveCategoryNames(
+    List<MediaItem> items,
+    Map<String, String> nameById,
+  ) {
+    if (nameById.isEmpty) return items;
+    return [
+      for (final item in items)
+        if (item.genres.isEmpty)
+          item
+        else
+          item.copyWith(
+            genres: [for (final genre in item.genres) nameById[genre] ?? genre],
+          ),
+    ];
   }
 
   Future<dynamic> _fetchJson(String action) async {
@@ -536,7 +638,8 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     final response = await request.close().timeout(_kRequestTimeout);
     if (response.statusCode != 200) {
       _logger.warning(
-        'Xtream API returned ${response.statusCode} for $uri',
+        'Xtream API returned ${response.statusCode} for '
+        '${SensitiveDataRedactor.redactUrl(uri.toString())}',
         tag: 'XtreamMediaSource',
       );
       return null;
@@ -550,22 +653,48 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   }
 
   /// Fetches the panel `user_info` and parses subscription account metadata.
-  /// Returns `null` when the request fails or the payload is unexpected.
+  ///
+  /// Returns the parsed metadata whenever the panel answers `user_info`
+  /// (regardless of whether the credentials were accepted) and `null` when the
+  /// request fails or the payload is unexpected. Rejected credentials are
+  /// recorded in [auth] so sync can report them to the user.
   Future<AccountMetadata?> _fetchAccountMetadata() async {
+    _auth = null;
     try {
       final payload = await _fetchJson('');
       if (payload is! Map) return null;
       final userInfo = payload['user_info'];
       if (userInfo is! Map) return null;
+
+      _auth = _parseAuth(userInfo);
+      if (_auth == 0) {
+        _logger.warning(
+          'Xtream panel rejected credentials for $_serverUrl',
+          tag: 'XtreamMediaSource',
+        );
+      }
       return AccountMetadata.fromUserInfo(userInfo);
     } catch (e) {
       _logger.warning(
-        'Failed to fetch account metadata',
+        'Failed to fetch account metadata from '
+        '${SensitiveDataRedactor.redactUrl('$_serverUrl/player_api.php')}: $e',
         tag: 'XtreamMediaSource',
         error: e,
       );
       return null;
     }
+  }
+
+  /// Reads the `auth` flag from a panel `user_info` map (`1` = valid,
+  /// `0` = rejected credentials, anything else = unknown).
+  static int? _parseAuth(Map<dynamic, dynamic> userInfo) {
+    final raw = userInfo['auth'];
+    if (raw is int) return raw;
+    if (raw is String) {
+      final parsed = int.tryParse(raw.trim());
+      if (parsed != null) return parsed;
+    }
+    return null;
   }
 
   @override
@@ -574,7 +703,8 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       final payload = await _fetchJson('');
       if (payload is! Map) return false;
       final userInfo = payload['user_info'] as Map?;
-      return userInfo != null && userInfo['auth'] == 1;
+      _auth = userInfo == null ? null : _parseAuth(userInfo);
+      return userInfo != null && _auth == 1;
     } catch (e) {
       return false;
     }
@@ -601,10 +731,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
         errors: isConnected ? [] : ['HTTP ${response.statusCode}'],
       );
     } catch (e) {
-      return MediaHealth(
-        isConnected: false,
-        errors: [e.toString()],
-      );
+      return MediaHealth(isConnected: false, errors: [e.toString()]);
     }
   }
 

@@ -50,6 +50,12 @@ dependencies:
   # Google Sign-In
   google_sign_in: ^6.2.1
 
+  # Pinned: google_sign_in_ios 5.9.0 requires GoogleSignIn ~> 8.0, whose
+  # transitive AppCheckCore needs GoogleUtilities ~> 8.0 — incompatible with the
+  # Firebase 10.x SDK (GoogleUtilities ~> 7.x) on macOS/iOS pod resolution.
+  # 5.8.1 uses GoogleSignIn ~> 7.1 and satisfies google_sign_in 6.3.0.
+  google_sign_in_ios: 5.8.1
+
   # XML Parsing
   xml: ^6.5.0
 
@@ -57,9 +63,12 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Media Player
-  media_kit: ^1.1.0
-  media_kit_video: ^1.1.0
-  media_kit_libs_video: ^1.0.0
+  media_kit: ^1.1.11
+  media_kit_video: 1.2.5
+  media_kit_libs_video: ^1.0.7
+
+  # VLC backend (Android/iOS only, used as the live TV fallback engine)
+  flutter_vlc_player: ^7.4.4
 
   # Localization
   flutter_localizations:
@@ -69,10 +78,21 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  integration_test:
+    sdk: flutter
 
   flutter_lints: ^6.0.0
   build_runner: ^2.4.9
   hive_generator: ^1.1.3
+
+# Vendored because flutter_vlc_player 7.4.4's native pigeon channels are named
+# "dev.flutter.pigeon.flutter_vlc_player_platform_interface.VlcPlayerApi.*" while
+# the published 2.0.5 Dart messages use "dev.flutter.pigeon.VlcPlayerApi.*". The
+# mismatch makes every Dart->native VLC call fail with channel-error. See
+# packages/flutter_vlc_player_platform_interface for the patched copy.
+dependency_overrides:
+  flutter_vlc_player_platform_interface:
+    path: packages/flutter_vlc_player_platform_interface
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

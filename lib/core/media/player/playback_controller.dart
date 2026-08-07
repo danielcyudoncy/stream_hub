@@ -1,11 +1,11 @@
 import 'package:get/get.dart';
+import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/events/playback_event.dart';
-import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
@@ -15,7 +15,6 @@ import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playable_stream.dart';
 
 class PlaybackController extends GetxController {
-  final PlayerAdapter adapter;
   final PlayerSettings settings;
   final LoggingService logger;
 
@@ -23,21 +22,33 @@ class PlaybackController extends GetxController {
 
   PlaybackController({
     PlayerAdapter? adapter,
+    PlaybackEngineKind? engineKind,
     PlayerSettings? settings,
     LoggingService? logger,
-  })  : adapter = adapter ?? MediaKitPlayerAdapter(),
-        settings = settings ?? const PlayerSettings(),
+  })  : settings = settings ?? const PlayerSettings(),
         logger = logger ?? LoggingService() {
     // Created eagerly (not in onInit) because this controller is composed
     // manually inside PlayerController and is never registered with GetX, so
     // GetX lifecycle hooks (onInit) would never fire and `engine` would stay
     // uninitialized, causing a LateInitializationError on first access.
+    //
+    // When `adapter`/`engineKind` are omitted the engine runs in Auto mode: it
+    // selects the best backend per session and can fall back on failure.
     engine = PlaybackEngine(
-      adapter: this.adapter,
+      adapter: adapter,
+      engineKind: engineKind,
       settings: this.settings,
       logger: this.logger,
     );
   }
+
+  /// The currently active playback backend. Delegates to the engine so the
+  /// value always reflects engine selection/fallback (Auto mode) and never a
+  /// stale eagerly-created adapter.
+  PlayerAdapter get adapter => engine.adapter;
+
+  /// The kind of the currently active playback backend.
+  PlaybackEngineKind get engineKind => engine.engineKind;
 
   @override
   void onClose() {

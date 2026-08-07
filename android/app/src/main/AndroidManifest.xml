@@ -3,9 +3,13 @@
         android:label="stream_hub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
-        <!-- Disables Flutter Impeller. media_kit's Android video output fails to
-             create an EGL context under Impeller on emulators (EGL_BAD_ATTRIBUTE),
-             producing audio with a black screen. Skia renders correctly. -->
+        <!-- Disable Flutter Impeller on Android. media_kit renders video through
+             a Flutter external Texture; on devices whose GPU/driver fails to
+             composite external textures under Impeller (e.g. Unisoc/Mali), the
+             decoder produces frames but the screen stays black while audio plays
+             (media-kit/media-kit#837). The Impeller opt-out is still the official
+             deployment mechanism (https://docs.flutter.dev/perf/impeller). Skia
+             renders external textures correctly on these devices. -->
         <meta-data
             android:name="io.flutter.embedding.android.EnableImpeller"
             android:value="false" />

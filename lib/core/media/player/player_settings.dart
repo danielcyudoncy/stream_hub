@@ -1,6 +1,7 @@
 import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
+import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
 
 class PlayerSettings {
   final PlayerQuality defaultQuality;
@@ -19,6 +20,7 @@ class PlayerSettings {
   final bool enableGestures;
   final bool enableKeyboardShortcuts;
   final bool enableTvRemote;
+  final PlaybackEnginePreference preferredPlayer;
 
   const PlayerSettings({
     this.defaultQuality = PlayerQuality.auto,
@@ -37,6 +39,7 @@ class PlayerSettings {
     this.enableGestures = true,
     this.enableKeyboardShortcuts = true,
     this.enableTvRemote = true,
+    this.preferredPlayer = PlaybackEnginePreference.auto,
   });
 
   PlayerSettings copyWith({
@@ -56,6 +59,7 @@ class PlayerSettings {
     bool? enableGestures,
     bool? enableKeyboardShortcuts,
     bool? enableTvRemote,
+    PlaybackEnginePreference? preferredPlayer,
   }) {
     return PlayerSettings(
       defaultQuality: defaultQuality ?? this.defaultQuality,
@@ -77,6 +81,7 @@ class PlayerSettings {
       enableKeyboardShortcuts:
           enableKeyboardShortcuts ?? this.enableKeyboardShortcuts,
       enableTvRemote: enableTvRemote ?? this.enableTvRemote,
+      preferredPlayer: preferredPlayer ?? this.preferredPlayer,
     );
   }
 }

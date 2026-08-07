@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/widgets.dart';
+import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
@@ -8,6 +10,26 @@ import 'package:stream_hub/core/media/player/buffer_info.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 
 abstract class PlayerAdapter {
+  /// Identifies the playback backend implemented by this adapter.
+  ///
+  /// Backends implementers must override this so the Playback Engine can
+  /// negotiate, switch, and surface the active engine to the UI.
+  PlaybackEngineKind get kind => PlaybackEngineKind.fallback;
+
+  /// Whether the native player has been created and can accept media.
+  ///
+  /// This is `false` until [initialize] has completed. Backends must override
+  /// it so the engine can avoid re-initializing an already-ready player.
+  bool get isInitialized => false;
+
+  /// Builds the widget that renders video output for this backend.
+  ///
+  /// The Playback Engine is the only component that knows which backend is
+  /// active, so the player pages render video through this adapter rather than
+  /// type-checking concrete implementations. Returns an empty widget when the
+  /// backend has not been initialized yet.
+  Widget buildPlayerWidget() => const SizedBox.shrink();
+
   Future<void> initialize();
   Future<void> dispose();
 

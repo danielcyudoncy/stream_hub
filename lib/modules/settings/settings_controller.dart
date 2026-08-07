@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
+import 'package:stream_hub/core/media/player/player_settings.dart';
+import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/data/models/settings_model.dart';
 import 'package:stream_hub/data/services/settings_service.dart';
 import 'package:stream_hub/data/services/profile_service.dart';
@@ -12,6 +15,7 @@ class SettingsController extends GetxController {
   // ignore: unused_field
   final ProfileService _profileService;
   final CacheService _cacheService;
+  final PlaybackRepository? _playbackRepository;
   // ignore: unused_field
   final LoggingService _logger = Get.find<LoggingService>();
 
@@ -19,18 +23,23 @@ class SettingsController extends GetxController {
     required SettingsService settingsService,
     required ProfileService profileService,
     required CacheService cacheService,
+    PlaybackRepository? playbackRepository,
   }) : _settingsService = settingsService,
        _profileService = profileService,
-       _cacheService = cacheService;
+       _cacheService = cacheService,
+       _playbackRepository = playbackRepository;
 
   final Rx<ThemeMode> themeMode = ThemeMode.system.obs;
   final RxString language = 'en'.obs;
   final RxBool notificationsEnabled = true.obs;
   final RxBool parentalLockEnabled = false.obs;
+  final Rx<PlaybackEnginePreference> preferredPlayer =
+      PlaybackEnginePreference.auto.obs;
   final RxBool isLoading = false.obs;
   final RxString errorMessage = ''.obs;
 
   SettingsModel? _settings;
+  PlayerSettings? _playerSettings;
 
   @override
   void onInit() {
@@ -50,6 +59,8 @@ class SettingsController extends GetxController {
       language.value = _settings?.language ?? 'en';
       notificationsEnabled.value = _settings?.notificationsEnabled ?? true;
       parentalLockEnabled.value = _settings?.parentalLockEnabled ?? false;
+
+      await _loadPlayerSettings();
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -67,6 +78,43 @@ class SettingsController extends GetxController {
         return ThemeMode.dark;
       default:
         return ThemeMode.system;
+    }
+  }
+
+  Future<void> _loadPlayerSettings() async {
+    final repository = _playbackRepository;
+    if (repository == null) return;
+    try {
+      _playerSettings = await repository.getSettings();
+      preferredPlayer.value =
+          _playerSettings?.preferredPlayer ?? PlaybackEnginePreference.auto;
+    } catch (e) {
+      _logger.warning(
+        'Failed to load player settings',
+        tag: 'SettingsController',
+        error: e,
+      );
+    }
+  }
+
+  Future<void> changePreferredPlayer(PlaybackEnginePreference preference) async {
+    if (isLoading.value) return;
+    final repository = _playbackRepository;
+    if (repository == null) return;
+    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+      preferredPlayer.value = preference;
+      final base = _playerSettings ?? const PlayerSettings();
+      final updated = base.copyWith(preferredPlayer: preference);
+      await repository.updateSettings(updated);
+      _playerSettings = updated;
+    } on ApplicationException catch (e) {
+      errorMessage.value = e.message;
+    } catch (e) {
+      errorMessage.value = 'Failed to update playback engine preference.';
+    } finally {
+      isLoading.value = false;
     }
   }
 

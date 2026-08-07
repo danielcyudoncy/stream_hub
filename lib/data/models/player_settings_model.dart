@@ -2,6 +2,7 @@ import 'package:hive/hive.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
+import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 
 part 'player_settings_model.g.dart';
@@ -62,6 +63,9 @@ class PlayerSettingsModel extends HiveObject {
   @HiveField(17)
   final DateTime updatedAt;
 
+  @HiveField(18)
+  String preferredPlayer;
+
   PlayerSettingsModel({
     required this.id,
     this.defaultQuality = 'auto',
@@ -80,6 +84,7 @@ class PlayerSettingsModel extends HiveObject {
     this.enableGestures = true,
     this.enableKeyboardShortcuts = true,
     this.enableTvRemote = true,
+    this.preferredPlayer = 'auto',
     required this.updatedAt,
   });
 
@@ -104,6 +109,7 @@ class PlayerSettingsModel extends HiveObject {
       enableGestures: enableGestures,
       enableKeyboardShortcuts: enableKeyboardShortcuts,
       enableTvRemote: enableTvRemote,
+      preferredPlayer: _parsePreferredPlayer(preferredPlayer),
     );
   }
 
@@ -126,6 +132,7 @@ class PlayerSettingsModel extends HiveObject {
       enableGestures: settings.enableGestures,
       enableKeyboardShortcuts: settings.enableKeyboardShortcuts,
       enableTvRemote: settings.enableTvRemote,
+      preferredPlayer: settings.preferredPlayer.name,
       updatedAt: DateTime.now(),
     );
   }
@@ -136,5 +143,12 @@ class PlayerSettingsModel extends HiveObject {
     } catch (_) {
       return PlayerQuality.auto;
     }
+  }
+
+  PlaybackEnginePreference _parsePreferredPlayer(String value) {
+    return PlaybackEnginePreference.values.firstWhere(
+      (p) => p.name == value,
+      orElse: () => PlaybackEnginePreference.auto,
+    );
   }
 }

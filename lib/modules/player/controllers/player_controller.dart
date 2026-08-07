@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/iptv/iptv_core.dart';
+import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
@@ -8,10 +9,10 @@ import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
-import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/playback_controller.dart';
+import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
@@ -26,6 +27,7 @@ class PlayerController extends GetxController {
   final StreamRepository streamRepository;
   final HistoryRepository? historyRepository;
   final FavoriteRepository? favoriteRepository;
+  final PlaybackRepository? playbackRepository;
   final IptvCore? iptvCore;
 
   final String? itemId;
@@ -41,14 +43,17 @@ class PlayerController extends GetxController {
     this.itemId,
     this.streamUrl,
     PlayerAdapter? adapter,
+    PlaybackEngineKind? engineKind,
     PlayerSettings? settings,
     LoggingService? logger,
     StreamRepository? streamRepository,
     this.historyRepository,
     this.favoriteRepository,
+    this.playbackRepository,
     IptvCore? iptvCore,
   })  : playbackController = PlaybackController(
           adapter: adapter,
+          engineKind: engineKind,
           settings: settings,
           logger: logger,
         ),
@@ -68,15 +73,34 @@ class PlayerController extends GetxController {
   bool get canSwitchPrevious => _currentChannelIndex > 0;
 
   @override
-  void onInit() {
+  Future<void> onInit() async {
     super.onInit();
     _sessionWorker = ever(sessionRx, (session) {
       isFavoriteRx.value = session?.mediaItem.favorite ?? false;
     });
+    await _loadPersistedSettings();
     if (itemId != null && streamUrl != null) {
-      _autoStart(itemId!, streamUrl!);
+      await _autoStart(itemId!, streamUrl!);
     }
     playbackController.addEventListener(_onPlaybackEvent);
+  }
+
+  /// Applies the persisted player settings (preferred engine, hardware
+  /// decode, ...) to the engine before the first session is started so the
+  /// backend selection honors the user's preference.
+  Future<void> _loadPersistedSettings() async {
+    final repository = playbackRepository;
+    if (repository == null) return;
+    try {
+      final loaded = await repository.getSettings();
+      playbackController.engine.applySettings(loaded);
+    } catch (e) {
+      playbackController.engine.logger.warning(
+        'Failed to load persisted player settings',
+        tag: 'PlayerController',
+        error: e,
+      );
+    }
   }
 
   @override
@@ -143,12 +167,8 @@ class PlayerController extends GetxController {
     PlayableSession? session;
     _pendingItem = item;
     try {
-      if (playbackController.engine.adapter is MediaKitPlayerAdapter) {
-        final adapter =
-            playbackController.engine.adapter as MediaKitPlayerAdapter;
-        if (adapter.player == null) {
-          await playbackController.engine.initialize();
-        }
+      if (!playbackController.engine.adapter.isInitialized) {
+        await playbackController.engine.initialize();
       }
 
       session = await streamRepository.resolvePlayback(
