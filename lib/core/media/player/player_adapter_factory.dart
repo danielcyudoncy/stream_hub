@@ -1,6 +1,8 @@
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
 import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
+import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 
@@ -18,6 +20,17 @@ class PlayerAdapterFactory {
     LoggingService? logger,
     bool hardwareDecode = true,
   }) {
+    if (kind == PlaybackEngineKind.exoPlayer &&
+        ExoPlayerSurfaceViewAdapter.isSupported) {
+      return ExoPlayerSurfaceViewAdapter(
+        logger: logger,
+        hardwareDecode: hardwareDecode,
+      );
+    }
+    if (kind == PlaybackEngineKind.nativeActivity &&
+        NativeActivityPlayerAdapter.isSupported) {
+      return NativeActivityPlayerAdapter(logger: logger);
+    }
     if (kind == PlaybackEngineKind.vlc && VlcPlayerAdapter.isSupported) {
       return VlcPlayerAdapter(
         logger: logger,

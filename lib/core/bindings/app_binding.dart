@@ -21,10 +21,12 @@ import 'package:stream_hub/data/services/provider_storage_service.dart';
 import 'package:stream_hub/data/services/cache_service.dart';
 import 'package:stream_hub/data/services/database_service.dart';
 import 'package:stream_hub/data/services/firebase_service.dart';
+import 'package:stream_hub/data/services/provider_sync_service.dart';
 import 'package:stream_hub/core/media/media_engine.dart';
 import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/core/media/media_catalog.dart';
 import 'package:stream_hub/core/media/media_source_manager.dart';
+import 'package:stream_hub/core/media/media_source_factory.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/repositories/media_source_repository.dart';
 import 'package:stream_hub/modules/live_tv/controllers/live_tv_home_controller.dart';
@@ -68,6 +70,17 @@ class AppBinding extends Bindings {
 
     Get.put<CatalogRepository>(catalogRepo, permanent: true);
     Get.put<MediaRepository>(mediaRepo, permanent: true);
+
+    Get.put<ProviderSyncService>(
+      ProviderSyncService(
+        repository: providerRepo,
+        sourceFactory: Get.find<MediaSourceFactory>(),
+        sourceRepo: Get.find<MediaSourceRepository>(),
+        catalogRepo: catalogRepo,
+        logger: loggingService,
+      ),
+      permanent: true,
+    );
 
     Get.put<HistoryService>(HistoryService(logger: loggingService), permanent: true);
     Get.put<FavoriteService>(FavoriteService(logger: loggingService), permanent: true);

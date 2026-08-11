@@ -74,7 +74,7 @@ class LiveTVPage extends GetView<LiveTVController> {
               isSelected: controller.selectedCategory.value == 'All Channels',
               onTap: () => controller.setCategory('All Channels'),
             ),
-            for (final category in controller.categories.take(8))
+            for (final category in controller.categories.skip(1))
               Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.xs),
                 child: _filterChip(

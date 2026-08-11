@@ -15,4 +15,14 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- Theme for the fullscreen native ExoPlayer Activity.
+         The window background must be transparent: SurfaceView is composited
+         behind the window's main surface by default, so an opaque background
+         would hide the video. A transparent background lets SurfaceFlinger
+         show the SurfaceView through the window while controls remain visible
+         on top. -->
+    <style name="NativePlayerTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:colorBackground">@android:color/transparent</item>
+    </style>
 </resources>

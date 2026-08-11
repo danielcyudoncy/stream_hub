@@ -45,7 +45,7 @@ class _FakePlayerAdapter implements PlayerAdapter {
   Future<void> load(PlayableMediaSession session) async {}
 
   @override
-  Future<void> playSession(PlayableSession session) async {
+  Future<void> playSession(PlayableSession session, {String? title}) async {
     playSessionCount++;
     playedSessions.add(session);
   }
