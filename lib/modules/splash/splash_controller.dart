@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../core/logging/logging_service.dart';
 import '../../core/routes/app_routes.dart';
 import '../../data/services/database_service.dart';
 import '../../data/services/firebase_service.dart';
+import '../../data/services/provider_sync_service.dart';
 import '../authentication/repositories/auth_repository.dart';
 
 class SplashController extends GetxController {
@@ -31,6 +35,7 @@ class SplashController extends GetxController {
           final user = await authRepository.tryAutoLogin();
           if (user != null) {
             statusMessage.value = 'Welcome back!';
+            unawaited(_syncProvidersOnStartup());
             _navigateAway(AppRoutes.home);
             return;
           }
@@ -44,6 +49,22 @@ class SplashController extends GetxController {
     } catch (e) {
       statusMessage.value = 'Initialization failed. Retrying...';
       _navigateAway(AppRoutes.authWrapper);
+    }
+  }
+
+  /// Keeps playlists fresh: every time the app is opened, all enabled
+  /// providers are re-synced in the background so users never have to
+  /// manually trigger a sync after adding a link.
+  Future<void> _syncProvidersOnStartup() async {
+    try {
+      final syncService = Get.find<ProviderSyncService>();
+      await syncService.syncAll();
+    } catch (e) {
+      Get.find<LoggingService>().warning(
+        'Startup provider sync failed',
+        tag: 'SplashController',
+        error: e,
+      );
     }
   }
 

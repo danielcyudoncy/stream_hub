@@ -30,6 +30,12 @@ class CanonicalMediaItem {
   final List<String> trailers;
   final List<String> links;
   final Map<String, dynamic> extra;
+  /// The primary playable stream URL for this item.
+  ///
+  /// Preserved through the MediaItem → CanonicalMediaItem → MediaItem
+  /// round-trip so that [StreamEngine._extractSourceUrl] can locate the
+  /// stream without requiring a provider session (M3U channels, for example).
+  final String? streamUrl;
   final bool favorite;
   final bool hidden;
   final DateTime createdAt;
@@ -63,6 +69,7 @@ class CanonicalMediaItem {
     this.trailers = const [],
     this.links = const [],
     this.extra = const {},
+    this.streamUrl,
     this.favorite = false,
     this.hidden = false,
     required this.createdAt,
@@ -97,6 +104,7 @@ class CanonicalMediaItem {
     List<String>? trailers,
     List<String>? links,
     Map<String, dynamic>? extra,
+    String? streamUrl,
     bool? favorite,
     bool? hidden,
     DateTime? createdAt,
@@ -130,6 +138,7 @@ class CanonicalMediaItem {
       trailers: trailers ?? this.trailers,
       links: links ?? this.links,
       extra: extra ?? this.extra,
+      streamUrl: streamUrl ?? this.streamUrl,
       favorite: favorite ?? this.favorite,
       hidden: hidden ?? this.hidden,
       createdAt: createdAt ?? this.createdAt,
@@ -169,6 +178,9 @@ class CanonicalMediaItem {
         'artworkSources': artworkSources.toList(),
         'trailers': trailers,
         'links': links,
+        // Surface the stream URL so StreamEngine._extractSourceUrl can locate
+        // the source without requiring a provider session lookup.
+        if (streamUrl != null && streamUrl!.isNotEmpty) 'streamUrl': streamUrl!,
         ...extra,
       },
       createdAt: createdAt,
@@ -230,6 +242,8 @@ class CanonicalMediaItem {
       artworkSources: artworkSources,
       trailers: metadata['trailers'] is List ? List<String>.from(metadata['trailers'] as List) : const [],
       links: metadata['links'] is List ? List<String>.from(metadata['links'] as List) : const [],
+      // Preserve the stream URL so it survives the round-trip back to MediaItem.
+      streamUrl: metadata['streamUrl']?.toString(),
       extra: Map<String, dynamic>.from(metadata),
       favorite: item.favorite,
       hidden: item.hidden,

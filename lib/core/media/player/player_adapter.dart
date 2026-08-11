@@ -37,7 +37,11 @@ abstract class PlayerAdapter {
 
   /// Loads an authenticated stream produced by the Stream Engine. The player
   /// must never be given a raw provider URL or header set.
-  Future<void> playSession(PlayableSession session);
+  ///
+  /// [title] optionally carries the display title of the item being played so
+  /// backends that render their own surfaces (e.g. a native Activity) can show
+  /// it to the user.
+  Future<void> playSession(PlayableSession session, {String? title});
 
   Future<void> play();
   Future<void> pause();

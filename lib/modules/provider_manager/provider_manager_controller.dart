@@ -4,15 +4,11 @@ import 'dart:math';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
-import 'package:stream_hub/core/media/account_metadata_provider.dart';
-import 'package:stream_hub/core/media/enums/media_source_type.dart';
-import 'package:stream_hub/core/media/media_source_factory.dart';
 import 'package:stream_hub/data/models/cache_info.dart';
-import 'package:stream_hub/data/repositories/catalog_repository.dart';
-import 'package:stream_hub/data/repositories/media_source_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
 import 'package:stream_hub/data/services/cache_service.dart';
 import 'package:stream_hub/data/services/provider_storage_service.dart';
+import 'package:stream_hub/data/services/provider_sync_service.dart';
 import 'package:stream_hub/data/services/settings_service.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
@@ -24,9 +20,7 @@ class ProviderManagerController extends GetxController {
   final CacheService _cacheService;
   // ignore: unused_field
   final SettingsService _settingsService;
-  final MediaSourceFactory _sourceFactory;
-  final MediaSourceRepository _sourceRepo;
-  final CatalogRepository _catalogRepo;
+  final ProviderSyncService _syncService;
   final LoggingService _logger = Get.find<LoggingService>();
 
   ProviderManagerController({
@@ -34,16 +28,12 @@ class ProviderManagerController extends GetxController {
     required ProviderStorageService storageService,
     required CacheService cacheService,
     required SettingsService settingsService,
-    required MediaSourceFactory sourceFactory,
-    required MediaSourceRepository sourceRepo,
-    required CatalogRepository catalogRepo,
+    required ProviderSyncService syncService,
   }) : _repository = repository,
        _storageService = storageService,
        _cacheService = cacheService,
        _settingsService = settingsService,
-       _sourceFactory = sourceFactory,
-       _sourceRepo = sourceRepo,
-       _catalogRepo = catalogRepo;
+       _syncService = syncService;
 
   final RxList<ProviderModel> providers = <ProviderModel>[].obs;
   final RxBool isLoading = false.obs;
@@ -104,98 +94,18 @@ class ProviderManagerController extends GetxController {
   }
 
   Future<void> _syncProvider(ProviderModel provider) async {
-    final sourceType = _toMediaSourceType(provider.providerType);
-    if (sourceType == null) return;
-
-    try {
-      final config = <String, dynamic>{
-        'sourceUrl': provider.serverUrl ?? '',
-      };
-      if (provider.username != null) config['username'] = provider.username;
-      if (provider.password != null) config['password'] = provider.password;
-      if (sourceType == MediaSourceType.stalker) {
-        config['portalUrl'] = provider.serverUrl ?? '';
-        if (provider.macAddress != null) {
-          config['macAddress'] = provider.macAddress;
-        }
-      }
-
-      final source = _sourceFactory.create(provider.id, sourceType, config);
-      await _sourceRepo.register(source);
-      final result = await _catalogRepo.syncSource(provider.id);
-
-      if (result.success) {
-        final account = source is AccountMetadataProvider
-            ? (source as AccountMetadataProvider).accountMetadata
-            : null;
-        await _repository.updateProvider(
-          provider.copyWith(
-            status: ProviderStatus.active,
-            lastSync: DateTime.now(),
-            accountCreatedAt: account?.createdAt,
-            accountExpiresAt: account?.expiresAt,
-            accountStatus: account?.status,
-            accountIsTrial: account?.isTrial,
-            accountMaxConnections: account?.maxConnections,
-          ),
-        );
-      } else {
-        final message = _friendlySyncMessage(result.error, provider);
-        await _repository.updateProvider(
-          provider.copyWith(status: ProviderStatus.error),
-        );
-        errorMessage.value = message;
-        Get.snackbar(
-          'Sync Failed',
-          message,
-          snackPosition: SnackPosition.BOTTOM,
-          backgroundColor: Get.theme.colorScheme.errorContainer,
-          colorText: Get.theme.colorScheme.onErrorContainer,
-        );
-      }
-    } catch (e) {
-      _logger.warning('Provider sync failed', tag: 'ProviderManagerController', error: e);
-      final message = _friendlySyncMessage(
-        e is ApplicationException ? e.message : null,
-        provider,
+    final result = await _syncService.syncProvider(provider);
+    if (!result.success) {
+      errorMessage.value = result.message ?? 'Sync failed.';
+      Get.snackbar(
+        'Sync Failed',
+        result.message ?? 'Sync failed.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Get.theme.colorScheme.errorContainer,
+        colorText: Get.theme.colorScheme.onErrorContainer,
       );
-      errorMessage.value = message;
-      try {
-        await _repository.updateProvider(
-          provider.copyWith(status: ProviderStatus.error),
-        );
-      } catch (_) {}
-    } finally {
-      await loadProviders();
     }
-  }
-
-  String _friendlySyncMessage(String? raw, ProviderModel provider) {
-    if (raw == null || raw.isEmpty) {
-      return 'Could not connect to "${provider.name}". Check that the server is online and your credentials are correct.';
-    }
-    if (raw.contains('SocketException') || raw.contains('Failed host lookup')) {
-      return 'Could not reach "${provider.name}" server. Check that the server URL is correct and you are online.';
-    }
-    if (raw.contains('TimeoutException') || raw.toLowerCase().contains('timed out')) {
-      return 'Connection to "${provider.name}" timed out. Please try again.';
-    }
-    return raw;
-  }
-
-  MediaSourceType? _toMediaSourceType(ProviderType type) {
-    switch (type) {
-      case ProviderType.m3u:
-        return MediaSourceType.m3u;
-      case ProviderType.xtream:
-        return MediaSourceType.xtream;
-      case ProviderType.stalker:
-        return MediaSourceType.stalker;
-      case ProviderType.xmltv:
-        return MediaSourceType.xmltv;
-      case ProviderType.custom:
-        return MediaSourceType.custom;
-    }
+    await loadProviders();
   }
 
   Future<void> updateProvider(ProviderModel provider) async {
