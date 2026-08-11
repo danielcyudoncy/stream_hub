@@ -15,4 +15,13 @@
     <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- Theme for the fullscreen native ExoPlayer Activity.
+         An opaque black window background is required on Unisoc/Mali devices:
+         transparent windows break SurfaceView compositing there, producing
+         BLASTBufferQueue "Can not acquire next buffer" errors and a black screen
+         even though the decoder and audio pipeline are healthy. -->
+    <style name="NativePlayerTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:colorBackground">@android:color/black</item>
+    </style>
 </resources>

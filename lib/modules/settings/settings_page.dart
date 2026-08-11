@@ -23,7 +23,8 @@ class SettingsPage extends GetView<SettingsController> {
     return AppScaffold(
       title: 'Settings',
       body: Obx(() {
-        if (controller.isLoading.value && controller.errorMessage.value.isEmpty) {
+        if (controller.isLoading.value &&
+            controller.errorMessage.value.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
 
@@ -56,11 +57,17 @@ class SettingsPage extends GetView<SettingsController> {
     );
   }
 
-  Widget _buildMediaSourcesSection(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildMediaSourcesSection(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Media Sources', subtitle: 'Manage your IPTV providers and streaming sources'),
+        const SectionHeader(
+          title: 'Media Sources',
+          subtitle: 'Manage your IPTV providers and streaming sources',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: Column(
@@ -126,14 +133,17 @@ class SettingsPage extends GetView<SettingsController> {
           ),
         ),
       ],
-     );
+    );
   }
 
   Widget _buildDownloadsSection(BuildContext context, ColorScheme colorScheme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Downloads', subtitle: 'Manage downloaded content'),
+        const SectionHeader(
+          title: 'Downloads',
+          subtitle: 'Manage downloaded content',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: Column(
@@ -159,11 +169,17 @@ class SettingsPage extends GetView<SettingsController> {
     );
   }
 
-  Widget _buildAppearanceSection(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildAppearanceSection(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Appearance', subtitle: 'Customize the visual theme'),
+        const SectionHeader(
+          title: 'Appearance',
+          subtitle: 'Customize the visual theme',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: Column(
@@ -176,7 +192,9 @@ class SettingsPage extends GetView<SettingsController> {
               ),
               SettingsTile(
                 title: 'Language',
-                subtitle: controller.language.value == 'en' ? 'English' : controller.language.value,
+                subtitle: controller.language.value == 'en'
+                    ? 'English'
+                    : controller.language.value,
                 leadingIcon: Icons.language_outlined,
                 onTap: () => _showLanguagePicker(context),
               ),
@@ -191,7 +209,10 @@ class SettingsPage extends GetView<SettingsController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Account', subtitle: 'Manage your account details'),
+        const SectionHeader(
+          title: 'Account',
+          subtitle: 'Manage your account details',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: Column(
@@ -234,7 +255,10 @@ class SettingsPage extends GetView<SettingsController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Storage', subtitle: 'Manage local data and cache'),
+        const SectionHeader(
+          title: 'Storage',
+          subtitle: 'Manage local data and cache',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: Column(
@@ -263,7 +287,10 @@ class SettingsPage extends GetView<SettingsController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Playback', subtitle: 'Video and audio settings'),
+        const SectionHeader(
+          title: 'Playback',
+          subtitle: 'Video and audio settings',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: Column(
@@ -292,16 +319,30 @@ class SettingsPage extends GetView<SettingsController> {
     );
   }
 
-  Widget _buildNotificationsSection(BuildContext context, ColorScheme colorScheme) {
+  Widget _buildNotificationsSection(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Notifications', subtitle: 'Manage push notifications'),
+        const SectionHeader(
+          title: 'Notifications',
+          subtitle: 'Manage push notifications',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: SwitchListTile(
-            title: Text('Enable Notifications', style: AppTypography.getBody(color: colorScheme.onSurface)),
-            subtitle: Text('Receive updates about your providers', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+            title: Text(
+              'Enable Notifications',
+              style: AppTypography.getBody(color: colorScheme.onSurface),
+            ),
+            subtitle: Text(
+              'Receive updates about your providers',
+              style: AppTypography.getCaption(
+                color: colorScheme.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
             value: controller.notificationsEnabled.value,
             onChanged: (value) => controller.toggleNotifications(value),
           ),
@@ -314,14 +355,25 @@ class SettingsPage extends GetView<SettingsController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Privacy', subtitle: 'Privacy and security settings'),
+        const SectionHeader(
+          title: 'Privacy',
+          subtitle: 'Privacy and security settings',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: Column(
             children: [
               SwitchListTile(
-                title: Text('Parental Lock', style: AppTypography.getBody(color: colorScheme.onSurface)),
-                subtitle: Text('Restrict access to certain content', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                title: Text(
+                  'Parental Lock',
+                  style: AppTypography.getBody(color: colorScheme.onSurface),
+                ),
+                subtitle: Text(
+                  'Restrict access to certain content',
+                  style: AppTypography.getCaption(
+                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                ),
                 value: controller.parentalLockEnabled.value,
                 onChanged: (value) => controller.toggleParentalLock(value),
               ),
@@ -349,7 +401,10 @@ class SettingsPage extends GetView<SettingsController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'About', subtitle: 'Application information'),
+        const SectionHeader(
+          title: 'About',
+          subtitle: 'Application information',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: SettingsTile(
@@ -368,7 +423,10 @@ class SettingsPage extends GetView<SettingsController> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(title: 'Developer', subtitle: 'Advanced options and diagnostics'),
+        const SectionHeader(
+          title: 'Developer',
+          subtitle: 'Advanced options and diagnostics',
+        ),
         AppSpacing.heightXS,
         AppCard(
           child: SettingsTile(
@@ -407,6 +465,10 @@ class SettingsPage extends GetView<SettingsController> {
     switch (preference) {
       case PlaybackEnginePreference.mediaKit:
         return 'MediaKit';
+      case PlaybackEnginePreference.exoPlayer:
+        return 'ExoPlayer';
+      case PlaybackEnginePreference.nativeActivity:
+        return 'Native Player';
       case PlaybackEnginePreference.vlc:
         return 'VLC';
       case PlaybackEnginePreference.auto:
@@ -418,10 +480,17 @@ class SettingsPage extends GetView<SettingsController> {
     switch (preference) {
       case PlaybackEnginePreference.mediaKit:
         return 'Always use MediaKit. Best for VOD files.';
+      case PlaybackEnginePreference.exoPlayer:
+        return 'Always use ExoPlayer. Native Android player with SurfaceView '
+            'rendering; fixes black video on some devices.';
+      case PlaybackEnginePreference.nativeActivity:
+        return 'Always use the fullscreen native Android player. Renders video '
+            'outside Flutter, the most reliable option on low-end devices.';
       case PlaybackEnginePreference.vlc:
         return 'Always use VLC. Best for problematic live streams.';
       case PlaybackEnginePreference.auto:
-        return 'Pick the best engine per stream. Prefers VLC for live TV.';
+        return 'Pick the best engine per stream. Uses the native player for '
+            'problematic live streams.';
     }
   }
 
@@ -431,57 +500,69 @@ class SettingsPage extends GetView<SettingsController> {
       context: context,
       builder: (context) => Container(
         padding: const EdgeInsets.all(AppSpacing.lg),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Preferred Player', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
-            AppSpacing.heightMD,
-            RadioGroup<PlaybackEnginePreference>(
-              groupValue: controller.preferredPlayer.value,
-              onChanged: (value) {
-                if (value != null) {
-                  controller.changePreferredPlayer(value);
-                  Get.back();
-                }
-              },
-              child: Column(
-                children: PlaybackEnginePreference.values.map((preference) {
-                  final selected = controller.preferredPlayer.value == preference;
-                  return InkWell(
-                    onTap: () => controller.changePreferredPlayer(preference),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-                      child: Row(
-                        children: [
-                          Radio<PlaybackEnginePreference>(value: preference),
-                          AppSpacing.widthXS,
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _playerLabel(preference),
-                                  style: AppTypography.getBody(color: colorScheme.onSurface),
-                                ),
-                                Text(
-                                  _playerDescription(preference),
-                                  style: AppTypography.getCaption(
-                                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (selected)
-                            Icon(Icons.check, color: colorScheme.primary),
-                        ],
-                      ),
-                    ),
-                  );
-                }).toList(),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Preferred Player',
+                style: AppTypography.getHeadline(color: colorScheme.onSurface),
               ),
-            ),
-          ],
+              AppSpacing.heightMD,
+              RadioGroup<PlaybackEnginePreference>(
+                groupValue: controller.preferredPlayer.value,
+                onChanged: (value) {
+                  if (value != null) {
+                    controller.changePreferredPlayer(value);
+                    Get.back();
+                  }
+                },
+                child: Column(
+                  children: PlaybackEnginePreference.values.map((preference) {
+                    final selected =
+                        controller.preferredPlayer.value == preference;
+                    return InkWell(
+                      onTap: () => controller.changePreferredPlayer(preference),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.xs,
+                        ),
+                        child: Row(
+                          children: [
+                            Radio<PlaybackEnginePreference>(value: preference),
+                            AppSpacing.widthXS,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _playerLabel(preference),
+                                    style: AppTypography.getBody(
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  Text(
+                                    _playerDescription(preference),
+                                    style: AppTypography.getCaption(
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (selected)
+                              Icon(Icons.check, color: colorScheme.primary),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -496,7 +577,10 @@ class SettingsPage extends GetView<SettingsController> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Select Theme', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
+            Text(
+              'Select Theme',
+              style: AppTypography.getHeadline(color: colorScheme.onSurface),
+            ),
             AppSpacing.heightMD,
             RadioGroup<ThemeMode>(
               groupValue: controller.themeMode.value,
@@ -507,16 +591,25 @@ class SettingsPage extends GetView<SettingsController> {
                 }
               },
               child: Column(
-                children: ThemeMode.values.map((mode) => InkWell(
-                  onTap: () => controller.changeThemeMode(mode),
-                  child: Row(
-                    children: [
-                      Radio<ThemeMode>(value: mode),
-                      AppSpacing.widthXS,
-                      Text(_themeLabel(mode), style: AppTypography.getBody(color: colorScheme.onSurface)),
-                    ],
-                  ),
-                )).toList(),
+                children: ThemeMode.values
+                    .map(
+                      (mode) => InkWell(
+                        onTap: () => controller.changeThemeMode(mode),
+                        child: Row(
+                          children: [
+                            Radio<ThemeMode>(value: mode),
+                            AppSpacing.widthXS,
+                            Text(
+                              _themeLabel(mode),
+                              style: AppTypography.getBody(
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
           ],
@@ -534,7 +627,10 @@ class SettingsPage extends GetView<SettingsController> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Select Language', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
+            Text(
+              'Select Language',
+              style: AppTypography.getHeadline(color: colorScheme.onSurface),
+            ),
             AppSpacing.heightMD,
             RadioGroup<String>(
               groupValue: controller.language.value,
@@ -567,8 +663,14 @@ class SettingsPage extends GetView<SettingsController> {
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: AppRadius.large),
-        title: Text('Change Password', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
-        content: const Text('Password change is managed through your authentication provider.', style: TextStyle(fontSize: 14)),
+        title: Text(
+          'Change Password',
+          style: AppTypography.getHeadline(color: colorScheme.onSurface),
+        ),
+        content: const Text(
+          'Password change is managed through your authentication provider.',
+          style: TextStyle(fontSize: 14),
+        ),
         actions: [
           TextButton(onPressed: () => Get.back(), child: const Text('OK')),
         ],
@@ -577,29 +679,34 @@ class SettingsPage extends GetView<SettingsController> {
   }
 
   void _showSignOutDialog(BuildContext context) {
-    Get.dialog(ConfirmationDialog(
-      title: 'Sign Out',
-      message: 'Are you sure you want to sign out?',
-      confirmText: 'Sign Out',
-      onConfirm: controller.logout,
-    ));
+    Get.dialog(
+      ConfirmationDialog(
+        title: 'Sign Out',
+        message: 'Are you sure you want to sign out?',
+        confirmText: 'Sign Out',
+        onConfirm: controller.logout,
+      ),
+    );
   }
 
   void _showDeleteAccountDialog(BuildContext context) {
-    Get.dialog(ConfirmationDialog(
-      title: 'Delete Account',
-      message: 'This action cannot be undone. All your data will be permanently removed.',
-      confirmText: 'Delete',
-      isDestructive: true,
-      onConfirm: () {
-        Get.back();
-        Get.snackbar(
-          'Account Deletion',
-          'Account deletion is not yet implemented in offline mode.',
-          snackPosition: SnackPosition.BOTTOM,
-        );
-      },
-    ));
+    Get.dialog(
+      ConfirmationDialog(
+        title: 'Delete Account',
+        message:
+            'This action cannot be undone. All your data will be permanently removed.',
+        confirmText: 'Delete',
+        isDestructive: true,
+        onConfirm: () {
+          Get.back();
+          Get.snackbar(
+            'Account Deletion',
+            'Account deletion is not yet implemented in offline mode.',
+            snackPosition: SnackPosition.BOTTOM,
+          );
+        },
+      ),
+    );
   }
 
   void _showOptimizeDialog(BuildContext context) {

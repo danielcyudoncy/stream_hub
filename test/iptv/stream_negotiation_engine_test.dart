@@ -21,15 +21,19 @@ void main() {
       );
     }
 
-    test('negotiates HLS with a VLC-preferred player', () async {
+    test('negotiates HLS with a native-activity-preferred player', () async {
       final negotiated = await engine.negotiate(
         session: sessionFor('https://example.com/live/ch1.m3u8'),
         withAnalysis: false,
       );
       expect(negotiated.protocol, StreamProtocol.hls);
       expect(negotiated.streamType, StreamType.hls);
-      expect(negotiated.playerName, 'VLC');
-      expect(negotiated.playerNegotiation.supportLevel, PlayerSupportLevel.supported);
+      expect(negotiated.playerName, 'Native Player');
+      expect(negotiated.playerNegotiation.supportLevel, PlayerSupportLevel.native);
+      expect(
+        negotiated.playerNegotiation.fallbackEngines,
+        containsAll(['exoPlayer', 'vlc']),
+      );
       expect(negotiated.isPlayable, isTrue);
       expect(negotiated.isAdaptive, isTrue);
     });

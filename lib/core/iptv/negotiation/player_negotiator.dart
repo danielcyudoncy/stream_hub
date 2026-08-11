@@ -9,7 +9,11 @@ import 'package:stream_hub/core/iptv/models/stream_protocol.dart';
 ///
 /// Note: the negotiator is protocol-only. The live-versus-VOD nuance is applied
 /// by the [PlayerSelectionStrategy] which also receives the media type, so the
-/// two should stay consistent.
+/// two should stay consistent. The Native Player (fullscreen Android Activity)
+/// is the protocol-native engine for HTTP adaptive streams (HLS/MPEG-TS) on
+/// Android because it renders through a plain TextureView composited by
+/// the Android view system, which is the only render path that displays video on
+/// Unisoc/Mali devices (docs/PLAYBACK_ENGINEERING.md §1.1 and §8.3).
 class PlayerNegotiator {
   const PlayerNegotiator();
 
@@ -18,54 +22,73 @@ class PlayerNegotiator {
     switch (protocol) {
       case StreamProtocol.hls:
         return PlayerNegotiation(
-          engine: PlaybackEngineKind.vlc,
-          supportLevel: PlayerSupportLevel.supported,
+          engine: PlaybackEngineKind.nativeActivity,
+          supportLevel: PlayerSupportLevel.native,
           protocol: StreamProtocol.hls,
           reason:
-              'HLS live playback prefers VLC for resilient video output on '
-              'devices where MediaKit shows black video after buffering.',
-          fallbackEngines: [PlaybackEngineKind.mediaKit.name],
+              'HLS is played by the native Android Activity (ExoPlayer + '
+              'TextureView), bypassing Flutter '
+              'compositing which black-screens on Unisoc/Mali devices.',
+          fallbackEngines: [
+            PlaybackEngineKind.exoPlayer.name,
+            PlaybackEngineKind.vlc.name,
+            PlaybackEngineKind.mediaKit.name,
+          ],
         );
       case StreamProtocol.mpegTs:
         return PlayerNegotiation(
-          engine: PlaybackEngineKind.vlc,
-          supportLevel: PlayerSupportLevel.supported,
+          engine: PlaybackEngineKind.nativeActivity,
+          supportLevel: PlayerSupportLevel.native,
           protocol: StreamProtocol.mpegTs,
           reason:
-              'MPEG-TS live relays prefer VLC, which handles unbounded TS '
-              'feeds without the media_kit demuxer cache stalls.',
-          fallbackEngines: [PlaybackEngineKind.mediaKit.name],
+              'MPEG-TS live relays are handled by the native Android Activity '
+              '(ExoPlayer progressive extractor + TextureView) for reliable '
+              'video output on devices where Flutter compositing is broken.',
+          fallbackEngines: [
+            PlaybackEngineKind.exoPlayer.name,
+            PlaybackEngineKind.vlc.name,
+            PlaybackEngineKind.mediaKit.name,
+          ],
         );
       case StreamProtocol.dash:
-        return const PlayerNegotiation(
+        return PlayerNegotiation(
           engine: PlaybackEngineKind.mediaKit,
           supportLevel: PlayerSupportLevel.supported,
           protocol: StreamProtocol.dash,
           reason: 'DASH is supported by MediaKit when ffmpeg has dash enabled.',
+          fallbackEngines: [PlaybackEngineKind.exoPlayer.name],
         );
       case StreamProtocol.mp4:
-        return const PlayerNegotiation(
+        return PlayerNegotiation(
           engine: PlaybackEngineKind.mediaKit,
           supportLevel: PlayerSupportLevel.native,
           protocol: StreamProtocol.mp4,
           reason: 'MP4 is natively supported by MediaKit.',
+          fallbackEngines: [PlaybackEngineKind.exoPlayer.name],
         );
       case StreamProtocol.mkv:
-        return const PlayerNegotiation(
+        return PlayerNegotiation(
           engine: PlaybackEngineKind.mediaKit,
           supportLevel: PlayerSupportLevel.supported,
           protocol: StreamProtocol.mkv,
           reason: 'MKV is supported by MediaKit through Matroska demuxing.',
+          fallbackEngines: [PlaybackEngineKind.exoPlayer.name],
         );
       case StreamProtocol.http:
       case StreamProtocol.https:
-        return const PlayerNegotiation(
+        return PlayerNegotiation(
           engine: PlaybackEngineKind.mediaKit,
           supportLevel: PlayerSupportLevel.supported,
           protocol: StreamProtocol.http,
           reason:
               'Progressive HTTP(S) playback is supported by MediaKit; live '
-              'HTTP relays may prefer VLC (see PlayerSelectionStrategy).',
+              'HTTP relays prefer the Native Player/VLC (see '
+              'PlayerSelectionStrategy).',
+          fallbackEngines: [
+            PlaybackEngineKind.nativeActivity.name,
+            PlaybackEngineKind.exoPlayer.name,
+            PlaybackEngineKind.vlc.name,
+          ],
         );
       case StreamProtocol.rtsp:
         return PlayerNegotiation(

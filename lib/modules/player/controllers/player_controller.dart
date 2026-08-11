@@ -33,6 +33,11 @@ class PlayerController extends GetxController {
   final String? itemId;
   final String? streamUrl;
 
+  /// Items passed from the binding that will be loaded inside [onInit], after
+  /// settings are applied and the event listener is registered.
+  final List<MediaItem> _pendingItems;
+  final String? _pendingCurrentId;
+
   final RxList<MediaItem> channelList = <MediaItem>[].obs;
   final RxBool isFavoriteRx = false.obs;
   int _currentChannelIndex = -1;
@@ -42,6 +47,8 @@ class PlayerController extends GetxController {
   PlayerController({
     this.itemId,
     this.streamUrl,
+    List<MediaItem>? pendingItems,
+    String? pendingCurrentId,
     PlayerAdapter? adapter,
     PlaybackEngineKind? engineKind,
     PlayerSettings? settings,
@@ -51,7 +58,9 @@ class PlayerController extends GetxController {
     this.favoriteRepository,
     this.playbackRepository,
     IptvCore? iptvCore,
-  })  : playbackController = PlaybackController(
+  })  : _pendingItems = pendingItems ?? const [],
+        _pendingCurrentId = pendingCurrentId,
+        playbackController = PlaybackController(
           adapter: adapter,
           engineKind: engineKind,
           settings: settings,
@@ -79,10 +88,17 @@ class PlayerController extends GetxController {
       isFavoriteRx.value = session?.mediaItem.favorite ?? false;
     });
     await _loadPersistedSettings();
+    // Register the event listener BEFORE starting playback so that early
+    // loading/buffering/error events emitted during session creation reach the
+    // UI instead of being silently dropped.
+    playbackController.addEventListener(_onPlaybackEvent);
     if (itemId != null && streamUrl != null) {
       await _autoStart(itemId!, streamUrl!);
+    } else if (_pendingItems.isNotEmpty) {
+      // Items provided by the binding are started here, after the engine is
+      // configured and the event listener is in place.
+      setChannelList(_pendingItems, currentId: _pendingCurrentId);
     }
-    playbackController.addEventListener(_onPlaybackEvent);
   }
 
   /// Applies the persisted player settings (preferred engine, hardware
@@ -107,7 +123,10 @@ class PlayerController extends GetxController {
   void onClose() {
     _sessionWorker.dispose();
     playbackController.removeEventListener(_onPlaybackEvent);
-    playbackController.stop();
+    // Tear down the engine and the active backend (player, platform view, or
+    // native Activity). stop() alone leaves the adapter initialized and its
+    // render surface/native process alive, leaking resources between plays.
+    playbackController.dispose();
     super.onClose();
   }
 
@@ -171,12 +190,20 @@ class PlayerController extends GetxController {
         await playbackController.engine.initialize();
       }
 
+      // Derive the actual stream URL from the item's metadata so the Stream
+      // Engine can locate the source. Passing item.id (a UUID) as the fallback
+      // caused a StreamResolutionException for every channel whose metadata
+      // does not include a pre-resolved 'streamUrl' key (Xtream, canonical, etc.).
+      final fallbackUrl = item.metadata['streamUrl']?.toString()
+          ?? item.metadata['stream_url']?.toString()
+          ?? item.metadata['url']?.toString();
+
       session = await streamRepository.resolvePlayback(
         mediaItemId: item.id,
         providerType: item.providerType,
         itemMetadata: item.metadata,
         providerId: item.providerId,
-        fallbackUrl: item.id,
+        fallbackUrl: fallbackUrl,
       );
       await playWithSession(item, session);
     } catch (e, st) {

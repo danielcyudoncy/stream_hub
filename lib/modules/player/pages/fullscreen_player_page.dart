@@ -80,13 +80,20 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   }
 
   Widget _buildVideoLayer() {
-    final adapter = _controller.playbackController.engine.adapter;
-    return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black,
-        child: adapter.buildPlayerWidget(),
-      ),
-    );
+    // Read the engine kind inside an Obx so a backend swap (MediaKit <-> VLC)
+    // remounts the correct video surface instead of relying on a coincidental
+    // state change rebuild. The widget that plays through an engine swap gets
+    // replaced because Flutter matches the new adapter's keyed platform view.
+    return Obx(() {
+      _controller.playbackController.engine.engineKindRx.value;
+      final adapter = _controller.playbackController.engine.adapter;
+      return Positioned.fill(
+        child: ColoredBox(
+          color: Colors.black,
+          child: adapter.buildPlayerWidget(),
+        ),
+      );
+    });
   }
 
   Widget _buildStateOverlay() {
