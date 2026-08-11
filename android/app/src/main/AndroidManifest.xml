@@ -2,7 +2,8 @@
     <application
         android:label="stream_hub"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <!-- Disable Flutter Impeller on Android. media_kit renders video through
              a Flutter external Texture; on devices whose GPU/driver fails to
              composite external textures under Impeller (e.g. Unisoc/Mali), the
@@ -35,6 +36,18 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Fullscreen native ExoPlayer video Activity (NativeActivityPlayerAdapter).
+             Renders through a plain SurfaceView outside the Flutter view hierarchy so
+             SurfaceFlinger composites the video directly: the only render path that
+             displays video on Unisoc/Mali devices (docs/PLAYBACK_ENGINEERING.md §8.3). -->
+        <activity
+            android:name=".NativePlayerActivity"
+            android:exported="false"
+            android:theme="@style/NativePlayerTheme"
+            android:taskAffinity=""
+            android:screenOrientation="sensor"
+            android:hardwareAccelerated="true"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

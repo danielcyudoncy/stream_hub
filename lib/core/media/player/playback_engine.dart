@@ -10,7 +10,9 @@ import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/events/playback_event.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
+import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
 import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
+import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter_factory.dart';
 import 'package:stream_hub/core/media/player/player_selection_strategy.dart';
@@ -20,6 +22,7 @@ import 'package:stream_hub/core/media/player/playback_analytics.dart';
 import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
+import 'package:stream_hub/core/utils/hardware_detector.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playable_stream.dart';
 
@@ -280,7 +283,7 @@ class PlaybackEngine {
     );
 
     await _runLoad(
-      () => _adapter.playSession(session),
+      () => _adapter.playSession(session, title: item.title),
       title: session.mediaItemId,
       loadId: 'stream session',
     );
@@ -548,11 +551,19 @@ class PlaybackEngine {
     required bool isLive,
   }) async {
     if (!allowEngineFallback) return;
-    final selected = _selectionStrategy.selectForUrl(
+    var selected = _selectionStrategy.selectForUrl(
       url,
       preference: settings.preferredPlayer,
       isLive: isLive,
     );
+    if (settings.preferredPlayer == PlaybackEnginePreference.auto &&
+        await HardwareDetector.isUnisocOrMali()) {
+      logger.warning(
+        'Unisoc/Mali chipset detected, forcing Native Activity Player to avoid black screen',
+        tag: 'PlaybackEngine',
+      );
+      selected = PlaybackEngineKind.nativeActivity;
+    }
     if (selected != _engineKind) {
       logger.info(
         'Selecting ${selected.displayName} engine for stream',
@@ -564,8 +575,20 @@ class PlaybackEngine {
 
   /// Replaces the active adapter with the one for [kind], keeping the engine
   /// state machine and stream subscriptions intact.
+  ///
+  /// The swap is always initiated before any load action is run (engine
+  /// selection in [createSession]/[playFromStreamEngine] and runtime fallback
+  /// both call this before [_runLoad]'s load action), so a backend that must
+  /// await its render surface (e.g. ExoPlayerSurfaceViewAdapter waiting for the
+  /// platform view) is mounted before playback commands are sent. The reactive
+  /// `engineKindRx` change below also remounts the video surface in the player
+  /// page (see the keyed PlatformViewLink in ExoPlayerSurfaceViewAdapter), so
+  /// the new adapter's `_viewReady` completes instead of deadlocking.
   Future<void> _swapAdapter(PlaybackEngineKind kind) async {
     final previous = _adapter;
+    // Surface the switch to the UI immediately so the player page remounts the
+    // new backend's surface and shows "Connecting..." instead of a stale frame.
+    _setState(PlaybackState.loading);
     _adapter = PlayerAdapterFactory.create(
       kind,
       logger: logger,
@@ -583,29 +606,42 @@ class PlaybackEngine {
     );
   }
 
-  /// Attempts to recover from a failed load by switching to the alternate
-  /// backend. Returns `true` when a fallback was performed.
+  /// Attempts to recover from a failed load by switching to another backend.
+  /// Returns `true` when a fallback was performed.
   ///
   /// Only runs in Auto mode, respects an explicit user preference, and never
-  /// falls back more than once per session.
+  /// falls back more than once per session. The candidate order comes from the
+  /// [PlayerSelectionStrategy] so the runtime fallback stays consistent with
+  /// the negotiated primary engine per protocol.
   Future<bool> _tryEngineFallback() async {
     if (!allowEngineFallback || _fallbackAttempted) return false;
     if (settings.preferredPlayer != PlaybackEnginePreference.auto) return false;
 
-    final alternative = _engineKind == PlaybackEngineKind.vlc
-        ? PlaybackEngineKind.mediaKit
-        : PlaybackEngineKind.vlc;
-    if (alternative == PlaybackEngineKind.vlc && !VlcPlayerAdapter.isSupported) {
-      return false;
+    final url = _currentSession?.stream.url ?? '';
+    final isLive = _currentSession?.metadata.isLive ?? false;
+    final candidates = _selectionStrategy.fallbackOrderFor(url, isLive: isLive);
+    for (final candidate in candidates) {
+      if (candidate == _engineKind) continue;
+      if (candidate == PlaybackEngineKind.vlc && !VlcPlayerAdapter.isSupported) {
+        continue;
+      }
+      if (candidate == PlaybackEngineKind.nativeActivity &&
+          !NativeActivityPlayerAdapter.isSupported) {
+        continue;
+      }
+      if (candidate == PlaybackEngineKind.exoPlayer &&
+          !ExoPlayerSurfaceViewAdapter.isSupported) {
+        continue;
+      }
+      _fallbackAttempted = true;
+      logger.warning(
+        'Falling back from ${_engineKind.displayName} to ${candidate.displayName}',
+        tag: 'PlaybackEngine',
+      );
+      await _swapAdapter(candidate);
+      return true;
     }
-
-    _fallbackAttempted = true;
-    logger.warning(
-      'Falling back from ${_engineKind.displayName} to ${alternative.displayName}',
-      tag: 'PlaybackEngine',
-    );
-    await _swapAdapter(alternative);
-    return true;
+    return false;
   }
 
   /// Runs [loadAction] (a backend-specific load) with the engine's shared
@@ -741,8 +777,10 @@ class PlaybackEngine {
         // `dequeueBuffer: BufferQueue has been abandoned`, codec output
         // buffers never recycled). No Dart exception is raised, so the usual
         // fallback path never fires. After a grace period, force the engine
-        // swap to VLC, whose platform view does not use Flutter external
-        // textures at all, then reload the current session on it.
+        // to another backend per the selection strategy (on Android this
+        // prefers ExoPlayer's real SurfaceView, which is composited by
+        // SurfaceFlinger and bypasses Flutter's texture sampler), then reload
+        // the current session on it.
         final activeAdapter = adapter;
         if (activeAdapter is MediaKitPlayerAdapter &&
             !activeAdapter.hasVideoFrames) {

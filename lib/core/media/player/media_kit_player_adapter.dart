@@ -210,7 +210,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   }
 
   @override
-  Future<void> playSession(PlayableSession session) async {
+  Future<void> playSession(PlayableSession session, {String? title}) async {
     if (_player == null) {
       await initialize();
     }

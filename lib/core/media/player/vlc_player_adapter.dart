@@ -117,7 +117,7 @@ class VlcPlayerAdapter implements PlayerAdapter {
   }
 
   @override
-  Future<void> playSession(PlayableSession session) async {
+  Future<void> playSession(PlayableSession session, {String? title}) async {
     final headers = <String, String>{...session.headers};
     if (session.userAgent != null && session.userAgent!.isNotEmpty) {
       headers['User-Agent'] = session.userAgent!;

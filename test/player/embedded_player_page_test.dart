@@ -163,7 +163,7 @@ class _SurfaceTrackingAdapter implements PlayerAdapter {
   Future<void> load(PlayableMediaSession session) async {}
 
   @override
-  Future<void> playSession(PlayableSession session) async {}
+  Future<void> playSession(PlayableSession session, {String? title}) async {}
 
   @override
   Future<void> play() async {}
