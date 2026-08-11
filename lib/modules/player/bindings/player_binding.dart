@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
+import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/session_repository_impl.dart';
@@ -23,9 +24,16 @@ class PlayerBinding extends Bindings {
       final itemId = args?['itemId'] as String?;
       final streamUrl = args?['streamUrl'] as String?;
 
-      final controller = PlayerController(
+      // Items are passed via pendingItems/pendingCurrentId so that onInit —
+      // which runs after the binding factory returns — can call setChannelList
+      // once settings are loaded and the playback event listener is registered.
+      // Calling setChannelList directly here would fire before onInit, losing
+      // all early loading/buffering/error events and using unapplied defaults.
+      return PlayerController(
         itemId: itemId,
         streamUrl: streamUrl,
+        pendingItems: items.cast<MediaItem>(),
+        pendingCurrentId: currentId,
         streamRepository: Get.find<StreamRepository>(),
         historyRepository: Get.find<HistoryRepository>(),
         favoriteRepository: Get.find<FavoriteRepository>(),
@@ -33,15 +41,6 @@ class PlayerBinding extends Bindings {
             ? Get.find<PlaybackRepository>()
             : null,
       );
-
-      if (items.isNotEmpty) {
-        controller.setChannelList(
-          items.cast(),
-          currentId: currentId,
-        );
-      }
-
-      return controller;
     });
   }
 }

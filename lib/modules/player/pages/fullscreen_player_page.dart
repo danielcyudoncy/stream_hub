@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
+import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
@@ -32,6 +33,16 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       }
       if (state == PlaybackState.playing) {
         _autoHideControls();
+      } else if (state == PlaybackState.stopped &&
+          _controller.playbackController.engine.adapter
+              is NativeActivityPlayerAdapter) {
+        // The native player Activity closed itself (its ✕ button or the system
+        // back gesture), which destroys the only place rendering the video.
+        // Leave the player route so the previously opened screen is restored
+        // instead of a blank black surface. `stopped` can only reach the engine
+        // from this adapter's onFinished event (channel switches never stop),
+        // so this can't fire spuriously.
+        _handleBack();
       }
     });
     _autoHideControls();
@@ -80,13 +91,20 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   }
 
   Widget _buildVideoLayer() {
-    final adapter = _controller.playbackController.engine.adapter;
-    return Positioned.fill(
-      child: ColoredBox(
-        color: Colors.black,
-        child: adapter.buildPlayerWidget(),
-      ),
-    );
+    // Read the engine kind inside an Obx so a backend swap (MediaKit <-> VLC)
+    // remounts the correct video surface instead of relying on a coincidental
+    // state change rebuild. The widget that plays through an engine swap gets
+    // replaced because Flutter matches the new adapter's keyed platform view.
+    return Obx(() {
+      _controller.playbackController.engine.engineKindRx.value;
+      final adapter = _controller.playbackController.engine.adapter;
+      return Positioned.fill(
+        child: ColoredBox(
+          color: Colors.black,
+          child: adapter.buildPlayerWidget(),
+        ),
+      );
+    });
   }
 
   Widget _buildStateOverlay() {

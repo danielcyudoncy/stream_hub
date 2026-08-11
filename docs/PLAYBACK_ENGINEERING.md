@@ -347,6 +347,16 @@ libmpv or libvlc accept.
 - Reproduced on `swiftshader_indirect` and `-gpu host` (AMD Radeon translator)
   on a `Pixel_7_Pro_API_36` AVD. `angle_indirect` is Windows-only, so no other
   GPU mode is available on macOS hosts.
+- **NativePlayerActivity** (ExoPlayer + plain SurfaceView, composited by
+  SurfaceFlinger) decodes but does NOT display on the emulator either:
+  `c2.goldfish.h264.decoder` produces frames and the buffer pool cycles (e.g.
+  31457280-size buffers at 1080p), audio decodes, and `Session loaded` is
+  reached — yet the SurfaceView stays black. The emulator's GLES/SurfaceFlinger
+  translator fails to composite the video surface layer regardless of backend.
+  This is still an environment limitation, not an app defect: the native path
+  gets strictly further than media_kit (which dies with `EGL_BAD_ATTRIBUTE`),
+  and the emulator log is the fastest end-to-end verification of the engine
+  swap + native launch + decode pipeline.
 
 ### 7.2 Upstream status
 

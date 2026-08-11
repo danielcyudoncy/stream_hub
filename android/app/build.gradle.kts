@@ -51,6 +51,18 @@ android {
     }
 }
 
+dependencies {
+    // Native SurfaceView + ExoPlayer playback backend (ExoPlayerSurfaceView).
+    // Renders video through a real SurfaceView composited by SurfaceFlinger in
+    // hybrid-composition mode, bypassing the broken Flutter external-texture
+    // sampler on Unisoc/Mali devices (see docs/PLAYBACK_ENGINEERING.md §1.1).
+    val media3 = "1.10.1"
+    implementation("androidx.media3:media3-exoplayer:$media3")
+    implementation("androidx.media3:media3-exoplayer-hls:$media3")
+    implementation("androidx.media3:media3-exoplayer-dash:$media3")
+    implementation("androidx.media3:media3-exoplayer-rtsp:$media3")
+}
+
 flutter {
     source = "../.."
 }

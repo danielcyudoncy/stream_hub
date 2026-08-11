@@ -6,6 +6,8 @@
 enum PlaybackEnginePreference {
   auto,
   mediaKit,
+  exoPlayer,
+  nativeActivity,
   vlc;
 
   String get displayName {
@@ -14,6 +16,10 @@ enum PlaybackEnginePreference {
         return 'Auto';
       case PlaybackEnginePreference.mediaKit:
         return 'MediaKit';
+      case PlaybackEnginePreference.exoPlayer:
+        return 'ExoPlayer';
+      case PlaybackEnginePreference.nativeActivity:
+        return 'Native Player';
       case PlaybackEnginePreference.vlc:
         return 'VLC';
     }
