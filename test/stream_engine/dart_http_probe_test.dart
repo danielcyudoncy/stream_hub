@@ -169,20 +169,37 @@ void main() {
       expect(result.contentType, 'video/mp2t');
     });
 
-    test('does not fall back to GET when HEAD returns a non-2xx status',
+    test('falls back to GET when HEAD returns a non-2xx status and GET works',
         () async {
       var getCount = 0;
       final server = await RawScriptServer.start((method, path) async {
-        if (method == 'HEAD') return HttpScript.response(403, 'text/html');
+        if (method == 'HEAD') return HttpScript.response(405, 'text/html');
         getCount++;
-        return HttpScript.response(200, 'video/mp2t');
+        return HttpScript.response(200, 'video/mp4');
       });
       addTearDown(server.close);
 
       final result = await const DartHttpProbe().probe(
         server.url.resolve('/stream').toString(),
       );
-      expect(getCount, 0);
+      expect(getCount, 1);
+      expect(result.statusCode, 200);
+      expect(result.contentType, 'video/mp4');
+    });
+
+    test('reports the GET status when HEAD and GET both fail', () async {
+      var getCount = 0;
+      final server = await RawScriptServer.start((method, path) async {
+        if (method == 'HEAD') return HttpScript.response(403, 'text/html');
+        getCount++;
+        return HttpScript.response(403, 'text/html');
+      });
+      addTearDown(server.close);
+
+      final result = await const DartHttpProbe().probe(
+        server.url.resolve('/stream').toString(),
+      );
+      expect(getCount, 1);
       expect(result.statusCode, 403);
     });
 

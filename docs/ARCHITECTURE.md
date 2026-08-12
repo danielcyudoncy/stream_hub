@@ -975,6 +975,10 @@ lib/
 
             resolver/
 
+            series/
+
+                xtream_series_info_service.dart
+
             validation/
 
             health/

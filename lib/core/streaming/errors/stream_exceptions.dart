@@ -18,6 +18,19 @@ class StreamResolutionException extends StreamEngineException {
   });
 }
 
+/// Thrown when a panel does not expose season/episode data for a series
+/// (e.g. `get_series_info` is not implemented and returns HTTP 404).
+///
+/// This is a provider limitation rather than a request failure, so the UI can
+/// degrade gracefully (show a friendly message) instead of retrying forever.
+class StreamSeriesInfoUnavailableException extends StreamEngineException {
+  const StreamSeriesInfoUnavailableException({
+    super.message = 'This provider does not expose an episode list.',
+    super.code = 'STREAM_SERIES_INFO_UNAVAILABLE',
+    super.originalError,
+  });
+}
+
 /// Thrown when a stream fails validation.
 class StreamValidationException extends StreamEngineException {
   const StreamValidationException({

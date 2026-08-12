@@ -59,6 +59,37 @@ void main() {
       expect(probedCookie, 'session=abc');
     });
 
+    test('sends the session identity headers on the probe', () async {
+      Map<String, String>? probedHeaders;
+      final probe = FakeHttpProbe(
+        onProbe: (url, headers) {
+          probedHeaders = headers;
+          return HttpProbeResult(statusCode: 200, finalUri: Uri.parse(url));
+        },
+      );
+      final validator = StreamValidator(probe: probe);
+      await validator.validate(
+        PlayableSession(
+          sessionId: 's1',
+          mediaItemId: 'item1',
+          providerId: 'provider-1',
+          providerType: MediaSourceType.xtream,
+          streamUrl: 'https://example.com/stream.mp4',
+          streamType: StreamType.mp4,
+          headers: const {'X-Custom': 'yes'},
+          userAgent: 'StreamHub/1.0',
+          referer: 'https://panel.example.com',
+          origin: 'https://panel.example.com',
+          bearerToken: 'tok123',
+        ),
+      );
+      expect(probedHeaders!['User-Agent'], 'StreamHub/1.0');
+      expect(probedHeaders!['Referer'], 'https://panel.example.com');
+      expect(probedHeaders!['Origin'], 'https://panel.example.com');
+      expect(probedHeaders!['Authorization'], 'Bearer tok123');
+      expect(probedHeaders!['X-Custom'], 'yes');
+    });
+
     test('rejects http 401', () async {
       final probe = FakeHttpProbe(
         results: {

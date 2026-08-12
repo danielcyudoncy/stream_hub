@@ -425,7 +425,9 @@ The macOS target needed several fixes to build and run at all:
 
 ## 8. Documented device limitation: Flutter external-texture video on Unisoc/Mali
 
-**Status: documented limitation (decision 2026-08).** No fix is expected in-app.
+**Status: mitigated on-device via the native Activity render path (§8.3).
+The raw Flutter external-texture defect itself remains unsolved and unsolvable
+in-app.**
 
 ### 8.1 What is unsupported
 
@@ -454,20 +456,29 @@ cannot work around it by design.
   state, so no runtime fallback can detect or react to it (§1.1 watchdog
   limitation).
 
-### 8.3 What would fix it (not in scope)
+### 8.3 Mitigation: Native Player Activity (implemented)
 
-A native render path that bypasses Flutter's external-texture sampler — e.g. a
-custom `SurfaceView`/`TextureView` player adapter rendered directly by the
-platform view system (SurfaceFlinger) instead of the Flutter GL compositor.
-This would be a new `PlayerAdapter` implementation behind the existing
-`PlaybackEngine` interface (§2). Deferred: not scheduled on the roadmap.
+A native render path that bypasses Flutter's external-texture sampler **is now
+implemented**: `NativePlayerActivity` (Android) hosts ExoPlayer + TextureView
+in a plain `Activity`, rendered directly by the app's view system
+(SurfaceFlinger), outside the Flutter view hierarchy. `PlaybackEngine` selects
+it through `PlaybackEngineKind.nativeActivity`
+(`NativeActivityPlayerAdapter`).
 
-### 8.4 Remaining mitigations (best-effort)
+- **Live** (MPEG-TS/HLS/HTTP(S) relays): routed to the native Activity by the
+  `PlayerSelectionStrategy` in Auto mode on Android.
+- **VOD** (MP4/MKV/DASH): the strategy keeps VOD on media_kit by default, so
+  VOD only reaches the native Activity when `HardwareDetector.isUnisocOrMali()`
+  forces it. The detector matches Unisoc UMS part numbers (`ums9230` on the
+  itel C671L, i.e. Tiger T606), the older Spreadtrum `SP`/`SC`/`sprd` strings,
+  and Mali-paired MediaTek/Exynos parts.
+- The Activity owns its transport bar (play/pause, rewind/forward, **stop**,
+  quality) and a **close (✕)** button; closing it finishes the Activity and
+  emits `onFinished`, and the fullscreen page pops itself.
+- The Flutter transport bar also gained a **stop** button
+  (`PlayerController.stopAndClose`) that stops playback and leaves the player
+  route, skipping the explicit pop for the native-activity adapter (its
+  Activity self-close already pops the page).
 
-- `EnableImpeller=false` (AndroidManifest.xml) — keeps the Skia compositor;
-  does not fix the device (§4).
-- VLC `virtualDisplay: false` (hybrid composition) — render-mode change,
-  **not validated on-device** and does not bypass the external-texture
-  consumer (§1.2); kept only because it cannot make playback worse.
-- Engine watchdog — proven unable to detect this defect class (§1.1); kept as
-  a best-effort guard for other devices.
+The Activity path renders video with ExoPlayer + TextureView (live proven on
+the itel C671L). VOD verification is in progress (§8.4).
