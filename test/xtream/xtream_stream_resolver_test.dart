@@ -127,6 +127,122 @@ void main() {
       expect(result.metadata['episodeId'], '8200');
     });
 
+    test('resolves a specific episode when episodeId is provided', () async {
+      final server = await XtreamTestServer.start();
+      addTearDown(server.close);
+
+      final resolver = XtreamStreamResolver(logger: LoggingService());
+      final result = await resolver.resolve(
+        StreamResolutionRequest(
+          session: session(baseUrl: server.baseUrl),
+          sourceUrl: server.baseUrl,
+          mediaItemId: 'xtream-episode-7101',
+          itemMetadata: const {
+            'seriesId': '601',
+            'episodeId': '7101',
+          },
+        ),
+      );
+
+      expect(
+        result.url,
+        '${server.baseUrl}/series/demo/secret/7101.mkv',
+      );
+      expect(result.metadata['episodeId'], '7101');
+      expect(result.metadata['episodeTitle'], 'Seven Thirty-Seven');
+    });
+
+    test('falls back to the first episode when episodeId is unknown', () async {
+      final server = await XtreamTestServer.start();
+      addTearDown(server.close);
+
+      final resolver = XtreamStreamResolver(logger: LoggingService());
+      final result = await resolver.resolve(
+        StreamResolutionRequest(
+          session: session(baseUrl: server.baseUrl),
+          sourceUrl: server.baseUrl,
+          mediaItemId: 'xtream-episode-9999',
+          itemMetadata: const {
+            'seriesId': '601',
+            'episodeId': '9999',
+          },
+        ),
+      );
+
+      expect(result.url, '${server.baseUrl}/series/demo/secret/7001.mp4');
+      expect(result.metadata['episodeId'], '7001');
+    });
+
+    test('resolves via the stream ID when the series ID 404s', () async {
+      final server = await XtreamTestServer.start(handler: (action, params) {
+        if (action == 'get_series_info') {
+          if (params['series_id'] == '601') return {'__status__': 404};
+          return {
+            'seasons': [
+              {
+                'id': '1',
+                'name': 'Season 1',
+                'episodes': [
+                  {
+                    'id': '9300',
+                    'title': 'Stream ID Episode',
+                    'container_extension': 'mp4',
+                    'season': 1,
+                    'episode_num': 1,
+                  },
+                ],
+              },
+            ],
+          };
+        }
+        return defaultHandler(action, params);
+      });
+      addTearDown(server.close);
+
+      final resolver = XtreamStreamResolver(logger: LoggingService());
+      final result = await resolver.resolve(
+        StreamResolutionRequest(
+          session: session(baseUrl: server.baseUrl),
+          sourceUrl: server.baseUrl,
+          mediaItemId: 'xtream-series-601',
+          itemMetadata: const {
+            'seriesId': '601',
+            'streamId': '606',
+            'isSeries': true,
+          },
+        ),
+      );
+
+      expect(result.url, '${server.baseUrl}/series/demo/secret/9300.mp4');
+      expect(result.metadata['episodeId'], '9300');
+    });
+
+    test('throws when series info is unavailable for every candidate ID',
+        () async {
+      final server = await XtreamTestServer.start(handler: (action, params) {
+        if (action == 'get_series_info') return {'__status__': 404};
+        return defaultHandler(action, params);
+      });
+      addTearDown(server.close);
+
+      final resolver = XtreamStreamResolver(logger: LoggingService());
+
+      await expectLater(
+        resolver.resolve(
+          StreamResolutionRequest(
+            session: session(baseUrl: server.baseUrl),
+            sourceUrl: server.baseUrl,
+            mediaItemId: 'xtream-series-999',
+            itemMetadata: const {
+              'seriesId': '999',
+              'streamId': '998',
+            },
+          ),
+        ),
+        throwsA(isA<StreamSeriesInfoUnavailableException>()),
+      );
+    });
+
     test('throws when no streamUrl or seriesId is present', () async {
       final resolver = XtreamStreamResolver(logger: LoggingService());
 

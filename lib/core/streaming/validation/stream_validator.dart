@@ -86,6 +86,24 @@ class StreamValidator {
 
   Future<StreamValidationResult> _probeNetwork(PlayableSession session) async {
     final headers = Map<String, String>.from(session.headers);
+    // Replicate the request the player will actually send. CDNs commonly 403
+    // HEAD/GET probes that lack the session's identity headers even though the
+    // player (which sends them) would be served fine.
+    if (session.userAgent != null && session.userAgent!.isNotEmpty) {
+      headers.putIfAbsent('User-Agent', () => session.userAgent!);
+    }
+    if (session.referer != null && session.referer!.isNotEmpty) {
+      headers.putIfAbsent('Referer', () => session.referer!);
+    }
+    if (session.origin != null && session.origin!.isNotEmpty) {
+      headers.putIfAbsent('Origin', () => session.origin!);
+    }
+    if (session.requiresBearerToken) {
+      headers.putIfAbsent(
+        'Authorization',
+        () => 'Bearer ${session.bearerToken}',
+      );
+    }
     if (session.cookies.isNotEmpty) {
       headers.putIfAbsent('Cookie', () {
         return session.cookies.entries
