@@ -33,6 +33,7 @@ import 'package:stream_hub/core/streaming/resolver/stalker_stream_resolver.dart'
 import 'package:stream_hub/core/streaming/resolver/stream_resolver.dart';
 import 'package:stream_hub/core/streaming/resolver/xtream_stream_resolver.dart';
 import 'package:stream_hub/core/streaming/security/data_encryption.dart';
+import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
 import 'package:stream_hub/core/streaming/session/factories/bearer_server_provider_session_factory.dart';
 import 'package:stream_hub/core/streaming/session/factories/m3u_provider_session_factory.dart';
 import 'package:stream_hub/core/streaming/session/factories/stalker_provider_session_factory.dart';
@@ -115,6 +116,11 @@ class StreamEngineBinding extends Bindings {
     );
     Get.put<SessionManager>(sessionManager, permanent: true);
 
+    Get.put<XtreamSeriesInfoService>(
+      XtreamSeriesInfoService(logger: Get.find<LoggingService>()),
+      permanent: true,
+    );
+
     Get.put<StreamResolver>(
       CompositeStreamResolver(
         fallback: DefaultStreamResolver(
@@ -129,6 +135,7 @@ class StreamEngineBinding extends Bindings {
           MediaSourceType.xtream: XtreamStreamResolver(
             normalizer: Get.find<UrlNormalizer>(),
             logger: Get.find<LoggingService>(),
+            seriesInfoService: Get.find<XtreamSeriesInfoService>(),
           ),
         },
       ),

@@ -9,6 +9,7 @@ import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
+import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/playback_controller.dart';
@@ -312,6 +313,23 @@ class PlayerController extends GetxController {
       await playMediaItem(pending);
     } else {
       await playbackController.retry();
+    }
+  }
+
+  /// Stops playback and leaves the player route.
+  ///
+  /// With the Native Activity engine the Activity itself renders the video and
+  /// owns its close affordances: stopping it finishes the Activity, and the
+  /// fullscreen page already pops itself on the resulting `stopped` event.
+  /// Popping again here would close an extra route, so it is skipped for that
+  /// adapter. Every Flutter-rendered backend (MediaKit/VLC) stops here and the
+  /// route is popped explicitly.
+  Future<void> stopAndClose() async {
+    final usesNativeActivity =
+        playbackController.engine.adapter is NativeActivityPlayerAdapter;
+    await stop();
+    if (!usesNativeActivity) {
+      Get.back();
     }
   }
 

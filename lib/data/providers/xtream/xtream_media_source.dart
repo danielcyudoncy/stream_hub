@@ -469,6 +469,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     final seasons = _parseSeasons(item['seasons']);
     return {
       'seriesId': seriesId,
+      'streamId': item['stream_id']?.toString() ?? '',
       'categoryId': categoryId,
       'genre': _asString(item['genre']) ?? '',
       'plot': _asString(item['plot']) ?? '',

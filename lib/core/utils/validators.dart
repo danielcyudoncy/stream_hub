@@ -30,6 +30,23 @@ class Validators {
     }
   }
 
+  /// Accepts a host with optional port and path, with or without a scheme.
+  ///
+  /// Xtream and Stalker portals are commonly distributed as schemeless
+  /// addresses (e.g. `portal.example.com/c`); both providers normalize the
+  /// address to `http://` internally, so the form must not reject them.
+  static bool isValidServerUrl(String? url) {
+    if (url == null || url.trim().isEmpty) return false;
+    var cleanUrl = url.trim();
+    if (!cleanUrl.contains('://')) cleanUrl = 'http://$cleanUrl';
+    try {
+      final uri = Uri.parse(cleanUrl);
+      return uri.hasScheme && uri.host.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static bool isValidMacAddress(String? mac) {
     if (mac == null || mac.trim().isEmpty) return false;
     return _macRegExp.hasMatch(mac.trim());

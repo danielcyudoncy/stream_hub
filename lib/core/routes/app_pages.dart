@@ -36,6 +36,12 @@ import '../../modules/live_tv/pages/library_overview_page.dart';
 import '../../modules/live_tv/bindings/live_tv_binding.dart';
 import '../../modules/library/library_page.dart';
 import '../../modules/library/library_binding.dart';
+import '../../modules/movies/movies_page.dart';
+import '../../modules/movies/movies_binding.dart';
+import '../../modules/series/series_page.dart';
+import '../../modules/series/series_binding.dart';
+import '../../modules/series/series_details_page.dart';
+import '../../modules/series/series_details_binding.dart';
 import '../../modules/search/search_hub_page.dart';
 import '../../modules/search/search_hub_binding.dart';
 import '../../modules/epg/pages/program_details_page.dart';
@@ -178,6 +184,21 @@ class AppPages {
       name: AppRoutes.library,
       page: () => const LibraryPage(),
       binding: LibraryBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.movies,
+      page: () => const MoviesPage(),
+      binding: MoviesBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.series,
+      page: () => const SeriesPage(),
+      binding: SeriesBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.seriesDetails,
+      page: () => const SeriesDetailsPage(),
+      binding: SeriesDetailsBinding(),
     ),
     GetPage(
       name: AppRoutes.search,

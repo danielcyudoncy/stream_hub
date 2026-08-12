@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/constants/app_constants.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../data/models/media_item.dart';
@@ -8,7 +7,6 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/responsive_helper.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/section_header.dart';
@@ -21,11 +19,10 @@ class HomePage extends GetView<HomeController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isTV = ResponsiveHelper.isTV(context);
-    final isDesktop = ResponsiveHelper.isDesktop(context);
 
     return AppScaffold(
-      title: AppConstants.appName,
+      title: '',
+      showAppBar: false,
       body: Obx(() {
         if (controller.isLoading.value && controller.hasProviders.value) {
           return const Center(child: CircularProgressIndicator());
@@ -33,16 +30,14 @@ class HomePage extends GetView<HomeController> {
 
         return CustomScrollView(
           slivers: [
-            _buildSliverAppBar(context, colorScheme, isTV, isDesktop),
             SliverToBoxAdapter(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  AppSpacing.heightMD,
                   if (!controller.hasProviders.value)
                     _buildWelcomeCard(context, colorScheme),
                   if (controller.hasProviders.value) ...[
-                    _buildGreetingHeader(context, colorScheme),
-                    AppSpacing.heightMD,
                     _buildQuickActionsSection(context, colorScheme),
                     AppSpacing.heightMD,
                     _buildProviderSummaryCard(context, colorScheme),
@@ -72,60 +67,6 @@ class HomePage extends GetView<HomeController> {
           ],
         );
       }),
-    );
-  }
-
-  Widget _buildSliverAppBar(
-    BuildContext context,
-    ColorScheme colorScheme,
-    bool isTV,
-    bool isDesktop,
-  ) {
-    return SliverAppBar(
-      expandedHeight: isTV ? 200.0 : (isDesktop ? 160.0 : 120.0),
-      pinned: true,
-      stretch: false,
-      backgroundColor: colorScheme.surface,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            AppConstants.appName,
-            style: AppTypography.getHeadline(color: colorScheme.primary),
-          ),
-          AppSpacing.heightXXS,
-          Text(
-            controller.greetingMessage.value,
-            style: AppTypography.getBody(color: colorScheme.onSurfaceVariant),
-          ),
-        ],
-      ),
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                colorScheme.primary.withValues(alpha: 0.08),
-                colorScheme.surface,
-              ],
-            ),
-          ),
-        ),
-      ),
-      actions: [
-        IconButton(
-          icon: const Icon(AppIcons.search),
-          onPressed: () => Get.toNamed(AppRoutes.search),
-          tooltip: 'Search',
-        ),
-        IconButton(
-          icon: const Icon(AppIcons.favorites),
-          onPressed: () {},
-          tooltip: 'Favorites',
-        ),
-      ],
     );
   }
 
@@ -160,26 +101,31 @@ class HomePage extends GetView<HomeController> {
                 _buildFeatureChip(
                   icon: AppIcons.liveTv,
                   label: 'Live TV',
+                  onTap: () => Get.toNamed(AppRoutes.liveTV),
                   colorScheme: colorScheme,
                 ),
                 _buildFeatureChip(
                   icon: AppIcons.movies,
                   label: 'Movies',
+                  onTap: () => Get.toNamed(AppRoutes.movies),
                   colorScheme: colorScheme,
                 ),
                 _buildFeatureChip(
                   icon: AppIcons.series,
                   label: 'Series',
+                  onTap: () => Get.toNamed(AppRoutes.series),
                   colorScheme: colorScheme,
                 ),
                 _buildFeatureChip(
                   icon: AppIcons.live,
                   label: 'TV Guide',
+                  onTap: () => Get.toNamed(AppRoutes.guideSearch),
                   colorScheme: colorScheme,
                 ),
                 _buildFeatureChip(
                   icon: AppIcons.favorites,
                   label: 'Favorites',
+                  onTap: () => Get.toNamed(AppRoutes.favorites),
                   colorScheme: colorScheme,
                 ),
                 _buildFeatureChip(
@@ -195,8 +141,6 @@ class HomePage extends GetView<HomeController> {
               icon: const Icon(AppIcons.add, size: 18),
               label: const Text('Add Media Source'),
             ),
-            AppSpacing.heightSM,
-            TextButton(onPressed: () {}, child: const Text('Learn More')),
           ],
         ),
       ),
@@ -207,65 +151,30 @@ class HomePage extends GetView<HomeController> {
     required IconData icon,
     required String label,
     required ColorScheme colorScheme,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.large,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16.0, color: colorScheme.primary),
-          AppSpacing.widthXS,
-          Text(
-            label,
-            style: AppTypography.getCaption(color: colorScheme.onSurface),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGreetingHeader(BuildContext context, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24.0,
-            backgroundColor: colorScheme.primaryContainer,
-            child: Icon(
-              AppIcons.profile,
-              color: colorScheme.onPrimaryContainer,
-              size: 24.0,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: colorScheme.surfaceContainerHighest,
+          borderRadius: AppRadius.large,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16.0, color: colorScheme.primary),
+            AppSpacing.widthXS,
+            Text(
+              label,
+              style: AppTypography.getCaption(color: colorScheme.onSurface),
             ),
-          ),
-          AppSpacing.widthMD,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  controller.greetingMessage.value,
-                  style: AppTypography.getHeadline(
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                Text(
-                  'Local User',
-                  style: AppTypography.getBody(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -296,14 +205,14 @@ class HomePage extends GetView<HomeController> {
                   context,
                   icon: AppIcons.movies,
                   label: 'Browse Movies',
-                  onTap: () => Get.toNamed(AppRoutes.library),
+                  onTap: () => Get.toNamed(AppRoutes.movies),
                   colorScheme: colorScheme,
                 ),
                 _quickActionChip(
                   context,
                   icon: AppIcons.series,
                   label: 'Browse Series',
-                  onTap: () => Get.toNamed(AppRoutes.library),
+                  onTap: () => Get.toNamed(AppRoutes.series),
                   colorScheme: colorScheme,
                 ),
                 _quickActionChip(
@@ -542,7 +451,7 @@ class HomePage extends GetView<HomeController> {
           SectionHeader(
             title: 'Movies',
             trailing: TextButton(
-              onPressed: () => Get.toNamed(AppRoutes.library),
+              onPressed: () => Get.toNamed(AppRoutes.movies),
               child: const Text('See All'),
             ),
           ),
@@ -585,7 +494,7 @@ class HomePage extends GetView<HomeController> {
           SectionHeader(
             title: 'Series',
             trailing: TextButton(
-              onPressed: () => Get.toNamed(AppRoutes.library),
+              onPressed: () => Get.toNamed(AppRoutes.series),
               child: const Text('See All'),
             ),
           ),
@@ -911,15 +820,15 @@ class HomePage extends GetView<HomeController> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ClipRRect(
-                borderRadius: AppRadius.medium,
-                child: Container(
-                  width: double.infinity,
-                  height: width * 0.75,
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                  ),
-                  child: poster != null && poster.isNotEmpty
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: AppRadius.medium,
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest,
+                    ),
+                    child: poster != null && poster.isNotEmpty
                       ? Image.network(
                           poster,
                           fit: BoxFit.cover,
@@ -938,6 +847,7 @@ class HomePage extends GetView<HomeController> {
                             color: colorScheme.primary.withValues(alpha: 0.3),
                           ),
                         ),
+                  ),
                 ),
               ),
               Padding(

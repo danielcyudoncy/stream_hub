@@ -13,6 +13,7 @@ class AppScaffold extends StatelessWidget {
   final Widget body;
   final List<Widget>? actions;
   final bool showNavigation;
+  final bool showAppBar;
   final Widget? floatingActionButton;
 
   const AppScaffold({
@@ -21,6 +22,7 @@ class AppScaffold extends StatelessWidget {
     required this.body,
     this.actions,
     this.showNavigation = true,
+    this.showAppBar = true,
     this.floatingActionButton,
   });
 
@@ -111,7 +113,7 @@ class AppScaffold extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      AppAppBar(title: title, actions: actions),
+                      if (showAppBar) AppAppBar(title: title, actions: actions),
                       Expanded(child: body),
                     ],
                   ),
@@ -150,7 +152,7 @@ class AppScaffold extends StatelessWidget {
                 Expanded(
                   child: Column(
                     children: [
-                      AppAppBar(title: title, actions: actions),
+                      if (showAppBar) AppAppBar(title: title, actions: actions),
                       Expanded(child: body),
                     ],
                   ),
@@ -162,7 +164,7 @@ class AppScaffold extends StatelessWidget {
           // Mobile — full-screen with bottom nav
           return Column(
             children: [
-              AppAppBar(title: title, actions: actions),
+              if (showAppBar) AppAppBar(title: title, actions: actions),
               Expanded(child: body),
             ],
           );

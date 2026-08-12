@@ -46,6 +46,7 @@ class AppIcons {
   static const IconData rewind = Icons.replay_10_outlined;
   static const IconData next = Icons.skip_next_outlined;
   static const IconData previous = Icons.skip_previous_outlined;
+  static const IconData stop = Icons.stop;
   static const IconData fullscreen = Icons.fullscreen;
   static const IconData fullscreenExit = Icons.fullscreen_exit;
   static const IconData aspectRatio = Icons.aspect_ratio_outlined;

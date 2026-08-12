@@ -25,12 +25,23 @@ class HardwareDetector {
         final model = (info['model'] as String? ?? '').toLowerCase();
         final brand = (info['brand'] as String? ?? '').toLowerCase();
 
+        // Unisoc reports its SoCs under several naming schemes. Hardware/board
+        // for modern chips is the internal UMS part number (itel C671L =
+        // UMS9230, i.e. Tiger T606); older parts are Spreadtrum "SP"/"SC" and
+        // "sprd"/"spd" strings. Without this, `ums9230` hardware is missed and
+        // VOD stays on MediaKit, which black-screens on this device class.
         final isUnisoc = hardware.contains('unisoc') ||
             hardware.contains('sp98') ||
             hardware.contains('sc98') ||
+            hardware.contains('ums') ||
+            hardware.contains('sprd') ||
+            hardware.contains('spd') ||
             board.contains('unisoc') ||
             board.contains('sp98') ||
             board.contains('sc98') ||
+            board.contains('ums') ||
+            board.contains('sprd') ||
+            board.contains('spd') ||
             model.contains('unisoc') ||
             brand.contains('unisoc') ||
             manufacturer.contains('unisoc');

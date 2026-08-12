@@ -28,7 +28,6 @@ class HomeController extends GetxController {
     required this.mediaSourceRepository,
   });
 
-  final RxString greetingMessage = ''.obs;
   final RxBool isLoading = true.obs;
   final RxInt providerCount = 0.obs;
   final RxBool hasProviders = false.obs;
@@ -58,24 +57,12 @@ class HomeController extends GetxController {
   Future<void> _loadHomeData() async {
     isLoading.value = true;
     try {
-      _updateGreeting();
       await _loadProviders();
       await _loadDashboardData();
     } catch (e) {
       // Log error
     } finally {
       isLoading.value = false;
-    }
-  }
-
-  void _updateGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour >= 5 && hour < 12) {
-      greetingMessage.value = 'Good Morning';
-    } else if (hour >= 12 && hour < 17) {
-      greetingMessage.value = 'Good Afternoon';
-    } else {
-      greetingMessage.value = 'Good Evening';
     }
   }
 

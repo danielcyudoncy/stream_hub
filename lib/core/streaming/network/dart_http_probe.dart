@@ -5,7 +5,14 @@ import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
 import 'package:stream_hub/core/streaming/models/stream_probe.dart';
 
 /// HTTP probe backed by dart:io [HttpClient]. Uses HEAD first and falls back
-/// to a GET with a bounded body read when the server rejects HEAD.
+/// to a GET with a bounded body read whenever the server rejects HEAD — either
+/// by throwing (connection closed / empty reply) or by answering with a
+/// non-success status (panels and CDNs commonly answer HEAD with 403/405 while
+/// serving the same resource fine over GET).
+///
+/// The probe exists to gate playback, and the player always requests streams
+/// with GET, so the GET path is authoritative: a HEAD-only rejection must not
+/// mark a playable stream as invalid.
 class DartHttpProbe implements HttpProbe {
   const DartHttpProbe();
 
@@ -22,13 +29,15 @@ class DartHttpProbe implements HttpProbe {
   }) async {
     final stopwatch = Stopwatch()..start();
     try {
-      return await _headProbe(
+      final head = await _headProbe(
         url,
         headers,
         timeout,
         stopwatch,
         followRedirects,
       );
+      if (head.isSuccess) return head;
+      return await _getProbe(url, headers, timeout, stopwatch, followRedirects);
     } on HttpException {
       return await _getProbe(url, headers, timeout, stopwatch, followRedirects);
     } on SocketException {
