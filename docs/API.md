@@ -428,7 +428,7 @@ stringifies scalar values instead of crashing the whole sync.
 
 Items are normalized into `MediaItem`s. Live and movie items carry an
 authenticated `streamUrl` so they play directly; series items carry only a
-`seriesId`. Stream URL shapes:
+`seriesId` (plus the `streamId`). Stream URL shapes:
 
 - Live: `{server}/live/{user}/{pass}/{streamId}.{ext}`
 - Movie: `{server}/movie/{user}/{pass}/{streamId}.{ext}`
@@ -436,8 +436,28 @@ authenticated `streamUrl` so they play directly; series items carry only a
 
 The `XtreamStreamResolver` plays live/VOD items directly and resolves series by
 querying `get_series_info`, handling both `seasons[].episodes[]` and
-`episodes: {"1": [...]}` payload layouts, then picks the first playable
-episode. Unsupported schemes are rejected via `StreamUnsupportedProtocolException`.
+`episodes: {"1": [...]}` payload layouts. When `metadata['episodeId']` is
+present (e.g. an episode chosen from the Series Details screen) that exact
+episode is resolved; otherwise the first playable episode is used. Unsupported
+schemes are rejected via `StreamUnsupportedProtocolException`.
+
+Episode discovery is centralized in `XtreamSeriesInfoService`
+(`core/streaming/series/`), which fetches and parses `get_series_info` and is
+the shared source of truth for both the resolver (playback) and the Series
+Details screen (browsing seasons/episodes). It builds the
+`{server}/series/{user}/{pass}/{episodeId}.{ext}` URL for each episode.
+
+Some panels do not implement `get_series_info` and answer HTTP 404. To cope:
+
+- The service tries the `series_id` first, then any alternative IDs (the
+  series' `stream_id`, which some panels index series info by); it also
+  unwraps a `{"data": {...}}` payload wrapper.
+- If every candidate 404s, it throws
+  `StreamSeriesInfoUnavailableException` so the UI degrades gracefully.
+- The Series Details controller falls back to episodes already persisted in the
+  local catalog and otherwise shows a friendly "episodes unavailable" state
+  (with retry) instead of a raw error. Stalker episodes (already persisted
+  during sync) are read from the local catalog.
 
 ---
 

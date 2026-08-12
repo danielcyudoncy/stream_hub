@@ -33,7 +33,7 @@ class AppButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.width,
-    this.height = 48.0,
+    this.height = 42.0,
   }) : type = ButtonType.primary;
 
   const AppButton.secondary({
@@ -43,7 +43,7 @@ class AppButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.width,
-    this.height = 48.0,
+    this.height = 42.0,
   }) : type = ButtonType.secondary;
 
   const AppButton.text({
@@ -53,7 +53,7 @@ class AppButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.width,
-    this.height = 48.0,
+    this.height = 42.0,
   }) : type = ButtonType.text;
 
   const AppButton.danger({
@@ -63,7 +63,7 @@ class AppButton extends StatelessWidget {
     this.isLoading = false,
     this.icon,
     this.width,
-    this.height = 48.0,
+    this.height = 42.0,
   }) : type = ButtonType.danger;
 
   @override
@@ -105,16 +105,14 @@ class AppButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           backgroundColor: isButtonDisabled
               ? (type == ButtonType.text || type == ButtonType.secondary
-                  ? Colors.transparent
-                  : colorScheme.onSurface.withValues(alpha: 0.12))
+                    ? Colors.transparent
+                    : colorScheme.onSurface.withValues(alpha: 0.12))
               : backgroundColor,
           foregroundColor: isButtonDisabled
               ? colorScheme.onSurface.withValues(alpha: 0.38)
               : foregroundColor,
           side: isButtonDisabled ? BorderSide.none : borderSide,
-          shape: const RoundedRectangleBorder(
-            borderRadius: AppRadius.medium,
-          ),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
         ),
         child: isLoading
@@ -127,9 +125,13 @@ class AppButton extends StatelessWidget {
                     Icon(icon, size: 18.0),
                     AppSpacing.widthXS,
                   ],
-                  Text(
-                    text,
-                    style: AppTypography.getButton(),
+                  Flexible(
+                    child: Text(
+                      text,
+                      style: AppTypography.getButton(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ],
               ),

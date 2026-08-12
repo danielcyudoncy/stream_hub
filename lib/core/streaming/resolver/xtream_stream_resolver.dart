@@ -1,35 +1,36 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/stream_type.dart';
-import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
-import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/models/stream_capabilities.dart';
 import 'package:stream_hub/core/streaming/models/stream_resolution.dart';
 import 'package:stream_hub/core/streaming/network/url_normalizer.dart';
 import 'package:stream_hub/core/streaming/resolver/stream_resolver.dart';
+import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
 
 /// Resolves Xtream Codes media items into playable streams.
 ///
 /// - Live channels and VOD movies carry an authenticated `streamUrl` produced
 ///   during sync, so they resolve directly.
 /// - Series items carry only a `seriesId`. Playback requires an extra
-///   `get_series_info` exchange that returns the season/episode structure; the
-///   first playable episode is chosen and turned into a
-///   `{server}/series/{user}/{pass}/{episodeId}.{ext}` URL.
+///   `get_series_info` exchange that returns the season/episode structure. When
+///   `metadata['episodeId']` is present (for example from the Series Details
+///   screen) that exact episode is chosen; otherwise the first playable episode
+///   is turned into a `{server}/series/{user}/{pass}/{episodeId}.{ext}` URL.
 class XtreamStreamResolver implements StreamResolver {
-  static const Duration _kRequestTimeout = Duration(seconds: 15);
-
   final UrlNormalizer _normalizer;
   final LoggingService _logger;
-  final HttpClient _client = createDohAwareHttpClient();
+  final XtreamSeriesInfoService _seriesInfoService;
 
-  XtreamStreamResolver({UrlNormalizer? normalizer, LoggingService? logger})
-    : _normalizer = normalizer ?? UrlNormalizer(),
-      _logger = logger ?? LoggingService();
+  XtreamStreamResolver({
+    UrlNormalizer? normalizer,
+    LoggingService? logger,
+    XtreamSeriesInfoService? seriesInfoService,
+  }) : _normalizer = normalizer ?? UrlNormalizer(),
+       _logger = logger ?? LoggingService(),
+       _seriesInfoService =
+           seriesInfoService ?? XtreamSeriesInfoService(logger: logger);
 
   @override
   Future<StreamResolution> resolve(StreamResolutionRequest request) async {
@@ -53,7 +54,21 @@ class XtreamStreamResolver implements StreamResolver {
       );
     }
 
-    final episode = await _resolveFirstEpisode(session, seriesId);
+    final streamId = metadata['streamId']?.toString();
+    final info = await _seriesInfoService.fetch(
+      session: session,
+      seriesId: seriesId,
+      alternativeIds: [
+        if (streamId != null && streamId.isNotEmpty) streamId,
+      ],
+    );
+
+    final requestedEpisodeId = metadata['episodeId']?.toString();
+    var episode = requestedEpisodeId != null && requestedEpisodeId.isNotEmpty
+        ? _findEpisode(info, requestedEpisodeId)
+        : null;
+    episode ??= info.seasons.expand((s) => s.episodes).firstOrNull;
+
     if (episode == null) {
       throw const StreamResolutionException(
         message: 'No playable episode found for this series.',
@@ -65,9 +80,11 @@ class XtreamStreamResolver implements StreamResolver {
       tag: 'XtreamStreamResolver',
     );
 
-    final url = '${session.baseUrl}/series'
-        '/${session.username ?? ''}/${session.password ?? ''}'
-        '/${episode.id}.${episode.extension}';
+    final url = episode.streamUrl(
+      baseUrl: session.baseUrl,
+      username: session.username,
+      password: session.password,
+    );
 
     return _resolution(
       request,
@@ -81,119 +98,16 @@ class XtreamStreamResolver implements StreamResolver {
     );
   }
 
-  Future<XtreamEpisode?> _resolveFirstEpisode(
-    ProviderSession session,
-    String seriesId,
-  ) async {
-    final baseUrl = session.baseUrl;
-    if (baseUrl == null || baseUrl.isEmpty) {
-      throw const StreamResolutionException(
-        message: 'Xtream session is missing the server URL.',
-      );
-    }
-
-    final uri = Uri.parse(
-      '$baseUrl/player_api.php'
-      '?username=${session.username ?? ''}'
-      '&password=${session.password ?? ''}'
-      '&action=get_series_info&series_id=$seriesId',
-    );
-
-    String body;
-    try {
-      final request = await _client.getUrl(uri).timeout(_kRequestTimeout);
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
-      final response = await request.close().timeout(_kRequestTimeout);
-      if (response.statusCode != 200) {
-        throw StreamResolutionException(
-          message:
-              'Xtream API returned ${response.statusCode} while resolving '
-              'series $seriesId.',
-        );
-      }
-      final bytes = await response.fold<List<int>>(
-        [],
-        (prev, chunk) => prev..addAll(chunk),
-      );
-      body = utf8.decode(bytes);
-    } on SocketException catch (e) {
-      throw StreamNetworkException(originalError: e);
-    } on TimeoutException catch (e) {
-      throw StreamTimeoutException(originalError: e);
-    }
-
-    try {
-      final decoded = json.decode(body);
-      if (decoded is! Map<String, dynamic>) return null;
-      return _firstEpisodeFrom(decoded);
-    } catch (e) {
-      _logger.warning(
-        'Xtream get_series_info returned malformed JSON for $seriesId',
-        tag: 'XtreamStreamResolver',
-        error: e,
-      );
-      return null;
-    }
-  }
-
-  /// Extracts the first playable episode from a `get_series_info` payload.
-  ///
-  /// Handles both layouts used by panels:
-  /// - `seasons: [{ episodes: [...] }]`
-  /// - `episodes: { "1": [...], "2": [...] }`
-  XtreamEpisode? _firstEpisodeFrom(Map<String, dynamic> decoded) {
-    final episodes = <XtreamEpisode>[];
-
-    final seasons = decoded['seasons'];
-    if (seasons is List) {
-      for (final season in seasons) {
-        if (season is! Map) continue;
-        final seasonEpisodes = season['episodes'];
-        if (seasonEpisodes is List) {
-          for (final episode in seasonEpisodes) {
-            final parsed = _parseEpisode(episode);
-            if (parsed != null) episodes.add(parsed);
-          }
-        }
+  static XtreamSeriesEpisode? _findEpisode(
+    XtreamSeriesInfo info,
+    String episodeId,
+  ) {
+    for (final season in info.seasons) {
+      for (final episode in season.episodes) {
+        if (episode.id == episodeId) return episode;
       }
     }
-
-    final episodesMap = decoded['episodes'];
-    if (episodesMap is Map) {
-      for (final seasonList in episodesMap.values) {
-        if (seasonList is! List) continue;
-        for (final episode in seasonList) {
-          final parsed = _parseEpisode(episode);
-          if (parsed != null) episodes.add(parsed);
-        }
-      }
-    }
-
-    episodes.sort((a, b) => (a.seasonNum.compareTo(b.seasonNum)) != 0
-        ? a.seasonNum.compareTo(b.seasonNum)
-        : a.episodeNum.compareTo(b.episodeNum));
-
-    if (episodes.isEmpty) return null;
-    return episodes.first;
-  }
-
-  XtreamEpisode? _parseEpisode(dynamic raw) {
-    if (raw is! Map) return null;
-    final id = raw['id']?.toString();
-    if (id == null || id.isEmpty) return null;
-
-    final ext = (raw['container_extension'] as String? ?? '')
-        .trim()
-        .toLowerCase()
-        .replaceFirst('.', '');
-    return XtreamEpisode(
-      id: id,
-      title: raw['title'] as String? ?? 'Episode $id',
-      extension: ext.isEmpty ? 'mkv' : ext,
-      seasonNum: _toInt(raw['season']),
-      episodeNum: _toInt(raw['episode_num']),
-    );
+    return null;
   }
 
   StreamResolution _resolution(
@@ -234,28 +148,4 @@ class XtreamStreamResolver implements StreamResolver {
     }
     return null;
   }
-
-  static int _toInt(dynamic raw) {
-    if (raw is int) return raw;
-    if (raw is String) return int.tryParse(raw) ?? 0;
-    if (raw is num) return raw.toInt();
-    return 0;
-  }
-}
-
-/// A single playable episode discovered through `get_series_info`.
-class XtreamEpisode {
-  final String id;
-  final String title;
-  final String extension;
-  final int seasonNum;
-  final int episodeNum;
-
-  const XtreamEpisode({
-    required this.id,
-    required this.title,
-    required this.extension,
-    this.seasonNum = 0,
-    this.episodeNum = 0,
-  });
 }

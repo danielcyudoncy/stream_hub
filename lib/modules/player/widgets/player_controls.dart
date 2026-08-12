@@ -89,6 +89,11 @@ class PlayerControls extends StatelessWidget {
                   );
                 }),
                 _ControlButton(
+                  icon: AppIcons.stop,
+                  onPressed: controller.stopAndClose,
+                  size: isFullscreen ? 32 : 24,
+                ),
+                _ControlButton(
                   icon: AppIcons.forward,
                   onPressed: () => controller.seek(
                     controller.position + const Duration(seconds: 10),
