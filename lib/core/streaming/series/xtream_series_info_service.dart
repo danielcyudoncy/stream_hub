@@ -1,3 +1,4 @@
+// core/streaming/series/xtream_series_info_service.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
@@ -154,6 +155,18 @@ class XtreamSeriesInfoService {
     required ProviderSession session,
     required String seriesId,
   }) async {
+    // Validate credentials are actually available
+    if ((session.username?.isEmpty ?? true) ||
+        (session.password?.isEmpty ?? true)) {
+      _logger.warning(
+        'Cannot fetch series info for $seriesId: missing authentication '
+        'credentials (username=${session.username?.isNotEmpty ?? false}, '
+        'password=${session.password?.isNotEmpty ?? false})',
+        tag: 'XtreamSeriesInfoService',
+      );
+      return null;
+    }
+
     final uri = Uri.parse('$baseUrl/player_api.php').replace(
       queryParameters: {
         'username': session.username ?? '',
@@ -164,7 +177,8 @@ class XtreamSeriesInfoService {
     );
 
     _logger.debug(
-      'Fetching series info: ${SensitiveDataRedactor.redactUrl(uri.toString())}',
+      'Fetching series info for $seriesId: '
+      '${SensitiveDataRedactor.redactUrl(uri.toString())}',
       tag: 'XtreamSeriesInfoService',
     );
 
@@ -219,7 +233,8 @@ class XtreamSeriesInfoService {
         error: e,
       );
       throw StreamResolutionException(
-        message: 'Xtream get_series_info returned an invalid payload for '
+        message:
+            'Xtream get_series_info returned an invalid payload for '
             'series $seriesId.',
         originalError: e,
       );
@@ -235,8 +250,9 @@ class XtreamSeriesInfoService {
 
     // A few panels wrap the payload in a `data` object.
     final wrapped = decoded['data'];
-    final Map<String, dynamic> root =
-        wrapped is Map ? Map<String, dynamic>.from(wrapped) : decoded;
+    final Map<String, dynamic> root = wrapped is Map
+        ? Map<String, dynamic>.from(wrapped)
+        : decoded;
     return _parse(root, seriesId);
   }
 
@@ -356,7 +372,10 @@ class XtreamSeriesInfoService {
       }
     } else if (raw is Map) {
       for (final entry in raw.entries) {
-        final parsed = _parseEpisode(entry.value, fallbackSeason: fallbackSeason);
+        final parsed = _parseEpisode(
+          entry.value,
+          fallbackSeason: fallbackSeason,
+        );
         if (parsed != null) out.add(parsed);
       }
     }
@@ -372,10 +391,7 @@ class XtreamSeriesInfoService {
     return 0;
   }
 
-  XtreamSeriesEpisode? _parseEpisode(
-    dynamic raw, {
-    int fallbackSeason = 0,
-  }) {
+  XtreamSeriesEpisode? _parseEpisode(dynamic raw, {int fallbackSeason = 0}) {
     if (raw is! Map) return null;
     final id = raw['id']?.toString();
     if (id == null || id.isEmpty) return null;
@@ -389,7 +405,9 @@ class XtreamSeriesInfoService {
 
     return XtreamSeriesEpisode(
       id: id,
-      title: raw['title'] as String? ?? 'Episode ${episodeNum == 0 ? id : episodeNum}',
+      title:
+          raw['title'] as String? ??
+          'Episode ${episodeNum == 0 ? id : episodeNum}',
       extension: ext.isEmpty ? 'mkv' : ext,
       seasonNum: season != 0 ? season : fallbackSeason,
       episodeNum: episodeNum,

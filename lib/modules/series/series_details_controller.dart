@@ -1,3 +1,4 @@
+// modules/series/series_details_controller.dart
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
@@ -79,7 +80,8 @@ class SeriesDetailsController extends GetxController {
   void onInit() {
     super.onInit();
     final args = Get.arguments;
-    _series = _initialSeries ??
+    _series =
+        _initialSeries ??
         (args is Map<String, dynamic> ? args['item'] as MediaItem? : null);
     isFavorite.value = _series?.favorite ?? false;
     _load();
@@ -100,19 +102,23 @@ class SeriesDetailsController extends GetxController {
       selectedSeasonIndex.value = 0;
     } on StreamSeriesInfoUnavailableException catch (e) {
       logger.warning(
-        'Provider does not expose series info for ${_series?.id}',
+        'Provider does not expose series info for ${_series?.id} '
+        '(series info unavailable: provider may not support this endpoint '
+        'or all ID candidates were rejected)',
         tag: 'SeriesDetailsController',
         error: e,
       );
       infoMessage.value =
-          'Your provider does not expose an episode list for this series.';
+          'Episode list unavailable from provider.\n'
+          'Your provider may not support episode discovery for this series.\n'
+          'Try adding episodes manually or enable offline mode.';
     } catch (e) {
       logger.warning(
-        'Failed to load episodes for series ${_series?.id}',
+        'Failed to load episodes for series ${_series?.id} (error: $e)',
         tag: 'SeriesDetailsController',
         error: e,
       );
-      errorMessage.value = 'Could not load episodes for this series.\n$e';
+      errorMessage.value = 'Could not load episodes: ${e.toString()}';
     } finally {
       isLoading.value = false;
     }
@@ -138,12 +144,21 @@ class SeriesDetailsController extends GetxController {
         _cacheEpisodes(groups);
         return groups;
       } on StreamSeriesInfoUnavailableException {
+        logger.info(
+          'Falling back to catalog episodes for series $seriesId '
+          '(provider does not support series info or credentials invalid)',
+          tag: 'SeriesDetailsController',
+        );
         final catalog = await _catalogSeasonGroups(series, seriesId);
         if (catalog.isNotEmpty) return catalog;
+        // Provider doesn't support series info AND no cached episodes exist.
+        // This is expected for providers that don't implement get_series_info.
+        // Fall through to let the infoMessage display to the user.
         rethrow;
       }
     }
 
+    // For non-Xtream providers, always try catalog first
     return _catalogSeasonGroups(series, seriesId);
   }
 
@@ -176,9 +191,7 @@ class SeriesDetailsController extends GetxController {
     final info = await seriesInfoService.fetch(
       session: session,
       seriesId: seriesId,
-      alternativeIds: [
-        if (streamId != null && streamId.isNotEmpty) streamId,
-      ],
+      alternativeIds: [if (streamId != null && streamId.isNotEmpty) streamId],
     );
     if (info.seasons.isEmpty) return const [];
     return info.seasons.map((season) {
@@ -187,12 +200,8 @@ class SeriesDetailsController extends GetxController {
         name: season.name,
         episodes: season.episodes
             .map(
-              (episode) => _episodeMediaItem(
-                series,
-                session,
-                episode,
-                season: season,
-              ),
+              (episode) =>
+                  _episodeMediaItem(series, session, episode, season: season),
             )
             .toList(),
       );
@@ -216,9 +225,7 @@ class SeriesDetailsController extends GetxController {
     if (episodes.isEmpty) return const [];
 
     int seasonNumberFor(MediaItem episode) {
-      return int.tryParse(
-            episode.metadata['seasonId']?.toString() ?? '',
-          ) ??
+      return int.tryParse(episode.metadata['seasonId']?.toString() ?? '') ??
           int.tryParse(episode.metadata['seasonNumber']?.toString() ?? '') ??
           0;
     }
@@ -239,28 +246,30 @@ class SeriesDetailsController extends GetxController {
     return numbers.map((number) {
       final seasonEpisodes = grouped[number]!;
       seasonEpisodes.sort((a, b) {
-        final episodeA = int.tryParse(
-              a.metadata['episodeNumber']?.toString() ?? '',
-            ) ??
+        final episodeA =
+            int.tryParse(a.metadata['episodeNumber']?.toString() ?? '') ??
             int.tryParse(a.metadata['streamId']?.toString() ?? '') ??
             0;
-        final episodeB = int.tryParse(
-              b.metadata['episodeNumber']?.toString() ?? '',
-            ) ??
+        final episodeB =
+            int.tryParse(b.metadata['episodeNumber']?.toString() ?? '') ??
             int.tryParse(b.metadata['streamId']?.toString() ?? '') ??
             0;
         return episodeA.compareTo(episodeB);
       });
       return SeasonGroup(
         number: number,
-        name: fallbackNames[number] ?? (number > 0 ? 'Season $number' : 'Episodes'),
+        name:
+            fallbackNames[number] ??
+            (number > 0 ? 'Season $number' : 'Episodes'),
         episodes: seasonEpisodes,
       );
     }).toList();
   }
 
   Future<ProviderSession> _sessionFor(MediaItem series) async {
-    final provider = await providerRepository.getProviderById(series.providerId);
+    final provider = await providerRepository.getProviderById(
+      series.providerId,
+    );
     final providerConfig = provider != null
         ? <String, dynamic>{
             'providerId': provider.id,
@@ -272,12 +281,21 @@ class SeriesDetailsController extends GetxController {
           }
         : null;
 
+    final hasUsername = (provider?.username?.isNotEmpty ?? false);
+    final hasPassword = (provider?.password?.isNotEmpty ?? false);
+    final username = provider?.username ?? '(missing)';
+    final password = provider?.password != null ? '(present)' : '(missing)';
+
     logger.debug(
       'SeriesDetailsController._sessionFor: '
+      'series=${series.id}, '
       'providerId=${series.providerId}, '
       'providerFound=${provider != null}, '
-      'usernameInProvider=${provider?.username != null && provider!.username!.isNotEmpty}, '
-      'passwordInProvider=${provider?.password != null && provider!.password!.isNotEmpty}',
+      'username=$username, '
+      'password=$password, '
+      'hasUsername=$hasUsername, '
+      'hasPassword=$hasPassword, '
+      'hasValidCredentials=${hasUsername && hasPassword}',
       tag: 'SeriesDetailsController',
     );
 

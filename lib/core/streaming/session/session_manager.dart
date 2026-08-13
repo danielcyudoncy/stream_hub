@@ -1,3 +1,4 @@
+// core/streaming/session/session_manager.dart
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/streaming/auth/authentication_engine.dart';
@@ -46,7 +47,9 @@ class SessionManager {
     final resolvedProviderId = providerId ?? _resolveProviderId(itemMetadata);
     var session = await _sessionCache.getProviderSession(resolvedProviderId);
 
-    if (session == null || session.providerType != providerType) {
+    if (session == null ||
+        session.providerType != providerType ||
+        _shouldRecreateSession(session, providerType, providerConfig)) {
       session = await _createSession(
         mediaItemId: mediaItemId,
         providerType: providerType,
@@ -64,6 +67,47 @@ class SessionManager {
 
     await _sessionCache.saveProviderSession(session);
     return session;
+  }
+
+  bool _shouldRecreateSession(
+    ProviderSession session,
+    MediaSourceType providerType,
+    Map<String, dynamic>? providerConfig,
+  ) {
+    if (providerConfig == null || providerConfig.isEmpty) {
+      return false;
+    }
+
+    final configuredUsername = providerConfig['username']?.toString();
+    final configuredPassword = providerConfig['password']?.toString();
+    final configuredServerUrl = providerConfig['serverUrl']?.toString();
+
+    if (configuredServerUrl != null &&
+        configuredServerUrl.isNotEmpty &&
+        (session.baseUrl == null ||
+            session.baseUrl!.isEmpty ||
+            session.baseUrl != configuredServerUrl)) {
+      return true;
+    }
+
+    if (providerType == MediaSourceType.xtream ||
+        providerType == MediaSourceType.m3u ||
+        providerType == MediaSourceType.stalker) {
+      final usernameMatches =
+          configuredUsername == null ||
+          configuredUsername.isEmpty ||
+          session.username == configuredUsername;
+      final passwordMatches =
+          configuredPassword == null ||
+          configuredPassword.isEmpty ||
+          session.password == configuredPassword;
+
+      if (!usernameMatches || !passwordMatches) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   Future<ProviderSession> _createSession({
