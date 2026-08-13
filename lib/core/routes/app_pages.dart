@@ -1,3 +1,4 @@
+// core/routes/app_pages.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'app_routes.dart';
@@ -15,6 +16,7 @@ import '../../modules/authentication/forgot_password_page.dart';
 import '../../modules/authentication/email_verification_page.dart';
 import '../../modules/authentication/complete_profile_page.dart';
 import '../../modules/authentication/account_loading_page.dart';
+import '../../modules/authentication/sync_screen_page.dart';
 import '../../modules/provider_manager/provider_manager_page.dart';
 import '../../modules/provider_manager/provider_manager_binding.dart';
 import '../../modules/provider_manager/provider_form_page.dart';
@@ -121,6 +123,13 @@ class AppPages {
       binding: AuthBinding(),
     ),
     GetPage(
+      name: AppRoutes.syncScreen,
+      page: () => SyncScreenPage(),
+      binding: AuthBinding(),
+      // Prevent GetX from deleting AuthController while sync is running
+      maintainState: true,
+    ),
+    GetPage(
       name: AppRoutes.home,
       page: () => const HomePage(),
       binding: HomeBinding(),
@@ -202,7 +211,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.search,
-       page: () => SearchHubPage(),
+      page: () => SearchHubPage(),
       binding: SearchHubBinding(),
     ),
     GetPage(
