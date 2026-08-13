@@ -16,6 +16,7 @@ class AppRoutes {
   static const String movies = '/movies';
   static const String series = '/series';
   static const String seriesDetails = '/series-details';
+  static const String seriesCategory = '/series-category';
   static const String search = '/search';
   static const String settings = '/settings';
   static const String providerManager = '/provider-manager';
