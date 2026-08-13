@@ -1,0 +1,69 @@
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
+import '../../../core/routes/app_routes.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_spacing.dart';
+import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/empty_library.dart';
+import './widgets/series_content_rail.dart';
+
+class SeriesCategoryPage extends StatelessWidget {
+  const SeriesCategoryPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final args = Get.arguments as Map<String, dynamic>?;
+    final title = args?['title'] as String? ?? 'Category';
+    final items = args?['items'] as List<MediaItem>? ?? const <MediaItem>[];
+    final isTv = PlatformHelper.isTV;
+
+    return AppScaffold(
+      title: title,
+      body: items.isEmpty
+          ? EmptyLibrary(
+              icon: AppIcons.series,
+              title: 'No Items',
+              description: 'This category is currently empty.',
+              actionLabel: null,
+              onAction: null,
+            )
+          : CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xxl,
+                  ),
+                  sliver: SliverGrid(
+                    gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: isTv ? 200.0 : 170.0,
+                      crossAxisSpacing: AppSpacing.md,
+                      mainAxisSpacing: AppSpacing.md,
+                      childAspectRatio: 0.7,
+                    ),
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final item = items[index];
+                        return SeriesPosterCard(
+                          item: item,
+                          onTap: () {
+                            Get.toNamed(
+                              AppRoutes.seriesDetails,
+                              arguments: {'item': item},
+                            );
+                          },
+                        );
+                      },
+                      childCount: items.length,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
