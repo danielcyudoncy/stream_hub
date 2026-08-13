@@ -87,7 +87,10 @@ void main() {
       expect(cached.metadata['seasonId'], '1');
       expect(cached.metadata['seasonName'], 'Season 1');
       expect(cached.metadata['episodeNumber'], 1);
-      expect(cached.metadata['streamUrl'], contains('/series/demo/secret/7001.mp4'));
+      expect(
+        cached.metadata['streamUrl'],
+        contains('/series/demo/secret/7001.mp4'),
+      );
     },
   );
 
@@ -215,10 +218,7 @@ MediaItem _seriesItem() {
     providerType: MediaSourceType.xtream,
     mediaType: MediaType.series,
     title: 'Breaking Bad',
-    metadata: {
-      'seriesId': '601',
-      'streamId': '900',
-    },
+    metadata: {'seriesId': '601', 'streamId': '900'},
     createdAt: now,
     updatedAt: now,
   );
@@ -304,6 +304,10 @@ class _FakeCatalogRepository implements CatalogRepository {
 
   @override
   Stream<List<MediaItem>> watchUpdates() => const Stream.empty();
+
+  @override
+  Future<List<MediaItem>> getByType(MediaType type) async =>
+      items.where((i) => i.mediaType == type).toList();
 
   @override
   Future<void> enrichWithXMLTV(XMLTVGuide guide) async {}

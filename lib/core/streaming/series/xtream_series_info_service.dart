@@ -6,6 +6,7 @@ import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
+import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart';
 
 /// A single playable episode discovered through `get_series_info`.
 class XtreamSeriesEpisode {
@@ -127,6 +128,10 @@ class XtreamSeriesInfoService {
       ...alternativeIds,
       ...alternativeIds.map(_numericOnly),
     ];
+    _logger.debug(
+      'Fetching series info for $seriesId (candidates: $candidates)',
+      tag: 'XtreamSeriesInfoService',
+    );
     for (final id in candidates) {
       if (id.isEmpty || !seen.add(id)) continue;
       final info = await _fetchForId(
@@ -149,11 +154,18 @@ class XtreamSeriesInfoService {
     required ProviderSession session,
     required String seriesId,
   }) async {
-    final uri = Uri.parse(
-      '$baseUrl/player_api.php'
-      '?username=${session.username ?? ''}'
-      '&password=${session.password ?? ''}'
-      '&action=get_series_info&series_id=$seriesId',
+    final uri = Uri.parse('$baseUrl/player_api.php').replace(
+      queryParameters: {
+        'username': session.username ?? '',
+        'password': session.password ?? '',
+        'action': 'get_series_info',
+        'series_id': seriesId,
+      },
+    );
+
+    _logger.debug(
+      'Fetching series info: ${SensitiveDataRedactor.redactUrl(uri.toString())}',
+      tag: 'XtreamSeriesInfoService',
     );
 
     String body;
@@ -162,6 +174,10 @@ class XtreamSeriesInfoService {
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
       final response = await request.close().timeout(_kRequestTimeout);
+      _logger.debug(
+        'Series info response for $seriesId: HTTP ${response.statusCode}',
+        tag: 'XtreamSeriesInfoService',
+      );
       if (response.statusCode == HttpStatus.notFound) return null;
       if (response.statusCode != HttpStatus.ok) {
         throw StreamResolutionException(
@@ -185,7 +201,13 @@ class XtreamSeriesInfoService {
     // an empty body (or a bare `[]` / `null`) instead of 404. Treat those as
     // "no info for this id" so the next candidate is tried and callers degrade
     // gracefully instead of hard-failing.
-    if (body.trim().isEmpty) return null;
+    if (body.trim().isEmpty) {
+      _logger.debug(
+        'Series info empty body for $seriesId',
+        tag: 'XtreamSeriesInfoService',
+      );
+      return null;
+    }
 
     final Object? decoded;
     try {
@@ -203,7 +225,13 @@ class XtreamSeriesInfoService {
       );
     }
 
-    if (decoded is! Map<String, dynamic>) return null;
+    if (decoded is! Map<String, dynamic>) {
+      _logger.debug(
+        'Series info non-map response for $seriesId: ${decoded.runtimeType}',
+        tag: 'XtreamSeriesInfoService',
+      );
+      return null;
+    }
 
     // A few panels wrap the payload in a `data` object.
     final wrapped = decoded['data'];

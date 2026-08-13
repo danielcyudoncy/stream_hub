@@ -1,9 +1,11 @@
+import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_sync_result.dart';
 import 'package:stream_hub/data/models/xmltv_models.dart';
 
 abstract class CatalogRepository {
   Future<List<MediaItem>> getAllItems();
+  Future<List<MediaItem>> getByType(MediaType type);
   Future<MediaItem?> getItem(String id);
   Future<void> upsertItems(List<MediaItem> items);
   Future<void> deleteItem(String id);

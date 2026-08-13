@@ -38,8 +38,7 @@ class _FakeSeriesInfoService extends XtreamSeriesInfoService {
     requestedIds.addAll([seriesId, ...alternativeIds]);
     final err = error;
     if (err != null) throw err;
-    return info ??
-        const XtreamSeriesInfo(seriesId: '', name: '', seasons: []);
+    return info ?? const XtreamSeriesInfo(seriesId: '', name: '', seasons: []);
   }
 }
 
@@ -49,6 +48,10 @@ class _FakeCatalogRepository implements CatalogRepository {
 
   @override
   Future<List<MediaItem>> getAllItems() async => List.of(items);
+
+  @override
+  Future<List<MediaItem>> getByType(MediaType type) async =>
+      List.of(items.where((item) => item.mediaType == type));
 
   @override
   Future<void> upsertItems(List<MediaItem> newItems) async {
@@ -65,7 +68,8 @@ class _FakeCatalogRepository implements CatalogRepository {
   }
 
   @override
-  Future<void> deleteItem(String id) async => items.removeWhere((i) => i.id == id);
+  Future<void> deleteItem(String id) async =>
+      items.removeWhere((i) => i.id == id);
 
   @override
   Future<void> clear() async => items.clear();
@@ -142,10 +146,7 @@ void main() {
       providerType: MediaSourceType.xtream,
       mediaType: MediaType.series,
       title: 'Breaking Bad',
-      metadata: {
-        'seriesId': '601',
-        'streamId': '900',
-      },
+      metadata: {'seriesId': '601', 'streamId': '900'},
       createdAt: now,
       updatedAt: now,
     );
@@ -252,81 +253,89 @@ void main() {
       expect(episode.metadata['seasonNumber'], 1);
       expect(episode.metadata['seasonName'], 'Season One');
       expect(episode.metadata['episodeNumber'], 1);
-      expect(episode.metadata['streamUrl'],
-          'http://panel.example.com/series/demo/secret/7001.mp4');
+      expect(
+        episode.metadata['streamUrl'],
+        'http://panel.example.com/series/demo/secret/7001.mp4',
+      );
 
       expect(catalogRepository.upserted.length, 2);
       expect(catalogRepository.upserted.first.id, episode.id);
     });
 
-    test('asks for the stream id as an alternative when series info 404s',
-        () async {
-      seriesInfoService.info = sampleInfo();
+    test(
+      'asks for the stream id as an alternative when series info 404s',
+      () async {
+        seriesInfoService.info = sampleInfo();
 
-      final controller = buildController();
-      await pumpLoad(controller);
+        final controller = buildController();
+        await pumpLoad(controller);
 
-      expect(seriesInfoService.requestedIds, ['601', '900']);
-      expect(controller.seasonCount, 2);
-    });
+        expect(seriesInfoService.requestedIds, ['601', '900']);
+        expect(controller.seasonCount, 2);
+      },
+    );
 
-    test('falls back to the catalog when get_series_info is unavailable',
-        () async {
-      seriesInfoService.error = const StreamSeriesInfoUnavailableException(
-        message: 'No episode list.',
-      );
-      catalogRepository.items.addAll([
-        catalogEpisode(
-          id: 'ep-2-1',
-          seasonId: '2',
-          seasonName: 'Season Two',
-          episodeNumber: '1',
-          streamId: '7101',
-        ),
-        catalogEpisode(
-          id: 'ep-1-2',
-          seasonId: '1',
-          seasonName: 'Season One',
-          episodeNumber: '2',
-          streamId: '7002',
-        ),
-        catalogEpisode(
-          id: 'ep-1-1',
-          seasonId: '1',
-          seasonName: 'Season One',
-          episodeNumber: '1',
-          streamId: '7001',
-        ),
-      ]);
+    test(
+      'falls back to the catalog when get_series_info is unavailable',
+      () async {
+        seriesInfoService.error = const StreamSeriesInfoUnavailableException(
+          message: 'No episode list.',
+        );
+        catalogRepository.items.addAll([
+          catalogEpisode(
+            id: 'ep-2-1',
+            seasonId: '2',
+            seasonName: 'Season Two',
+            episodeNumber: '1',
+            streamId: '7101',
+          ),
+          catalogEpisode(
+            id: 'ep-1-2',
+            seasonId: '1',
+            seasonName: 'Season One',
+            episodeNumber: '2',
+            streamId: '7002',
+          ),
+          catalogEpisode(
+            id: 'ep-1-1',
+            seasonId: '1',
+            seasonName: 'Season One',
+            episodeNumber: '1',
+            streamId: '7001',
+          ),
+        ]);
 
-      final controller = buildController();
-      await pumpLoad(controller);
+        final controller = buildController();
+        await pumpLoad(controller);
 
-      expect(controller.errorMessage.value, isEmpty);
-      expect(controller.seasonCount, 2);
+        expect(controller.errorMessage.value, isEmpty);
+        expect(controller.seasonCount, 2);
 
-      final first = controller.seasons[0];
-      expect(first.number, 1);
-      expect(first.name, 'Season One');
-      expect(first.episodes.length, 2);
-      expect(first.episodes.first.metadata['streamId'], '7001');
-      expect(first.episodes.last.metadata['streamId'], '7002');
-      expect(controller.seasons[1].name, 'Season Two');
-    });
+        final first = controller.seasons[0];
+        expect(first.number, 1);
+        expect(first.name, 'Season One');
+        expect(first.episodes.length, 2);
+        expect(first.episodes.first.metadata['streamId'], '7001');
+        expect(first.episodes.last.metadata['streamId'], '7002');
+        expect(controller.seasons[1].name, 'Season Two');
+      },
+    );
 
-    test('shows a friendly message when no episode source is available',
-        () async {
-      seriesInfoService.error = const StreamSeriesInfoUnavailableException(
-        message: 'No episode list.',
-      );
+    test(
+      'shows a friendly message when no episode source is available',
+      () async {
+        seriesInfoService.error = const StreamSeriesInfoUnavailableException(
+          message: 'No episode list.',
+        );
 
-      final controller = buildController();
-      await pumpLoad(controller);
+        final controller = buildController();
+        await pumpLoad(controller);
 
-      expect(controller.errorMessage.value, isEmpty);
-      expect(controller.infoMessage.value, isNotEmpty);
-      expect(controller.seasons, isEmpty);
-    });
+        expect(controller.errorMessage.value, isEmpty);
+        expect(controller.infoMessage.value, isNotEmpty);
+        expect(controller.seasons, isEmpty);
+      },
+    );
 
     test('selecting a season updates the selected season group', () async {
       seriesInfoService.info = sampleInfo();

@@ -599,8 +599,12 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   }
 
   Future<dynamic> _fetchJson(String action) async {
-    final uri = Uri.parse(
-      '$_serverUrl/player_api.php?username=$_username&password=$_password&$action',
+    final uri = Uri.parse('$_serverUrl/player_api.php').replace(
+      queryParameters: {
+        'username': _username,
+        'password': _password,
+        ...Uri.parse('?$action').queryParameters,
+      },
     );
 
     final jsonStr = await _getJson(uri);
@@ -714,8 +718,11 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   @override
   Future<MediaHealth> health() async {
     try {
-      final uri = Uri.parse(
-        '$_serverUrl/player_api.php?username=$_username&password=$_password',
+      final uri = Uri.parse('$_serverUrl/player_api.php').replace(
+        queryParameters: {
+          'username': _username,
+          'password': _password,
+        },
       );
       final stopwatch = Stopwatch()..start();
       final request = await _client.getUrl(uri).timeout(_kRequestTimeout);

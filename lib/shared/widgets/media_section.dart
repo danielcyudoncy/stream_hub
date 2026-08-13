@@ -11,7 +11,7 @@ class MediaSection extends StatelessWidget {
   final Widget? trailing;
   final VoidCallback? onSeeAll;
   final Widget Function(BuildContext context, MediaItem item, int index)
-      itemBuilder;
+  itemBuilder;
 
   const MediaSection({
     super.key,
@@ -26,8 +26,8 @@ class MediaSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty && emptyWidget != null) {
-      return emptyWidget!;
+    if (items.isEmpty) {
+      return emptyWidget ?? const SizedBox.shrink();
     }
 
     return Column(
@@ -55,8 +55,7 @@ class MediaSection extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: AppTypography.getCaption(
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ],
@@ -64,10 +63,7 @@ class MediaSection extends StatelessWidget {
                 ),
               ),
               if (onSeeAll != null)
-                TextButton(
-                  onPressed: onSeeAll,
-                  child: const Text('See All'),
-                ),
+                TextButton(onPressed: onSeeAll, child: const Text('See All')),
               trailing ?? const SizedBox.shrink(),
             ],
           ),
