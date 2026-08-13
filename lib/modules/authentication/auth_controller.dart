@@ -1,3 +1,4 @@
+// modules/authentication/auth_controller.dart
 import 'dart:async';
 
 import 'package:get/get.dart';
@@ -5,6 +6,9 @@ import '../../../core/errors/exceptions.dart';
 import '../../../core/logging/logging_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/validators.dart';
+import '../../../data/models/media_sync_result.dart';
+import '../../../data/repositories/provider_repository.dart';
+import '../../../data/services/provider_sync_service.dart';
 import './constants/auth_constants.dart';
 import './models/user_model.dart';
 import './repositories/auth_repository.dart';
@@ -22,6 +26,12 @@ class AuthController extends GetxController {
   final RxBool rememberMe = false.obs;
   final RxString lastEmail = ''.obs;
   final RxBool hasAttemptedAnonymousLogin = false.obs;
+  final RxBool isSyncingPlaylists = false.obs;
+  final RxString syncStatus = ''.obs;
+  final RxDouble syncProgress = 0.0.obs;
+  final RxInt totalSources = 0.obs;
+  final RxInt syncedSources = 0.obs;
+  final RxList<MediaSyncResult> syncResults = <MediaSyncResult>[].obs;
 
   final RxBool _didInitialize = false.obs;
   StreamSubscription<UserModel?>? _userSubscription;
@@ -94,11 +104,11 @@ class AuthController extends GetxController {
       if (user != null && rememberMe.value) {
         currentUser.value = user;
         isAuthenticated.value = true;
-        Get.offAllNamed(AppRoutes.home);
+        Get.offAllNamed(AppRoutes.syncScreen);
       } else if (user != null) {
         currentUser.value = user;
         isAuthenticated.value = true;
-        Get.offAllNamed(AppRoutes.home);
+        Get.offAllNamed(AppRoutes.syncScreen);
       } else {
         isAuthenticated.value = false;
       }
@@ -139,7 +149,8 @@ class AuthController extends GetxController {
       isAuthenticated.value = true;
       await _repository.setRememberMe(rememberMe.value);
       await _persistSession();
-      Get.offAllNamed(AppRoutes.home);
+      // Navigate to sync screen which will handle sync and then go to home
+      Get.offAllNamed(AppRoutes.syncScreen);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -367,6 +378,88 @@ class AuthController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  /// Triggers automatic playlist synchronization after successful login
+  Future<void> triggerAutomaticPlaylistSync() async {
+    if (isSyncingPlaylists.value) return;
+
+    isSyncingPlaylists.value = true;
+    syncProgress.value = 0.0;
+    syncedSources.value = 0;
+    syncStatus.value = 'Preparing to sync your playlists...';
+    _logger.info(
+      'Starting automatic playlist sync after login',
+      tag: 'AuthController',
+    );
+
+    try {
+      final providerRepo = Get.find<ProviderRepository>();
+      final syncService = Get.find<ProviderSyncService>();
+      final allProviders = await providerRepo.getAllProviders();
+      final enabledProviders = allProviders.where((p) => p.enabled).toList();
+
+      totalSources.value = enabledProviders.length;
+      if (totalSources.value == 0) {
+        syncStatus.value = 'No playlists to sync';
+        isSyncingPlaylists.value = false;
+        syncProgress.value = 1.0;
+        return;
+      }
+
+      syncStatus.value =
+          'Syncing IPTV providers... (${enabledProviders.length} provider${enabledProviders.length > 1 ? 's' : ''})';
+      final List<MediaSyncResult> allResults = [];
+
+      for (int i = 0; i < enabledProviders.length; i++) {
+        final provider = enabledProviders[i];
+        syncStatus.value = 'Syncing provider: ${provider.name}';
+
+        final result = await syncService.syncProvider(provider);
+        allResults.add(
+          MediaSyncResult(
+            sourceId: provider.id,
+            success: result.success,
+            error: result.message,
+            completedAt: DateTime.now(),
+          ),
+        );
+
+        syncedSources.value++;
+        syncProgress.value = syncedSources.value / totalSources.value;
+      }
+
+      syncResults.assignAll(allResults);
+
+      final successful = allResults.where((r) => r.success).length;
+      final failed = allResults.where((r) => !r.success).length;
+
+      syncStatus.value =
+          'Sync complete! $successful sources synced successfully';
+      if (failed > 0) {
+        syncStatus.value =
+            'Sync complete with $failed failed. $successful sources synced successfully';
+      }
+      syncProgress.value = 1.0;
+      _logger.info(
+        'Automatic playlist sync completed: $successful successful, $failed failed',
+        tag: 'AuthController',
+      );
+    } catch (e) {
+      syncStatus.value = 'Sync failed: ${e.toString()}';
+      _logger.error(
+        'Automatic playlist sync failed',
+        tag: 'AuthController',
+        error: e,
+      );
+    } finally {
+      isSyncingPlaylists.value = false;
+    }
+  }
+
+  /// Manually trigger playlist sync (can be called from UI refresh button)
+  Future<void> triggerManualSync() async {
+    await triggerAutomaticPlaylistSync();
   }
 
   Future<void> continueAfterVerification() async {

@@ -1,3 +1,4 @@
+// core/routes/app_routes.dart
 class AppRoutes {
   static const String splash = '/splash';
   static const String auth = '/auth';
@@ -9,6 +10,7 @@ class AppRoutes {
   static const String completeProfile = '/complete-profile';
   static const String accountLoading = '/account-loading';
   static const String home = '/home';
+  static const String syncScreen = '/sync-screen';
   static const String liveTV = '/live-tv';
   static const String library = '/library';
   static const String movies = '/movies';
