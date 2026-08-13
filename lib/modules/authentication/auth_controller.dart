@@ -5,6 +5,8 @@ import '../../../core/errors/exceptions.dart';
 import '../../../core/logging/logging_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/validators.dart';
+import '../../../data/services/provider_sync_service.dart';
+import '../../../shared/widgets/sync_loading_overlay.dart';
 import './constants/auth_constants.dart';
 import './models/user_model.dart';
 import './repositories/auth_repository.dart';
@@ -95,10 +97,12 @@ class AuthController extends GetxController {
         currentUser.value = user;
         isAuthenticated.value = true;
         Get.offAllNamed(AppRoutes.home);
+        await _triggerPostLoginSync();
       } else if (user != null) {
         currentUser.value = user;
         isAuthenticated.value = true;
         Get.offAllNamed(AppRoutes.home);
+        await _triggerPostLoginSync();
       } else {
         isAuthenticated.value = false;
       }
@@ -115,6 +119,32 @@ class AuthController extends GetxController {
   Future<void> _persistSession() async {
     final expiry = DateTime.now().add(AuthConstants.sessionDuration);
     await _repository?.setSessionExpiry(expiry);
+  }
+
+  Future<void> _triggerPostLoginSync() async {
+    try {
+      final syncService = Get.find<ProviderSyncService>();
+      Get.dialog(
+        SyncLoadingOverlay(
+          progressStream: syncService.progressStream,
+          title: 'Syncing Playlists',
+        ),
+        barrierDismissible: false,
+      );
+      await syncService.syncAll();
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+    } catch (e) {
+      _logger.warning(
+        'Post-login provider sync failed',
+        tag: 'AuthController',
+        error: e,
+      );
+      if (Get.isDialogOpen ?? false) {
+        Get.back();
+      }
+    }
   }
 
   Future<void> loginWithEmail(String email, String password) async {
@@ -140,6 +170,7 @@ class AuthController extends GetxController {
       await _repository.setRememberMe(rememberMe.value);
       await _persistSession();
       Get.offAllNamed(AppRoutes.home);
+      await _triggerPostLoginSync();
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -233,6 +264,7 @@ class AuthController extends GetxController {
       isAuthenticated.value = true;
       await _persistSession();
       Get.offAllNamed(AppRoutes.home);
+      await _triggerPostLoginSync();
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -258,6 +290,7 @@ class AuthController extends GetxController {
       isAuthenticated.value = true;
       await _persistSession();
       Get.offAllNamed(AppRoutes.home);
+      await _triggerPostLoginSync();
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {

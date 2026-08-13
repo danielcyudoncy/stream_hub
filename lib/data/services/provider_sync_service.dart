@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/account_metadata_provider.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/media_source_factory.dart';
+import 'package:stream_hub/data/models/sync_progress.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/media_source_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
@@ -40,10 +43,19 @@ class ProviderSyncService extends GetxService {
     required CatalogRepository catalogRepo,
     required LoggingService logger,
   }) : _repository = repository,
-       _sourceFactory = sourceFactory,
-       _sourceRepo = sourceRepo,
-       _catalogRepo = catalogRepo,
-       _logger = logger;
+        _sourceFactory = sourceFactory,
+        _sourceRepo = sourceRepo,
+        _catalogRepo = catalogRepo,
+        _logger = logger;
+
+  final _progressController = StreamController<SyncProgress>.broadcast();
+  Stream<SyncProgress> get progressStream => _progressController.stream;
+
+  @override
+  void onClose() {
+    _progressController.close();
+    super.onClose();
+  }
 
   /// Syncs every enabled provider. Providers are synced sequentially so
   /// concurrent servers are never hammered at once.
@@ -57,13 +69,27 @@ class ProviderSyncService extends GetxService {
         tag: 'ProviderSyncService',
         error: e,
       );
+      _progressController.add(const SyncProgress(completed: 0, total: 0, message: 'Failed to load providers.'));
       return const [];
     }
 
+    final enabled = providers.where((p) => p.enabled).toList();
     final results = <ProviderSyncResult>[];
-    for (final provider in providers.where((p) => p.enabled)) {
+    for (var i = 0; i < enabled.length; i++) {
+      final provider = enabled[i];
+      _progressController.add(SyncProgress(
+        completed: i,
+        total: enabled.length,
+        currentProvider: provider.name,
+        message: 'Loading ${provider.name}...',
+      ));
       results.add(await syncProvider(provider));
     }
+    _progressController.add(SyncProgress(
+      completed: enabled.length,
+      total: enabled.length,
+      message: 'Loading completed',
+    ));
     return results;
   }
 

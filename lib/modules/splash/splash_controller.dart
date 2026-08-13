@@ -11,6 +11,9 @@ import '../authentication/repositories/auth_repository.dart';
 
 class SplashController extends GetxController {
   final RxString statusMessage = 'Starting up...'.obs;
+  final RxInt syncCompleted = 0.obs;
+  final RxInt syncTotal = 0.obs;
+  final RxString syncCurrentProvider = ''.obs;
 
   @override
   void onInit() {
@@ -35,7 +38,7 @@ class SplashController extends GetxController {
           final user = await authRepository.tryAutoLogin();
           if (user != null) {
             statusMessage.value = 'Welcome back!';
-            unawaited(_syncProvidersOnStartup());
+            await _syncProvidersOnStartup();
             _navigateAway(AppRoutes.home);
             return;
           }
@@ -58,7 +61,18 @@ class SplashController extends GetxController {
   Future<void> _syncProvidersOnStartup() async {
     try {
       final syncService = Get.find<ProviderSyncService>();
+      final subscription = syncService.progressStream.listen(
+        (progress) {
+          syncCompleted.value = progress.completed;
+          syncTotal.value = progress.total;
+          syncCurrentProvider.value = progress.currentProvider ?? '';
+          if (progress.message != null) {
+            statusMessage.value = progress.message!;
+          }
+        },
+      );
       await syncService.syncAll();
+      await subscription.cancel();
     } catch (e) {
       Get.find<LoggingService>().warning(
         'Startup provider sync failed',

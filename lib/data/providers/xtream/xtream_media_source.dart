@@ -599,8 +599,12 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   }
 
   Future<dynamic> _fetchJson(String action) async {
-    final uri = Uri.parse(
-      '$_serverUrl/player_api.php?username=$_username&password=$_password&$action',
+    final uri = Uri.parse('$_serverUrl/player_api.php').replace(
+      queryParameters: {
+        'username': _username,
+        'password': _password,
+        ..._splitAction(action),
+      },
     );
 
     final jsonStr = await _getJson(uri);
@@ -616,6 +620,19 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       );
       return null;
     }
+  }
+
+  static Map<String, String> _splitAction(String action) {
+    final params = <String, String>{};
+    for (final pair in action.split('&')) {
+      final idx = pair.indexOf('=');
+      if (idx > 0) {
+        params[pair.substring(0, idx)] = pair.substring(idx + 1);
+      } else if (pair.isNotEmpty) {
+        params[pair] = '';
+      }
+    }
+    return params;
   }
 
   /// Extracts the item list from a panel payload.
@@ -714,8 +731,11 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   @override
   Future<MediaHealth> health() async {
     try {
-      final uri = Uri.parse(
-        '$_serverUrl/player_api.php?username=$_username&password=$_password',
+      final uri = Uri.parse('$_serverUrl/player_api.php').replace(
+        queryParameters: {
+          'username': _username,
+          'password': _password,
+        },
       );
       final stopwatch = Stopwatch()..start();
       final request = await _client.getUrl(uri).timeout(_kRequestTimeout);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
+import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import 'splash_controller.dart';
@@ -80,23 +81,60 @@ class SplashPage extends GetView<SplashController> {
                 'Premium IPTV Client',
                 style: AppTypography.getLabel(color: colorScheme.onSurfaceVariant),
               ),
-              const SizedBox(height: 64.0),
-
-              // Loading spinner
-              CircularProgressIndicator(
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(colorScheme.secondary),
-                strokeWidth: 3.0,
-              ),
-              AppSpacing.heightLG,
+              const SizedBox(height: 48.0),
 
               // Status message
               Obx(
                 () => Text(
                   controller.statusMessage.value,
                   style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                  textAlign: TextAlign.center,
                 ),
               ),
+              AppSpacing.heightLG,
+
+              // Progress section
+              Obx(() {
+                final total = controller.syncTotal.value;
+                final completed = controller.syncCompleted.value;
+                final current = controller.syncCurrentProvider.value;
+
+                if (total == 0) {
+                  return const SizedBox.shrink();
+                }
+
+                final fraction = total == 0 ? 0.0 : completed / total;
+
+                return Column(
+                  children: [
+                    Text(
+                      current.isNotEmpty ? '$current ($completed/$total)' : '$completed/$total',
+                      style: AppTypography.getCaption(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    AppSpacing.heightSM,
+                    ClipRRect(
+                      borderRadius: AppRadius.pill,
+                      child: LinearProgressIndicator(
+                        value: fraction,
+                        minHeight: 6.0,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    AppSpacing.heightXS,
+                    Text(
+                      '${(fraction * 100).toInt()}%',
+                      style: AppTypography.getCaption(
+                        color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                );
+              }),
             ],
           ),
         ),

@@ -115,7 +115,7 @@ void main() {
 
     final sessionCache = SessionCache(FakeLocalService());
     final registry = ProviderSessionFactoryRegistry()
-      ..register(XtreamProviderSessionFactory());
+      ..register(XtreamProviderSessionFactory(logger: LoggingService()));
     sessionManager = SessionManager(
       sessionCache: sessionCache,
       authenticationEngine: AuthenticationEngine(),

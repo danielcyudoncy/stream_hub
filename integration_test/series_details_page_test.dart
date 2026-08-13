@@ -170,7 +170,7 @@ _FakeProviderRepository _registerDependencies(
 
   final sessionCache = SessionCache(FakeLocalService());
   final registry = ProviderSessionFactoryRegistry()
-    ..register(XtreamProviderSessionFactory());
+    ..register(XtreamProviderSessionFactory(logger: Get.find<LoggingService>()));
   Get.put<SessionManager>(
     SessionManager(
       sessionCache: sessionCache,

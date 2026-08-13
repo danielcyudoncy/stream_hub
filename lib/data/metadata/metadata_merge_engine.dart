@@ -57,17 +57,20 @@ class MetadataMergeEngine {
   }
 
   CanonicalMediaItem _mergeGroup(List<MediaItem> items) {
-    final canonical = CanonicalMediaItem.fromMediaItem(items.first);
+    var canonical = CanonicalMediaItem.fromMediaItem(items.first);
     final others = items.sublist(1);
 
     for (final item in others) {
-      _mergeItem(canonical, item);
+      canonical = _mergeItem(canonical, item);
     }
 
     return canonical;
   }
 
-  void _mergeItem(CanonicalMediaItem base, MediaItem incoming) {
+  CanonicalMediaItem _mergeItem(
+    CanonicalMediaItem base,
+    MediaItem incoming,
+  ) {
     final strategy = defaultStrategy;
 
     final mergedOwnership = Map<String, String>.from(base.providerOwnership);
@@ -104,7 +107,7 @@ class MetadataMergeEngine {
     final mergedExtra = Map<String, dynamic>.from(base.extra);
     mergedExtra.addAll(incoming.metadata);
 
-    base.copyWith(
+    return base.copyWith(
       title: title,
       description: description.isEmpty ? base.description : description,
       poster: poster,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/routes/app_routes.dart';
@@ -5,10 +7,12 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../data/services/provider_sync_service.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/sync_loading_overlay.dart';
 import 'auth_controller.dart';
 
 class CompleteProfilePage extends GetView<AuthController> {
@@ -95,9 +99,26 @@ class CompleteProfilePage extends GetView<AuthController> {
                           Obx(() => AppButton.primary(
                                 text: 'Continue',
                                 isLoading: controller.isLoading.value,
-                                onPressed: () {
-                                  Get.offAllNamed(AppRoutes.home);
-                                },
+                            onPressed: () {
+                              try {
+                                final syncService = Get.find<ProviderSyncService>();
+                                Get.dialog(
+                                  SyncLoadingOverlay(
+                                    progressStream: syncService.progressStream,
+                                    title: 'Syncing Playlists',
+                                  ),
+                                  barrierDismissible: false,
+                                );
+                                unawaited(syncService.syncAll().then((_) {
+                                  if (Get.isDialogOpen ?? false) {
+                                    Get.back();
+                                  }
+                                }));
+                              } catch (_) {
+                                // Sync is best-effort; don't block profile completion.
+                              }
+                              Get.offAllNamed(AppRoutes.home);
+                            },
                               )),
                         ],
                       )),
