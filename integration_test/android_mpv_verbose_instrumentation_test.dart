@@ -19,8 +19,9 @@ import 'package:media_kit_video/media_kit_video.dart' as mkv;
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('mpv verbose evidence: decode vs render on device',
-      (tester) async {
+  testWidgets('mpv verbose evidence: decode vs render on device', (
+    tester,
+  ) async {
     mk.MediaKit.ensureInitialized();
 
     const streamUrl = String.fromEnvironment(
@@ -70,10 +71,7 @@ void main() {
 
     debugPrint('MPV_EVIDENCE opening $streamUrl');
     await player.open(
-      mk.Media(
-        streamUrl,
-        httpHeaders: const {'User-Agent': 'StreamHub/1.0'},
-      ),
+      mk.Media(streamUrl, httpHeaders: const {'User-Agent': 'StreamHub/1.0'}),
     );
     debugPrint('MPV_EVIDENCE open() resolved');
     await player.play();
@@ -97,7 +95,8 @@ void main() {
 
 Future<String?> _prop(mk.Player player, String name) async {
   try {
-    final platform = player.platform!;
+    final platform = player.platform;
+    if (platform == null) return null;
     return await (platform as dynamic).getProperty(name) as String?;
   } catch (_) {
     return null;

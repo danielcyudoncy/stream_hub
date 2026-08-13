@@ -33,7 +33,6 @@ class MediaPosterCard extends StatelessWidget {
               child: ClipRRect(
                 borderRadius: AppRadius.medium,
                 child: Container(
-                  width: double.infinity,
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
                   ),

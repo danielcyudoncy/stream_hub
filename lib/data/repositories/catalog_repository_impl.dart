@@ -1,3 +1,5 @@
+import 'package:stream_hub/core/media/enums/media_type.dart';
+
 import 'dart:async';
 
 import 'package:stream_hub/core/media/media_catalog.dart';
@@ -12,13 +14,19 @@ class CatalogRepositoryImpl implements CatalogRepository {
   final MediaCatalog _catalog;
   final MediaSourceManager _sourceManager;
   final LoggingService _logger;
-  final StreamController<void> _updateController = StreamController<void>.broadcast();
+  final StreamController<void> _updateController =
+      StreamController<void>.broadcast();
 
   CatalogRepositoryImpl(this._catalog, this._sourceManager, this._logger);
 
   @override
   Future<List<MediaItem>> getAllItems() async {
     return _catalog.getAll();
+  }
+
+  @override
+  Future<List<MediaItem>> getByType(MediaType type) async {
+    return _catalog.getByType(type);
   }
 
   @override
@@ -32,7 +40,10 @@ class CatalogRepositoryImpl implements CatalogRepository {
       _catalog.upsert(item);
     }
     _updateController.add(null);
-    _logger.info('Upserted ${items.length} items into catalog', tag: 'CatalogRepository');
+    _logger.info(
+      'Upserted ${items.length} items into catalog',
+      tag: 'CatalogRepository',
+    );
   }
 
   @override
