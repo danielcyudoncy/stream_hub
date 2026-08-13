@@ -77,21 +77,97 @@ class CatalogRepositoryImpl implements CatalogRepository {
     final result = await source.sync();
     if (result.success) {
       final items = <MediaItem>[];
+      final errors = <String>[];
       try {
-        items.addAll(await source.getChannels());
-        items.addAll(await source.getCategories());
-        items.addAll(await source.getMovies());
-        items.addAll(await source.getSeries());
-        items.addAll(await source.getPrograms());
-      } catch (_) {}
+        final channels = await source.getChannels();
+        items.addAll(channels);
+        _logger.info(
+          'Ingested ${channels.length} channels from source $sourceId',
+          tag: 'CatalogRepository',
+        );
+      } catch (e) {
+        errors.add('channels: $e');
+        _logger.warning(
+          'Failed to ingest channels from source $sourceId: $e',
+          tag: 'CatalogRepository',
+          error: e,
+        );
+      }
+      try {
+        final categories = await source.getCategories();
+        items.addAll(categories);
+        _logger.info(
+          'Ingested ${categories.length} categories from source $sourceId',
+          tag: 'CatalogRepository',
+        );
+      } catch (e) {
+        errors.add('categories: $e');
+        _logger.warning(
+          'Failed to ingest categories from source $sourceId: $e',
+          tag: 'CatalogRepository',
+          error: e,
+        );
+      }
+      try {
+        final movies = await source.getMovies();
+        items.addAll(movies);
+        _logger.info(
+          'Ingested ${movies.length} movies from source $sourceId',
+          tag: 'CatalogRepository',
+        );
+      } catch (e) {
+        errors.add('movies: $e');
+        _logger.warning(
+          'Failed to ingest movies from source $sourceId: $e',
+          tag: 'CatalogRepository',
+          error: e,
+        );
+      }
+      try {
+        final series = await source.getSeries();
+        items.addAll(series);
+        _logger.info(
+          'Ingested ${series.length} series from source $sourceId',
+          tag: 'CatalogRepository',
+        );
+      } catch (e) {
+        errors.add('series: $e');
+        _logger.warning(
+          'Failed to ingest series from source $sourceId: $e',
+          tag: 'CatalogRepository',
+          error: e,
+        );
+      }
+      try {
+        final programs = await source.getPrograms();
+        items.addAll(programs);
+        _logger.info(
+          'Ingested ${programs.length} programs from source $sourceId',
+          tag: 'CatalogRepository',
+        );
+      } catch (e) {
+        errors.add('programs: $e');
+        _logger.warning(
+          'Failed to ingest programs from source $sourceId: $e',
+          tag: 'CatalogRepository',
+          error: e,
+        );
+      }
       for (final item in items) {
         _catalog.upsert(item);
       }
       _updateController.add(null);
-      _logger.info(
-        'Ingested ${items.length} items from source $sourceId',
-        tag: 'CatalogRepository',
-      );
+      if (errors.isNotEmpty) {
+        _logger.warning(
+          'Source $sourceId ingested ${items.length} items with ${errors.length} partial failures: ${errors.join(', ')}',
+          tag: 'CatalogRepository',
+        );
+      } else {
+        _logger.info(
+          'Ingested ${items.length} items from source $sourceId',
+          tag: 'CatalogRepository',
+        );
+      }
     }
     return result;
   }
