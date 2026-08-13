@@ -1,3 +1,4 @@
+// test/modules/series/series_details_controller_test.dart
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
@@ -318,6 +319,39 @@ void main() {
         expect(first.episodes.first.metadata['streamId'], '7001');
         expect(first.episodes.last.metadata['streamId'], '7002');
         expect(controller.seasons[1].name, 'Season Two');
+      },
+    );
+
+    test(
+      'rebuilds Xtream sessions when cached credentials are missing',
+      () async {
+        final providerId = 'p1';
+        await sessionManager.saveSession(
+          ProviderSession(
+            providerId: providerId,
+            providerType: MediaSourceType.xtream,
+            sessionId: 'stale-session',
+            username: null,
+            password: null,
+            baseUrl: 'http://panel.example.com',
+          ),
+        );
+
+        final session = await sessionManager.getOrCreateSession(
+          mediaItemId: 'xtream-series-601',
+          providerType: MediaSourceType.xtream,
+          itemMetadata: {'seriesId': '601'},
+          providerConfig: {
+            'providerId': providerId,
+            'serverUrl': 'http://panel.example.com',
+            'username': 'demo',
+            'password': 'secret',
+          },
+          providerId: providerId,
+        );
+
+        expect(session.username, 'demo');
+        expect(session.password, 'secret');
       },
     );
 
