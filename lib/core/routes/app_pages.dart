@@ -44,6 +44,7 @@ import '../../modules/series/series_page.dart';
 import '../../modules/series/series_binding.dart';
 import '../../modules/series/series_details_page.dart';
 import '../../modules/series/series_details_binding.dart';
+import '../../modules/series/series_category_page.dart';
 import '../../modules/search/search_hub_page.dart';
 import '../../modules/search/search_hub_binding.dart';
 import '../../modules/epg/pages/program_details_page.dart';
@@ -208,6 +209,10 @@ class AppPages {
       name: AppRoutes.seriesDetails,
       page: () => const SeriesDetailsPage(),
       binding: SeriesDetailsBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.seriesCategory,
+      page: () => const SeriesCategoryPage(),
     ),
     GetPage(
       name: AppRoutes.search,
