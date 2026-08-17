@@ -6,6 +6,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_radius.dart';
 import '../controllers/provider_controller.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
@@ -136,15 +137,14 @@ class ProviderOverviewPage extends GetView<ProviderController> {
                       );
                       if (index >= channels.length) return const SizedBox.shrink();
                       final item = channels[index];
-                      return GestureDetector(
+                      return ChannelCard(
+                        channel: item,
                         onTap: () => Get.toNamed(
-                          '/channel-details',
+                          AppRoutes.channelDetails,
                           parameters: {'channelId': item.id},
                         ),
-                        child: ChannelCard(
-                          channel: item,
-                          showFavoriteButton: true,
-                        ),
+                        onFavorite: () => controller.toggleFavorite(item),
+                        showFavoriteButton: true,
                       );
                     },
                     childCount: controller.getProviderChannels(

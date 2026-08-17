@@ -4,6 +4,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/responsive_helper.dart';
 
 import '../controllers/favorites_controller.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
@@ -94,6 +95,11 @@ class FavoritesPage extends GetView<FavoritesController> {
                         ),
                         child: ChannelCard(
                           channel: item,
+                          onTap: () => Get.toNamed(
+                            AppRoutes.channelDetails,
+                            parameters: {'channelId': item.id},
+                          ),
+                          onFavorite: () => controller.toggleFavorite(item),
                           showFavoriteButton: true,
                         ),
                       );
@@ -126,15 +132,14 @@ class FavoritesPage extends GetView<FavoritesController> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final item = controller.favoriteChannels[index];
-                    return GestureDetector(
+                    return ChannelCard(
+                      channel: item,
                       onTap: () => Get.toNamed(
-                        '/channel-details',
+                        AppRoutes.channelDetails,
                         parameters: {'channelId': item.id},
                       ),
-                      child: ChannelCard(
-                        channel: item,
-                        showFavoriteButton: true,
-                      ),
+                      onFavorite: () => controller.toggleFavorite(item),
+                      showFavoriteButton: true,
                     );
                   },
                   childCount: controller.favoriteChannels.length,

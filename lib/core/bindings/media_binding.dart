@@ -73,12 +73,17 @@ class MediaBinding extends Bindings {
       ),
       fenix: true,
     );
-    Get.lazyPut<CatalogRepositoryImpl>(
+    Get.lazyPut<CatalogRepository>(
       () => CatalogRepositoryImpl(
         Get.find<MediaCatalog>(),
         Get.find<MediaSourceManager>(),
         Get.find(),
       ),
+      fenix: true,
+    );
+    Get.lazyPut<CatalogRepositoryImpl>(
+      () => Get.find<CatalogRepository>() as CatalogRepositoryImpl,
+      fenix: true,
     );
   }
 }

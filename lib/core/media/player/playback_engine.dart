@@ -127,6 +127,18 @@ class PlaybackEngine {
 
   Future<void> initialize() async {
     if (_initialized) return;
+    if (allowEngineFallback &&
+        settings.preferredPlayer == PlaybackEnginePreference.auto) {
+      if (await HardwareDetector.isUnisocOrMali()) {
+        _adapter = PlayerAdapterFactory.create(
+          PlaybackEngineKind.nativeActivity,
+          logger: logger,
+          hardwareDecode: settings.hardwareDecode,
+        );
+        _engineKind = PlaybackEngineKind.nativeActivity;
+        engineKindRx.value = PlaybackEngineKind.nativeActivity;
+      }
+    }
     await _adapter.initialize();
     _bindAdapterStreams();
     _initialized = true;

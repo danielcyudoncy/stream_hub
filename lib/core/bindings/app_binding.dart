@@ -93,6 +93,7 @@ class AppBinding extends Bindings {
         mediaEngine: Get.find<MediaEngine>(),
         mediaLibrary: Get.find<MediaLibrary>(),
         catalogRepository: catalogRepo,
+        favoriteRepository: favoriteRepo,
       ),
       permanent: true,
     );
@@ -111,6 +112,7 @@ class AppBinding extends Bindings {
         mediaEngine: Get.find<MediaEngine>(),
         mediaLibrary: Get.find<MediaLibrary>(),
         catalogRepository: catalogRepo,
+        favoriteRepository: favoriteRepo,
       ),
       permanent: true,
     );
@@ -128,6 +130,7 @@ class AppBinding extends Bindings {
         mediaEngine: Get.find<MediaEngine>(),
         mediaLibrary: Get.find<MediaLibrary>(),
         catalogRepository: catalogRepo,
+        favoriteRepository: favoriteRepo,
       ),
       permanent: true,
     );
@@ -136,6 +139,7 @@ class AppBinding extends Bindings {
         mediaEngine: Get.find<MediaEngine>(),
         mediaLibrary: Get.find<MediaLibrary>(),
         catalogRepository: catalogRepo,
+        favoriteRepository: favoriteRepo,
       ),
       permanent: true,
     );

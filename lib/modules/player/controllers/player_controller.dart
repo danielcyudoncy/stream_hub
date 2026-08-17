@@ -18,10 +18,13 @@ import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/media_library.dart';
+import 'package:stream_hub/data/models/channel.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playable_stream.dart';
 import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
+import 'package:stream_hub/data/repositories/catalog_repository.dart';
 
 class PlayerController extends GetxController {
   final PlaybackController playbackController;
@@ -29,6 +32,7 @@ class PlayerController extends GetxController {
   final HistoryRepository? historyRepository;
   final FavoriteRepository? favoriteRepository;
   final PlaybackRepository? playbackRepository;
+  final CatalogRepository? catalogRepository;
   final IptvCore? iptvCore;
 
   final String? itemId;
@@ -58,6 +62,7 @@ class PlayerController extends GetxController {
     this.historyRepository,
     this.favoriteRepository,
     this.playbackRepository,
+    this.catalogRepository,
     IptvCore? iptvCore,
   })  : _pendingItems = pendingItems ?? const [],
         _pendingCurrentId = pendingCurrentId,
@@ -82,13 +87,20 @@ class PlayerController extends GetxController {
   bool get canSwitchNext => _currentChannelIndex < channelList.length - 1;
   bool get canSwitchPrevious => _currentChannelIndex > 0;
 
+  Worker? _engineWorker;
+
   @override
   Future<void> onInit() async {
     super.onInit();
     _sessionWorker = ever(sessionRx, (session) {
       isFavoriteRx.value = session?.mediaItem.favorite ?? false;
     });
+    _engineWorker = ever(playbackController.engine.engineKindRx, (_) {
+      _wireAdapterChannelListeners();
+      _syncChannelsToNativeAdapter();
+    });
     await _loadPersistedSettings();
+    _wireAdapterChannelListeners();
     // Register the event listener BEFORE starting playback so that early
     // loading/buffering/error events emitted during session creation reach the
     // UI instead of being silently dropped.
@@ -99,6 +111,40 @@ class PlayerController extends GetxController {
       // Items provided by the binding are started here, after the engine is
       // configured and the event listener is in place.
       setChannelList(_pendingItems, currentId: _pendingCurrentId);
+    }
+    _loadBackgroundChannels();
+  }
+
+  Future<void> _loadBackgroundChannels() async {
+    try {
+      List<MediaItem> allChannels = [];
+      if (catalogRepository != null) {
+        allChannels = await catalogRepository!.getByType(MediaType.channel);
+        if (allChannels.isEmpty) {
+          final all = await catalogRepository!.getAllItems();
+          allChannels =
+              all.where((i) => i.mediaType == MediaType.channel).toList();
+        }
+      }
+      if (allChannels.isEmpty && Get.isRegistered<MediaLibrary>()) {
+        allChannels = Get.find<MediaLibrary>().getLiveTV();
+      }
+      if (allChannels.isNotEmpty) {
+        final currentId = _pendingCurrentId ?? itemId ?? currentItem?.id;
+        final foundIdx = currentId != null
+            ? allChannels.indexWhere((c) => c.id == currentId)
+            : -1;
+        channelList.assignAll(allChannels);
+        if (foundIdx >= 0) {
+          _currentChannelIndex = foundIdx;
+        }
+        _syncChannelsToNativeAdapter();
+      }
+    } catch (e) {
+      playbackController.engine.logger.warning(
+        'Failed to load background channels: $e',
+        tag: 'PlayerController',
+      );
     }
   }
 
@@ -123,6 +169,7 @@ class PlayerController extends GetxController {
   @override
   void onClose() {
     _sessionWorker.dispose();
+    _engineWorker?.dispose();
     playbackController.removeEventListener(_onPlaybackEvent);
     // Tear down the engine and the active backend (player, platform view, or
     // native Activity). stop() alone leaves the adapter initialized and its
@@ -141,6 +188,9 @@ class PlayerController extends GetxController {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
+    channelList.assignAll([mediaItem]);
+    _currentChannelIndex = 0;
+    _syncChannelsToNativeAdapter();
     final session = await streamRepository.resolveStream(
       mediaItemId: id,
       url: url,
@@ -199,14 +249,15 @@ class PlayerController extends GetxController {
           ?? item.metadata['stream_url']?.toString()
           ?? item.metadata['url']?.toString();
 
-      session = await streamRepository.resolvePlayback(
+      final resolved = await streamRepository.resolvePlayback(
         mediaItemId: item.id,
         providerType: item.providerType,
         itemMetadata: item.metadata,
         providerId: item.providerId,
         fallbackUrl: fallbackUrl,
       );
-      await playWithSession(item, session);
+      session = resolved;
+      await playWithSession(item, resolved);
     } catch (e, st) {
       await _handlePlaybackFailure(item, session, e, st, startedAt);
     }
@@ -271,10 +322,89 @@ class PlayerController extends GetxController {
     playbackController.engine.failPlayback(message, stackTrace: stackTrace);
   }
 
+  void _wireAdapterChannelListeners() {
+    final adapter = playbackController.engine.adapter;
+    if (adapter is NativeActivityPlayerAdapter) {
+      adapter.onNextChannelRequested = () => switchToNextChannel();
+      adapter.onPreviousChannelRequested = () => switchToPreviousChannel();
+      adapter.onFetchChannelsRequested = () async {
+        await _loadBackgroundChannels();
+        _syncChannelsToNativeAdapter();
+      };
+      adapter.onSwitchChannelRequested = (index, channelId) async {
+        if (index >= 0 && index < channelList.length) {
+          _currentChannelIndex = index;
+          final item = channelList[index];
+          _recordPlayback(item);
+          isFavoriteRx.value = item.favorite;
+          final streamUrl = (item is Channel ? item.streamUrl : null) ??
+              item.metadata['streamUrl']?.toString() ??
+              item.metadata['stream_url']?.toString() ??
+              item.metadata['url']?.toString();
+          if (streamUrl == null || streamUrl.isEmpty) {
+            await playMediaItem(item);
+          }
+        } else if (channelId != null) {
+          final foundIndex = channelList.indexWhere((c) => c.id == channelId);
+          if (foundIndex != -1) {
+            _currentChannelIndex = foundIndex;
+            final item = channelList[foundIndex];
+            _recordPlayback(item);
+            isFavoriteRx.value = item.favorite;
+            final streamUrl = (item is Channel ? item.streamUrl : null) ??
+                item.metadata['streamUrl']?.toString() ??
+                item.metadata['stream_url']?.toString() ??
+                item.metadata['url']?.toString();
+            if (streamUrl == null || streamUrl.isEmpty) {
+              await playMediaItem(item);
+            }
+          }
+        }
+      };
+    }
+  }
+
+  void _syncChannelsToNativeAdapter() {
+    final adapter = playbackController.engine.adapter;
+    if (adapter is NativeActivityPlayerAdapter && channelList.isNotEmpty) {
+      final nativeChannels = channelList.map((item) {
+        final streamUrl = (item is Channel ? item.streamUrl : null) ??
+            item.metadata['streamUrl']?.toString() ??
+            item.metadata['stream_url']?.toString() ??
+            item.metadata['url']?.toString() ??
+            '';
+        final headers = (item.metadata['headers'] as Map?)?.map(
+              (k, v) => MapEntry(k.toString(), v.toString()),
+            ) ??
+            const <String, String>{};
+        final category = (item.genres.isNotEmpty ? item.genres.first : null) ??
+            item.metadata['category_name']?.toString() ??
+            item.metadata['group-title']?.toString() ??
+            item.metadata['category']?.toString() ??
+            item.metadata['group']?.toString() ??
+            'General';
+        return <String, dynamic>{
+          'id': item.id,
+          'name': item.title,
+          'url': streamUrl,
+          'logoUrl': item.poster ?? item.thumbnail,
+          'epgTitle': item.subtitle ?? item.metadata['epg_title']?.toString(),
+          'category': category,
+          'headers': headers,
+        };
+      }).toList();
+      adapter.updateChannelList(
+        nativeChannels,
+        currentIndex: _currentChannelIndex,
+      );
+    }
+  }
+
   void setChannelList(List<MediaItem> channels, {String? currentId}) {
     channelList.assignAll(channels);
     _currentChannelIndex =
         currentId != null ? channels.indexWhere((c) => c.id == currentId) : -1;
+    _syncChannelsToNativeAdapter();
     if (_currentChannelIndex != -1) {
       playMediaItem(channels[_currentChannelIndex]);
     }
@@ -283,20 +413,23 @@ class PlayerController extends GetxController {
   Future<void> switchToChannel(int index) async {
     if (index < 0 || index >= channelList.length) return;
     _currentChannelIndex = index;
+    _syncChannelsToNativeAdapter();
     final item = channelList[index];
     await playMediaItem(item);
   }
 
   Future<void> switchToNextChannel() async {
-    if (canSwitchNext) {
-      await switchToChannel(_currentChannelIndex + 1);
-    }
+    if (channelList.isEmpty) return;
+    final nextIndex = (_currentChannelIndex + 1) % channelList.length;
+    await switchToChannel(nextIndex);
   }
 
   Future<void> switchToPreviousChannel() async {
-    if (canSwitchPrevious) {
-      await switchToChannel(_currentChannelIndex - 1);
-    }
+    if (channelList.isEmpty) return;
+    final prevIndex = _currentChannelIndex <= 0
+        ? channelList.length - 1
+        : _currentChannelIndex - 1;
+    await switchToChannel(prevIndex);
   }
 
   Future<void> play() => playbackController.play();

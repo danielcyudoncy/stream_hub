@@ -49,7 +49,90 @@ class MainActivity : FlutterActivity() {
                     }
                     val headers = call.argument<Map<String, String>>("headers") ?: emptyMap()
                     val title = call.argument<String>("title")
-                    NativePlayerActivity.launch(this, url, headers, title)
+                    val channelsRaw = call.argument<List<Map<String, Any?>>>("channels")
+                    val channels = channelsRaw?.mapNotNull { item ->
+                        val id = item["id"] as? String ?: return@mapNotNull null
+                        val name = item["name"] as? String ?: return@mapNotNull null
+                        val streamUrl = item["url"] as? String ?: return@mapNotNull null
+                        val logoUrl = item["logoUrl"] as? String
+                        val epgTitle = item["epgTitle"] as? String
+                        val category = item["category"] as? String
+                        val itemHeaders = (item["headers"] as? Map<*, *>)
+                            ?.entries
+                            ?.associate { it.key.toString() to it.value.toString() }
+                            ?: emptyMap()
+                        NativeChannelItem(
+                            id = id,
+                            name = name,
+                            url = streamUrl,
+                            logoUrl = logoUrl,
+                            epgTitle = epgTitle,
+                            category = category,
+                            headers = itemHeaders,
+                        )
+                    }
+                    val channelIndex = call.argument<Int>("channelIndex") ?: -1
+                    val isLive = call.argument<Boolean>("isLive") ?: false
+
+                    val active = NativePlayerActivity.instance
+                    if (active != null && !active.isFinishing && !active.isDestroyed) {
+                        channels?.let { NativePlayerActivity.channelList = it }
+                        if (channelIndex >= 0) NativePlayerActivity.currentChannelIndex = channelIndex
+                        active.updateChannels(channels, channelIndex)
+                        active.loadStream(url, headers, title, null)
+                        result.success(null)
+                        return@setMethodCallHandler
+                    }
+
+                    NativePlayerActivity.launch(this, url, headers, title, channels, channelIndex, isLive)
+                    result.success(null)
+                }
+                "setChannelList" -> {
+                    val channelsRaw = call.argument<List<Map<String, Any?>>>("channels")
+                    val channelIndex = call.argument<Int>("channelIndex") ?: -1
+                    val channels = channelsRaw?.mapNotNull { item ->
+                        val id = item["id"] as? String ?: return@mapNotNull null
+                        val name = item["name"] as? String ?: return@mapNotNull null
+                        val streamUrl = item["url"] as? String ?: return@mapNotNull null
+                        val logoUrl = item["logoUrl"] as? String
+                        val epgTitle = item["epgTitle"] as? String
+                        val category = item["category"] as? String
+                        val itemHeaders = (item["headers"] as? Map<*, *>)
+                            ?.entries
+                            ?.associate { it.key.toString() to it.value.toString() }
+                            ?: emptyMap()
+                        NativeChannelItem(
+                            id = id,
+                            name = name,
+                            url = streamUrl,
+                            logoUrl = logoUrl,
+                            epgTitle = epgTitle,
+                            category = category,
+                            headers = itemHeaders,
+                        )
+                    }
+                    channels?.let { NativePlayerActivity.channelList = it }
+                    if (channelIndex >= 0) {
+                        NativePlayerActivity.currentChannelIndex = channelIndex
+                    }
+                    NativePlayerActivity.instance?.updateChannels(channels, channelIndex)
+                    result.success(null)
+                }
+                "enterPip" -> {
+                    NativePlayerActivity.instance?.enterPipMode()
+                    result.success(null)
+                }
+                "nextChannel" -> {
+                    NativePlayerActivity.instance?.nextChannel()
+                    result.success(null)
+                }
+                "previousChannel" -> {
+                    NativePlayerActivity.instance?.previousChannel()
+                    result.success(null)
+                }
+                "switchChannel" -> {
+                    val index = call.argument<Int>("index") ?: 0
+                    NativePlayerActivity.instance?.switchChannelByIndex(index)
                     result.success(null)
                 }
                 "stop" -> {

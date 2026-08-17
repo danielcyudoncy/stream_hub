@@ -160,17 +160,16 @@ class HomePage extends GetView<LiveTVHomeController> {
   }
 
   Widget _buildChannelCard(BuildContext context, MediaItem item, bool isTV) {
-    return GestureDetector(
+    return ChannelCard(
+      channel: item,
       onTap: () => Get.toNamed(
         AppRoutes.channelDetails,
         parameters: {'channelId': item.id},
       ),
-      child: ChannelCard(
-        channel: item,
-        showFavoriteButton: true,
-        showChannelNumber: true,
-        showHD: true,
-      ),
+      onFavorite: () => controller.toggleFavorite(item),
+      showFavoriteButton: true,
+      showChannelNumber: true,
+      showHD: true,
     );
   }
 
