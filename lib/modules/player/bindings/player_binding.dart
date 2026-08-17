@@ -3,6 +3,7 @@ import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/data/models/media_item.dart';
+import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/session_repository_impl.dart';
@@ -35,10 +36,17 @@ class PlayerBinding extends Bindings {
         pendingItems: items.cast<MediaItem>(),
         pendingCurrentId: currentId,
         streamRepository: Get.find<StreamRepository>(),
-        historyRepository: Get.find<HistoryRepository>(),
-        favoriteRepository: Get.find<FavoriteRepository>(),
+        historyRepository: Get.isRegistered<HistoryRepository>()
+            ? Get.find<HistoryRepository>()
+            : null,
+        favoriteRepository: Get.isRegistered<FavoriteRepository>()
+            ? Get.find<FavoriteRepository>()
+            : null,
         playbackRepository: Get.isRegistered<PlaybackRepository>()
             ? Get.find<PlaybackRepository>()
+            : null,
+        catalogRepository: Get.isRegistered<CatalogRepository>()
+            ? Get.find<CatalogRepository>()
             : null,
       );
     });

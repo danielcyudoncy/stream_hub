@@ -6,6 +6,7 @@ import '../../../data/models/category.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/repositories/catalog_repository.dart';
+import '../../../data/repositories/favorite_repository.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
@@ -13,12 +14,14 @@ class LiveTVHomeController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
+  final FavoriteRepository? favoriteRepository;
   StreamSubscription? _catalogSubscription;
 
   LiveTVHomeController({
     required this.mediaEngine,
     required this.mediaLibrary,
     required this.catalogRepository,
+    this.favoriteRepository,
   });
 
   final RxList<MediaItem> recentlyAdded = <MediaItem>[].obs;
@@ -49,9 +52,13 @@ class LiveTVHomeController extends GetxController {
   Future<void> _loadHomeData() async {
     isLoading.value = true;
     try {
+      final favList = await favoriteRepository?.getAll() ?? [];
+      final favIds = favList.map((e) => e.id).toSet();
+
       final allItems = await catalogRepository.getAllItems();
       final channelItems = allItems
           .where((item) => item.mediaType == MediaType.channel)
+          .map((item) => item.copyWith(favorite: favIds.contains(item.id)))
           .toList();
 
       recentlyAdded.assignAll(
@@ -144,6 +151,19 @@ class LiveTVHomeController extends GetxController {
         break;
     }
     return items;
+  }
+
+  Future<void> toggleFavorite(MediaItem item) async {
+    if (favoriteRepository == null) {
+      _loadHomeData();
+      return;
+    }
+    if (item.favorite) {
+      await favoriteRepository!.remove(item.id);
+    } else {
+      await favoriteRepository!.add(item.copyWith(favorite: true));
+    }
+    await _loadHomeData();
   }
 
   @override

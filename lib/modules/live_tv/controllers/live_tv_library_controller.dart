@@ -3,6 +3,7 @@ import 'package:stream_hub/core/media/enums/media_type.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/repositories/catalog_repository.dart';
+import '../../../data/repositories/favorite_repository.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
@@ -10,11 +11,13 @@ class LiveTVLibraryController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
+  final FavoriteRepository? favoriteRepository;
 
   LiveTVLibraryController({
     required this.mediaEngine,
     required this.mediaLibrary,
     required this.catalogRepository,
+    this.favoriteRepository,
   });
 
   final RxList<MediaItem> allItems = <MediaItem>[].obs;
@@ -37,7 +40,13 @@ class LiveTVLibraryController extends GetxController {
   Future<void> _loadLibrary() async {
     isLoading.value = true;
     try {
-      final allItems = await catalogRepository.getAllItems();
+      final favList = await favoriteRepository?.getAll() ?? [];
+      final favIds = favList.map((e) => e.id).toSet();
+
+      final rawItems = await catalogRepository.getAllItems();
+      final allItems = rawItems
+          .map((item) => item.copyWith(favorite: favIds.contains(item.id)))
+          .toList();
       this.allItems.assignAll(allItems);
 
       channels.assignAll(
@@ -77,6 +86,19 @@ class LiveTVLibraryController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> toggleFavorite(MediaItem item) async {
+    if (favoriteRepository == null) {
+      _loadLibrary();
+      return;
+    }
+    if (item.favorite) {
+      await favoriteRepository!.remove(item.id);
+    } else {
+      await favoriteRepository!.add(item.copyWith(favorite: true));
+    }
+    await _loadLibrary();
   }
 
   void setFilter(String filter) {
