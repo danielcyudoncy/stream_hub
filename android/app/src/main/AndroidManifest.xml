@@ -3,6 +3,7 @@
         android:label="stream_hub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true">
         <!-- Disable Flutter Impeller on Android. media_kit renders video through
              a Flutter external Texture; on devices whose GPU/driver fails to
@@ -47,6 +48,7 @@
             android:taskAffinity=""
             android:screenOrientation="sensor"
             android:hardwareAccelerated="true"
+            android:supportsPictureInPicture="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

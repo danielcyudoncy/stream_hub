@@ -5,11 +5,9 @@ import '../../../core/utils/responsive_helper.dart';
 
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/media/enums/media_type.dart';
-import '../../../data/models/media_item.dart';
-import '../../../core/media/enums/media_source_type.dart';
 import '../../../data/models/category.dart';
 import '../controllers/category_controller.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/empty_library.dart';
 
@@ -175,21 +173,21 @@ class CategoriesPage extends GetView<CategoryController> {
             ),
             delegate: SliverChildBuilderDelegate(
               (context, index) {
-                final item = category.channelIds.elementAtOrNull(index);
-                if (item == null) return const SizedBox.shrink();
+                if (index >= controller.selectedCategoryChannels.length) {
+                  return const SizedBox.shrink();
+                }
+                final item = controller.selectedCategoryChannels[index];
                 return ChannelCard(
-                  channel: MediaItem(
-                    id: item,
-                    providerId: '',
-                    providerType: MediaSourceType.m3u,
-                    mediaType: MediaType.channel,
-                    title: item,
-                    createdAt: DateTime.now(),
-                    updatedAt: DateTime.now(),
+                  channel: item,
+                  onTap: () => Get.toNamed(
+                    AppRoutes.channelDetails,
+                    parameters: {'channelId': item.id},
                   ),
+                  onFavorite: () => controller.toggleFavorite(item),
+                  showFavoriteButton: true,
                 );
               },
-              childCount: category.channelIds.length,
+              childCount: controller.selectedCategoryChannels.length,
             ),
           ),
         ),

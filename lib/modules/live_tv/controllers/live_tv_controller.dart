@@ -220,10 +220,13 @@ class LiveTVController extends GetxController {
   }
 
   void openChannel(MediaItem channel) {
+    final itemsToPass = filteredChannels.isNotEmpty
+        ? filteredChannels.toList()
+        : (channels.isNotEmpty ? channels.toList() : [channel]);
     Get.toNamed(
       AppRoutes.fullscreenPlayer,
       arguments: {
-        'items': filteredChannels.toList(),
+        'items': itemsToPass,
         'currentId': channel.id,
       },
     );
