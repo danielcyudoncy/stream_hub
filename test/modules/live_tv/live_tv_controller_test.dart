@@ -196,6 +196,9 @@ class _FakeFavoriteRepository implements FavoriteRepository {
   final List<MediaItem> _favorites = [];
 
   @override
+  Stream<void> watchUpdates() => const Stream.empty();
+
+  @override
   Future<void> add(MediaItem item) async {
     _favorites.removeWhere((i) => i.id == item.id);
     _favorites.add(item);

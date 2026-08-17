@@ -25,8 +25,10 @@ void main() async {
   Hive.registerAdapter(SettingsModelAdapter());
   Get.put<LoggingService>(LoggingService(), permanent: true);
   final databaseService = DatabaseService();
+  await databaseService.init();
   Get.put<DatabaseService>(databaseService, permanent: true);
   final firebaseService = FirebaseService();
+  await firebaseService.init();
   Get.put<FirebaseService>(firebaseService, permanent: true);
   runApp(const StreamHubApp());
 }

@@ -80,7 +80,7 @@ class FavoritesPage extends GetView<FavoritesController> {
             if (controller.recentlyFavorited.isNotEmpty)
               SliverToBoxAdapter(
                 child: SizedBox(
-                  height: 160,
+                  height: 165,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(
@@ -89,18 +89,24 @@ class FavoritesPage extends GetView<FavoritesController> {
                     itemCount: controller.recentlyFavorited.length,
                     itemBuilder: (context, index) {
                       final item = controller.recentlyFavorited[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(
-                          right: AppSpacing.md,
-                        ),
-                        child: ChannelCard(
-                          channel: item,
-                          onTap: () => Get.toNamed(
-                            AppRoutes.channelDetails,
-                            parameters: {'channelId': item.id},
+                      return SizedBox(
+                        width: 140,
+                        child: Padding(
+                          padding: const EdgeInsets.only(
+                            right: AppSpacing.md,
                           ),
-                          onFavorite: () => controller.toggleFavorite(item),
-                          showFavoriteButton: true,
+                          child: ChannelCard(
+                            channel: item,
+                            onTap: () => Get.toNamed(
+                              AppRoutes.fullscreenPlayer,
+                              arguments: {
+                                'items': [item],
+                                'currentId': item.id,
+                              },
+                            ),
+                            onFavorite: () => controller.toggleFavorite(item),
+                            showFavoriteButton: true,
+                          ),
                         ),
                       );
                     },
@@ -124,10 +130,10 @@ class FavoritesPage extends GetView<FavoritesController> {
               padding: const EdgeInsets.all(AppSpacing.md),
               sliver: SliverGrid(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: ResponsiveHelper.isPhone(context) ? 2 : (ResponsiveHelper.isDesktop(context) ? 4 : 3),
-                  crossAxisSpacing: AppSpacing.md,
-                  mainAxisSpacing: AppSpacing.md,
-                  childAspectRatio: 0.75,
+                  crossAxisCount: ResponsiveHelper.isPhone(context) ? 3 : (ResponsiveHelper.isDesktop(context) ? 6 : 4),
+                  crossAxisSpacing: AppSpacing.sm,
+                  mainAxisSpacing: AppSpacing.sm,
+                  childAspectRatio: 0.85,
                 ),
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
@@ -135,8 +141,11 @@ class FavoritesPage extends GetView<FavoritesController> {
                     return ChannelCard(
                       channel: item,
                       onTap: () => Get.toNamed(
-                        AppRoutes.channelDetails,
-                        parameters: {'channelId': item.id},
+                        AppRoutes.fullscreenPlayer,
+                        arguments: {
+                          'items': [item],
+                          'currentId': item.id,
+                        },
                       ),
                       onFavorite: () => controller.toggleFavorite(item),
                       showFavoriteButton: true,
