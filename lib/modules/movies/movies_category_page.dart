@@ -7,10 +7,10 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
-import './widgets/series_content_rail.dart';
+import '../../../shared/widgets/media_poster_card.dart';
 
-class SeriesCategoryPage extends StatelessWidget {
-  const SeriesCategoryPage({super.key});
+class MoviesCategoryPage extends StatelessWidget {
+  const MoviesCategoryPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,9 +29,9 @@ class SeriesCategoryPage extends StatelessWidget {
         ),
       ],
       body: items.isEmpty
-          ? EmptyLibrary(
-              icon: AppIcons.series,
-              title: 'No Items',
+          ? const EmptyLibrary(
+              icon: AppIcons.movies,
+              title: 'No Movies',
               description: 'This category is currently empty.',
               actionLabel: null,
               onAction: null,
@@ -55,14 +55,9 @@ class SeriesCategoryPage extends StatelessWidget {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = items[index];
-                        return SeriesPosterCard(
+                        return MediaPosterCard(
                           item: item,
-                          onTap: () {
-                            Get.toNamed(
-                              AppRoutes.seriesDetails,
-                              arguments: {'item': item},
-                            );
-                          },
+                          onTap: () => _openItem(context, item),
                         );
                       },
                       childCount: items.length,
@@ -71,6 +66,28 @@ class SeriesCategoryPage extends StatelessWidget {
                 ),
               ],
             ),
+    );
+  }
+
+  void _openItem(BuildContext context, MediaItem item) {
+    final streamUrl = item.metadata['streamUrl']?.toString();
+    final directSource = item.metadata['directSource']?.toString();
+    final streamId = item.metadata['streamId']?.toString();
+    final canOpen = (streamUrl != null && streamUrl.isNotEmpty) ||
+        (directSource != null && directSource.isNotEmpty) ||
+        (streamId != null && streamId.isNotEmpty);
+
+    if (!canOpen) {
+      Get.snackbar('Not Available', 'This movie is not available right now.');
+      return;
+    }
+
+    Get.toNamed(
+      AppRoutes.fullscreenPlayer,
+      arguments: {
+        'items': [item],
+        'currentId': item.id,
+      },
     );
   }
 }
