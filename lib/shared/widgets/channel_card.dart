@@ -56,26 +56,31 @@ class ChannelCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Full-bleed channel logo / poster image covering the card completely
+                    // Channel logo / poster image with contain fit to prevent overscaling
                     if (hasPoster)
-                      Image.network(
-                        posterUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildPlaceholder(colorScheme),
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return Container(
-                            color: colorScheme.surfaceContainerHighest,
-                            child: const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ),
-                          );
-                        },
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          child: Image.network(
+                            posterUrl,
+                            fit: BoxFit.contain,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildPlaceholder(colorScheme),
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return Container(
+                                color: colorScheme.surfaceContainerHighest,
+                                child: const Center(
+                                  child: SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                       )
                     else
                       _buildPlaceholder(colorScheme),

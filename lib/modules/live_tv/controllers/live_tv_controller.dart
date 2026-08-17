@@ -50,16 +50,39 @@ class LiveTVController extends GetxController {
   final RxBool isLoading = true.obs;
   final Rxn<MediaItem> featuredChannel = Rxn<MediaItem>();
 
+  StreamSubscription? _favoriteSubscription;
+
   @override
   void onInit() {
     super.onInit();
     _loadLiveTVData();
     _catalogSubscription = catalogRepository.watchUpdates().listen((_) => refresh());
+    if (favoriteRepository != null) {
+      _favoriteSubscription = favoriteRepository!.watchUpdates().listen((_) => _syncFavoritesFromRepo());
+    }
+  }
+
+  Future<void> _syncFavoritesFromRepo() async {
+    final favList = await favoriteRepository?.getAll() ?? [];
+    final favIds = favList.map((f) => f.id).toSet();
+
+    final mappedChannels = channels.map((item) {
+      final isFav = favIds.contains(item.id);
+      if (item.favorite != isFav) {
+        return item.copyWith(favorite: isFav);
+      }
+      return item;
+    }).toList();
+
+    channels.assignAll(mappedChannels);
+    favorites.assignAll(mappedChannels.where((item) => favIds.contains(item.id)).toList());
+    _applyFilters();
   }
 
   @override
   void onClose() {
     _catalogSubscription?.cancel();
+    _favoriteSubscription?.cancel();
     super.onClose();
   }
 
@@ -70,8 +93,6 @@ class LiveTVController extends GetxController {
       final liveChannels = allItems
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
-      channels.assignAll(liveChannels);
-      filteredChannels.assignAll(liveChannels);
 
       if (liveChannels.isNotEmpty) {
         final currentFeatured = featuredChannel.value;
@@ -84,9 +105,19 @@ class LiveTVController extends GetxController {
       }
 
       final favList = await favoriteRepository?.getAll() ?? [];
+      final favIds = favList.map((f) => f.id).toSet();
+
+      final mappedChannels = liveChannels.map((item) {
+        if (favIds.contains(item.id) || item.favorite) {
+          return item.copyWith(favorite: true);
+        }
+        return item;
+      }).toList();
+
+      channels.assignAll(mappedChannels);
+      filteredChannels.assignAll(mappedChannels);
       favorites.assignAll(
-        liveChannels.where((item) =>
-            favList.any((f) => f.id == item.id) || item.favorite).toList(),
+        mappedChannels.where((item) => favIds.contains(item.id) || item.favorite).toList(),
       );
 
       final providerSet = <String>{};
@@ -266,16 +297,35 @@ class LiveTVController extends GetxController {
   }
 
   Future<void> toggleFavorite(MediaItem item) async {
-    if (favoriteRepository == null) {
-      await _loadLiveTVData();
-      return;
-    }
-    if (item.favorite) {
-      await favoriteRepository!.remove(item.id);
+    final isFav = favorites.any((f) => f.id == item.id) || item.favorite;
+    final updatedItem = item.copyWith(favorite: !isFav);
+
+    if (isFav) {
+      favorites.removeWhere((f) => f.id == item.id);
+      await favoriteRepository?.remove(item.id);
     } else {
-      await favoriteRepository!.add(item.copyWith(favorite: true));
+      favorites.add(updatedItem);
+      await favoriteRepository?.add(updatedItem);
     }
-    await _loadLiveTVData();
+
+    // Update in channels and filteredChannels in-place without triggering full reload
+    final channelIdx = channels.indexWhere((c) => c.id == item.id);
+    if (channelIdx != -1) {
+      channels[channelIdx] = updatedItem;
+    }
+
+    final filteredIdx = filteredChannels.indexWhere((c) => c.id == item.id);
+    if (filteredIdx != -1) {
+      filteredChannels[filteredIdx] = updatedItem;
+    }
+
+    if (featuredChannel.value?.id == item.id) {
+      featuredChannel.value = updatedItem;
+    }
+
+    if (showFavoritesOnly.value) {
+      _applyFilters();
+    }
   }
 
   @override

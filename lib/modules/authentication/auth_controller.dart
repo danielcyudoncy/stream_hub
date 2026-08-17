@@ -7,11 +7,13 @@ import '../../../core/logging/logging_service.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/utils/validators.dart';
 import '../../../data/models/media_sync_result.dart';
+import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
 import '../../../data/services/provider_sync_service.dart';
 import './constants/auth_constants.dart';
 import './models/user_model.dart';
 import './repositories/auth_repository.dart';
+import '../home/home_controller.dart';
 
 class AuthController extends GetxController {
   final AuthRepository? _repository;
@@ -101,14 +103,15 @@ class AuthController extends GetxController {
         return;
       }
       final user = await _repository.tryAutoLogin();
-      if (user != null && rememberMe.value) {
+      if (user != null) {
         currentUser.value = user;
         isAuthenticated.value = true;
-        Get.offAllNamed(AppRoutes.syncScreen);
-      } else if (user != null) {
-        currentUser.value = user;
-        isAuthenticated.value = true;
-        Get.offAllNamed(AppRoutes.syncScreen);
+        if (Get.isRegistered<HomeController>()) {
+          try {
+            await Get.find<HomeController>().preloadHomeData();
+          } catch (_) {}
+        }
+        Get.offAllNamed(AppRoutes.home);
       } else {
         isAuthenticated.value = false;
       }
@@ -149,8 +152,23 @@ class AuthController extends GetxController {
       isAuthenticated.value = true;
       await _repository.setRememberMe(rememberMe.value);
       await _persistSession();
-      // Navigate to sync screen which will handle sync and then go to home
-      Get.offAllNamed(AppRoutes.syncScreen);
+      final catalogRepo = Get.isRegistered<CatalogRepository>()
+          ? Get.find<CatalogRepository>()
+          : null;
+      final existingItems = catalogRepo != null
+          ? await catalogRepo.getAllItems()
+          : <dynamic>[];
+      if (existingItems.isNotEmpty) {
+        if (Get.isRegistered<HomeController>()) {
+          try {
+            await Get.find<HomeController>().preloadHomeData();
+          } catch (_) {}
+        }
+        Get.offAllNamed(AppRoutes.home);
+        unawaited(triggerAutomaticPlaylistSync());
+      } else {
+        Get.offAllNamed(AppRoutes.syncScreen);
+      }
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {

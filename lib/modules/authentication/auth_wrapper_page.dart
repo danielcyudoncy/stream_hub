@@ -23,6 +23,13 @@ class AuthWrapperPage extends GetView<AuthController> {
         return AccountLoadingPage();
       }
       if (controller.isAuthenticated.value && controller.currentUser.value != null) {
+        final displayName = controller.currentUser.value?.displayName;
+        if (displayName != null && displayName.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            Get.offAllNamed(AppRoutes.home);
+          });
+          return AccountLoadingPage();
+        }
         return CompleteProfilePage();
       }
       return Scaffold(

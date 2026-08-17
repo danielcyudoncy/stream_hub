@@ -28,16 +28,26 @@ class CategoryController extends GetxController {
   final RxString selectedCategoryId = ''.obs;
   final RxBool isLoading = true.obs;
 
+  StreamSubscription? _favoriteSubscription;
+
   @override
   void onInit() {
     super.onInit();
     _loadCategories();
     _catalogSubscription = catalogRepository.watchUpdates().listen((_) => refresh());
+    if (favoriteRepository != null) {
+      _favoriteSubscription = favoriteRepository!.watchUpdates().listen((_) {
+        if (selectedCategoryId.value.isNotEmpty) {
+          selectCategory(selectedCategoryId.value);
+        }
+      });
+    }
   }
 
   @override
   void onClose() {
     _catalogSubscription?.cancel();
+    _favoriteSubscription?.cancel();
     super.onClose();
   }
 
@@ -113,16 +123,18 @@ class CategoryController extends GetxController {
   }
 
   Future<void> toggleFavorite(MediaItem item) async {
-    if (favoriteRepository == null) {
-      _loadCategories();
-      return;
-    }
-    if (item.favorite) {
+    if (favoriteRepository == null) return;
+    final isFav = item.favorite;
+    final updated = item.copyWith(favorite: !isFav);
+    if (isFav) {
       await favoriteRepository!.remove(item.id);
     } else {
-      await favoriteRepository!.add(item.copyWith(favorite: true));
+      await favoriteRepository!.add(updated);
     }
-    await selectCategory(selectedCategoryId.value);
+    final idx = selectedCategoryChannels.indexWhere((c) => c.id == item.id);
+    if (idx != -1) {
+      selectedCategoryChannels[idx] = updated;
+    }
   }
 
   @override
