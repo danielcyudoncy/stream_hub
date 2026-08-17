@@ -9,7 +9,6 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
-import '../../../shared/widgets/tv_focusable.dart';
 import './widgets/series_content_rail.dart';
 import './widgets/series_hero_section.dart';
 import 'series_controller.dart';
@@ -19,23 +18,14 @@ class SeriesPage extends GetView<SeriesController> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
 
     return AppScaffold(
       title: 'Series',
       actions: [
-        TvFocusable(
-          onTap: () => Get.toNamed(AppRoutes.search),
-          borderRadius: AppRadius.medium,
-          scale: 1.05,
-          child: Container(
-            padding: const EdgeInsets.all(AppSpacing.xs),
-            child: Icon(
-              AppIcons.search,
-              color: colorScheme.onSurface,
-              size: 22.0,
-            ),
-          ),
+        IconButton(
+          icon: const Icon(AppIcons.search),
+          onPressed: () => Get.toNamed(AppRoutes.search),
+          tooltip: 'Search',
         ),
       ],
       body: Obx(() {

@@ -39,6 +39,7 @@ import '../../modules/live_tv/bindings/live_tv_binding.dart';
 import '../../modules/library/library_page.dart';
 import '../../modules/library/library_binding.dart';
 import '../../modules/movies/movies_page.dart';
+import '../../modules/movies/movies_category_page.dart';
 import '../../modules/movies/movies_binding.dart';
 import '../../modules/series/series_page.dart';
 import '../../modules/series/series_binding.dart';
@@ -201,6 +202,10 @@ class AppPages {
       binding: MoviesBinding(),
     ),
     GetPage(
+      name: AppRoutes.moviesCategory,
+      page: () => const MoviesCategoryPage(),
+    ),
+    GetPage(
       name: AppRoutes.series,
       page: () => const SeriesPage(),
       binding: SeriesBinding(),
@@ -216,7 +221,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.search,
-      page: () => SearchHubPage(),
+      page: () => const SearchHubPage(),
       binding: SearchHubBinding(),
     ),
     GetPage(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -7,9 +8,9 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
-import '../../../shared/widgets/media_carousel.dart';
 import '../../../shared/widgets/media_poster_card.dart';
 import '../../../shared/widgets/media_section.dart';
+import './widgets/movies_hero_carousel.dart';
 import 'movies_controller.dart';
 
 class MoviesPage extends GetView<MoviesController> {
@@ -18,9 +19,17 @@ class MoviesPage extends GetView<MoviesController> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isTv = PlatformHelper.isTV;
 
     return AppScaffold(
       title: 'Movies',
+      actions: [
+        IconButton(
+          icon: const Icon(AppIcons.search),
+          onPressed: () => Get.toNamed(AppRoutes.search),
+          tooltip: 'Search',
+        ),
+      ],
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
@@ -38,6 +47,15 @@ class MoviesPage extends GetView<MoviesController> {
 
         return CustomScrollView(
           slivers: [
+            if (controller.featuredMovies.isNotEmpty) ...[
+              SliverToBoxAdapter(
+                child: MoviesHeroCarousel(
+                  movies: controller.featuredMovies,
+                  onWatch: (item) => _openItem(context, item),
+                ),
+              ),
+              SliverToBoxAdapter(child: AppSpacing.heightSM),
+            ],
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -52,22 +70,6 @@ class MoviesPage extends GetView<MoviesController> {
                 ),
               ),
             ),
-            if (controller.featuredMovies.isNotEmpty) ...[
-              SliverToBoxAdapter(
-                child: MediaCarousel(
-                  items: controller.featuredMovies,
-                  itemWidth: 120,
-                  itemBuilder: (context, item, index) {
-                    final mediaItem = item as MediaItem;
-                    return MediaPosterCard(
-                      item: mediaItem,
-                      onTap: () => _openItem(context, mediaItem),
-                    );
-                  },
-                ),
-              ),
-              SliverToBoxAdapter(child: AppSpacing.heightSM),
-            ],
             _buildSection(
               title: 'Trending Movies',
               items: controller.trendingMovies,
@@ -93,8 +95,8 @@ class MoviesPage extends GetView<MoviesController> {
                 AppSpacing.xxl,
               ),
               sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 3,
+                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                  maxCrossAxisExtent: isTv ? 200.0 : 170.0,
                   crossAxisSpacing: AppSpacing.md,
                   mainAxisSpacing: AppSpacing.md,
                   childAspectRatio: 0.7,
@@ -126,7 +128,7 @@ class MoviesPage extends GetView<MoviesController> {
       child: MediaSection(
         title: title,
         items: items,
-        onSeeAll: () {},
+        onSeeAll: () => _openCategory(title, items),
         itemBuilder: (context, item, index) {
           return SizedBox(
             width: 120,
@@ -137,6 +139,13 @@ class MoviesPage extends GetView<MoviesController> {
           );
         },
       ),
+    );
+  }
+
+  void _openCategory(String title, List<MediaItem> items) {
+    Get.toNamed(
+      AppRoutes.moviesCategory,
+      arguments: {'title': title, 'items': items},
     );
   }
 
