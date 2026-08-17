@@ -127,52 +127,46 @@ class LiveTVPage extends GetView<LiveTVController> {
               // 1. Featured "Live Now" Hero Section (shown when not searching)
               if (query.isEmpty && !favoritesOnly && selectedCat == 'All Channels')
                 SliverToBoxAdapter(
-                  child: Obx(
-                    () => LiveTvHeroCard(
-                      channel: controller.featuredChannel.value,
-                      onWatch: () {
-                        final featured = controller.featuredChannel.value;
-                        if (featured != null) {
-                          controller.openChannel(featured);
-                        }
-                      },
-                      onFavorite: () {
-                        final featured = controller.featuredChannel.value;
-                        if (featured != null) {
-                          controller.toggleFavorite(featured);
-                        }
-                      },
-                    ),
+                  child: LiveTvHeroCard(
+                    channel: controller.featuredChannel.value,
+                    onWatch: () {
+                      final featured = controller.featuredChannel.value;
+                      if (featured != null) {
+                        controller.openChannel(featured);
+                      }
+                    },
+                    onFavorite: () {
+                      final featured = controller.featuredChannel.value;
+                      if (featured != null) {
+                        controller.toggleFavorite(featured);
+                      }
+                    },
                   ),
                 ),
 
               // 2. Channel Search Bar
               SliverToBoxAdapter(
-                child: Obx(
-                  () => LiveTvSearchBar(
-                    query: controller.searchQuery.value,
-                    totalCount: filtered.length,
-                    onChanged: (q) => controller.setSearchQuery(q),
-                    onClear: () => controller.setSearchQuery(''),
-                  ),
+                child: LiveTvSearchBar(
+                  query: controller.searchQuery.value,
+                  totalCount: filtered.length,
+                  onChanged: (q) => controller.setSearchQuery(q),
+                  onClear: () => controller.setSearchQuery(''),
                 ),
               ),
 
               // 3. Category Navigation Bar
               SliverToBoxAdapter(
-                child: Obx(
-                  () => LiveTvCategoryBar(
-                    categories: controller.categories,
-                    selectedCategory: controller.selectedCategory.value,
-                    showFavoritesOnly: controller.showFavoritesOnly.value,
-                    favoritesCount: controller.favorites.length,
-                    onCategorySelected: (cat) {
-                      controller.setCategory(cat);
-                    },
-                    onFavoritesToggle: (fav) {
-                      controller.setFavoritesOnly(fav);
-                    },
-                  ),
+                child: LiveTvCategoryBar(
+                  categories: controller.categories,
+                  selectedCategory: controller.selectedCategory.value,
+                  showFavoritesOnly: controller.showFavoritesOnly.value,
+                  favoritesCount: controller.favorites.length,
+                  onCategorySelected: (cat) {
+                    controller.setCategory(cat);
+                  },
+                  onFavoritesToggle: (fav) {
+                    controller.setFavoritesOnly(fav);
+                  },
                 ),
               ),
 
@@ -181,12 +175,10 @@ class LiveTVPage extends GetView<LiveTVController> {
                   !favoritesOnly &&
                   controller.favorites.isNotEmpty)
                 SliverToBoxAdapter(
-                  child: Obx(
-                    () => LiveTvFavoritesRow(
-                      favorites: controller.favorites,
-                      onChannelTap: (channel) => controller.openChannel(channel),
-                      onSeeAll: () => controller.setFavoritesOnly(true),
-                    ),
+                  child: LiveTvFavoritesRow(
+                    favorites: controller.favorites,
+                    onChannelTap: (channel) => controller.openChannel(channel),
+                    onSeeAll: () => controller.setFavoritesOnly(true),
                   ),
                 ),
 

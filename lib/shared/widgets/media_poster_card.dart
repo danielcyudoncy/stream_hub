@@ -20,7 +20,8 @@ class MediaPosterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final poster = item.poster ?? item.thumbnail;
+    final poster = item.poster ?? item.thumbnail ?? item.backdrop;
+    final isChannel = item.mediaType == MediaType.channel;
 
     return TvFocusable(
       onTap: onTap,
@@ -37,30 +38,41 @@ class MediaPosterCard extends StatelessWidget {
                   color: colorScheme.surfaceContainerHighest,
                 ),
                 child: poster != null && poster.isNotEmpty
-                    ? Image.network(
-                        poster,
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        height: double.infinity,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildPlaceholder(context, colorScheme),
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return Center(
-                            child: SizedBox(
-                              width: 24.0,
-                              height: 24.0,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                value: progress.expectedTotalBytes != null
-                                    ? progress.cumulativeBytesLoaded /
-                                        progress.expectedTotalBytes!
-                                    : null,
-                              ),
+                    ? (isChannel
+                        ? Padding(
+                            padding: const EdgeInsets.all(AppSpacing.sm),
+                            child: Image.network(
+                              poster,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildPlaceholder(context, colorScheme),
                             ),
-                          );
-                        },
-                      )
+                          )
+                        : Image.network(
+                            poster,
+                            fit: BoxFit.cover,
+                            alignment: Alignment.topCenter,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (context, error, stackTrace) =>
+                                _buildPlaceholder(context, colorScheme),
+                            loadingBuilder: (context, child, progress) {
+                              if (progress == null) return child;
+                              return Center(
+                                child: SizedBox(
+                                  width: 24.0,
+                                  height: 24.0,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.0,
+                                    value: progress.expectedTotalBytes != null
+                                        ? progress.cumulativeBytesLoaded /
+                                            progress.expectedTotalBytes!
+                                        : null,
+                                  ),
+                                ),
+                              );
+                            },
+                          ))
                     : _buildPlaceholder(context, colorScheme),
               ),
             ),
@@ -108,8 +120,8 @@ class MediaPosterCard extends StatelessWidget {
         item.mediaType == MediaType.movie
             ? AppIcons.movies
             : item.mediaType == MediaType.series
-            ? AppIcons.series
-            : AppIcons.liveTv,
+                ? AppIcons.series
+                : AppIcons.liveTv,
         size: 32.0,
         color: colorScheme.primary.withValues(alpha: 0.3),
       ),

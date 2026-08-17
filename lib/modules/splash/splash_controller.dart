@@ -7,6 +7,7 @@ import '../../core/routes/app_routes.dart';
 import '../../data/services/database_service.dart';
 import '../../data/services/firebase_service.dart';
 import '../../data/services/provider_sync_service.dart';
+import '../authentication/auth_controller.dart';
 import '../authentication/repositories/auth_repository.dart';
 
 class SplashController extends GetxController {
@@ -35,7 +36,17 @@ class SplashController extends GetxController {
           final user = await authRepository.tryAutoLogin();
           if (user != null) {
             statusMessage.value = 'Welcome back!';
-            unawaited(_syncProvidersOnStartup());
+            if (Get.isRegistered<AuthController>()) {
+              final authController = Get.find<AuthController>();
+              authController.currentUser.value = user;
+              authController.isAuthenticated.value = true;
+            }
+            statusMessage.value = 'Loading playlists & channels...';
+            try {
+              await _syncProvidersOnStartup();
+            } catch (_) {}
+
+            statusMessage.value = 'Ready!';
             _navigateAway(AppRoutes.home);
             return;
           }

@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../data/models/media_item.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../shared/widgets/app_scaffold.dart';
+import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_card.dart';
-import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/media_poster_card.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'home_controller.dart';
+import 'widgets/home_content_rail.dart';
+import 'widgets/home_continue_watching_card.dart';
+import 'widgets/home_header.dart';
+import 'widgets/home_hero_carousel.dart';
+import 'widgets/home_live_channel_card.dart';
+import 'widgets/home_quick_actions.dart';
+import 'widgets/home_skeleton_loader.dart';
 
 class HomePage extends GetView<HomeController> {
   const HomePage({super.key});
@@ -21,52 +29,322 @@ class HomePage extends GetView<HomeController> {
     final colorScheme = theme.colorScheme;
 
     return AppScaffold(
-      title: '',
+      title: 'Home',
       showAppBar: false,
       body: Obx(() {
-        if (controller.isLoading.value && controller.hasProviders.value) {
-          return const Center(child: CircularProgressIndicator());
+        if (controller.isLoading.value && !controller.hasContent) {
+          return const HomeSkeletonLoader();
         }
 
-        return CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
+        if (!controller.hasProviders.value) {
+          return SafeArea(
+            bottom: false,
+            child: CustomScrollView(
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Column(
+                    children: [
+                      AppSpacing.heightLG,
+                      _buildWelcomeCard(context, colorScheme),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: controller.refresh,
+          color: colorScheme.primary,
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Header (Personalized greeting, Search, Settings)
+                    HomeHeader(greeting: controller.getGreeting()),
+                    AppSpacing.heightXS,
+
+                    // 2. Hero Section / Carousel (Cinematic featured content)
+                    if (controller.featuredHeroItems.isNotEmpty) ...[
+                      HomeHeroCarousel(
+                        items: controller.featuredHeroItems,
+                        onWatch: (item) => _openItem(item),
+                        onToggleFavorite: (item) => controller.toggleFavorite(item),
+                        isFavorite: controller.isItemFavorite,
+                      ),
+                      AppSpacing.heightMD,
+                    ],
+
+                    // 3. Quick Actions
+                    const HomeQuickActions(),
+                    AppSpacing.heightMD,
+
+                    // 4. Continue Watching
+                    if (controller.continueWatching.isNotEmpty) ...[
+                      HomeContentRail(
+                        title: 'Continue Watching',
+                        leading: Icon(
+                          Icons.play_circle_outline_rounded,
+                          color: colorScheme.primary,
+                          size: 20.0,
+                        ),
+                        items: controller.continueWatching,
+                        cardWidth: 160.0,
+                        cardHeight: 180.0,
+                        itemBuilder: (context, item, index) {
+                          return HomeContinueWatchingCard(
+                            item: item,
+                            onTap: () => _openItem(item),
+                          );
+                        },
+                      ),
+                      AppSpacing.heightMD,
+                    ],
+
+                    // 5. Live Now
+                    if (controller.liveChannels.isNotEmpty) ...[
+                      HomeContentRail(
+                        title: 'Live Now',
+                        leading: const Icon(
+                          Icons.fiber_manual_record_rounded,
+                          color: Color(0xFFEF4444),
+                          size: 16.0,
+                        ),
+                        items: controller.liveChannels,
+                        onSeeAll: () => Get.toNamed(AppRoutes.liveTV),
+                        cardWidth: 155.0,
+                        cardHeight: 175.0,
+                        itemBuilder: (context, item, index) {
+                          return HomeLiveChannelCard(
+                            channel: item,
+                            onTap: () => _playChannel(item),
+                          );
+                        },
+                      ),
+                      AppSpacing.heightMD,
+                    ],
+
+                    // 6. Trending Movies
+                    if (controller.movies.isNotEmpty) ...[
+                      HomeContentRail(
+                        title: 'Trending Movies',
+                        leading: const Icon(
+                          Icons.local_fire_department_rounded,
+                          color: Color(0xFFF59E0B),
+                          size: 20.0,
+                        ),
+                        items: controller.movies,
+                        onSeeAll: () => Get.toNamed(AppRoutes.movies),
+                        itemBuilder: (context, item, index) {
+                          return MediaPosterCard(
+                            item: item,
+                            onTap: () => _openMovie(item),
+                          );
+                        },
+                      ),
+                      AppSpacing.heightMD,
+                    ],
+
+                    // 7. Popular Series
+                    if (controller.series.isNotEmpty) ...[
+                      HomeContentRail(
+                        title: 'Popular Series',
+                        leading: Icon(
+                          AppIcons.series,
+                          color: colorScheme.primary,
+                          size: 20.0,
+                        ),
+                        items: controller.series,
+                        onSeeAll: () => Get.toNamed(AppRoutes.series),
+                        itemBuilder: (context, item, index) {
+                          return MediaPosterCard(
+                            item: item,
+                            onTap: () => _openSeries(item),
+                          );
+                        },
+                      ),
+                      AppSpacing.heightMD,
+                    ],
+
+                    // 8. Recently Added
+                    if (controller.recentlyAdded.isNotEmpty) ...[
+                      HomeContentRail(
+                        title: 'Recently Added',
+                        leading: const Icon(
+                          Icons.new_releases_rounded,
+                          color: Color(0xFF10B981),
+                          size: 20.0,
+                        ),
+                        items: controller.recentlyAdded,
+                        itemBuilder: (context, item, index) {
+                          if (item.mediaType == MediaType.channel) {
+                            return HomeLiveChannelCard(
+                              channel: item,
+                              onTap: () => _playChannel(item),
+                            );
+                          }
+                          return MediaPosterCard(
+                            item: item,
+                            onTap: () => _openItem(item),
+                          );
+                        },
+                      ),
+                      AppSpacing.heightMD,
+                    ],
+
+                    // 9. My List (Favorites)
+                    if (controller.favorites.isNotEmpty) ...[
+                      HomeContentRail(
+                        title: 'My List',
+                        leading: const Icon(
+                          Icons.favorite_rounded,
+                          color: Color(0xFFEC4899),
+                          size: 20.0,
+                        ),
+                        items: controller.favorites,
+                        onSeeAll: () => Get.toNamed(AppRoutes.favorites),
+                        itemBuilder: (context, item, index) {
+                          return MediaPosterCard(
+                            item: item,
+                            onTap: () => _openItem(item),
+                          );
+                        },
+                      ),
+                      AppSpacing.heightMD,
+                    ] else ...[
+                      _buildEmptyMyListCard(context, colorScheme),
+                      AppSpacing.heightMD,
+                    ],
+
+                    // 10. Browse by Genre (if real genres available in catalog)
+                    if (controller.availableGenres.isNotEmpty) ...[
+                      _buildGenreSection(context, colorScheme),
+                      AppSpacing.heightMD,
+                    ],
+
+                    AppSpacing.heightXXL,
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _buildEmptyMyListCard(BuildContext context, ColorScheme colorScheme) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+      child: AppCard(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEC4899).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.favorite_border_rounded,
+                color: Color(0xFFEC4899),
+                size: 24.0,
+              ),
+            ),
+            AppSpacing.widthMD,
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppSpacing.heightMD,
-                  if (!controller.hasProviders.value)
-                    _buildWelcomeCard(context, colorScheme),
-                  if (controller.hasProviders.value) ...[
-                    _buildQuickActionsSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildProviderSummaryCard(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildContinueWatchingSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildLiveTVSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildMoviesSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildSeriesSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildTVGuideSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildFavoritesSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildRecentlyAddedSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildRecentlyPlayedSection(context, colorScheme),
-                    AppSpacing.heightMD,
-                    _buildDownloadsSection(context, colorScheme),
-                    AppSpacing.heightXXL,
-                  ],
+                  Text(
+                    'Your My List is Empty',
+                    style: AppTypography.getLabel(
+                      color: colorScheme.onSurface,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  AppSpacing.heightXXS,
+                  Text(
+                    'Add movies, series, or channels to quickly access them here.',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
-        );
-      }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenreSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.sm,
+            AppSpacing.lg,
+            AppSpacing.xs,
+          ),
+          child: Text(
+            'Browse by Genre',
+            style: AppTypography.getTitle(
+              color: colorScheme.onSurface,
+            ).copyWith(fontWeight: FontWeight.w700),
+          ),
+        ),
+        SizedBox(
+          height: 40,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            itemCount: controller.availableGenres.length,
+            itemBuilder: (context, index) {
+              final genre = controller.availableGenres[index];
+              return Container(
+                margin: const EdgeInsets.only(right: AppSpacing.sm),
+                child: TvFocusable(
+                  onTap: () => Get.toNamed(
+                    AppRoutes.search,
+                    arguments: {'query': genre},
+                  ),
+                  borderRadius: AppRadius.pill,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: AppRadius.pill,
+                      border: Border.all(
+                        color: colorScheme.outline.withValues(alpha: 0.12),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      genre,
+                      style: AppTypography.getCaption(
+                        color: colorScheme.onSurface,
+                      ).copyWith(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -77,16 +355,25 @@ class HomePage extends GetView<HomeController> {
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           children: [
-            Icon(AppIcons.play, size: 48.0, color: colorScheme.primary),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colorScheme.primary.withValues(alpha: 0.15),
+              ),
+              child: Icon(AppIcons.play, size: 48.0, color: colorScheme.primary),
+            ),
             AppSpacing.heightMD,
             Text(
               'Welcome to StreamHub Pro',
-              style: AppTypography.getHeadline(color: colorScheme.onSurface),
+              style: AppTypography.getHeadline(
+                color: colorScheme.onSurface,
+              ).copyWith(fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
             ),
             AppSpacing.heightSM,
             Text(
-              'Connect your first media source to begin watching Live TV, Movies, Series, and more.',
+              'Connect your first IPTV or media source to start discovering Live TV, Movies, Series, and more.',
               style: AppTypography.getBody(
                 color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
@@ -117,29 +404,22 @@ class HomePage extends GetView<HomeController> {
                   colorScheme: colorScheme,
                 ),
                 _buildFeatureChip(
-                  icon: AppIcons.live,
-                  label: 'TV Guide',
-                  onTap: () => Get.toNamed(AppRoutes.guideSearch),
-                  colorScheme: colorScheme,
-                ),
-                _buildFeatureChip(
                   icon: AppIcons.favorites,
                   label: 'Favorites',
                   onTap: () => Get.toNamed(AppRoutes.favorites),
                   colorScheme: colorScheme,
                 ),
-                _buildFeatureChip(
-                  icon: AppIcons.downloads,
-                  label: 'Downloads',
-                  colorScheme: colorScheme,
-                ),
               ],
             ),
             AppSpacing.heightXL,
-            FilledButton.icon(
-              onPressed: () => Get.toNamed(AppRoutes.providerManager),
-              icon: const Icon(AppIcons.add, size: 18),
-              label: const Text('Add Media Source'),
+            TvFocusable(
+              onTap: () => Get.toNamed(AppRoutes.providerManager),
+              borderRadius: AppRadius.pill,
+              child: FilledButton.icon(
+                onPressed: () => Get.toNamed(AppRoutes.providerManager),
+                icon: const Icon(AppIcons.add, size: 18),
+                label: const Text('Add Media Source'),
+              ),
             ),
           ],
         ),
@@ -153,16 +433,17 @@ class HomePage extends GetView<HomeController> {
     required ColorScheme colorScheme,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
+      borderRadius: AppRadius.pill,
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xs,
         ),
         decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: AppRadius.large,
+          color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
+          borderRadius: AppRadius.pill,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -179,724 +460,17 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildQuickActionsSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(title: 'Quick Actions'),
-          AppSpacing.heightXS,
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _quickActionChip(
-                  context,
-                  icon: AppIcons.liveTv,
-                  label: 'Watch Live TV',
-                  onTap: () => Get.toNamed(AppRoutes.liveTV),
-                  colorScheme: colorScheme,
-                ),
-                _quickActionChip(
-                  context,
-                  icon: AppIcons.movies,
-                  label: 'Browse Movies',
-                  onTap: () => Get.toNamed(AppRoutes.movies),
-                  colorScheme: colorScheme,
-                ),
-                _quickActionChip(
-                  context,
-                  icon: AppIcons.series,
-                  label: 'Browse Series',
-                  onTap: () => Get.toNamed(AppRoutes.series),
-                  colorScheme: colorScheme,
-                ),
-                _quickActionChip(
-                  context,
-                  icon: AppIcons.search,
-                  label: 'Search',
-                  onTap: () => Get.toNamed(AppRoutes.search),
-                  colorScheme: colorScheme,
-                ),
-                _quickActionChip(
-                  context,
-                  icon: AppIcons.live,
-                  label: 'TV Guide',
-                  onTap: () {},
-                  colorScheme: colorScheme,
-                ),
-                _quickActionChip(
-                  context,
-                  icon: AppIcons.downloads,
-                  label: 'Downloads',
-                  onTap: () {},
-                  colorScheme: colorScheme,
-                ),
-                _quickActionChip(
-                  context,
-                  icon: AppIcons.providers,
-                  label: 'Media Sources',
-                  onTap: () => Get.toNamed(AppRoutes.settings),
-                  colorScheme: colorScheme,
-                ),
-                _quickActionChip(
-                  context,
-                  icon: AppIcons.settings,
-                  label: 'Settings',
-                  onTap: () => Get.toNamed(AppRoutes.settings),
-                  colorScheme: colorScheme,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _quickActionChip(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required ColorScheme colorScheme,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        margin: const EdgeInsets.only(right: AppSpacing.sm),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: AppRadius.large,
-          border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.08),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: colorScheme.primary, size: 18.0),
-            AppSpacing.widthXS,
-            Text(
-              label,
-              style: AppTypography.getCaption(color: colorScheme.onSurface),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProviderSummaryCard(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: AppCard(
-        onTap: () => Get.toNamed(AppRoutes.settings),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                AppIcons.providers,
-                color: colorScheme.primary,
-                size: 24.0,
-              ),
-            ),
-            AppSpacing.widthMD,
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Media Sources',
-                    style: AppTypography.getTitle(color: colorScheme.onSurface),
-                  ),
-                  AppSpacing.heightXXS,
-                  Text(
-                    '${controller.providerCount.value} Connected',
-                    style: AppTypography.getCaption(
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Text(
-              'Manage',
-              style: AppTypography.getCaption(color: colorScheme.primary),
-            ),
-            Icon(
-              AppIcons.forward,
-              size: 16.0,
-              color: colorScheme.onSurface.withValues(alpha: 0.5),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildContinueWatchingSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Continue Watching',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          controller.continueWatching.isEmpty
-              ? _buildEmptySection(
-                  context,
-                  'No continue watching items',
-                  'Start watching content to see it here.',
-                  colorScheme,
-                )
-              : SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: controller.continueWatching.length,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    itemBuilder: (context, index) {
-                      final item = controller.continueWatching[index];
-                      return _buildMediaCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 160,
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLiveTVSection(BuildContext context, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Live TV',
-            trailing: TextButton(
-              onPressed: () => Get.toNamed(AppRoutes.liveTV),
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          controller.liveChannels.isEmpty
-              ? _buildEmptySection(
-                  context,
-                  'No channels available',
-                  'Add a provider to start watching Live TV.',
-                  colorScheme,
-                  actionLabel: 'Add Provider',
-                  onAction: () => Get.toNamed(AppRoutes.providerManager),
-                )
-              : SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: controller.liveChannels.length,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    itemBuilder: (context, index) {
-                      final item = controller.liveChannels[index];
-                      return _buildMediaCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 160,
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMoviesSection(BuildContext context, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Movies',
-            trailing: TextButton(
-              onPressed: () => Get.toNamed(AppRoutes.movies),
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          controller.movies.isEmpty
-              ? _buildEmptySection(
-                  context,
-                  'No movies yet',
-                  'Add a provider with movie content to see it here.',
-                  colorScheme,
-                )
-              : SizedBox(
-                  height: 220,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: controller.movies.length,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    itemBuilder: (context, index) {
-                      final item = controller.movies[index];
-                      return _buildMediaCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 140,
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSeriesSection(BuildContext context, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Series',
-            trailing: TextButton(
-              onPressed: () => Get.toNamed(AppRoutes.series),
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          controller.series.isEmpty
-              ? _buildEmptySection(
-                  context,
-                  'No series yet',
-                  'Add a provider with series content to see it here.',
-                  colorScheme,
-                )
-              : SizedBox(
-                  height: 220,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: controller.series.length,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    itemBuilder: (context, index) {
-                      final item = controller.series[index];
-                      return _buildMediaCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 140,
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTVGuideSection(BuildContext context, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'TV Guide',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          _buildGuidePreviewCard(context, colorScheme),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGuidePreviewCard(BuildContext context, ColorScheme colorScheme) {
-    return AppCard(
-      onTap: () {},
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 120,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              borderRadius: AppRadius.medium,
-            ),
-            child: Center(
-              child: Icon(
-                AppIcons.live,
-                size: 48.0,
-                color: colorScheme.primary.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
-          AppSpacing.heightSM,
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Currently Airing',
-                  style: AppTypography.getTitle(color: colorScheme.onSurface),
-                ),
-                AppSpacing.heightXXS,
-                Text(
-                  'No programs available',
-                  style: AppTypography.getCaption(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          AppSpacing.heightSM,
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-            child: Row(
-              children: [
-                _buildGuideTimeSlot('Now', colorScheme),
-                AppSpacing.widthSM,
-                _buildGuideTimeSlot('Next', colorScheme),
-                AppSpacing.widthSM,
-                _buildGuideTimeSlot('Later', colorScheme),
-              ],
-            ),
-          ),
-          AppSpacing.heightMD,
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGuideTimeSlot(String label, ColorScheme colorScheme) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.md,
-        vertical: AppSpacing.xs,
-      ),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest,
-        borderRadius: AppRadius.small,
-      ),
-      child: Text(
-        label,
-        style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant),
-      ),
-    );
-  }
-
-  Widget _buildFavoritesSection(BuildContext context, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Favorites',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          controller.favorites.isEmpty
-              ? _buildEmptySection(
-                  context,
-                  'No favorites yet',
-                  'Add favorites from Live TV, Movies, or Series.',
-                  colorScheme,
-                )
-              : SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: controller.favorites.length,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    itemBuilder: (context, index) {
-                      final item = controller.favorites[index];
-                      return _buildMediaCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 160,
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentlyAddedSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Recently Added',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          controller.recentlyAdded.isEmpty
-              ? _buildEmptySection(
-                  context,
-                  'No recently added content',
-                  'Add a provider to discover new content.',
-                  colorScheme,
-                )
-              : SizedBox(
-                  height: 200,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: controller.recentlyAdded.length,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    itemBuilder: (context, index) {
-                      final item = controller.recentlyAdded[index];
-                      return _buildMediaCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 140,
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRecentlyPlayedSection(
-    BuildContext context,
-    ColorScheme colorScheme,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Recently Played',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          controller.recentlyPlayed.isEmpty
-              ? _buildEmptySection(
-                  context,
-                  'No recently played content',
-                  'Your playback history will appear here.',
-                  colorScheme,
-                )
-              : SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: controller.recentlyPlayed.length,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    itemBuilder: (context, index) {
-                      final item = controller.recentlyPlayed[index];
-                      return _buildMediaCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 160,
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDownloadsSection(BuildContext context, ColorScheme colorScheme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SectionHeader(
-            title: 'Downloads',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
-            ),
-          ),
-          AppSpacing.heightXS,
-          controller.downloads.isEmpty
-              ? _buildEmptySection(
-                  context,
-                  'No downloads yet',
-                  'Download content to watch offline.',
-                  colorScheme,
-                )
-              : SizedBox(
-                  height: 180,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: controller.downloads.length,
-                    padding: const EdgeInsets.only(right: AppSpacing.lg),
-                    itemBuilder: (context, index) {
-                      final item = controller.downloads[index];
-                      return _buildMediaCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 140,
-                      );
-                    },
-                  ),
-                ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMediaCard(
-    BuildContext context,
-    MediaItem item,
-    ColorScheme colorScheme, {
-    required double width,
-  }) {
-    final poster = item.poster ?? item.thumbnail;
-    return GestureDetector(
-      onTap: () => _openItem(item),
-      child: Container(
-        width: width,
-        margin: const EdgeInsets.only(right: AppSpacing.md),
-        child: AppCard(
-          padding: EdgeInsets.zero,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: ClipRRect(
-                  borderRadius: AppRadius.medium,
-                  child: Container(
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                    ),
-                    child: poster != null && poster.isNotEmpty
-                      ? Image.network(
-                          poster,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Center(
-                            child: Icon(
-                              _getMediaIcon(item),
-                              size: 32.0,
-                              color: colorScheme.primary.withValues(alpha: 0.3),
-                            ),
-                          ),
-                        )
-                      : Center(
-                          child: Icon(
-                            _getMediaIcon(item),
-                            size: 32.0,
-                            color: colorScheme.primary.withValues(alpha: 0.3),
-                          ),
-                        ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(AppSpacing.sm),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      item.title,
-                      style: AppTypography.getCaption(
-                        color: colorScheme.onSurface,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (item.subtitle != null) ...[
-                      AppSpacing.heightXXS,
-                      Text(
-                        item.subtitle ?? '',
-                        style: AppTypography.getCaption(
-                          color: colorScheme.onSurfaceVariant,
-                          scale: 0.8,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  IconData _getMediaIcon(MediaItem item) {
-    switch (item.mediaType) {
-      case MediaType.movie:
-        return AppIcons.movies;
-      case MediaType.series:
-        return AppIcons.series;
-      default:
-        return AppIcons.liveTv;
+  void _openItem(MediaItem item) {
+    if (item.mediaType == MediaType.series) {
+      _openSeries(item);
+    } else if (item.mediaType == MediaType.movie) {
+      _openMovie(item);
+    } else {
+      _playChannel(item);
     }
   }
 
-  void _openItem(MediaItem item) {
+  void _openMovie(MediaItem item) {
     Get.toNamed(
       AppRoutes.fullscreenPlayer,
       arguments: {
@@ -906,49 +480,20 @@ class HomePage extends GetView<HomeController> {
     );
   }
 
-  Widget _buildEmptySection(
-    BuildContext context,
-    String title,
-    String description,
-    ColorScheme colorScheme, {
-    String? actionLabel,
-    VoidCallback? onAction,
-  }) {
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        children: [
-          Icon(
-            AppIcons.empty,
-            size: 40.0,
-            color: colorScheme.onSurface.withValues(alpha: 0.3),
-          ),
-          AppSpacing.heightSM,
-          Text(
-            title,
-            style: AppTypography.getTitle(
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
-            ),
-            textAlign: TextAlign.center,
-          ),
-          AppSpacing.heightXS,
-          Text(
-            description,
-            style: AppTypography.getCaption(
-              color: colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          if (actionLabel != null && onAction != null) ...[
-            AppSpacing.heightMD,
-            FilledButton.icon(
-              onPressed: onAction,
-              icon: const Icon(AppIcons.add, size: 16),
-              label: Text(actionLabel),
-            ),
-          ],
-        ],
-      ),
+  void _openSeries(MediaItem item) {
+    Get.toNamed(
+      AppRoutes.seriesDetails,
+      arguments: {'item': item},
+    );
+  }
+
+  void _playChannel(MediaItem item) {
+    Get.toNamed(
+      AppRoutes.fullscreenPlayer,
+      arguments: {
+        'items': [item],
+        'currentId': item.id,
+      },
     );
   }
 }

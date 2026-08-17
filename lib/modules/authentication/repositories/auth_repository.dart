@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/errors/exceptions.dart';
 import '../../../core/logging/logging_service.dart';
 import '../../../data/services/firebase_service.dart';
+import '../constants/auth_constants.dart';
 import '../models/user_model.dart';
 import '../services/auth_local_storage_service.dart';
 import '../services/auth_service.dart';
@@ -173,14 +174,18 @@ class AuthRepository extends GetxService {
   }
 
   Future<UserModel?> tryAutoLogin() async {
-    if (!_localStorage.isSessionValid()) {
-      return null;
-    }
     try {
-      return await _authService.getCachedCurrentUser();
+      final user = await _authService.getCachedCurrentUser();
+      if (user != null) {
+        // Refresh local session expiry for seamless subsequent launches
+        await setSessionExpiry(DateTime.now().add(AuthConstants.sessionDuration));
+        return user;
+      }
+      if (_localStorage.isSessionValid()) {
+        return await _authService.getCurrentUser();
+      }
+      return null;
     } catch (e) {
-      // Never clear a valid local session on a transient check failure; the
-      // next launch can retry offline-first.
       _logger.warning('Auto-login check failed: $e', tag: 'AuthRepository', error: e);
       return null;
     }
