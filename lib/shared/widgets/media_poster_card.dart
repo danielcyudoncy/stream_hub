@@ -5,7 +5,7 @@ import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/media_item.dart';
-import 'app_card.dart';
+import 'tv_focusable.dart';
 
 class MediaPosterCard extends StatelessWidget {
   final MediaItem item;
@@ -22,61 +22,82 @@ class MediaPosterCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final poster = item.poster ?? item.thumbnail;
 
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
-      child: AppCard(
-        padding: EdgeInsets.zero,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: AppRadius.medium,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                  ),
-                  child: poster != null && poster.isNotEmpty
-                      ? Image.network(
-                          poster,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              _buildPlaceholder(context, colorScheme),
-                        )
-                      : _buildPlaceholder(context, colorScheme),
+      borderRadius: AppRadius.medium,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: AppRadius.medium,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: colorScheme.surfaceContainerHighest,
                 ),
+                child: poster != null && poster.isNotEmpty
+                    ? Image.network(
+                        poster,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildPlaceholder(context, colorScheme),
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Center(
+                            child: SizedBox(
+                              width: 24.0,
+                              height: 24.0,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.0,
+                                value: progress.expectedTotalBytes != null
+                                    ? progress.cumulativeBytesLoaded /
+                                        progress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                    : _buildPlaceholder(context, colorScheme),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.sm),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    item.title,
-                    style: AppTypography.getCaption(
-                      color: colorScheme.onSurface,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (item.subtitle != null) ...[
-                    AppSpacing.heightXXS,
-                    Text(
-                      item.subtitle!,
-                      style: AppTypography.getCaption(
-                        color: colorScheme.onSurfaceVariant,
-                        scale: 0.8,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
+          ),
+          AppSpacing.heightXS,
+          Text(
+            item.title,
+            style: AppTypography.getCaption(
+              color: colorScheme.onSurface,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (item.rating != null && item.rating! > 0) ...[
+            AppSpacing.heightXXS,
+            Text(
+              '⭐ ${item.rating!.toStringAsFixed(1)}',
+              style: AppTypography.getCaption(
+                color: colorScheme.onSurfaceVariant,
+                scale: 0.8,
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ] else if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
+            AppSpacing.heightXXS,
+            Text(
+              item.subtitle!,
+              style: AppTypography.getCaption(
+                color: colorScheme.onSurfaceVariant,
+                scale: 0.8,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
-        ),
+        ],
       ),
     );
   }

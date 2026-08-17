@@ -1,10 +1,7 @@
 // test/auth/auth_controller_playlist_sync_test.dart
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
-import 'package:hive/hive.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/media_source.dart';
@@ -23,6 +20,21 @@ import 'package:stream_hub/modules/authentication/auth_controller.dart';
 import 'package:stream_hub/modules/authentication/sync_screen_page.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
+
+class _FakeDatabaseService extends DatabaseService {}
+
+class _FakeProviderRepository extends ProviderRepository {
+  final List<ProviderModel> _providers = [];
+
+  @override
+  Future<List<ProviderModel>> getAllProviders() async => List.of(_providers);
+
+  @override
+  Future<ProviderModel> createProvider(ProviderModel provider) async {
+    _providers.add(provider);
+    return provider;
+  }
+}
 
 class _FakeSyncService extends ProviderSyncService {
   int callCount = 0;
@@ -120,27 +132,17 @@ class _FakeCatalogRepository implements CatalogRepository {
 }
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() {
+    Get.testMode = true;
+    Get.put(LoggingService(), permanent: true);
+    Get.put<DatabaseService>(_FakeDatabaseService(), permanent: true);
+  });
+
+  tearDown(() {
+    Get.reset();
+  });
 
   group('AuthController auto sync', () {
-    late Directory tempDir;
-
-    setUp(() async {
-      Get.reset();
-      tempDir = await Directory.systemTemp.createTemp('auth_sync_test');
-      Hive.init(tempDir.path);
-      Get.put(LoggingService(), permanent: true);
-      final db = DatabaseService();
-      Get.put(db, permanent: true);
-      await db.init();
-    });
-
-    tearDown(() async {
-      Get.reset();
-      await Hive.close();
-      await tempDir.delete(recursive: true);
-    });
-
     test('uses the provider sync service for enabled providers', () async {
       final enabledProvider = ProviderModel(
         id: 'provider-1',
@@ -153,12 +155,12 @@ void main() {
         status: ProviderStatus.inactive,
       );
 
-      final repo = ProviderRepository();
+      final repo = _FakeProviderRepository();
       await repo.createProvider(enabledProvider);
-      Get.put<ProviderRepository>(repo, permanent: true);
+      Get.put<ProviderRepository>(repo);
 
       final fakeSyncService = _FakeSyncService(repository: repo);
-      Get.put<ProviderSyncService>(fakeSyncService, permanent: true);
+      Get.put<ProviderSyncService>(fakeSyncService);
 
       final controller = AuthController(repository: null);
       await controller.triggerAutomaticPlaylistSync();
@@ -182,23 +184,22 @@ void main() {
           status: ProviderStatus.inactive,
         );
 
-        final repo = ProviderRepository();
+        final repo = _FakeProviderRepository();
         await repo.createProvider(enabledProvider);
-        Get.put<ProviderRepository>(repo, permanent: true);
+        Get.put<ProviderRepository>(repo);
 
         final fakeSyncService = _FakeSyncService(repository: repo);
-        Get.put<ProviderSyncService>(fakeSyncService, permanent: true);
+        Get.put<ProviderSyncService>(fakeSyncService);
 
         Get.put<AuthController>(
           AuthController(repository: null),
-          permanent: true,
         );
 
         await tester.pumpWidget(
           GetMaterialApp(
             initialRoute: AppRoutes.syncScreen,
             getPages: [
-              GetPage(name: AppRoutes.syncScreen, page: () => SyncScreenPage()),
+              GetPage(name: AppRoutes.syncScreen, page: () => const SyncScreenPage()),
               GetPage(
                 name: AppRoutes.home,
                 page: () => const Scaffold(body: Text('Home')),
@@ -212,7 +213,11 @@ void main() {
 
         expect(Get.currentRoute, AppRoutes.syncScreen);
         expect(find.textContaining('Sync complete'), findsOneWidget);
-        expect(find.textContaining('sources synced'), findsOneWidget);
+        expect(find.text('1 of 1 sources synced'), findsOneWidget);
+
+        await tester.pump(const Duration(milliseconds: 1600));
+        await tester.pump();
+        expect(Get.currentRoute, AppRoutes.home);
       },
     );
   });

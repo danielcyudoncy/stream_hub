@@ -26,17 +26,22 @@ class EmptyLibrary extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.xxl),
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.md,
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               icon,
-              size: 72.0,
+              size: 56.0,
               color: colorScheme.onSurface.withValues(alpha: 0.2),
             ),
-            AppSpacing.heightLG,
+            AppSpacing.heightMD,
             Text(
               title,
               style: AppTypography.getHeadline(
@@ -55,7 +60,7 @@ class EmptyLibrary extends StatelessWidget {
               ),
             ],
             if (actionLabel != null && onAction != null) ...[
-              AppSpacing.heightLG,
+              AppSpacing.heightMD,
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
@@ -71,7 +76,7 @@ class EmptyLibrary extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.lg,
-                        vertical: AppSpacing.md,
+                        vertical: AppSpacing.sm,
                       ),
                       child: Text(
                         actionLabel!,
