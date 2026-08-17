@@ -18,6 +18,9 @@ class LiveTVBinding extends Bindings {
             mediaEngine: Get.find<MediaEngine>(),
             mediaLibrary: Get.find<MediaLibrary>(),
             catalogRepository: Get.find<CatalogRepository>(),
+            favoriteRepository: Get.isRegistered<FavoriteRepository>()
+                ? Get.find<FavoriteRepository>()
+                : null,
           ));
     }
     if (!Get.isRegistered<LiveTVController>()) {
@@ -35,6 +38,9 @@ class LiveTVBinding extends Bindings {
             mediaEngine: Get.find<MediaEngine>(),
             mediaLibrary: Get.find<MediaLibrary>(),
             catalogRepository: Get.find<CatalogRepository>(),
+            favoriteRepository: Get.isRegistered<FavoriteRepository>()
+                ? Get.find<FavoriteRepository>()
+                : null,
           ));
     }
     if (!Get.isRegistered<FavoritesController>()) {
@@ -52,6 +58,9 @@ class LiveTVBinding extends Bindings {
             mediaEngine: Get.find<MediaEngine>(),
             mediaLibrary: Get.find<MediaLibrary>(),
             catalogRepository: Get.find<CatalogRepository>(),
+            favoriteRepository: Get.isRegistered<FavoriteRepository>()
+                ? Get.find<FavoriteRepository>()
+                : null,
           ));
     }
     if (!Get.isRegistered<LiveTVLibraryController>()) {
@@ -59,6 +68,9 @@ class LiveTVBinding extends Bindings {
             mediaEngine: Get.find<MediaEngine>(),
             mediaLibrary: Get.find<MediaLibrary>(),
             catalogRepository: Get.find<CatalogRepository>(),
+            favoriteRepository: Get.isRegistered<FavoriteRepository>()
+                ? Get.find<FavoriteRepository>()
+                : null,
           ));
     }
   }

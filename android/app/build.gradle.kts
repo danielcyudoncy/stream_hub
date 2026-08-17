@@ -61,6 +61,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer-hls:$media3")
     implementation("androidx.media3:media3-exoplayer-dash:$media3")
     implementation("androidx.media3:media3-exoplayer-rtsp:$media3")
+    implementation("androidx.media3:media3-extractor:$media3")
 }
 
 flutter {

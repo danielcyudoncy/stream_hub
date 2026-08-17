@@ -5,6 +5,7 @@ import 'package:stream_hub/core/media/enums/media_type.dart';
 import '../../../data/models/category.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/repositories/catalog_repository.dart';
+import '../../../data/repositories/favorite_repository.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
@@ -12,12 +13,14 @@ class CategoryController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
+  final FavoriteRepository? favoriteRepository;
   StreamSubscription? _catalogSubscription;
 
   CategoryController({
     required this.mediaEngine,
     required this.mediaLibrary,
     required this.catalogRepository,
+    this.favoriteRepository,
   });
 
   final RxList<Category> categories = <Category>[].obs;
@@ -67,7 +70,12 @@ class CategoryController extends GetxController {
       );
 
       if (categories.isNotEmpty) {
-        selectCategory(categories.first.id);
+        if (selectedCategoryId.value.isEmpty ||
+            !categories.any((c) => c.id == selectedCategoryId.value)) {
+          selectCategory(categories.first.id);
+        } else {
+          selectCategory(selectedCategoryId.value);
+        }
       }
     } catch (e) {
       // Log error
@@ -89,13 +97,32 @@ class CategoryController extends GetxController {
     );
 
     if (category.id.isNotEmpty) {
+      final favList = await favoriteRepository?.getAll() ?? [];
+      final favIds = favList.map((e) => e.id).toSet();
+
       final allItems = await catalogRepository.getAllItems();
       selectedCategoryChannels.assignAll(
-        allItems.where((item) => item.genres.contains(category.name)).toList(),
+        allItems
+            .where((item) => item.genres.contains(category.name))
+            .map((item) => item.copyWith(favorite: favIds.contains(item.id)))
+            .toList(),
       );
     } else {
       selectedCategoryChannels.clear();
     }
+  }
+
+  Future<void> toggleFavorite(MediaItem item) async {
+    if (favoriteRepository == null) {
+      _loadCategories();
+      return;
+    }
+    if (item.favorite) {
+      await favoriteRepository!.remove(item.id);
+    } else {
+      await favoriteRepository!.add(item.copyWith(favorite: true));
+    }
+    await selectCategory(selectedCategoryId.value);
   }
 
   @override

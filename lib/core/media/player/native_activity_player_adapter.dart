@@ -27,8 +27,8 @@ import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
 ///
 /// This adapter instead launches [NativePlayerActivity] (registered through the
 /// `stream_hub/native_player_launch` channel), a plain Android Activity hosting
-/// ExoPlayer + SurfaceView. The video is an ordinary window surface composited
-/// by SurfaceFlinger with no Flutter involvement, which is the only path proven
+/// ExoPlayer + TextureView. The video is an ordinary window surface composited
+/// by Android with no Flutter involvement, which is the only path proven
 /// to display video on the target device class.
 ///
 /// State flows back through the `stream_hub/native_player_events` MethodChannel,
@@ -47,6 +47,7 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
 
   bool _initialized = false;
   bool _disposed = false;
+  bool _inPip = false;
 
   int _videoWidth = 0;
   int _videoHeight = 0;
@@ -56,6 +57,7 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
   final _bufferController = StreamController<Duration>.broadcast();
   final _errorController = StreamController<String>.broadcast();
   final _subtitleController = StreamController<String>.broadcast();
+  final _pipController = StreamController<bool>.broadcast();
 
   PlaybackState _currentState = PlaybackState.idle;
   Duration _currentPosition = Duration.zero;
@@ -72,6 +74,11 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
 
   /// True once the native Activity has reported decoded video dimensions.
   bool get hasVideoFrames => _videoWidth > 0 && _videoHeight > 0;
+
+  /// True when the native player is currently in Picture-in-Picture mode.
+  bool get isInPip => _inPip;
+
+  Stream<bool> get pipStream => _pipController.stream;
 
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.nativeActivity;
@@ -94,12 +101,6 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
 
   /// Registers the native event handler. Idempotent and safe to call again
   /// before every launch.
-  ///
-  /// Must run BEFORE [load]/[playSession] launch the Activity: NativePlayerActivity
-  /// starts emitting state/position events as soon as it starts, and events sent
-  /// to an unregistered MethodChannel are dropped silently. If that happened the
-  /// engine would stay in `loading` forever even though the video is playing.
-  /// Registering here makes launch order independent of engine initialization.
   void _registerEventListener() {
     _eventsChannel.setMethodCallHandler(_onNativeEvent);
   }
@@ -112,10 +113,14 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
       throw Exception('Invalid stream URL: $url');
     }
     _registerEventListener();
+    final isLive = session.metadata.isLive;
     await _launch(
       url,
       session.stream.headers ?? const <String, String>{},
       title: session.metadata.title ?? session.mediaItem.title,
+      channels: _cachedChannels,
+      channelIndex: _cachedChannelIndex,
+      isLive: isLive,
     );
   }
 
@@ -143,19 +148,58 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
       headers['Cookie'] = CookieManager.serializeCookies(session.cookies);
     }
     _registerEventListener();
-    await _launch(url, headers, title: title);
+    final isLive =
+        !session.supportsSeeking || (session.metadata['isLive'] == true);
+    await _launch(
+      url,
+      headers,
+      title: title,
+      channels: _cachedChannels,
+      channelIndex: _cachedChannelIndex,
+      isLive: isLive,
+    );
+  }
+
+  List<Map<String, dynamic>>? _cachedChannels;
+  int _cachedChannelIndex = -1;
+
+  void Function()? onNextChannelRequested;
+  void Function()? onPreviousChannelRequested;
+  void Function(int index, String? channelId)? onSwitchChannelRequested;
+  void Function()? onFetchChannelsRequested;
+
+  Future<void> updateChannelList(
+    List<Map<String, dynamic>> channels, {
+    int currentIndex = -1,
+  }) async {
+    _cachedChannels = channels;
+    if (currentIndex >= 0) {
+      _cachedChannelIndex = currentIndex;
+    }
+    await _invoke('setChannelList', <String, dynamic>{
+      'channels': channels,
+      if (currentIndex >= 0) 'channelIndex': currentIndex,
+    });
   }
 
   Future<void> _launch(
     String url,
     Map<String, String> headers, {
     String? title,
+    List<Map<String, dynamic>>? channels,
+    int channelIndex = -1,
+    bool isLive = false,
   }) async {
+    final ch = channels ?? _cachedChannels;
+    final idx = channelIndex >= 0 ? channelIndex : _cachedChannelIndex;
     try {
       await _launchChannel.invokeMethod<void>('launch', <String, dynamic>{
         'url': url,
         'headers': headers,
         if (title != null && title.isNotEmpty) 'title': title,
+        if (ch != null && ch.isNotEmpty) 'channels': ch,
+        if (idx >= 0) 'channelIndex': idx,
+        'isLive': isLive,
       });
       _logger.info('Native player launched: $url', tag: 'Player');
     } on PlatformException catch (e) {
@@ -176,11 +220,6 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
   }
 
   Future<void> _onNativeEvent(MethodCall call) async {
-    // A swapped-out/disposed adapter must ignore late events. dispose() no
-    // longer nulls the shared event-channel handler (a fresh adapter replaces
-    // it on every launch), so stale events from an activity being torn down
-    // can still arrive here — silently drop them instead of re-adding to a
-    // closed controller.
     if (_disposed) return;
     switch (call.method) {
       case 'onState':
@@ -203,6 +242,34 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
         final args = call.arguments as Map? ?? const <String, dynamic>{};
         _videoWidth = (args['width'] as num?)?.toInt() ?? 0;
         _videoHeight = (args['height'] as num?)?.toInt() ?? 0;
+      case 'onPipChanged':
+        final args = call.arguments as Map? ?? const <String, dynamic>{};
+        _inPip = args['inPip'] as bool? ?? false;
+        if (_pipController.hasListener) {
+          _pipController.add(_inPip);
+        }
+      case 'onNextChannelRequested':
+        onNextChannelRequested?.call();
+      case 'onPreviousChannelRequested':
+        onPreviousChannelRequested?.call();
+      case 'onFetchChannelsRequested':
+        onFetchChannelsRequested?.call();
+      case 'onChannelChanged':
+        final args = call.arguments as Map? ?? const <String, dynamic>{};
+        final index = (args['index'] as num?)?.toInt() ?? -1;
+        final channelId = args['channelId']?.toString();
+        if (index >= 0) _cachedChannelIndex = index;
+        _logger.info(
+          'Native player channel changed: ${args['name']} (index: $index)',
+          tag: 'Player',
+        );
+        onSwitchChannelRequested?.call(index, channelId);
+      case 'onResolveChannelRequested':
+        final args = call.arguments as Map? ?? const <String, dynamic>{};
+        final index = (args['index'] as num?)?.toInt() ?? -1;
+        final channelId = args['channelId']?.toString();
+        if (index >= 0) _cachedChannelIndex = index;
+        onSwitchChannelRequested?.call(index, channelId);
       case 'onError':
         final args = call.arguments as Map? ?? const <String, dynamic>{};
         final message = args['message']?.toString() ?? 'Native player error.';
@@ -258,10 +325,17 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
   }
 
   @override
-  Future<void> next() => stop();
+  Future<void> next() => _invoke('nextChannel');
 
   @override
-  Future<void> previous() => stop();
+  Future<void> previous() => _invoke('previousChannel');
+
+  /// Triggers Picture-in-Picture mode on Android 8.0+.
+  Future<void> enterPictureInPicture() => _invoke('enterPip');
+
+  /// Switches to a specific channel index in the native player.
+  Future<void> switchChannel(int index) =>
+      _invoke('switchChannel', {'index': index});
 
   @override
   Future<void> retry() async {
@@ -359,18 +433,13 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
-    // NOTE: deliberately do NOT clear the shared events-channel handler here.
-    // The channel is a single named channel shared across adapter instances;
-    // clearing it here can clobber a newer adapter's handler that is already
-    // playing (async dispose from a closed route racing the next session).
-    // Stale events are dropped by the _disposed guard in _onNativeEvent, and a
-    // fresh adapter replaces the handler on every launch.
     await _invoke('stop');
     await _stateController.close();
     await _positionController.close();
     await _bufferController.close();
     await _errorController.close();
     await _subtitleController.close();
+    await _pipController.close();
     _logger.info('NativeActivityPlayerAdapter disposed', tag: 'Player');
   }
 

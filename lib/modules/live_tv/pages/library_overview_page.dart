@@ -5,6 +5,7 @@ import '../../../core/media/enums/media_type.dart';
 import '../controllers/live_tv_library_controller.dart';
 import '../../../core/utils/responsive_helper.dart';
 
+import '../../../core/routes/app_routes.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
@@ -100,19 +101,18 @@ class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final item = items[index];
-                    return GestureDetector(
+                    return ChannelCard(
+                      channel: item,
                       onTap: () {
                         if (item.mediaType == MediaType.channel) {
                           Get.toNamed(
-                            '/channel-details',
+                            AppRoutes.channelDetails,
                             parameters: {'channelId': item.id},
                           );
                         }
                       },
-                      child: ChannelCard(
-                        channel: item,
-                        showFavoriteButton: true,
-                      ),
+                      onFavorite: () => controller.toggleFavorite(item),
+                      showFavoriteButton: true,
                     );
                   },
                   childCount: items.length,

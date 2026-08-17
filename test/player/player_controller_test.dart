@@ -318,5 +318,56 @@ void main() {
 
       await controller.playbackController.engine.dispose();
     });
+
+    test('switchToNextChannel and switchToPreviousChannel continuously cycle through channels',
+        () async {
+      final adapter = _FakePlayerAdapter();
+      final repository = _FakeStreamRepository();
+      final controller = PlayerController(
+        adapter: adapter,
+        streamRepository: repository,
+      );
+
+      final item1 = MediaItem(
+        id: 'chan-1',
+        providerId: 'p1',
+        providerType: MediaSourceType.xtream,
+        mediaType: MediaType.channel,
+        title: 'Channel 1',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+      final item2 = MediaItem(
+        id: 'chan-2',
+        providerId: 'p1',
+        providerType: MediaSourceType.xtream,
+        mediaType: MediaType.channel,
+        title: 'Channel 2',
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      controller.setChannelList([item1, item2], currentId: item1.id);
+      await pumpEventQueue();
+
+      expect(adapter.playedSessions.last.mediaItemId, 'chan-1');
+
+      // Next -> Channel 2
+      await controller.switchToNextChannel();
+      await pumpEventQueue();
+      expect(adapter.playedSessions.last.mediaItemId, 'chan-2');
+
+      // Next -> wraps to Channel 1
+      await controller.switchToNextChannel();
+      await pumpEventQueue();
+      expect(adapter.playedSessions.last.mediaItemId, 'chan-1');
+
+      // Previous -> wraps to Channel 2
+      await controller.switchToPreviousChannel();
+      await pumpEventQueue();
+      expect(adapter.playedSessions.last.mediaItemId, 'chan-2');
+
+      await controller.playbackController.engine.dispose();
+    });
   });
 }
