@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import '../../../data/models/category.dart';
@@ -12,6 +14,9 @@ class FavoritesController extends GetxController {
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
   final FavoriteRepository? favoriteRepository;
+
+  StreamSubscription? _favoriteSubscription;
+  StreamSubscription? _catalogSubscription;
 
   FavoritesController({
     required this.mediaEngine,
@@ -30,6 +35,19 @@ class FavoritesController extends GetxController {
   void onInit() {
     super.onInit();
     _loadFavorites();
+    if (favoriteRepository != null) {
+      _favoriteSubscription =
+          favoriteRepository!.watchUpdates().listen((_) => _loadFavorites());
+    }
+    _catalogSubscription =
+        catalogRepository.watchUpdates().listen((_) => _loadFavorites());
+  }
+
+  @override
+  void onClose() {
+    _favoriteSubscription?.cancel();
+    _catalogSubscription?.cancel();
+    super.onClose();
   }
 
   Future<void> _loadFavorites() async {
@@ -42,9 +60,19 @@ class FavoritesController extends GetxController {
           .toList();
 
       final favIds = favItems.map((f) => f.id).toSet();
-      favoriteChannels.assignAll(
-        channelItems.where((item) => favIds.contains(item.id)).toList(),
-      );
+
+      final favs = channelItems
+          .where((item) => favIds.contains(item.id) || item.favorite)
+          .map((item) => item.copyWith(favorite: true))
+          .toList();
+
+      for (final f in favItems) {
+        if (!favs.any((item) => item.id == f.id)) {
+          favs.add(f.copyWith(favorite: true));
+        }
+      }
+
+      favoriteChannels.assignAll(favs);
 
       if (favoriteChannels.isNotEmpty) {
         favoriteChannels.sort(
@@ -84,12 +112,18 @@ class FavoritesController extends GetxController {
 
   Future<void> toggleFavorite(MediaItem item) async {
     if (favoriteRepository == null) return;
-    if (item.favorite) {
+    final isFav = favoriteChannels.any((f) => f.id == item.id) || item.favorite;
+    if (isFav) {
+      favoriteChannels.removeWhere((f) => f.id == item.id);
+      recentlyFavorited.removeWhere((f) => f.id == item.id);
       await favoriteRepository!.remove(item.id);
     } else {
-      await favoriteRepository!.add(item);
+      final updated = item.copyWith(favorite: true);
+      favoriteChannels.add(updated);
+      recentlyFavorited.insert(0, updated);
+      await favoriteRepository!.add(updated);
     }
-    _loadFavorites();
+    _sortFavorites();
   }
 
   void setSort(String sort) {
