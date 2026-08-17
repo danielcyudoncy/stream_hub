@@ -6,6 +6,7 @@ import 'package:stream_hub/core/media/stream_resolver.dart';
 import 'package:stream_hub/core/media/stream_resolvers/m3u_stream_resolver.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
 import '../../../data/models/media_item.dart';
+import '../../../data/models/channel.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../core/media/media_engine.dart';
@@ -43,9 +44,11 @@ class LiveTVController extends GetxController {
   final RxString selectedCountry = ''.obs;
   final RxString selectedResolution = ''.obs;
   final RxString selectedSort = 'alphabetical'.obs;
+  final RxString searchQuery = ''.obs;
   final RxBool showFavoritesOnly = false.obs;
   final RxBool showRecentlyAdded = false.obs;
   final RxBool isLoading = true.obs;
+  final Rxn<MediaItem> featuredChannel = Rxn<MediaItem>();
 
   @override
   void onInit() {
@@ -69,6 +72,16 @@ class LiveTVController extends GetxController {
           .toList();
       channels.assignAll(liveChannels);
       filteredChannels.assignAll(liveChannels);
+
+      if (liveChannels.isNotEmpty) {
+        final currentFeatured = featuredChannel.value;
+        if (currentFeatured == null || !liveChannels.any((c) => c.id == currentFeatured.id)) {
+          final liveCandidate = liveChannels.firstWhereOrNull((c) => c is Channel && c.isLive);
+          featuredChannel.value = liveCandidate ?? liveChannels.first;
+        }
+      } else {
+        featuredChannel.value = null;
+      }
 
       final favList = await favoriteRepository?.getAll() ?? [];
       favorites.assignAll(
@@ -120,6 +133,15 @@ class LiveTVController extends GetxController {
     _applyFilters();
   }
 
+  void setSearchQuery(String query) {
+    searchQuery.value = query;
+    _applyFilters();
+  }
+
+  void setFeaturedChannel(MediaItem channel) {
+    featuredChannel.value = channel;
+  }
+
   void setProvider(String provider) {
     selectedProvider.value = provider;
     _applyFilters();
@@ -157,6 +179,17 @@ class LiveTVController extends GetxController {
 
   void _applyFilters() {
     var result = List<MediaItem>.from(channels);
+
+    if (searchQuery.value.trim().isNotEmpty) {
+      final q = searchQuery.value.trim().toLowerCase();
+      result = result.where((item) {
+        final titleMatch = item.title.toLowerCase().contains(q);
+        final subtitleMatch = item.subtitle != null && item.subtitle!.toLowerCase().contains(q);
+        final genreMatch = item.genres.any((g) => g.toLowerCase().contains(q));
+        final numberMatch = item is Channel && item.number != null && item.number!.toLowerCase().contains(q);
+        return titleMatch || subtitleMatch || genreMatch || numberMatch;
+      }).toList();
+    }
 
     if (selectedCategory.value != 'All Channels') {
       result = result
@@ -234,15 +267,15 @@ class LiveTVController extends GetxController {
 
   Future<void> toggleFavorite(MediaItem item) async {
     if (favoriteRepository == null) {
-      _loadLiveTVData();
+      await _loadLiveTVData();
       return;
     }
     if (item.favorite) {
       await favoriteRepository!.remove(item.id);
     } else {
-      await favoriteRepository!.add(item);
+      await favoriteRepository!.add(item.copyWith(favorite: true));
     }
-    _loadLiveTVData();
+    await _loadLiveTVData();
   }
 
   @override
