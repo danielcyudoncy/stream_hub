@@ -163,81 +163,270 @@ class SearchHubPage extends GetView<SearchHubController> {
       child: Obx(() {
         final selected = controller.selectedFilter.value;
         final query = controller.searchQuery.value;
+        final selectedProviderId = controller.selectedProviderId.value;
+        final selectedProviderName = controller.selectedProviderName.value;
+        final isProviderFiltered = selectedProviderId != 'all';
 
-        return ListView.separated(
+        return ListView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          itemCount: filters.length,
-          separatorBuilder: (_, _) => AppSpacing.widthSM,
-          itemBuilder: (context, index) {
-            final filter = filters[index];
-            final isSelected = selected == filter;
-            final count = _getFilterCount(filter);
-
-            return GestureDetector(
+          children: [
+            // Provider Filter Button
+            GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () => controller.setFilter(filter),
+              onTap: () => _showProviderPicker(context, colorScheme),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
                   vertical: AppSpacing.xs,
                 ),
                 decoration: BoxDecoration(
-                  color: isSelected
-                      ? colorScheme.primary
+                  color: isProviderFiltered
+                      ? colorScheme.primaryContainer
                       : colorScheme.surfaceContainerHighest,
                   borderRadius: AppRadius.large,
                   border: Border.all(
-                    color: isSelected
+                    color: isProviderFiltered
                         ? colorScheme.primary
-                        : colorScheme.outline.withValues(alpha: 0.1),
+                        : colorScheme.outline.withValues(alpha: 0.15),
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      filter,
-                      style: AppTypography.getCaption(
-                        color: isSelected
-                            ? colorScheme.onPrimary
-                            : colorScheme.onSurface,
-                      ).copyWith(
-                        fontWeight:
-                            isSelected ? FontWeight.bold : FontWeight.normal,
+                    Icon(
+                      Icons.dns_rounded,
+                      size: 15.0,
+                      color: isProviderFiltered
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.primary,
+                    ),
+                    const SizedBox(width: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 130),
+                      child: Text(
+                        selectedProviderName,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: AppTypography.getCaption(
+                          color: isProviderFiltered
+                              ? colorScheme.onPrimaryContainer
+                              : colorScheme.onSurface,
+                        ).copyWith(
+                          fontWeight: isProviderFiltered
+                              ? FontWeight.bold
+                              : FontWeight.w600,
+                        ),
                       ),
                     ),
-                    if (query.isNotEmpty && count > 0) ...[
-                      AppSpacing.widthXS,
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6.0,
-                          vertical: 2.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? colorScheme.onPrimary.withValues(alpha: 0.2)
-                              : colorScheme.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10.0),
-                        ),
-                        child: Text(
-                          '$count',
-                          style: AppTypography.getCaption(
-                            color: isSelected
-                                ? colorScheme.onPrimary
-                                : colorScheme.primary,
-                            scale: 0.8,
-                          ).copyWith(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      size: 16.0,
+                      color: isProviderFiltered
+                          ? colorScheme.onPrimaryContainer
+                          : colorScheme.onSurfaceVariant,
+                    ),
                   ],
                 ),
               ),
-            );
-          },
+            ),
+            AppSpacing.widthSM,
+            // Media Type Filters
+            ...filters.map((filter) {
+              final isSelected = selected == filter;
+              final count = _getFilterCount(filter);
+
+              return Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.sm),
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => controller.setFilter(filter),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? colorScheme.primary
+                          : colorScheme.surfaceContainerHighest,
+                      borderRadius: AppRadius.large,
+                      border: Border.all(
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.outline.withValues(alpha: 0.1),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          filter,
+                          style: AppTypography.getCaption(
+                            color: isSelected
+                                ? colorScheme.onPrimary
+                                : colorScheme.onSurface,
+                          ).copyWith(
+                            fontWeight:
+                                isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        if (query.isNotEmpty && count > 0) ...[
+                          AppSpacing.widthXS,
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6.0,
+                              vertical: 2.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? colorScheme.onPrimary.withValues(alpha: 0.2)
+                                  : colorScheme.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10.0),
+                            ),
+                            child: Text(
+                              '$count',
+                              style: AppTypography.getCaption(
+                                color: isSelected
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.primary,
+                                scale: 0.8,
+                              ).copyWith(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ],
         );
       }),
+    );
+  }
+
+  void _showProviderPicker(BuildContext context, ColorScheme colorScheme) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.extraLargeValue)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Filter by Provider',
+                        style: AppTypography.getTitle(color: colorScheme.onSurface)
+                            .copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1),
+                Flexible(
+                  child: SingleChildScrollView(
+                    child: Obx(() {
+                      final selectedId = controller.selectedProviderId.value;
+                      final providers = controller.availableProviders;
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: Icon(
+                              Icons.layers_rounded,
+                              color: selectedId == 'all'
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurfaceVariant,
+                            ),
+                            title: Text(
+                              'All Providers',
+                              style: TextStyle(
+                                fontWeight: selectedId == 'all'
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                                color: colorScheme.onSurface,
+                              ),
+                            ),
+                            subtitle: Text(
+                              'Search across all connected playlists',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                              ),
+                            ),
+                            trailing: selectedId == 'all'
+                                ? Icon(Icons.check_circle,
+                                    color: colorScheme.primary)
+                                : null,
+                            onTap: () {
+                              controller.setProvider('all', 'All Providers');
+                              Navigator.pop(context);
+                            },
+                          ),
+                          ...providers.map((p) {
+                            final isSelected = selectedId == p.id;
+                            return ListTile(
+                              leading: Icon(
+                                Icons.dns_rounded,
+                                color: isSelected
+                                    ? colorScheme.primary
+                                    : colorScheme.onSurfaceVariant,
+                              ),
+                              title: Text(
+                                p.name,
+                                style: TextStyle(
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                  color: colorScheme.onSurface,
+                                ),
+                              ),
+                              subtitle: Text(
+                                p.providerType.displayName,
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: isSelected
+                                  ? Icon(Icons.check_circle,
+                                      color: colorScheme.primary)
+                                  : null,
+                              onTap: () {
+                                controller.setProvider(p.id, p.name);
+                                Navigator.pop(context);
+                              },
+                            );
+                          }),
+                        ],
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

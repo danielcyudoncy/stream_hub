@@ -6,6 +6,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/app_card.dart';
@@ -392,7 +393,15 @@ class LibraryPage extends GetView<LibraryController> {
     ColorScheme colorScheme, {
     required double width,
   }) {
-    final poster = item.poster ?? item.thumbnail;
+    final formattedPoster = ImageUrlFormatter.extractFromMediaItem(item);
+    final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
+        ? item.poster!.trim()
+        : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
+            ? item.thumbnail!.trim()
+            : item.backdrop?.trim());
+    final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
+        ? formattedPoster
+        : rawPoster;
     return GestureDetector(
       onTap: () => _openItem(item),
       child: Container(

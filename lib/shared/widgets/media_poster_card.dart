@@ -4,6 +4,7 @@ import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/image_url_formatter.dart';
 import '../../data/models/media_item.dart';
 import 'tv_focusable.dart';
 
@@ -20,7 +21,15 @@ class MediaPosterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final poster = item.poster ?? item.thumbnail ?? item.backdrop;
+    final formattedPoster = ImageUrlFormatter.extractFromMediaItem(item);
+    final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
+        ? item.poster!.trim()
+        : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
+            ? item.thumbnail!.trim()
+            : item.backdrop?.trim());
+    final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
+        ? formattedPoster
+        : rawPoster;
     final isChannel = item.mediaType == MediaType.channel;
 
     return TvFocusable(

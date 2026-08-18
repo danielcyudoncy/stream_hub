@@ -5,6 +5,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
@@ -63,7 +64,15 @@ class HomeContinueWatchingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final poster = item.backdrop ?? item.poster ?? item.thumbnail;
+    final formattedPoster = ImageUrlFormatter.extractFromMediaItem(item);
+    final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
+        ? item.poster!.trim()
+        : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
+            ? item.thumbnail!.trim()
+            : item.backdrop?.trim());
+    final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
+        ? formattedPoster
+        : rawPoster;
     final progress = _getProgress();
     final subtitleText = _getRemainingOrSubtitle();
 

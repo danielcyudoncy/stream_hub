@@ -231,6 +231,7 @@ class LiveTVController extends GetxController {
     if (selectedProvider.value.isNotEmpty) {
       result = result
           .where((item) =>
+              item.providerId == selectedProvider.value ||
               item.providerType.displayName == selectedProvider.value)
           .toList();
     }
