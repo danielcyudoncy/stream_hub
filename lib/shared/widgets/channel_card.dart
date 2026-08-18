@@ -3,6 +3,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/image_url_formatter.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/channel.dart';
 import 'live_badge.dart';
@@ -32,7 +33,12 @@ class ChannelCard extends StatelessWidget {
     final isChannel = channel is Channel;
     final channelNum = isChannel ? (channel as Channel).number : null;
     final isLive = isChannel ? (channel as Channel).isLive : false;
-    final posterUrl = channel.poster ?? channel.thumbnail;
+    final rawPoster = channel.poster ??
+        channel.thumbnail ??
+        channel.metadata['stream_icon'] ??
+        channel.metadata['streamIcon'] ??
+        channel.metadata['logo'];
+    final posterUrl = ImageUrlFormatter.format(rawPoster, item: channel);
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
 
     return Material(

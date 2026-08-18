@@ -515,7 +515,7 @@ void main() {
       expect(controller.continueWatching.first.title, equals('Interstellar'));
       expect(controller.favorites.length, equals(1));
       expect(controller.featuredHeroItems.length, equals(2));
-      expect(controller.availableGenres, containsAll(['Sci-Fi', 'Action', 'Drama', 'Crime']));
+      expect(controller.availableGenres.map((g) => g.title), containsAll(['Sci-Fi', 'Action', 'Drama', 'Sports']));
     });
 
     test('Calculates greeting correctly', () {

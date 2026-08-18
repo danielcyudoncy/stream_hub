@@ -6,6 +6,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/provider_selector_button.dart';
 import '../controllers/live_tv_controller.dart';
 import '../widgets/live_tv_category_bar.dart';
 import '../widgets/live_tv_channel_card.dart';
@@ -30,6 +31,15 @@ class LiveTVPage extends GetView<LiveTVController> {
     return AppScaffold(
       title: 'Live TV',
       actions: [
+        // Provider Selector
+        Obx(
+          () => ProviderSelectorButton(
+            selectedProviderId: controller.selectedProvider.value,
+            onSelectProvider: (providerId) => controller.setProvider(providerId),
+            sheetTitle: 'Live TV Provider',
+          ),
+        ),
+
         // Sort Filter Dropdown
         Obx(
           () => PopupMenuButton<String>(

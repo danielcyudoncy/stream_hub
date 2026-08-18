@@ -18,7 +18,9 @@ class SeriesController extends GetxController {
   });
 
   final RxBool isLoading = true.obs;
+  final RxString selectedProvider = ''.obs;
   final RxList<MediaItem> series = <MediaItem>[].obs;
+  final List<MediaItem> _allSeries = <MediaItem>[];
   final RxList<MediaItem> featuredSeries = <MediaItem>[].obs;
   final RxList<MediaItem> continueWatching = <MediaItem>[].obs;
   final RxList<MediaItem> trendingSeries = <MediaItem>[].obs;
@@ -33,17 +35,52 @@ class SeriesController extends GetxController {
   void onInit() {
     super.onInit();
     _loadSeries();
+    mediaLibrary.seriesStream.listen((items) {
+      if (items.isNotEmpty) {
+        final sorted = items.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        _allSeries
+          ..clear()
+          ..addAll(sorted);
+        _applyProviderFilter();
+      }
+    });
+  }
+
+  Future<void> reloadSeries() => _loadSeries();
+
+  void setProvider(String providerId) {
+    selectedProvider.value = providerId;
+    _applyProviderFilter();
+  }
+
+  void _applyProviderFilter() {
+    List<MediaItem> filtered;
+    if (selectedProvider.value.isEmpty) {
+      filtered = List.of(_allSeries);
+    } else {
+      filtered = _allSeries.where((item) {
+        return item.providerId == selectedProvider.value ||
+            item.providerType.displayName == selectedProvider.value;
+      }).toList();
+    }
+    series.assignAll(filtered);
+    _computeSections(filtered);
   }
 
   Future<void> _loadSeries() async {
     isLoading.value = true;
     try {
       final allItems = await catalogRepository.getAllItems();
-      final seriesItems =
-          allItems.where((item) => item.mediaType == MediaType.series).toList()
-            ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      series.assignAll(seriesItems);
-      _computeSections(seriesItems);
+      var seriesItems =
+          allItems.where((item) => item.mediaType == MediaType.series).toList();
+      if (seriesItems.isEmpty) {
+        seriesItems = mediaLibrary.getSeries();
+      }
+      seriesItems.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      _allSeries
+        ..clear()
+        ..addAll(seriesItems);
+      _applyProviderFilter();
     } catch (e) {
       // Log error
     } finally {

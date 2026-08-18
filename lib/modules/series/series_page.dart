@@ -9,6 +9,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/provider_selector_button.dart';
 import './widgets/series_content_rail.dart';
 import './widgets/series_hero_section.dart';
 import 'series_controller.dart';
@@ -22,6 +23,13 @@ class SeriesPage extends GetView<SeriesController> {
     return AppScaffold(
       title: 'Series',
       actions: [
+        Obx(
+          () => ProviderSelectorButton(
+            selectedProviderId: controller.selectedProvider.value,
+            onSelectProvider: (providerId) => controller.setProvider(providerId),
+            sheetTitle: 'Series Provider',
+          ),
+        ),
         IconButton(
           icon: const Icon(AppIcons.search),
           onPressed: () => Get.toNamed(AppRoutes.search),
