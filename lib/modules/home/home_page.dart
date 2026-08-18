@@ -304,7 +304,7 @@ class HomePage extends GetView<HomeController> {
           ),
         ),
         SizedBox(
-          height: 40,
+          height: 48,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -316,27 +316,37 @@ class HomePage extends GetView<HomeController> {
                 child: TvFocusable(
                   onTap: () => Get.toNamed(
                     AppRoutes.search,
-                    arguments: {'query': genre},
+                    arguments: {'query': genre.title},
                   ),
                   borderRadius: AppRadius.pill,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md,
-                      vertical: AppSpacing.xxs,
+                      vertical: AppSpacing.xs,
                     ),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
                       borderRadius: AppRadius.pill,
                       border: Border.all(
-                        color: colorScheme.outline.withValues(alpha: 0.12),
+                        color: colorScheme.outline.withValues(alpha: 0.15),
                       ),
                     ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      genre,
-                      style: AppTypography.getCaption(
-                        color: colorScheme.onSurface,
-                      ).copyWith(fontWeight: FontWeight.w500),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          genre.icon,
+                          size: 18,
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          genre.title,
+                          style: AppTypography.getLabel(
+                            color: colorScheme.onSurface,
+                          ).copyWith(fontWeight: FontWeight.w600),
+                        ),
+                      ],
                     ),
                   ),
                 ),

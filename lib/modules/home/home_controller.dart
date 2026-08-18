@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 import '../../../core/media/enums/media_type.dart';
+import '../../../data/models/curated_genre.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/history_repository.dart';
@@ -29,8 +30,9 @@ class HomeController extends GetxController {
     required this.mediaSourceRepository,
   });
 
-  final RxBool isLoading = true.obs;
+  final RxInt selectedIndex = 0.obs;
   final RxInt providerCount = 0.obs;
+  final RxBool isLoading = true.obs;
   final RxBool hasProviders = false.obs;
 
   final RxList<MediaItem> featuredHeroItems = <MediaItem>[].obs;
@@ -42,7 +44,7 @@ class HomeController extends GetxController {
   final RxList<MediaItem> recentlyAdded = <MediaItem>[].obs;
   final RxList<MediaItem> recentlyPlayed = <MediaItem>[].obs;
   final RxList<MediaItem> downloads = <MediaItem>[].obs;
-  final RxList<String> availableGenres = <String>[].obs;
+  final RxList<CuratedGenre> availableGenres = CuratedGenre.defaultGenres.obs;
 
   StreamSubscription? _favoriteSubscription;
 
@@ -167,17 +169,7 @@ class HomeController extends GetxController {
       recentlyPlayed.assignAll(history);
       continueWatching.assignAll(history);
 
-      // Extract distinct non-empty genres
-      final genreSet = <String>{};
-      for (final item in [...movieItems, ...seriesItems]) {
-        for (final g in item.genres) {
-          final trimmed = g.trim();
-          if (trimmed.isNotEmpty) {
-            genreSet.add(trimmed);
-          }
-        }
-      }
-      availableGenres.assignAll(genreSet.take(10).toList());
+      availableGenres.assignAll(CuratedGenre.defaultGenres);
 
       // Select featured items for Hero Carousel (rated items first, then recent items)
       _computeFeaturedHero(sortedMovies, sortedSeries, allItems);

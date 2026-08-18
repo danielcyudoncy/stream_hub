@@ -17,7 +17,9 @@ class MoviesController extends GetxController {
   });
 
   final RxBool isLoading = true.obs;
+  final RxString selectedProvider = ''.obs;
   final RxList<MediaItem> movies = <MediaItem>[].obs;
+  final List<MediaItem> _allMovies = <MediaItem>[];
   final RxList<MediaItem> featuredMovies = <MediaItem>[].obs;
   final RxList<MediaItem> trendingMovies = <MediaItem>[].obs;
   final RxList<MediaItem> newThisWeekMovies = <MediaItem>[].obs;
@@ -29,15 +31,50 @@ class MoviesController extends GetxController {
   void onInit() {
     super.onInit();
     _loadMovies();
+    mediaLibrary.moviesStream.listen((items) {
+      if (items.isNotEmpty) {
+        final sorted = items.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        _allMovies
+          ..clear()
+          ..addAll(sorted);
+        _applyProviderFilter();
+      }
+    });
+  }
+
+  Future<void> reloadMovies() => _loadMovies();
+
+  void setProvider(String providerId) {
+    selectedProvider.value = providerId;
+    _applyProviderFilter();
+  }
+
+  void _applyProviderFilter() {
+    List<MediaItem> filtered;
+    if (selectedProvider.value.isEmpty) {
+      filtered = List.of(_allMovies);
+    } else {
+      filtered = _allMovies.where((item) {
+        return item.providerId == selectedProvider.value ||
+            item.providerType.displayName == selectedProvider.value;
+      }).toList();
+    }
+    movies.assignAll(filtered);
+    _computeSections(filtered);
   }
 
   Future<void> _loadMovies() async {
     isLoading.value = true;
     try {
-      final movieItems = await catalogRepository.getByType(MediaType.movie);
+      var movieItems = await catalogRepository.getByType(MediaType.movie);
+      if (movieItems.isEmpty) {
+        movieItems = mediaLibrary.getMovies();
+      }
       movieItems.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      movies.assignAll(movieItems);
-      _computeSections(movieItems);
+      _allMovies
+        ..clear()
+        ..addAll(movieItems);
+      _applyProviderFilter();
     } catch (e) {
       // Log error
     } finally {

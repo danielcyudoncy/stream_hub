@@ -9,6 +9,7 @@ import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/events/media_event_bus.dart';
 import 'package:stream_hub/core/media/media_source.dart';
+import 'package:stream_hub/core/utils/image_url_formatter.dart';
 import 'package:stream_hub/data/models/account_metadata.dart';
 import 'package:stream_hub/data/models/media_health.dart';
 import 'package:stream_hub/data/models/media_item.dart';
@@ -343,7 +344,7 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
       final genreId = c['genre_id']?.toString() ?? '';
       final genreName = genreNames[genreId] ?? genreId;
       final cmd = c['cmd']?.toString() ?? '';
-      final logo = c['logo']?.toString() ?? '';
+      final logo = ImageUrlFormatter.extractFromMap(c, serverUrl: _portalUrl);
       final number = c['number']?.toString() ?? '';
       final directSource = c['direct_source']?.toString() ?? '';
 
@@ -354,7 +355,7 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
         mediaType: MediaType.channel,
         title: name,
         subtitle: number.isNotEmpty ? 'CH $number' : null,
-        poster: logo.isNotEmpty ? logo : null,
+        poster: logo,
         genres: genreName.isNotEmpty ? [genreName] : [],
         metadata: {
           'type': 'live',
@@ -394,7 +395,7 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
       final genreName = genreNames[genreId] ?? genreId;
       final cmd = m['cmd']?.toString() ?? '';
       final directSource = m['direct_source']?.toString() ?? '';
-      final cover = m['cover_big']?.toString() ?? m['cover']?.toString() ?? '';
+      final cover = ImageUrlFormatter.extractFromMap(m, serverUrl: _portalUrl);
       final rating = double.tryParse(m['rating_imdb']?.toString() ?? '');
 
       items.add(MediaItem(
@@ -404,8 +405,8 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
         mediaType: MediaType.movie,
         title: name,
         description: m['description']?.toString(),
-        poster: cover.isNotEmpty ? cover : null,
-        backdrop: cover.isNotEmpty ? cover : null,
+        poster: cover,
+        backdrop: cover,
         genres: genreName.isNotEmpty ? [genreName] : [],
         rating: rating,
         metadata: {
@@ -444,7 +445,7 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
       final genreId = s['genre_id']?.toString() ?? '';
       final genreName = genreNames[genreId] ?? genreId;
       final cmd = s['cmd']?.toString() ?? '';
-      final cover = s['cover_big']?.toString() ?? s['cover']?.toString() ?? '';
+      final cover = ImageUrlFormatter.extractFromMap(s, serverUrl: _portalUrl);
       final seasons = s['seasons'];
       final seasonsList = seasons is List ? seasons.whereType<Map>().toList() : <Map>[];
 
@@ -454,8 +455,8 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
         providerType: MediaSourceType.stalker,
         mediaType: MediaType.series,
         title: name,
-        poster: cover.isNotEmpty ? cover : null,
-        backdrop: cover.isNotEmpty ? cover : null,
+        poster: cover,
+        backdrop: cover,
         genres: genreName.isNotEmpty ? [genreName] : [],
         metadata: {
           'type': 'series',
@@ -483,6 +484,7 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
 
           final episodeName = e['name']?.toString() ?? '';
           final episodeCmd = e['cmd']?.toString() ?? cmd;
+          final episodeCover = ImageUrlFormatter.extractFromMap(e, serverUrl: _portalUrl) ?? cover;
 
           items.add(MediaItem(
             id: 'stalker-$_id-series-$streamId-ep-$episodeId',
@@ -491,7 +493,7 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
             mediaType: MediaType.episode,
             title: episodeName.isNotEmpty ? episodeName : '$name $seasonName',
             subtitle: seasonName.isNotEmpty ? seasonName : null,
-            poster: cover.isNotEmpty ? cover : null,
+            poster: episodeCover,
             genres: genreName.isNotEmpty ? [genreName] : [],
             metadata: {
               'type': 'series',

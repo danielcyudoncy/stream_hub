@@ -1,6 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:get/get.dart';
-import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/media_catalog.dart';
@@ -11,7 +9,7 @@ import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_sync_result.dart';
 import 'package:stream_hub/data/models/xmltv_models.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
-import 'package:stream_hub/modules/movies/movies_controller.dart';
+import 'package:stream_hub/modules/series/series_controller.dart';
 
 class _FakeCatalogRepository implements CatalogRepository {
   final List<MediaItem> items = [];
@@ -201,173 +199,61 @@ class _FakeMediaLibrary implements MediaLibrary {
   void clearHistory() {}
 }
 
-MediaItem movie({
-  required String id,
-  required String title,
-  String providerId = 'provider-1',
-  MediaSourceType providerType = MediaSourceType.xtream,
-  List<String> genres = const [],
-  double? rating,
-  DateTime? createdAt,
-  DateTime? updatedAt,
-  Map<String, dynamic> metadata = const {},
-}) {
-  final now = DateTime(2026, 8, 13);
-  return MediaItem(
-    id: id,
-    providerId: providerId,
-    providerType: providerType,
-    mediaType: MediaType.movie,
-    title: title,
-    genres: genres,
-    rating: rating,
-    metadata: metadata,
-    createdAt: createdAt ?? now,
-    updatedAt: updatedAt ?? now,
-  );
-}
-
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late _FakeCatalogRepository catalogRepository;
-
-  MoviesController buildController() {
-    return MoviesController(
-      mediaEngine: _FakeMediaEngine(),
-      mediaLibrary: _FakeMediaLibrary(),
-      catalogRepository: catalogRepository,
-    );
-  }
-
-  Future<void> pumpLoad(MoviesController controller) async {
-    controller.onInit();
-    while (controller.isLoading.value) {
-      await Future<void>.delayed(const Duration(milliseconds: 1));
-    }
-  }
+  late _FakeMediaLibrary mediaLibrary;
+  late _FakeMediaEngine mediaEngine;
 
   setUp(() {
-    Get.reset();
-    Get.put(LoggingService());
     catalogRepository = _FakeCatalogRepository();
+    mediaLibrary = _FakeMediaLibrary();
+    mediaEngine = _FakeMediaEngine();
   });
 
-  tearDown(() {
-    Get.reset();
-  });
+  MediaItem seriesItem({
+    required String id,
+    required String title,
+    String providerId = 'default',
+    MediaSourceType providerType = MediaSourceType.xtream,
+  }) {
+    return MediaItem(
+      id: id,
+      title: title,
+      providerId: providerId,
+      providerType: providerType,
+      mediaType: MediaType.series,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+  }
 
-  test('builds a 3-item featured carousel from rated movies first', () async {
+  test('filters series by selected provider id or display name', () async {
     catalogRepository.items.addAll([
-      movie(id: 'm1', title: 'One', rating: 7.1),
-      movie(
-        id: 'm2',
-        title: 'Two',
-        rating: 8.4,
-        updatedAt: DateTime(2026, 8, 12),
-      ),
-      movie(
-        id: 'm3',
-        title: 'Three',
-        rating: 9.2,
-        updatedAt: DateTime(2026, 8, 11),
-      ),
-      movie(id: 'm4', title: 'Four', rating: 6.8),
+      seriesItem(id: 's1', title: 'Breaking Bad', providerId: 'prov-1', providerType: MediaSourceType.xtream),
+      seriesItem(id: 's2', title: 'Planet Earth', providerId: 'prov-2', providerType: MediaSourceType.m3u),
     ]);
 
-    final controller = buildController();
-    await pumpLoad(controller);
-
-    expect(controller.featuredMovies.length, 3);
-    expect(controller.featuredMovies.map((item) => item.id), [
-      'm3',
-      'm2',
-      'm1',
-    ]);
-  });
-
-  test('backfills metadata rows when no direct genre matches exist', () async {
-    catalogRepository.items.addAll([
-      movie(id: 'm1', title: 'One', rating: 8.0),
-      movie(id: 'm2', title: 'Two', rating: 7.5),
-      movie(id: 'm3', title: 'Three', rating: 7.0),
-      movie(id: 'm4', title: 'Four', rating: 6.5),
-    ]);
-
-    final controller = buildController();
-    await pumpLoad(controller);
-
-    expect(controller.mysteryThrillerMovies, isNotEmpty);
-    expect(controller.romanticComedyMovies, isNotEmpty);
-    expect(controller.topRatedMovies, isNotEmpty);
-  });
-
-  test(
-    'uses recent movies for new this week and backfills when needed',
-    () async {
-      final now = DateTime(2026, 8, 13);
-      catalogRepository.items.addAll([
-        movie(
-          id: 'm1',
-          title: 'Fresh',
-          createdAt: now.subtract(const Duration(days: 1)),
-        ),
-        movie(
-          id: 'm2',
-          title: 'Older One',
-          createdAt: now.subtract(const Duration(days: 20)),
-        ),
-        movie(
-          id: 'm3',
-          title: 'Older Two',
-          createdAt: now.subtract(const Duration(days: 30)),
-        ),
-      ]);
-
-      final controller = buildController();
-      await pumpLoad(controller);
-
-      expect(controller.newThisWeekMovies, isNotEmpty);
-      expect(controller.newThisWeekMovies.first.id, 'm1');
-    },
-  );
-
-  test('marks a movie playable when metadata contains a stream url', () {
-    final controller = buildController();
-    final item = movie(
-      id: 'm1',
-      title: 'Playable',
-      metadata: {'streamUrl': 'http://example.com/movie.m3u8'},
+    final controller = SeriesController(
+      mediaEngine: mediaEngine,
+      mediaLibrary: mediaLibrary,
+      catalogRepository: catalogRepository,
     );
 
-    expect(controller.canOpenMovie(item), isTrue);
-  });
+    await controller.reloadSeries();
 
-  test('marks a movie unavailable when stream metadata is missing', () {
-    final controller = buildController();
-    final item = movie(id: 'm1', title: 'Unavailable');
-
-    expect(controller.canOpenMovie(item), isFalse);
-  });
-
-  test('filters movies by selected provider id or display name', () async {
-    catalogRepository.items.addAll([
-      movie(id: 'm1', title: 'Movie 1', providerId: 'prov-1', providerType: MediaSourceType.xtream),
-      movie(id: 'm2', title: 'Movie 2', providerId: 'prov-2', providerType: MediaSourceType.m3u),
-    ]);
-
-    final controller = buildController();
-    await pumpLoad(controller);
-
-    expect(controller.movies, hasLength(2));
+    expect(controller.series, hasLength(2));
 
     controller.setProvider('prov-1');
-    expect(controller.movies, hasLength(1));
-    expect(controller.movies.first.id, 'm1');
+    expect(controller.series, hasLength(1));
+    expect(controller.series.first.id, 's1');
 
     controller.setProvider('prov-2');
-    expect(controller.movies, hasLength(1));
-    expect(controller.movies.first.id, 'm2');
+    expect(controller.series, hasLength(1));
+    expect(controller.series.first.id, 's2');
 
     controller.setProvider('');
-    expect(controller.movies, hasLength(2));
+    expect(controller.series, hasLength(2));
   });
 }

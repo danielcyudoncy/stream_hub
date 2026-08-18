@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
+import '../../core/utils/image_url_formatter.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/channel.dart';
 
@@ -22,6 +23,12 @@ class ChannelLogo extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isLive = channel is Channel && (channel as Channel).isLive;
+    final rawPoster = channel.poster ??
+        channel.thumbnail ??
+        channel.metadata['stream_icon'] ??
+        channel.metadata['streamIcon'] ??
+        channel.metadata['logo'];
+    final poster = ImageUrlFormatter.format(rawPoster, item: channel);
 
     return Stack(
       children: [
@@ -31,15 +38,15 @@ class ChannelLogo extends StatelessWidget {
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest,
             borderRadius: AppRadius.large,
-            image: channel.poster != null
+            image: poster != null
                 ? DecorationImage(
-                    image: NetworkImage(channel.poster!),
+                    image: NetworkImage(poster),
                     fit: BoxFit.cover,
                     onError: (_, _) {},
                   )
                 : null,
           ),
-          child: channel.poster == null
+          child: poster == null
               ? Center(
                   child: Icon(
                     Icons.live_tv_outlined,

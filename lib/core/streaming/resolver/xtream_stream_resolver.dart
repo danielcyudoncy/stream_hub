@@ -47,54 +47,77 @@ class XtreamStreamResolver implements StreamResolver {
       );
     }
 
-    final seriesId = metadata['seriesId']?.toString();
-    if (seriesId == null || seriesId.isEmpty) {
-      throw const StreamResolutionException(
-        message: 'Xtream media item has no resolvable stream URL.',
+    final seriesId = metadata['seriesId']?.toString() ?? metadata['series_id']?.toString();
+    final streamId = metadata['streamId']?.toString() ?? metadata['stream_id']?.toString();
+
+    if (seriesId != null && seriesId.isNotEmpty) {
+      final info = await _seriesInfoService.fetch(
+        session: session,
+        seriesId: seriesId,
+        alternativeIds: [
+          if (streamId != null && streamId.isNotEmpty) streamId,
+        ],
+      );
+
+      final requestedEpisodeId = metadata['episodeId']?.toString() ?? metadata['episode_id']?.toString();
+      var episode = requestedEpisodeId != null && requestedEpisodeId.isNotEmpty
+          ? _findEpisode(info, requestedEpisodeId)
+          : null;
+      episode ??= info.seasons.expand((s) => s.episodes).firstOrNull;
+
+      if (episode == null) {
+        throw const StreamResolutionException(
+          message: 'No playable episode found for this series.',
+        );
+      }
+
+      _logger.debug(
+        'Resolved Xtream series episode ${episode.id} for ${request.mediaItemId}',
+        tag: 'XtreamStreamResolver',
+      );
+
+      final url = episode.streamUrl(
+        baseUrl: session.baseUrl,
+        username: session.username,
+        password: session.password,
+      );
+
+      return _resolution(
+        request,
+        _normalizer.resolveRelative(url, session.baseUrl ?? ''),
+        {
+          ...metadata,
+          'episodeId': episode.id,
+          'episodeTitle': episode.title,
+        },
+        isVod: true,
       );
     }
 
-    final streamId = metadata['streamId']?.toString();
-    final info = await _seriesInfoService.fetch(
-      session: session,
-      seriesId: seriesId,
-      alternativeIds: [
-        if (streamId != null && streamId.isNotEmpty) streamId,
-      ],
-    );
-
-    final requestedEpisodeId = metadata['episodeId']?.toString();
-    var episode = requestedEpisodeId != null && requestedEpisodeId.isNotEmpty
-        ? _findEpisode(info, requestedEpisodeId)
-        : null;
-    episode ??= info.seasons.expand((s) => s.episodes).firstOrNull;
-
-    if (episode == null) {
-      throw const StreamResolutionException(
-        message: 'No playable episode found for this series.',
+    if (streamId != null &&
+        streamId.isNotEmpty &&
+        session.baseUrl != null &&
+        session.baseUrl!.isNotEmpty) {
+      final isVod = metadata['isVod'] == true ||
+          metadata['containerExtension'] != null ||
+          metadata['container_extension'] != null;
+      final ext = metadata['containerExtension']?.toString() ??
+          metadata['container_extension']?.toString() ??
+          (isVod ? 'mp4' : 'ts');
+      final typeSegment = isVod ? 'movie' : 'live';
+      final u = session.username ?? '';
+      final p = session.password ?? '';
+      final url = '${session.baseUrl}/$typeSegment/$u/$p/$streamId.$ext';
+      return _resolution(
+        request,
+        _normalizer.resolveRelative(url, session.baseUrl ?? ''),
+        metadata,
+        isVod: isVod,
       );
     }
 
-    _logger.debug(
-      'Resolved Xtream series episode ${episode.id} for ${request.mediaItemId}',
-      tag: 'XtreamStreamResolver',
-    );
-
-    final url = episode.streamUrl(
-      baseUrl: session.baseUrl,
-      username: session.username,
-      password: session.password,
-    );
-
-    return _resolution(
-      request,
-      _normalizer.resolveRelative(url, session.baseUrl ?? ''),
-      {
-        ...metadata,
-        'episodeId': episode.id,
-        'episodeTitle': episode.title,
-      },
-      isVod: true,
+    throw const StreamResolutionException(
+      message: 'Xtream media item has no resolvable stream URL.',
     );
   }
 
@@ -142,9 +165,20 @@ class XtreamStreamResolver implements StreamResolver {
   }
 
   static String? _directSourceUrl(Map<String, dynamic> metadata) {
-    for (final key in const ['streamUrl', 'directSource']) {
+    for (final key in const [
+      'streamUrl',
+      'stream_url',
+      'url',
+      'directSource',
+      'direct_source',
+    ]) {
       final value = metadata[key]?.toString();
-      if (value != null && value.isNotEmpty) return value;
+      if (value != null &&
+          value.isNotEmpty &&
+          !value.startsWith('series://') &&
+          !value.startsWith('stalker://')) {
+        return value;
+      }
     }
     return null;
   }
