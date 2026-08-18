@@ -76,7 +76,7 @@ class PlayerSettingsModel extends HiveObject {
     this.autoResume = true,
     this.autoFullscreen = false,
     this.defaultSpeed = 1.0,
-    this.defaultAspectRatio = 'fit',
+    this.defaultAspectRatio = 'ratio16x9',
     this.rememberPosition = true,
     this.skipForwardSeconds = 10,
     this.skipBackwardSeconds = 10,
@@ -100,7 +100,7 @@ class PlayerSettingsModel extends HiveObject {
       defaultSpeed: PlaybackSpeed.fromValue(defaultSpeed),
       defaultAspectRatio: AspectRatioMode.values.firstWhere(
         (a) => a.name == defaultAspectRatio,
-        orElse: () => AspectRatioMode.fit,
+        orElse: () => AspectRatioMode.ratio16x9,
       ),
       rememberPosition: rememberPosition,
       skipForwardSeconds: skipForwardSeconds,
