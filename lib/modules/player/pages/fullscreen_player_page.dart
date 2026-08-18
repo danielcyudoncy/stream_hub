@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
@@ -25,6 +26,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   @override
   void initState() {
     super.initState();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _stateSub = _controller.playbackController.engine.stateRx.listen((state) {
       if (mounted) {
         // Rebuild so the video layer reflects the engine's active backend
@@ -59,6 +61,13 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
 
   @override
   void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _stateSub?.cancel();
     _controlsTimer?.cancel();
     super.dispose();
@@ -73,17 +82,15 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       },
       child: Scaffold(
         backgroundColor: Colors.black,
-        body: SafeArea(
-          child: GestureDetector(
-            onTap: _toggleControls,
-            child: Stack(
-              children: [
-                _buildVideoLayer(),
-                _buildStateOverlay(),
-                if (_controlsVisible) _buildControlsOverlay(context),
-                _buildTopBar(context),
-              ],
-            ),
+        body: GestureDetector(
+          onTap: _toggleControls,
+          child: Stack(
+            children: [
+              _buildVideoLayer(),
+              _buildStateOverlay(),
+              if (_controlsVisible) _buildControlsOverlay(context),
+              _buildTopBar(context),
+            ],
           ),
         ),
       ),
@@ -184,15 +191,18 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       left: 0,
       right: 0,
       bottom: 0,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildChannelInfo(),
-          PlayerControls(
-            controller: _controller,
-            isFullscreen: true,
-          ),
-        ],
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildChannelInfo(),
+            PlayerControls(
+              controller: _controller,
+              isFullscreen: true,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -202,7 +212,9 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       top: 0,
       left: 0,
       right: 0,
-      child: AnimatedOpacity(
+      child: SafeArea(
+        bottom: false,
+        child: AnimatedOpacity(
         opacity: _controlsVisible ? 1.0 : 0.0,
         duration: const Duration(milliseconds: 250),
         child: Container(
@@ -247,6 +259,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
