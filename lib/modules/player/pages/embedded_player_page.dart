@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
+import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/player/widgets/player_controls.dart';
@@ -17,7 +18,19 @@ class EmbeddedPlayerPage extends GetView<PlayerController> {
 
   @override
   Widget build(BuildContext context) {
-    return Obx(() {
+    return OrientationBuilder(
+      builder: (context, orientation) {
+        if (orientation == Orientation.landscape &&
+            controller.sessionRx.value != null &&
+            Get.currentRoute != AppRoutes.fullscreenPlayer) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (Get.currentRoute != AppRoutes.fullscreenPlayer &&
+                controller.sessionRx.value != null) {
+              Get.toNamed(AppRoutes.fullscreenPlayer);
+            }
+          });
+        }
+        return Obx(() {
       final state = controller.stateRx.value;
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -63,6 +76,8 @@ class EmbeddedPlayerPage extends GetView<PlayerController> {
         ],
       );
     });
+      },
+    );
   }
 
   /// Renders the active backend's video surface. Watches [engineKindRx] so the

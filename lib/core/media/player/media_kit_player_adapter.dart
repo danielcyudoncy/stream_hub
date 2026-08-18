@@ -32,7 +32,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   double _currentVolume = 1.0;
   bool _currentMuted = false;
   PlaybackSpeed _currentSpeed = PlaybackSpeed.speed1_0;
-  AspectRatioMode _currentAspectRatio = AspectRatioMode.fit;
+  AspectRatioMode _currentAspectRatio = AspectRatioMode.ratio16x9;
   PlayerQuality _currentQuality = PlayerQuality.auto;
 
   StreamSubscription<Duration>? _positionSub;

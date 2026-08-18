@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.Matrix
+import android.graphics.SurfaceTexture
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
@@ -203,7 +204,8 @@ class NativePlayerActivity : Activity() {
     private var controlsVisible = true
     private var finishedNotified = false
     private var selectedQuality: Int? = null
-    private var currentAspectRatio = AspectRatioMode.FIT
+    private var currentAspectRatio = AspectRatioMode.SIXTEEN_NINE
+    private var userSelectedAspectRatio = false
     private var currentSpeed = 1.0f
 
     private var streamUrl: String = ""
@@ -324,9 +326,23 @@ class NativePlayerActivity : Activity() {
             setBackgroundColor(Color.BLACK)
         }
 
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        currentAspectRatio = if (isLandscape) AspectRatioMode.ZOOM else AspectRatioMode.SIXTEEN_NINE
+
         val exo = buildPlayer()
         player = exo
-        val textureView = TextureView(this)
+        val textureView = TextureView(this).apply {
+            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                    applyAspectRatioTransform()
+                }
+                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
+                    applyAspectRatioTransform()
+                }
+                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
+                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+            }
+        }
         videoSurface = textureView
         exo.setVideoTextureView(textureView)
 
@@ -347,6 +363,30 @@ class NativePlayerActivity : Activity() {
 
         exo.addListener(playerListener)
         loadStream(streamUrl, headers, channelTitle)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (!userSelectedAspectRatio) {
+            if (newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                currentAspectRatio = AspectRatioMode.ZOOM
+                aspectRatioButton?.text = "Zoom"
+            } else if (newConfig.orientation == Configuration.ORIENTATION_PORTRAIT) {
+                currentAspectRatio = AspectRatioMode.SIXTEEN_NINE
+                aspectRatioButton?.text = "16:9"
+            }
+        }
+        applyImmersiveMode()
+        root.post {
+            applyAspectRatioTransform()
+        }
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) {
+            applyImmersiveMode()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -376,17 +416,34 @@ class NativePlayerActivity : Activity() {
     }
 
     private fun setupWindow() {
-        requestWindowFeature(Window.FEATURE_NO_TITLE)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        window.setFlags(
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-            WindowManager.LayoutParams.FLAG_FULLSCREEN,
-        )
-        window.decorView.systemUiVisibility =
-            (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                or View.SYSTEM_UI_FLAG_FULLSCREEN)
-        window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        try {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
+            }
+            window.setFlags(
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            )
+            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        } catch (_: Throwable) {}
+    }
+
+    private fun applyImmersiveMode() {
+        try {
+            @Suppress("DEPRECATION")
+            window.decorView.systemUiVisibility =
+                (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    or View.SYSTEM_UI_FLAG_LAYOUT_STABLE)
+        } catch (_: Throwable) {}
     }
 
     private fun setupGestures() {
@@ -869,7 +926,8 @@ class NativePlayerActivity : Activity() {
             setPadding(dp(2), dp(2), dp(2), dp(2))
         }
 
-        aspectRatioButton = actionPillButton("Aspect") { showAspectRatioDialog() }
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        aspectRatioButton = actionPillButton(if (isLandscape) "Zoom" else "16:9") { showAspectRatioDialog() }
         speedButton = actionPillButton("1.0x") { showSpeedDialog() }
 
         val prevChannelBtn = transportButton("⏮") { previousChannel() }
@@ -938,6 +996,7 @@ class NativePlayerActivity : Activity() {
         )
 
         setContentView(root)
+        applyImmersiveMode()
         setControlsVisible(true)
     }
 
@@ -1604,10 +1663,10 @@ class NativePlayerActivity : Activity() {
         val modes = AspectRatioMode.values()
         val labels = modes.map {
             when (it) {
-                AspectRatioMode.FIT -> "Fit (Letterbox)"
+                AspectRatioMode.FIT -> "Fit (Original Aspect)"
                 AspectRatioMode.ZOOM -> "Zoom (Fill Screen)"
                 AspectRatioMode.STRETCH -> "Stretch to Screen"
-                AspectRatioMode.SIXTEEN_NINE -> "16:9 Wide"
+                AspectRatioMode.SIXTEEN_NINE -> "16:9 (Default)"
                 AspectRatioMode.FOUR_THREE -> "4:3 Classic"
             }
         }
@@ -1616,6 +1675,7 @@ class NativePlayerActivity : Activity() {
         AlertDialog.Builder(this)
             .setTitle("Aspect Ratio")
             .setSingleChoiceItems(labels.toTypedArray(), currentIndex) { dialog, which ->
+                userSelectedAspectRatio = true
                 currentAspectRatio = modes[which]
                 applyAspectRatioTransform()
                 aspectRatioButton?.text = when (currentAspectRatio) {
@@ -1643,7 +1703,10 @@ class NativePlayerActivity : Activity() {
 
         when (currentAspectRatio) {
             AspectRatioMode.FIT -> {
-                surface.setTransform(null)
+                val scaleX = if (viewAspect > videoAspect) videoAspect / viewAspect else 1.0f
+                val scaleY = if (viewAspect > videoAspect) 1.0f else viewAspect / videoAspect
+                matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f)
+                surface.setTransform(matrix)
             }
             AspectRatioMode.ZOOM -> {
                 val scale = if (viewAspect > videoAspect) {
