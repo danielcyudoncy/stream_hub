@@ -94,11 +94,12 @@ class StalkerPortalClient {
     '/server/load.php',
     '/stalker_portal/server/load.php',
     '/portal.php',
+    '/load.php',
   ];
-  static const int _kMaxHttpRetries = 3;
-  static const int _kMaxEmptyRetries = 2;
-  static const Duration _kRetryBaseDelay = Duration(milliseconds: 800);
-  static const Duration _kMinRequestInterval = Duration(milliseconds: 1200);
+  static const int _kMaxHttpRetries = 4;
+  static const int _kMaxEmptyRetries = 3;
+  static const Duration _kRetryBaseDelay = Duration(milliseconds: 1500);
+  static const Duration _kMinRequestInterval = Duration(milliseconds: 1500);
   static const Set<int> _kRetryableStatusCodes = {429, 500, 502, 503, 504};
 
   final String _baseUrl;
@@ -111,6 +112,7 @@ class StalkerPortalClient {
   String? _token;
   Uri? _scriptUri;
   DateTime? _lastRequestAt;
+  final Map<String, String> _sessionCookies = {};
 
   StalkerPortalClient({
     required String baseUrl,
@@ -142,7 +144,9 @@ class StalkerPortalClient {
     final js = _envelope(data);
 
     final rawToken =
-        _stringAt(js, ['token', 'data.token'])?.trim() ?? '';
+        _stringAt(js, ['token', 'data.token'])?.trim() ??
+        _stringAt(data, ['token', 'data.token'])?.trim() ??
+        '';
     if (rawToken.isEmpty) {
       throw const StalkerPortalException(
         'Handshake did not return a portal token.',
@@ -151,7 +155,8 @@ class StalkerPortalClient {
     }
 
     _token = rawToken;
-    final serial = _stringAt(js, ['serial', 'data.serial']);
+    final serial = _stringAt(js, ['serial', 'data.serial']) ??
+        _stringAt(data, ['serial', 'data.serial']);
 
     _logger.info('Stalker handshake complete for $_macAddress', tag: 'StalkerPortalClient');
     return StalkerHandshakeResult(token: rawToken, serial: serial, raw: data);
@@ -162,17 +167,33 @@ class StalkerPortalClient {
   /// An empty portal response (some portals throttle with an empty body) is
   /// retried, then tolerated and yields an empty profile.
   Future<Map<String, dynamic>> getProfile() async {
-    final data = await _request(
-      'get_profile',
-      allowEmpty: true,
-      retryEmpty: true,
-    );
-    final js = _envelope(data);
-    final profile = js['data'];
-    if (profile is Map) {
-      return Map<String, dynamic>.from(profile);
+    try {
+      final data = await _request(
+        'get_profile',
+        allowEmpty: true,
+        retryEmpty: true,
+      );
+      final js = data['js'];
+      if (js is Map) {
+        if (js['data'] is Map) {
+          return Map<String, dynamic>.from(js['data'] as Map);
+        }
+        return Map<String, dynamic>.from(js);
+      }
+      if (data['data'] is Map) {
+        return Map<String, dynamic>.from(data['data'] as Map);
+      }
+      return data;
+    } on StalkerPortalException catch (e) {
+      if (e.statusCode == 429 || e.isEmptyResponse) {
+        _logger.warning(
+          'Stalker get_profile throttled, continuing with session: ${e.message}',
+          tag: 'StalkerPortalClient',
+        );
+        return const {};
+      }
+      rethrow;
     }
-    return const {};
   }
 
   /// Live TV / VOD / Series categories.
@@ -183,12 +204,23 @@ class StalkerPortalClient {
   Future<List<Map<String, dynamic>>> getCategories(
     StalkerContentType type,
   ) async {
-    final data = await _request(
-      'get_categories',
-      extra: {'type': type.apiType},
-      allowEmpty: true,
-    );
-    return _asMapList(_envelope(data)['data']);
+    try {
+      final data = await _request(
+        'get_categories',
+        extra: {'type': type.apiType},
+        allowEmpty: true,
+      );
+      return _extractList(data);
+    } on StalkerPortalException catch (e) {
+      if (e.statusCode == 429 || e.isEmptyResponse) {
+        _logger.warning(
+          'Stalker get_categories (${type.name}) throttled or unsupported: ${e.message}',
+          tag: 'StalkerPortalClient',
+        );
+        return const [];
+      }
+      rethrow;
+    }
   }
 
   /// Live TV channel list (`get_ordered_list?type=itv`), fetching all pages.
@@ -198,6 +230,7 @@ class StalkerPortalClient {
     return _fetchPaginatedList(
       'get_ordered_list',
       extra: {'type': type.apiType},
+      retryEmpty: true,
     );
   }
 
@@ -210,12 +243,14 @@ class StalkerPortalClient {
     final movies = await _fetchPaginatedList(
       'get_vod_list',
       extra: {'type': 'vod'},
+      retryEmpty: false,
     );
     if (movies.isNotEmpty) return movies;
 
     return _fetchPaginatedList(
       'get_ordered_list',
       extra: {'type': 'vod'},
+      retryEmpty: false,
     );
   }
 
@@ -228,12 +263,14 @@ class StalkerPortalClient {
     final series = await _fetchPaginatedList(
       'get_series_list',
       extra: {'type': 'series'},
+      retryEmpty: false,
     );
     if (series.isNotEmpty) return series;
 
     return _fetchPaginatedList(
       'get_ordered_list',
       extra: {'type': 'series'},
+      retryEmpty: false,
     );
   }
 
@@ -242,34 +279,37 @@ class StalkerPortalClient {
     String action, {
     Map<String, dynamic>? extra,
     int maxItems = 10000,
+    bool retryEmpty = false,
   }) async {
     final allItems = <Map<String, dynamic>>[];
     final seenIds = <String>{};
     var page = 1;
+    const maxPages = 50;
 
-    while (allItems.length < maxItems) {
+    while (allItems.length < maxItems && page <= maxPages) {
       final params = <String, dynamic>{
         ...?extra,
         'p': page,
         'page': page,
-        'max_rows': 1000,
+        'max_rows': 500,
       };
       final data = await _request(
         action,
         extra: params,
         allowEmpty: true,
-        retryEmpty: page == 1,
+        retryEmpty: retryEmpty && page == 1,
       );
 
-      final envelope = _envelope(data);
-      final rawData = envelope['data'];
-      final batch = _asMapList(rawData);
+      final batch = _extractList(data);
       if (batch.isEmpty) break;
 
       var addedInBatch = 0;
       for (final item in batch) {
         final id =
-            item['id']?.toString() ?? item['stream_id']?.toString() ?? '';
+            item['id']?.toString() ??
+            item['stream_id']?.toString() ??
+            item['name']?.toString() ??
+            '';
         if (id.isNotEmpty) {
           if (!seenIds.contains(id)) {
             seenIds.add(id);
@@ -282,7 +322,10 @@ class StalkerPortalClient {
         }
       }
 
-      final totalRaw = envelope['total_items'] ?? envelope['total'];
+      final js = data['js'];
+      final totalRaw = (js is Map ? js['total_items'] ?? js['total'] : null) ??
+          data['total_items'] ??
+          data['total'];
       final totalItems = int.tryParse(totalRaw?.toString() ?? '');
       if (totalItems != null && allItems.length >= totalItems) {
         break;
@@ -322,14 +365,10 @@ class StalkerPortalClient {
     );
     final js = _envelope(data);
 
-    final url = _stringAt(js, ['url', 'data.url']);
+    final url = _stringAt(js, ['url', 'data.url', 'cmd', 'data.cmd']) ??
+        _stringAt(data, ['url', 'data.url', 'cmd', 'data.cmd']);
     if (url != null && url.isNotEmpty) {
-      return _sanitizeUrl(url);
-    }
-
-    final portalCmd = _stringAt(js, ['cmd', 'data.cmd']);
-    if (portalCmd != null && portalCmd.isNotEmpty) {
-      final extracted = _extractStreamUrl(portalCmd);
+      final extracted = _extractStreamUrl(url);
       if (extracted != null) return extracted;
     }
 
@@ -352,10 +391,13 @@ class StalkerPortalClient {
       'type': 'stb',
       'action': action,
       'token': _token ?? '',
+      'mac': _macAddress,
       'Mac': _macAddress,
       'sn': _serial ?? _macAddress,
+      'device_id': _serial ?? _macAddress,
+      'stb_type': 'MAG250',
       'ver': '4.8.0',
-      'JsHttpRequest': '1-xml',
+      'JsHttpRequest': '${DateTime.now().millisecondsSinceEpoch}-xml',
       ...?extra,
     };
 
@@ -401,18 +443,33 @@ class StalkerPortalClient {
   /// at the web root (`/server/load.php`).
   List<Uri> _scriptCandidates() {
     final base = Uri.tryParse(_baseUrl);
+    final candidates = <Uri>[];
+
+    if (base != null && base.path.toLowerCase().endsWith('.php')) {
+      candidates.add(base);
+    }
+
     final origin = base != null && base.hasScheme
         ? Uri(scheme: base.scheme, host: base.host, port: base.hasPort ? base.port : null)
         : null;
 
-    final candidates = <Uri>[];
     for (final path in _kScriptCandidates) {
       if (origin != null) {
-        candidates.add(origin.resolve(path));
+        final originUri = origin.resolve(path);
+        if (!candidates.contains(originUri)) {
+          candidates.add(originUri);
+        }
       }
       final appended = Uri.tryParse('$_baseUrl$path');
       if (appended != null && !candidates.contains(appended)) {
         candidates.add(appended);
+      }
+      if (_baseUrl.endsWith('/c') || _baseUrl.endsWith('/c/')) {
+        final stripped = _baseUrl.replaceAll(RegExp(r'/c/?$'), '');
+        final replaced = Uri.tryParse('$stripped$path');
+        if (replaced != null && !candidates.contains(replaced)) {
+          candidates.add(replaced);
+        }
       }
     }
     return candidates;
@@ -421,14 +478,39 @@ class StalkerPortalClient {
   /// Builds the portal cookie header.
   ///
   /// The Stalker API identifies the device from the `mac` cookie and also
-  /// honours `sn` (serial number) and `stb_lang`/`timezone`. Portals return an
-  /// empty body when the MAC cookie is missing.
+  /// honours `sn` (serial number), `token`, `PHPSESSID`, and other session
+  /// cookies returned in `Set-Cookie` responses.
   String _cookieHeader() {
-    final mac = Uri.encodeComponent(_macAddress);
+    final mac = _macAddress;
     final serial = (_serial ?? _macAddress).isNotEmpty
-        ? Uri.encodeComponent(_serial ?? _macAddress)
+        ? (_serial ?? _macAddress)
         : mac;
-    return 'mac=$mac; sn=$serial; stb_lang=en; timezone=UTC';
+    final cookies = <String, String>{
+      'mac': mac,
+      'sn': serial,
+      'stb_lang': 'en',
+      'timezone': 'UTC',
+      ..._sessionCookies,
+    };
+    if (_token != null && _token!.isNotEmpty) {
+      cookies['token'] = _token!;
+    }
+    return cookies.entries.map((e) => '${e.key}=${e.value}').join('; ');
+  }
+
+  void _saveCookies(HttpClientResponse response) {
+    for (final cookie in response.cookies) {
+      _sessionCookies[cookie.name] = cookie.value;
+    }
+    final rawSetCookies = response.headers[HttpHeaders.setCookieHeader];
+    if (rawSetCookies != null) {
+      for (final raw in rawSetCookies) {
+        try {
+          final cookie = Cookie.fromSetCookieValue(raw);
+          _sessionCookies[cookie.name] = cookie.value;
+        } catch (_) {}
+      }
+    }
   }
 
   Future<Map<String, dynamic>> _getJson(
@@ -492,17 +574,21 @@ class StalkerPortalClient {
 
     final request = await _httpClient.getUrl(requestUri).timeout(_kRequestTimeout);
     request.headers.set(HttpHeaders.userAgentHeader, _kUserAgent);
+    request.headers.set('X-User-Agent', 'Model: MAG250; Link: WiFi');
     request.headers.set(HttpHeaders.cookieHeader, _cookieHeader());
     if (_token != null && _token!.isNotEmpty) {
       request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $_token');
     }
 
     final response = await request.close().timeout(_kRequestTimeout);
+    _saveCookies(response);
+
     final bytes = await response.fold<List<int>>(
       [],
       (prev, chunk) => prev..addAll(chunk),
-    );
-    final body = utf8.decode(bytes, allowMalformed: true);
+    ).timeout(_kRequestTimeout);
+    final rawBody = utf8.decode(bytes, allowMalformed: true);
+    final body = _cleanResponseBody(rawBody);
 
     if (response.statusCode != 200) {
       throw StalkerPortalException(
@@ -513,7 +599,9 @@ class StalkerPortalClient {
     }
 
     final contentType = response.headers.contentType?.mimeType ?? '';
-    if (contentType.contains('text/html') || _looksLikeHtml(body)) {
+    if ((contentType.contains('text/html') || _looksLikeHtml(body)) &&
+        !body.contains('{"js"') &&
+        !body.contains('{"data"')) {
       throw StalkerPortalException(
         'Portal script returned HTML instead of JSON.',
         originalError: body.isNotEmpty ? body : null,
@@ -528,10 +616,30 @@ class StalkerPortalClient {
     }
 
     final decoded = json.decode(body);
+    if (decoded is List) {
+      return {'js': decoded, 'data': decoded};
+    }
     if (decoded is! Map) {
       throw const StalkerPortalException('Unexpected portal response format.');
     }
     return Map<String, dynamic>.from(decoded);
+  }
+
+  static String _cleanResponseBody(String raw) {
+    var text = raw.trim();
+    if (text.contains('/*-USER-START*/')) {
+      final startIndex =
+          text.indexOf('/*-USER-START*/') + '/*-USER-START*/'.length;
+      final endIndex = text.lastIndexOf('/*-USER-END*/');
+      if (endIndex > startIndex) {
+        text = text.substring(startIndex, endIndex).trim();
+      } else {
+        text = text.substring(startIndex).trim();
+      }
+    }
+    text = text.replaceAll(RegExp(r'^<script[^>]*>', caseSensitive: false), '');
+    text = text.replaceAll(RegExp(r'</script>$', caseSensitive: false), '');
+    return text.trim();
   }
 
   /// Whether [e] describes a transient failure worth retrying.
@@ -587,6 +695,28 @@ class StalkerPortalClient {
     final js = data['js'];
     if (js is Map) return Map<String, dynamic>.from(js);
     return data;
+  }
+
+  static List<Map<String, dynamic>> _extractList(Map<String, dynamic> data) {
+    final js = data['js'];
+    if (js is List) {
+      return _asMapList(js);
+    }
+    if (js is Map) {
+      if (js['data'] is List) {
+        return _asMapList(js['data']);
+      }
+      if (js['items'] is List) {
+        return _asMapList(js['items']);
+      }
+    }
+    if (data['data'] is List) {
+      return _asMapList(data['data']);
+    }
+    if (data['items'] is List) {
+      return _asMapList(data['items']);
+    }
+    return const [];
   }
 
   static List<Map<String, dynamic>> _asMapList(Object? raw) {

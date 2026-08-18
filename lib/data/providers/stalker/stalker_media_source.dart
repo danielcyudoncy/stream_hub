@@ -3,11 +3,13 @@ import 'dart:io';
 
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/account_metadata_provider.dart';
 import 'package:stream_hub/core/media/enums/media_source_state.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/events/media_event_bus.dart';
 import 'package:stream_hub/core/media/media_source.dart';
+import 'package:stream_hub/data/models/account_metadata.dart';
 import 'package:stream_hub/data/models/media_health.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_sync_result.dart';
@@ -21,7 +23,7 @@ import 'package:stream_hub/data/providers/stalker/stalker_portal_client.dart';
 /// channels, VOD movies, series (and their episodes) into the catalog. Stream
 /// playback is deferred to [create_link] at play time by
 /// `StalkerStreamResolver`.
-class StalkerMediaSource implements MediaSource {
+class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
   final String _id;
   final String _portalUrl;
   final String _macAddress;
@@ -33,6 +35,7 @@ class StalkerMediaSource implements MediaSource {
   MediaSourceState _state = MediaSourceState.created;
   StalkerPortalClient? _portalClient;
   String? _token;
+  AccountMetadata? _accountMetadata;
 
   List<MediaItem> _cachedCategories = [];
   List<MediaItem> _cachedChannels = [];
@@ -66,6 +69,9 @@ class StalkerMediaSource implements MediaSource {
          seconds: (config?['retryDelay'] as int? ?? 2).clamp(1, 60).toInt(),
        ),
        _logger = logger ?? Get.find<LoggingService>();
+
+  @override
+  AccountMetadata? get accountMetadata => _accountMetadata;
 
   @override
   String get id => _id;
@@ -163,8 +169,18 @@ class StalkerMediaSource implements MediaSource {
       _token = handshake.token;
 
       final profile = await client.getProfile();
-      final authStatus = profile['auth_status']?.toString();
-      if (authStatus != null && authStatus != '1') {
+      _accountMetadata = _buildAccountMetadata(profile);
+
+      final authStatus = profile['auth_status']?.toString().toLowerCase();
+      final isAuthRejected = authStatus != null &&
+          (authStatus == '0' || authStatus == 'false' || authStatus == 'rejected');
+      final status = profile['status']?.toString().toLowerCase();
+      final isStatusDisabled = status == 'disabled' ||
+          status == 'blocked' ||
+          status == 'expired' ||
+          status == '2';
+
+      if (isAuthRejected || isStatusDisabled) {
         _state = MediaSourceState.error;
         return MediaSyncResult(
           sourceId: _id,
@@ -176,13 +192,21 @@ class StalkerMediaSource implements MediaSource {
         );
       }
 
+      _logger.info('Fetching Stalker live categories and channels...', tag: 'StalkerMediaSource');
       final liveCategories = await client.getCategories(StalkerContentType.live);
       final channels = await client.getOrderedList(StalkerContentType.live);
+      _logger.info('Fetched ${channels.length} live channels and ${liveCategories.length} categories', tag: 'StalkerMediaSource');
+
+      _logger.info('Fetching Stalker VOD movies...', tag: 'StalkerMediaSource');
       final vodCategories = await client.getCategories(StalkerContentType.vod);
       final movies = await client.getVodList();
+      _logger.info('Fetched ${movies.length} movies and ${vodCategories.length} VOD categories', tag: 'StalkerMediaSource');
+
+      _logger.info('Fetching Stalker TV series...', tag: 'StalkerMediaSource');
       final seriesCategories =
           await client.getCategories(StalkerContentType.series);
       final series = await client.getSeriesList();
+      _logger.info('Fetched ${series.length} series and ${seriesCategories.length} series categories', tag: 'StalkerMediaSource');
 
       final categories = _buildCategories(
         liveCategories,
@@ -510,7 +534,18 @@ class StalkerMediaSource implements MediaSource {
         _token = handshake.token;
       }
       final profile = await client.getProfile();
-      return profile['auth_status']?.toString() == '1';
+      final authStatus = profile['auth_status']?.toString().toLowerCase();
+      if (authStatus != null) {
+        return authStatus == '1' || authStatus == 'true';
+      }
+      final status = profile['status']?.toString().toLowerCase();
+      if (status != null) {
+        return status != 'disabled' &&
+            status != 'blocked' &&
+            status != 'expired' &&
+            status != '2';
+      }
+      return profile.isNotEmpty || (_token != null && _token!.isNotEmpty);
     } catch (e) {
       return false;
     }
@@ -528,7 +563,16 @@ class StalkerMediaSource implements MediaSource {
       final profile = await client.getProfile();
       stopwatch.stop();
 
-      final isAuthenticated = profile['auth_status']?.toString() == '1';
+      final authStatus = profile['auth_status']?.toString().toLowerCase();
+      final isAuthRejected = authStatus != null &&
+          (authStatus == '0' || authStatus == 'false' || authStatus == 'rejected');
+      final status = profile['status']?.toString().toLowerCase();
+      final isStatusDisabled = status == 'disabled' ||
+          status == 'blocked' ||
+          status == 'expired' ||
+          status == '2';
+      final isRejected = isAuthRejected || isStatusDisabled;
+      final isAuthenticated = !isRejected && (_token != null && _token!.isNotEmpty);
       return MediaHealth(
         isConnected: true,
         latencyMs: stopwatch.elapsedMilliseconds,
@@ -541,6 +585,37 @@ class StalkerMediaSource implements MediaSource {
     } catch (e) {
       return MediaHealth(isConnected: false, errors: [e.toString()]);
     }
+  }
+
+  AccountMetadata? _buildAccountMetadata(Map<String, dynamic> profile) {
+    if (profile.isEmpty) return null;
+    DateTime? expDate;
+    final expRaw = profile['expire_billing_date'] ?? profile['exp_date'] ?? profile['expire_date'];
+    if (expRaw != null) {
+      final expInt = int.tryParse(expRaw.toString());
+      if (expInt != null && expInt > 0) {
+        expDate = DateTime.fromMillisecondsSinceEpoch(expInt * 1000);
+      } else if (expRaw is String && expRaw.isNotEmpty && expRaw != '0') {
+        expDate = DateTime.tryParse(expRaw);
+      }
+    }
+    DateTime? createdDate;
+    final createdRaw = profile['created'] ?? profile['created_at'];
+    if (createdRaw != null) {
+      final createdInt = int.tryParse(createdRaw.toString());
+      if (createdInt != null && createdInt > 0) {
+        createdDate = DateTime.fromMillisecondsSinceEpoch(createdInt * 1000);
+      } else if (createdRaw is String && createdRaw.isNotEmpty) {
+        createdDate = DateTime.tryParse(createdRaw);
+      }
+    }
+    return AccountMetadata(
+      createdAt: createdDate,
+      expiresAt: expDate,
+      status: profile['status']?.toString() ?? profile['auth_status']?.toString(),
+      isTrial: profile['is_trial'] == 1 || profile['is_trial'] == '1' || profile['is_trial'] == true,
+      maxConnections: int.tryParse(profile['max_connections']?.toString() ?? '1') ?? 1,
+    );
   }
 
   @override

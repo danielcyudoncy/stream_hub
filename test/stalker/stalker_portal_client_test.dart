@@ -198,7 +198,7 @@ void main() {
 
       final cookie = server.lastCookieHeader;
       expect(cookie, isNotNull);
-      expect(cookie, contains('mac=AA%3ABB%3ACC%3ADD%3AEE%3AFF'));
+      expect(cookie, contains('mac=AA:BB:CC:DD:EE:FF'));
       expect(cookie, contains('sn=SN-123'));
       expect(cookie, contains('stb_lang=en'));
     });
@@ -361,6 +361,49 @@ void main() {
 
       final channels = await client.getOrderedList(StalkerContentType.live);
       expect(channels, hasLength(1));
+    });
+
+    test('fetches unwrapped profile and category lists as in real Stalker portals',
+        () async {
+      final server = await PortalTestServer.start(
+        handler: (action, params) {
+          if (action == 'get_profile') {
+            return {
+              'js': {
+                'id': '1',
+                'name': 'Real Stalker User',
+                'auth_status': 1,
+                'status': 1,
+                'exp_date': 1799000000,
+              },
+            };
+          }
+          if (action == 'get_categories') {
+            return {
+              'js': [
+                {'id': '1', 'title': 'Unwrapped News'},
+                {'id': '2', 'title': 'Unwrapped Sports'},
+              ],
+            };
+          }
+          return defaultHandler(action, params);
+        },
+      );
+      addTearDown(server.close);
+
+      final client = StalkerPortalClient(
+        baseUrl: server.baseUrl,
+        macAddress: '00:1A:79:AA:BB:CC',
+        token: 'tok-real-123',
+      );
+
+      final profile = await client.getProfile();
+      expect(profile['auth_status'], 1);
+      expect(profile['name'], 'Real Stalker User');
+
+      final categories = await client.getCategories(StalkerContentType.live);
+      expect(categories, hasLength(2));
+      expect(categories.first['title'], 'Unwrapped News');
     });
 
     test('throws StalkerPortalException when every script path is missing',
