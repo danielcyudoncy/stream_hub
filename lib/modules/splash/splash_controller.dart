@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../core/media/enums/media_type.dart';
 import '../../core/logging/logging_service.dart';
 import '../../core/routes/app_routes.dart';
+import '../../data/repositories/catalog_repository.dart';
 import '../../data/services/database_service.dart';
 import '../../data/services/firebase_service.dart';
 import '../../data/services/provider_sync_service.dart';
@@ -41,14 +43,33 @@ class SplashController extends GetxController {
               authController.currentUser.value = user;
               authController.isAuthenticated.value = true;
             }
-            statusMessage.value = 'Loading playlists & channels...';
-            try {
-              await _syncProvidersOnStartup();
-            } catch (_) {}
 
-            statusMessage.value = 'Ready!';
-            _navigateAway(AppRoutes.home);
-            return;
+            var hasCachedChannels = false;
+            if (Get.isRegistered<CatalogRepository>()) {
+              try {
+                final catalogRepo = Get.find<CatalogRepository>();
+                final channels = await catalogRepo.getByType(MediaType.channel);
+                hasCachedChannels = channels.isNotEmpty;
+              } catch (_) {}
+            }
+
+            if (hasCachedChannels) {
+              // Channels are already cached: navigate directly & sync rest in background
+              unawaited(_syncProvidersOnStartup());
+              statusMessage.value = 'Ready!';
+              _navigateAway(AppRoutes.home);
+              return;
+            } else {
+              // Local database is empty: sync the primary provider first so Home is never empty
+              statusMessage.value = 'Loading Live TV...';
+              if (Get.isRegistered<ProviderSyncService>()) {
+                final syncService = Get.find<ProviderSyncService>();
+                await syncService.syncPrimaryProviderAndQueueRemainder();
+              }
+              statusMessage.value = 'Ready!';
+              _navigateAway(AppRoutes.home);
+              return;
+            }
           }
         } catch (e) {
           statusMessage.value = 'Authentication check failed.';

@@ -58,6 +58,9 @@ void main() {
       final categories = await source.getCategories();
       expect(categories, isNotEmpty);
 
+      expect(source.accountMetadata, isNotNull);
+      expect(source.accountMetadata?.status, isNotNull);
+
       final stats = await source.statistics();
       expect(stats.channels, 2);
       expect(stats.movies, 1);

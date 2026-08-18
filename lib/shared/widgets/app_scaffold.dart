@@ -7,6 +7,7 @@ import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import 'app_app_bar.dart';
+import 'sync_progress_bar.dart';
 
 class AppScaffold extends StatelessWidget {
   final String title;
@@ -114,6 +115,7 @@ class AppScaffold extends StatelessWidget {
                   child: Column(
                     children: [
                       if (showAppBar) AppAppBar(title: title, actions: actions),
+                      const SyncProgressBar(),
                       Expanded(child: body),
                     ],
                   ),
@@ -153,6 +155,7 @@ class AppScaffold extends StatelessWidget {
                   child: Column(
                     children: [
                       if (showAppBar) AppAppBar(title: title, actions: actions),
+                      const SyncProgressBar(),
                       Expanded(child: body),
                     ],
                   ),
@@ -165,6 +168,7 @@ class AppScaffold extends StatelessWidget {
           return Column(
             children: [
               if (showAppBar) AppAppBar(title: title, actions: actions),
+              const SyncProgressBar(),
               Expanded(child: body),
             ],
           );
