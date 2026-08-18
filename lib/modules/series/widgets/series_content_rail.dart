@@ -4,6 +4,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
@@ -109,7 +110,15 @@ class SeriesPosterCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final poster = item.poster ?? item.thumbnail;
+    final formattedPoster = ImageUrlFormatter.extractFromMediaItem(item);
+    final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
+        ? item.poster!.trim()
+        : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
+            ? item.thumbnail!.trim()
+            : item.backdrop?.trim());
+    final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
+        ? formattedPoster
+        : rawPoster;
 
     return TvFocusable(
       onTap: onTap,
@@ -198,7 +207,15 @@ class ContinueWatchingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final poster = item.poster ?? item.thumbnail;
+    final formattedPoster = ImageUrlFormatter.extractFromMediaItem(item);
+    final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
+        ? item.poster!.trim()
+        : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
+            ? item.thumbnail!.trim()
+            : item.backdrop?.trim());
+    final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
+        ? formattedPoster
+        : rawPoster;
     final width = MediaQuery.of(context).size.width >= 900 ? 200.0 : (MediaQuery.of(context).size.width >= 600 ? 180.0 : 150.0);
 
     return SizedBox(

@@ -61,12 +61,13 @@ MediaItem _buildItem({
   required String id,
   required String title,
   required MediaType mediaType,
+  String providerId = 'provider-1',
   List<String> genres = const [],
   String? description,
 }) {
   return MediaItem(
     id: id,
-    providerId: 'provider-1',
+    providerId: providerId,
     providerType: MediaSourceType.xtream,
     mediaType: mediaType,
     title: title,
@@ -91,6 +92,7 @@ void main() {
       id: 'movie-1',
       title: 'Inception',
       mediaType: MediaType.movie,
+      providerId: 'provider-1',
       genres: ['Sci-Fi', 'Action'],
       description: 'A thief who steals corporate secrets through dream-sharing tech.',
     ),
@@ -98,12 +100,14 @@ void main() {
       id: 'movie-2',
       title: 'Interstellar',
       mediaType: MediaType.movie,
+      providerId: 'provider-2',
       genres: ['Sci-Fi', 'Drama'],
     ),
     _buildItem(
       id: 'series-1',
       title: 'Breaking Bad',
       mediaType: MediaType.series,
+      providerId: 'provider-1',
       genres: ['Crime', 'Drama'],
       description: 'A chemistry teacher turned manufacturer.',
     ),
@@ -111,6 +115,7 @@ void main() {
       id: 'channel-1',
       title: 'Action News HD',
       mediaType: MediaType.channel,
+      providerId: 'provider-2',
       genres: ['News'],
     ),
   ];
@@ -184,6 +189,40 @@ void main() {
       controller.clearSearch();
       expect(controller.searchQuery.value, isEmpty);
       expect(controller.allResults, isEmpty);
+    });
+
+    test('selectQuery sets textController, searchQuery, and performs search', () async {
+      final fakeRepo = _FakeCatalogRepository(sampleItems);
+      final controller = SearchHubController(catalogRepository: fakeRepo);
+
+      controller.selectQuery('Action');
+      expect(controller.textController.text, 'Action');
+      expect(controller.searchQuery.value, 'Action');
+
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(controller.allResults, isNotEmpty);
+    });
+
+    test('filters search results by selected provider', () async {
+      final fakeRepo = _FakeCatalogRepository(sampleItems);
+      final controller = SearchHubController(catalogRepository: fakeRepo);
+
+      await controller.performSearch('Sci-Fi');
+      expect(controller.allResults.length, 2); // Inception (provider-1) and Interstellar (provider-2)
+
+      controller.setProvider('provider-1', 'Provider 1');
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(controller.allResults.length, 1);
+      expect(controller.allResults.first.title, 'Inception');
+
+      controller.setProvider('provider-2', 'Provider 2');
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(controller.allResults.length, 1);
+      expect(controller.allResults.first.title, 'Interstellar');
+
+      controller.setProvider('all', 'All Providers');
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(controller.allResults.length, 2);
     });
   });
 

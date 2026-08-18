@@ -178,7 +178,11 @@ class StreamEngine {
     required Map<String, dynamic> itemMetadata,
     String? fallbackUrl,
   }) async {
-    final sourceUrl = _extractSourceUrl(itemMetadata, fallbackUrl);
+    final sourceUrl = _extractSourceUrl(
+      itemMetadata,
+      fallbackUrl,
+      providerSession: providerSession,
+    );
     if (sourceUrl == null || sourceUrl.isEmpty) {
       throw const StreamResolutionException(
         message: 'Media item has no resolvable stream URL.',
@@ -338,17 +342,56 @@ class StreamEngine {
 
   String? _extractSourceUrl(
     Map<String, dynamic> itemMetadata,
-    String? fallbackUrl,
-  ) {
+    String? fallbackUrl, {
+    ProviderSession? providerSession,
+  }) {
     final candidates = <String?>[
       itemMetadata['streamUrl']?.toString(),
       itemMetadata['stream_url']?.toString(),
       itemMetadata['url']?.toString(),
+      itemMetadata['directSource']?.toString(),
+      itemMetadata['direct_source']?.toString(),
       fallbackUrl,
     ];
     for (final candidate in candidates) {
-      if (candidate != null && candidate.isNotEmpty) return candidate;
+      if (candidate != null &&
+          candidate.isNotEmpty &&
+          !candidate.startsWith('series://') &&
+          !candidate.startsWith('stalker://')) {
+        return candidate;
+      }
     }
+
+    final seriesId = itemMetadata['seriesId']?.toString() ??
+        itemMetadata['series_id']?.toString();
+    if (seriesId != null && seriesId.isNotEmpty) {
+      return 'series://$seriesId';
+    }
+
+    final streamId = itemMetadata['streamId']?.toString() ??
+        itemMetadata['stream_id']?.toString();
+    if (streamId != null &&
+        streamId.isNotEmpty &&
+        providerSession != null &&
+        providerSession.baseUrl != null &&
+        providerSession.baseUrl!.isNotEmpty) {
+      final isVod = itemMetadata['isVod'] == true ||
+          itemMetadata['containerExtension'] != null ||
+          itemMetadata['container_extension'] != null;
+      final ext = itemMetadata['containerExtension']?.toString() ??
+          itemMetadata['container_extension']?.toString() ??
+          (isVod ? 'mp4' : 'ts');
+      final typeSegment = isVod ? 'movie' : 'live';
+      final u = providerSession.username ?? '';
+      final p = providerSession.password ?? '';
+      return '${providerSession.baseUrl}/$typeSegment/$u/$p/$streamId.$ext';
+    }
+
+    final cmd = itemMetadata['cmd']?.toString();
+    if (cmd != null && cmd.isNotEmpty) {
+      return 'stalker://$cmd';
+    }
+
     return null;
   }
 

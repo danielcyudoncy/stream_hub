@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/media_poster_card.dart';
 import '../../../shared/widgets/media_section.dart';
+import '../../../shared/widgets/provider_selector_button.dart';
 import './widgets/movies_hero_carousel.dart';
 import 'movies_controller.dart';
 
@@ -24,6 +25,13 @@ class MoviesPage extends GetView<MoviesController> {
     return AppScaffold(
       title: 'Movies',
       actions: [
+        Obx(
+          () => ProviderSelectorButton(
+            selectedProviderId: controller.selectedProvider.value,
+            onSelectProvider: (providerId) => controller.setProvider(providerId),
+            sheetTitle: 'Movies Provider',
+          ),
+        ),
         IconButton(
           icon: const Icon(AppIcons.search),
           onPressed: () => Get.toNamed(AppRoutes.search),

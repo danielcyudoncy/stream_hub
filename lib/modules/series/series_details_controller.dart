@@ -141,21 +141,21 @@ class SeriesDetailsController extends GetxController {
     if (series.providerType == MediaSourceType.xtream) {
       try {
         final groups = await _xtreamSeasonGroups(series, seriesId);
-        _cacheEpisodes(groups);
-        return groups;
-      } on StreamSeriesInfoUnavailableException {
+        if (groups.isNotEmpty) {
+          _cacheEpisodes(groups);
+          return groups;
+        }
+      } catch (e) {
         logger.info(
-          'Falling back to catalog episodes for series $seriesId '
-          '(provider does not support series info or credentials invalid)',
+          'Failed live xtream season fetch for series $seriesId, attempting catalog fallback: $e',
           tag: 'SeriesDetailsController',
         );
-        final catalog = await _catalogSeasonGroups(series, seriesId);
-        if (catalog.isNotEmpty) return catalog;
-        // Provider doesn't support series info AND no cached episodes exist.
-        // This is expected for providers that don't implement get_series_info.
-        // Fall through to let the infoMessage display to the user.
-        rethrow;
       }
+      final catalog = await _catalogSeasonGroups(series, seriesId);
+      if (catalog.isNotEmpty) return catalog;
+      throw const StreamSeriesInfoUnavailableException(
+        message: 'No season or episode data available from provider.',
+      );
     }
 
     // For non-Xtream providers, always try catalog first
@@ -394,7 +394,14 @@ class SeriesDetailsController extends GetxController {
   }
 
   static String? _seriesId(MediaItem series) {
-    return series.metadata['seriesId']?.toString() ??
-        series.metadata['streamId']?.toString();
+    final direct = series.metadata['seriesId']?.toString() ??
+        series.metadata['series_id']?.toString() ??
+        series.metadata['streamId']?.toString() ??
+        series.metadata['stream_id']?.toString();
+    if (direct != null && direct.isNotEmpty) return direct;
+    if (series.id.startsWith('xtream-series-')) {
+      return series.id.replaceFirst('xtream-series-', '');
+    }
+    return series.id;
   }
 }

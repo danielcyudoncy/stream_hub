@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -6,6 +7,7 @@ import 'core/bindings/app_binding.dart';
 import 'core/constants/app_constants.dart';
 import 'core/localization/app_translations.dart';
 import 'core/logging/logging_service.dart';
+import 'core/network/app_http_overrides.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routes/app_pages.dart';
 import 'data/models/settings_model.dart';
@@ -17,6 +19,7 @@ import 'data/services/firebase_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  HttpOverrides.global = AppHttpOverrides();
   MediaKit.ensureInitialized();
   await Hive.initFlutter();
   Hive.registerAdapter(ProviderModelAdapter());

@@ -6,6 +6,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
@@ -163,7 +164,15 @@ class _HeroSlide extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final image = movie.backdrop ?? movie.poster ?? movie.thumbnail;
+    final formattedImage = ImageUrlFormatter.extractFromMediaItem(movie);
+    final rawImage = (movie.backdrop != null && movie.backdrop!.trim().isNotEmpty)
+        ? movie.backdrop!.trim()
+        : ((movie.poster != null && movie.poster!.trim().isNotEmpty)
+            ? movie.poster!.trim()
+            : movie.thumbnail?.trim());
+    final image = (formattedImage != null && formattedImage.isNotEmpty)
+        ? formattedImage
+        : rawImage;
 
     return Stack(
       fit: StackFit.expand,
