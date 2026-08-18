@@ -19,7 +19,12 @@ class StalkerProviderSessionFactory implements ProviderSessionFactory {
     ProviderSession? existing,
   }) async {
     final config = providerConfig ?? const <String, dynamic>{};
-    final portalUrl = (config['portalUrl'] ?? '').toString();
+    final portalUrl = (config['portalUrl'] ??
+            config['serverUrl'] ??
+            config['sourceUrl'] ??
+            itemMetadata['portalUrl'] ??
+            '')
+        .toString();
 
     return ProviderSession(
       providerId:
