@@ -31,7 +31,7 @@ class PlayerSettings {
     this.autoResume = true,
     this.autoFullscreen = false,
     this.defaultSpeed = PlaybackSpeed.speed1_0,
-    this.defaultAspectRatio = AspectRatioMode.fit,
+    this.defaultAspectRatio = AspectRatioMode.ratio16x9,
     this.rememberPosition = true,
     this.skipForwardSeconds = 10,
     this.skipBackwardSeconds = 10,
