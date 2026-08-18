@@ -80,7 +80,11 @@ class SessionManager {
 
     final configuredUsername = providerConfig['username']?.toString();
     final configuredPassword = providerConfig['password']?.toString();
-    final configuredServerUrl = providerConfig['serverUrl']?.toString();
+    final configuredServerUrl = (providerConfig['serverUrl'] ??
+            providerConfig['portalUrl'] ??
+            providerConfig['sourceUrl'])
+        ?.toString();
+    final configuredMac = providerConfig['macAddress']?.toString();
 
     if (configuredServerUrl != null &&
         configuredServerUrl.isNotEmpty &&
@@ -90,9 +94,17 @@ class SessionManager {
       return true;
     }
 
+    if (providerType == MediaSourceType.stalker) {
+      if (configuredMac != null &&
+          configuredMac.isNotEmpty &&
+          session.macAddress != configuredMac) {
+        return true;
+      }
+      return false;
+    }
+
     if (providerType == MediaSourceType.xtream ||
-        providerType == MediaSourceType.m3u ||
-        providerType == MediaSourceType.stalker) {
+        providerType == MediaSourceType.m3u) {
       final usernameMatches =
           configuredUsername == null ||
           configuredUsername.isEmpty ||

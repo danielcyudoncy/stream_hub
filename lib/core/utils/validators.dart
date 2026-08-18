@@ -49,6 +49,9 @@ class Validators {
 
   static bool isValidMacAddress(String? mac) {
     if (mac == null || mac.trim().isEmpty) return false;
-    return _macRegExp.hasMatch(mac.trim());
+    final trimmed = mac.trim();
+    if (_macRegExp.hasMatch(trimmed)) return true;
+    final cleaned = trimmed.replaceAll(RegExp(r'[^0-9A-Fa-f]'), '');
+    return cleaned.length == 12;
   }
 }
