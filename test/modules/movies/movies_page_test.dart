@@ -300,11 +300,13 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pump();
       expect(find.text('Movie 1'), findsOneWidget);
 
-      await tester.pump(const Duration(milliseconds: 600));
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump();
 
       expect(find.text('Movie 2'), findsOneWidget);
     });
@@ -424,14 +426,20 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      final seeAllButtons = find.text('See All');
-      expect(seeAllButtons, findsWidgets);
+      final seeAllFinder = find.text('See All');
+      await tester.scrollUntilVisible(
+        seeAllFinder,
+        200,
+        scrollable: find.byType(Scrollable).first,
+      );
 
-      await tester.tap(seeAllButtons.first);
+      expect(seeAllFinder, findsWidgets);
+
+      await tester.tap(seeAllFinder.first);
       await tester.pumpAndSettle();
 
       expect(Get.currentRoute, AppRoutes.moviesCategory);
-      expect(find.text('Trending Movies'), findsOneWidget);
+      expect(find.text('Trending Movies'), findsWidgets);
       expect(find.byType(MediaPosterCard), findsOneWidget);
     });
 

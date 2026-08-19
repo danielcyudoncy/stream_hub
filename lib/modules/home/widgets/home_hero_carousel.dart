@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/media/enums/media_type.dart';
+import '../../../core/streaming/vod/xtream_vod_info_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
@@ -90,11 +92,13 @@ class _HomeHeroCarouselState extends State<HomeHeroCarousel> {
     }
 
     final isTv = PlatformHelper.isTV;
-    final width = MediaQuery.of(context).size.width;
+    final size = MediaQuery.of(context).size;
+    final width = size.width;
+    final screenHeight = size.height;
     final heroHeight = isTv
         ? 440.0
         : (width >= 1024
-            ? 420.0
+            ? (screenHeight * 0.65).clamp(500.0, 900.0)
             : (width >= 600 ? 360.0 : 320.0));
 
     return SizedBox(
@@ -123,6 +127,7 @@ class _HomeHeroCarouselState extends State<HomeHeroCarousel> {
                 final item = widget.items[index];
                 final isFav = widget.isFavorite?.call(item.id) ?? item.favorite;
                 return _HeroSlide(
+                  key: ValueKey(item.id),
                   item: item,
                   isTv: isTv,
                   isFavorite: isFav,
@@ -158,7 +163,7 @@ class _HomeHeroCarouselState extends State<HomeHeroCarousel> {
   }
 }
 
-class _HeroSlide extends StatelessWidget {
+class _HeroSlide extends StatefulWidget {
   final MediaItem item;
   final bool isTv;
   final bool isFavorite;
@@ -166,6 +171,7 @@ class _HeroSlide extends StatelessWidget {
   final VoidCallback? onToggleFavorite;
 
   const _HeroSlide({
+    super.key,
     required this.item,
     required this.isTv,
     required this.isFavorite,
@@ -174,31 +180,98 @@ class _HeroSlide extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+  State<_HeroSlide> createState() => _HeroSlideState();
+}
+
+class _HeroSlideState extends State<_HeroSlide> {
+  String? _resolvedImage;
+  String? _resolvedPlot;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndResolveImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeroSlide oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.id != widget.item.id ||
+        oldWidget.item.backdrop != widget.item.backdrop ||
+        oldWidget.item.poster != widget.item.poster) {
+      _resolvedImage = null;
+      _resolvedPlot = null;
+      _checkAndResolveImage();
+    }
+  }
+
+  void _checkAndResolveImage() {
+    final direct = _computeDirectImage(widget.item);
+    if (direct != null && direct.isNotEmpty) {
+      _resolvedImage = direct;
+      return;
+    }
+
+    if (widget.item.mediaType == MediaType.movie && Get.isRegistered<XtreamVodInfoService>()) {
+      final vodService = Get.find<XtreamVodInfoService>();
+      final cached = vodService.getCachedBackdrop(widget.item);
+      if (cached != null && cached.isNotEmpty) {
+        _resolvedImage = cached;
+        return;
+      }
+
+      vodService.fetchForMediaItem(widget.item).then((info) {
+        if (!mounted) return;
+        final backdrop = (info?.backdrop != null && info!.backdrop!.trim().isNotEmpty)
+            ? info.backdrop!.trim()
+            : null;
+        final poster = (info?.poster != null && info!.poster!.trim().isNotEmpty)
+            ? info.poster!.trim()
+            : null;
+        final img = backdrop ?? poster;
+        if (img != null && img.isNotEmpty) {
+          setState(() {
+            _resolvedImage = img;
+            _resolvedPlot = info?.plot;
+          });
+        }
+      }).catchError((_) {});
+    }
+  }
+
+  static String? _computeDirectImage(MediaItem item) {
     final formattedImage = ImageUrlFormatter.extractFromMediaItem(item);
     final rawImage = (item.backdrop != null && item.backdrop!.trim().isNotEmpty)
         ? item.backdrop!.trim()
         : ((item.poster != null && item.poster!.trim().isNotEmpty)
             ? item.poster!.trim()
             : item.thumbnail?.trim());
-    final image = (formattedImage != null && formattedImage.isNotEmpty)
+    return (formattedImage != null && formattedImage.isNotEmpty)
         ? formattedImage
         : rawImage;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final image = _resolvedImage ?? _computeDirectImage(widget.item);
+    final description = _resolvedPlot ?? widget.item.description;
 
     return Stack(
       fit: StackFit.expand,
       children: [
         // Backdrop Image
         if (image != null && image.isNotEmpty)
-          Image.network(
-            image,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                ColoredBox(color: colorScheme.surfaceContainerHighest),
+          Positioned.fill(
+            child: Image.network(
+              image,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  ColoredBox(color: colorScheme.surfaceContainerHighest),
+            ),
           )
         else
-          ColoredBox(color: colorScheme.surfaceContainerHighest),
+          Positioned.fill(child: ColoredBox(color: colorScheme.surfaceContainerHighest)),
 
         // Deep Cinematic Multi-Stop Gradient Overlays
         Positioned.fill(
@@ -246,10 +319,10 @@ class _HeroSlide extends StatelessWidget {
             children: [
               // Title
               Text(
-                item.title,
+                widget.item.title,
                 style: AppTypography.getHeadline(
                   color: Colors.white,
-                  scale: isTv ? 1.4 : 1.1,
+                  scale: widget.isTv ? 1.4 : 1.1,
                 ).copyWith(fontWeight: FontWeight.w800),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -257,21 +330,20 @@ class _HeroSlide extends StatelessWidget {
               AppSpacing.heightXS,
 
               // Metadata row (Rating, Type, Duration, Genres)
-              _buildMetaRow(item, colorScheme),
+              _buildMetaRow(widget.item, colorScheme),
 
               // Description if available
-              if (item.description != null &&
-                  item.description!.trim().isNotEmpty) ...[
+              if (description != null && description.trim().isNotEmpty) ...[
                 AppSpacing.heightSM,
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 680),
                   child: Text(
-                    item.description!.trim(),
+                    description.trim(),
                     style: AppTypography.getBody(
                       color: Colors.white.withValues(alpha: 0.82),
-                      scale: isTv ? 0.95 : 0.85,
+                      scale: widget.isTv ? 0.95 : 0.85,
                     ),
-                    maxLines: isTv ? 3 : 2,
+                    maxLines: widget.isTv ? 3 : 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -284,9 +356,9 @@ class _HeroSlide extends StatelessWidget {
                 runSpacing: AppSpacing.xs,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (onWatch != null)
+                  if (widget.onWatch != null)
                     TvFocusable(
-                      onTap: onWatch,
+                      onTap: widget.onWatch,
                       borderRadius: AppRadius.pill,
                       scale: 1.05,
                       child: Container(
@@ -326,9 +398,9 @@ class _HeroSlide extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (onToggleFavorite != null)
+                  if (widget.onToggleFavorite != null)
                     TvFocusable(
-                      onTap: onToggleFavorite,
+                      onTap: widget.onToggleFavorite,
                       borderRadius: AppRadius.pill,
                       scale: 1.05,
                       child: Container(
@@ -347,15 +419,15 @@ class _HeroSlide extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              isFavorite
+                              widget.isFavorite
                                   ? Icons.favorite_rounded
                                   : Icons.add_rounded,
-                              color: isFavorite ? AppColors.darkError : Colors.white,
+                              color: widget.isFavorite ? AppColors.darkError : Colors.white,
                               size: 18.0,
                             ),
                             AppSpacing.widthXS,
                             Text(
-                              isFavorite ? 'IN MY LIST' : 'MY LIST',
+                              widget.isFavorite ? 'IN MY LIST' : 'MY LIST',
                               style: AppTypography.getButton(
                                 color: Colors.white,
                               ).copyWith(fontWeight: FontWeight.w600),

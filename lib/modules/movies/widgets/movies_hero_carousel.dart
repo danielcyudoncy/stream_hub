@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
+import '../../../core/media/enums/media_type.dart';
+import '../../../core/streaming/vod/xtream_vod_info_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
@@ -28,54 +31,52 @@ class MoviesHeroCarousel extends StatefulWidget {
 
 class _MoviesHeroCarouselState extends State<MoviesHeroCarousel> {
   late final PageController _pageController;
-  Timer? _timer;
+  Timer? _autoPlayTimer;
   int _currentPage = 0;
-  bool _isInteracting = false;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
-    _startTimer();
+    _startAutoPlay();
   }
 
   @override
   void didUpdateWidget(covariant MoviesHeroCarousel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.movies.length != widget.movies.length) {
-      if (_currentPage >= widget.movies.length) {
-        _currentPage = 0;
-      }
-      _startTimer();
+      _restartAutoPlay();
     }
-  }
-
-  void _startTimer() {
-    _stopTimer();
-    if (widget.movies.length > 1) {
-      _timer = Timer.periodic(widget.autoPlayInterval, (timer) {
-        if (!_isInteracting && mounted && _pageController.hasClients && widget.movies.isNotEmpty) {
-          final nextPage = (_currentPage + 1) % widget.movies.length;
-          _pageController.animateToPage(
-            nextPage,
-            duration: const Duration(milliseconds: 600),
-            curve: Curves.easeInOutCubic,
-          );
-        }
-      });
-    }
-  }
-
-  void _stopTimer() {
-    _timer?.cancel();
-    _timer = null;
   }
 
   @override
   void dispose() {
-    _stopTimer();
+    _autoPlayTimer?.cancel();
     _pageController.dispose();
     super.dispose();
+  }
+
+  void _startAutoPlay() {
+    if (widget.movies.length <= 1) return;
+    _autoPlayTimer?.cancel();
+    _autoPlayTimer = Timer.periodic(widget.autoPlayInterval, (_) {
+      if (!mounted) return;
+      final nextPage = (_currentPage + 1) % widget.movies.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
+  void _restartAutoPlay() {
+    _autoPlayTimer?.cancel();
+    _startAutoPlay();
+  }
+
+  void _onUserInteraction() {
+    _restartAutoPlay();
   }
 
   @override
@@ -89,20 +90,21 @@ class _MoviesHeroCarouselState extends State<MoviesHeroCarousel> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final heroHeight = isTv
-            ? (constraints.maxHeight * 0.55).clamp(320.0, 560.0)
-            : 320.0;
+            ? 420.0
+            : (constraints.maxWidth > 800
+                ? 380.0
+                : constraints.maxWidth * 0.95);
 
         return SizedBox(
-          width: double.infinity,
           height: heroHeight,
+          width: double.infinity,
           child: Stack(
+            fit: StackFit.expand,
             children: [
               NotificationListener<ScrollNotification>(
                 onNotification: (notification) {
                   if (notification is ScrollStartNotification) {
-                    _isInteracting = true;
-                  } else if (notification is ScrollEndNotification) {
-                    _isInteracting = false;
+                    _onUserInteraction();
                   }
                   return false;
                 },
@@ -117,6 +119,7 @@ class _MoviesHeroCarouselState extends State<MoviesHeroCarousel> {
                   itemBuilder: (context, index) {
                     final movie = widget.movies[index];
                     return _HeroSlide(
+                      key: ValueKey(movie.id),
                       movie: movie,
                       isTv: isTv,
                       onWatch: widget.onWatch != null
@@ -128,12 +131,13 @@ class _MoviesHeroCarouselState extends State<MoviesHeroCarousel> {
               ),
               if (widget.movies.length > 1)
                 Positioned(
-                  bottom: AppSpacing.md,
                   right: AppSpacing.lg,
+                  bottom: AppSpacing.lg,
                   child: _PageIndicator(
                     count: widget.movies.length,
                     currentIndex: _currentPage,
                     onTap: (index) {
+                      _onUserInteraction();
                       _pageController.animateToPage(
                         index,
                         duration: const Duration(milliseconds: 400),
@@ -150,29 +154,97 @@ class _MoviesHeroCarouselState extends State<MoviesHeroCarousel> {
   }
 }
 
-class _HeroSlide extends StatelessWidget {
+class _HeroSlide extends StatefulWidget {
   final MediaItem movie;
   final bool isTv;
   final VoidCallback? onWatch;
 
   const _HeroSlide({
+    super.key,
     required this.movie,
     required this.isTv,
     this.onWatch,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+  State<_HeroSlide> createState() => _HeroSlideState();
+}
+
+class _HeroSlideState extends State<_HeroSlide> {
+  String? _resolvedImage;
+  String? _resolvedPlot;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAndResolveImage();
+  }
+
+  @override
+  void didUpdateWidget(covariant _HeroSlide oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.movie.id != widget.movie.id ||
+        oldWidget.movie.backdrop != widget.movie.backdrop ||
+        oldWidget.movie.poster != widget.movie.poster) {
+      _resolvedImage = null;
+      _resolvedPlot = null;
+      _checkAndResolveImage();
+    }
+  }
+
+  void _checkAndResolveImage() {
+    final direct = _computeDirectImage(widget.movie);
+    if (direct != null && direct.isNotEmpty) {
+      _resolvedImage = direct;
+      return;
+    }
+
+    if (widget.movie.mediaType == MediaType.movie && Get.isRegistered<XtreamVodInfoService>()) {
+      final vodService = Get.find<XtreamVodInfoService>();
+      final cached = vodService.getCachedBackdrop(widget.movie);
+      if (cached != null && cached.isNotEmpty) {
+        _resolvedImage = cached;
+        return;
+      }
+
+      vodService.fetchForMediaItem(widget.movie).then((info) {
+        if (!mounted) return;
+        final backdrop = (info?.backdrop != null && info!.backdrop!.trim().isNotEmpty)
+            ? info.backdrop!.trim()
+            : null;
+        final poster = (info?.poster != null && info!.poster!.trim().isNotEmpty)
+            ? info.poster!.trim()
+            : null;
+        final img = backdrop ?? poster;
+        if (img != null && img.isNotEmpty) {
+          setState(() {
+            _resolvedImage = img;
+            _resolvedPlot = info?.plot;
+          });
+        }
+      }).catchError((e) {
+        debugPrint('Hero slide fetch error for "${widget.movie.title}": $e');
+      });
+    }
+  }
+
+  static String? _computeDirectImage(MediaItem movie) {
     final formattedImage = ImageUrlFormatter.extractFromMediaItem(movie);
     final rawImage = (movie.backdrop != null && movie.backdrop!.trim().isNotEmpty)
         ? movie.backdrop!.trim()
         : ((movie.poster != null && movie.poster!.trim().isNotEmpty)
             ? movie.poster!.trim()
             : movie.thumbnail?.trim());
-    final image = (formattedImage != null && formattedImage.isNotEmpty)
+    return (formattedImage != null && formattedImage.isNotEmpty)
         ? formattedImage
         : rawImage;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final image = _resolvedImage ?? _computeDirectImage(widget.movie);
+    final description = _resolvedPlot ?? widget.movie.description;
 
     return Stack(
       fit: StackFit.expand,
@@ -209,36 +281,35 @@ class _HeroSlide extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                movie.title,
+                widget.movie.title,
                 style: AppTypography.getHeadline(
                   color: Colors.white,
-                  scale: isTv ? 1.4 : 1.0,
+                  scale: widget.isTv ? 1.4 : 1.0,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               AppSpacing.heightXS,
-              _buildMetaRow(movie),
-              if (movie.description != null &&
-                  movie.description!.trim().isNotEmpty) ...[
+              _buildMetaRow(widget.movie),
+              if (description != null && description.trim().isNotEmpty) ...[
                 AppSpacing.heightSM,
                 Text(
-                  movie.description!,
+                  description,
                   style: AppTypography.getBody(
                     color: Colors.white70,
-                    scale: isTv ? 1.0 : 0.88,
+                    scale: widget.isTv ? 1.0 : 0.88,
                   ),
-                  maxLines: isTv ? 3 : 2,
+                  maxLines: widget.isTv ? 3 : 2,
                   overflow: TextOverflow.ellipsis,
                 ),
               ],
               AppSpacing.heightMD,
-              if (onWatch != null)
+              if (widget.onWatch != null)
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TvFocusable(
-                      onTap: onWatch,
+                      onTap: widget.onWatch,
                       borderRadius: AppRadius.pill,
                       scale: 1.05,
                       child: Container(
