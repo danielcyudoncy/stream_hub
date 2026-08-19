@@ -10,16 +10,13 @@ import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/events/playback_event.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
-import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
 import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
-import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter_factory.dart';
 import 'package:stream_hub/core/media/player/player_selection_strategy.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/playback_analytics.dart';
-import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
 import 'package:stream_hub/core/utils/hardware_detector.dart';
@@ -42,10 +39,11 @@ class PlaybackEngine {
   final bool allowEngineFallback;
 
   bool _initialized = false;
-  bool _fallbackAttempted = false;
+  final Set<PlaybackEngineKind> _attemptedEngines = <PlaybackEngineKind>{};
   int _silentVideoSeconds = 0;
 
   PlayableMediaSession? _currentSession;
+  PlayableSession? _currentPlayableSession;
   final Rx<PlayableMediaSession?> sessionRx = Rx<PlayableMediaSession?>(null);
   PlaybackState _state = PlaybackState.idle;
   final Rx<PlaybackState> stateRx = PlaybackState.idle.obs;
@@ -187,7 +185,7 @@ class PlaybackEngine {
     _currentSession = session;
     sessionRx.value = session;
     _retryCount = 0;
-    _fallbackAttempted = false;
+    _attemptedEngines.clear();
     _analytics = PlaybackAnalytics(
       sessionId: session.id,
       itemId: mediaItem.id,
@@ -279,9 +277,10 @@ class PlaybackEngine {
     );
 
     _currentSession = playableMediaSession;
+    _currentPlayableSession = session;
     sessionRx.value = playableMediaSession;
     _retryCount = 0;
-    _fallbackAttempted = false;
+    _attemptedEngines.clear();
     _analytics = PlaybackAnalytics(
       sessionId: playableMediaSession.id,
       itemId: item.id,
@@ -505,12 +504,16 @@ class PlaybackEngine {
   }
 
   void _bindAdapterStreams() {
-    _stateSub = adapter.stateStream.listen((state) {
+    _stateSub = adapter.stateStream.listen((state) async {
       if (state != _state) {
         _setState(state);
         if (state == PlaybackState.completed) {
           _onCompleted();
         } else if (state == PlaybackState.error) {
+          if (await _tryEngineFallback() && _currentSession != null) {
+            await loadSession(_currentSession!);
+            return;
+          }
           _handleError('Adapter reported error');
         }
       }
@@ -530,7 +533,11 @@ class PlaybackEngine {
       }
     });
 
-    _errorSub = adapter.errorStream.listen((error) {
+    _errorSub = adapter.errorStream.listen((error) async {
+      if (await _tryEngineFallback() && _currentSession != null) {
+        await loadSession(_currentSession!);
+        return;
+      }
       _handleError('Player error: $error');
     });
 
@@ -621,36 +628,38 @@ class PlaybackEngine {
   /// Attempts to recover from a failed load by switching to another backend.
   /// Returns `true` when a fallback was performed.
   ///
-  /// Only runs in Auto mode, respects an explicit user preference, and never
-  /// falls back more than once per session. The candidate order comes from the
-  /// [PlayerSelectionStrategy] so the runtime fallback stays consistent with
-  /// the negotiated primary engine per protocol.
+  /// Only runs in Auto mode, respects an explicit user preference, and iterates
+  /// through candidates until all supported options have been exhausted.
   Future<bool> _tryEngineFallback() async {
-    if (!allowEngineFallback || _fallbackAttempted) return false;
+    if (!allowEngineFallback) return false;
     if (settings.preferredPlayer != PlaybackEnginePreference.auto) return false;
 
+    _attemptedEngines.add(_engineKind);
     final url = _currentSession?.stream.url ?? '';
     final isLive = _currentSession?.metadata.isLive ?? false;
     final candidates = _selectionStrategy.fallbackOrderFor(url, isLive: isLive);
     for (final candidate in candidates) {
-      if (candidate == _engineKind) continue;
-      if (candidate == PlaybackEngineKind.vlc && !VlcPlayerAdapter.isSupported) {
+      if (candidate == _engineKind || _attemptedEngines.contains(candidate)) {
         continue;
       }
-      if (candidate == PlaybackEngineKind.nativeActivity &&
-          !NativeActivityPlayerAdapter.isSupported) {
+      if (!PlayerAdapterFactory.isSupported(candidate)) {
         continue;
       }
-      if (candidate == PlaybackEngineKind.exoPlayer &&
-          !ExoPlayerSurfaceViewAdapter.isSupported) {
-        continue;
-      }
-      _fallbackAttempted = true;
+      _attemptedEngines.add(candidate);
       logger.warning(
         'Falling back from ${_engineKind.displayName} to ${candidate.displayName}',
         tag: 'PlaybackEngine',
       );
       await _swapAdapter(candidate);
+      final rawSession = _currentPlayableSession;
+      if (rawSession != null) {
+        await _adapter.playSession(rawSession);
+      } else {
+        final currentSession = _currentSession;
+        if (currentSession != null) {
+          await _adapter.load(currentSession);
+        }
+      }
       return true;
     }
     return false;
@@ -797,7 +806,7 @@ class PlaybackEngine {
         if (activeAdapter is MediaKitPlayerAdapter &&
             !activeAdapter.hasVideoFrames) {
           _silentVideoSeconds += 5;
-          if (_silentVideoSeconds >= 10 && !_fallbackAttempted) {
+          if (_silentVideoSeconds >= 5) {
             logger.warning(
               'Black screen detected: playing but no video frame rendered '
               'for $_silentVideoSeconds s; switching engine',

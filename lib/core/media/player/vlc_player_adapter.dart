@@ -82,24 +82,20 @@ class VlcPlayerAdapter implements PlayerAdapter {
     if (controller == null) return const SizedBox.shrink();
     return ValueListenableBuilder<VlcPlayerValue>(
       valueListenable: controller,
-      builder: (context, value, _) => VlcPlayer(
-        controller: controller,
-        aspectRatio: value.aspectRatio,
-        placeholder: Container(color: const Color(0xFF000000)),
-        // Android: virtualDisplay:false selects hybrid composition
-        // (PlatformViewLink + initSurfaceAndroidView). With the default
-        // virtualDisplay:true the plugin renders through an AndroidView whose
-        // SurfaceTexture is registered with Flutter's TextureRegistry
-        // (FlutterVlcPlayer.java:113) and sampled by Flutter's GL compositor -
-        // the same dead external-texture consumer that black-screens media_kit
-        // on Unisoc/Mali devices (GL_INVALID_OPERATION 0x505 on
-        // GLConsumer.bindTextureImage, see docs/PLAYBACK_ENGINEERING.md §1.1).
-        // NOTE: hybrid composition has NOT been validated on-device (the 2026-08
-        // log was auto-selection/media_kit). It is a best-effort path, not a
-        // confirmed fix; this device class is documented as unsupported for
-        // Flutter external-texture video.
-        virtualDisplay: false,
-      ),
+      builder: (context, value, _) {
+        final ratio = value.aspectRatio > 0 ? value.aspectRatio : 16 / 9;
+        return Center(
+          child: AspectRatio(
+            aspectRatio: ratio,
+            child: VlcPlayer(
+              controller: controller,
+              aspectRatio: ratio,
+              placeholder: Container(color: const Color(0xFF000000)),
+              virtualDisplay: false,
+            ),
+          ),
+        );
+      },
     );
   }
 

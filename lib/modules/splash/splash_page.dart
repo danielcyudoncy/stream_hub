@@ -19,10 +19,7 @@ class SplashPage extends GetView<SplashController> {
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              colorScheme.surface,
-              colorScheme.surfaceContainerHighest,
-            ],
+            colors: [colorScheme.surface, colorScheme.surfaceContainerHighest],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
@@ -67,32 +64,43 @@ class SplashPage extends GetView<SplashController> {
                   // App name
                   Text(
                     'StreamHub Pro',
-                    style: AppTypography.getDisplay(
-                      color: colorScheme.onSurface,
-                      scale: 1.0,
-                    ).copyWith(
-                      shadows: [
-                        Shadow(
-                          color: colorScheme.shadow.withValues(alpha: 0.3),
-                          offset: const Offset(0, 1),
-                          blurRadius: 2,
+                    style:
+                        AppTypography.getDisplay(
+                          color: colorScheme.onSurface,
+                          scale: 1.0,
+                        ).copyWith(
+                          shadows: [
+                            Shadow(
+                              color: colorScheme.shadow.withValues(alpha: 0.3),
+                              offset: const Offset(0, 1),
+                              blurRadius: 2,
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
                   ),
                   AppSpacing.heightXXS,
 
                   // Tagline
                   Text(
                     'Premium IPTV Client',
-                    style: AppTypography.getLabel(color: colorScheme.onSurfaceVariant),
+                    style: AppTypography.getLabel(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+
+                  Text(
+                    'By ChamDTech',
+                    style: AppTypography.getLabel(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                   const SizedBox(height: 32.0),
 
                   // Loading spinner
                   CircularProgressIndicator(
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(colorScheme.secondary),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      colorScheme.secondary,
+                    ),
                     strokeWidth: 3.0,
                   ),
                   AppSpacing.heightMD,
@@ -101,7 +109,11 @@ class SplashPage extends GetView<SplashController> {
                   Obx(
                     () => Text(
                       controller.statusMessage.value,
-                      style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7)),
+                      style: AppTypography.getCaption(
+                        color: colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.7,
+                        ),
+                      ),
                     ),
                   ),
                 ],
