@@ -187,14 +187,24 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       final results = await Future.wait<dynamic>([
         _fetchLiveChannels(syncStartedAt),
         _fetchLiveCategories(syncStartedAt),
+        _fetchMovieCategories(syncStartedAt),
+        _fetchSeriesCategories(syncStartedAt),
         _fetchMovies(syncStartedAt),
         _fetchSeries(syncStartedAt),
       ], eagerError: false);
 
+      final liveCategories = results[1] as List<MediaItem>;
+      final movieCategories = results[2] as List<MediaItem>;
+      final seriesCategories = results[3] as List<MediaItem>;
+
       _cachedChannels = results[0] as List<MediaItem>;
-      _cachedCategories = results[1] as List<MediaItem>;
-      _cachedMovies = results[2] as List<MediaItem>;
-      _cachedSeries = results[3] as List<MediaItem>;
+      _cachedCategories = [
+        ...liveCategories,
+        ...movieCategories,
+        ...seriesCategories,
+      ];
+      _cachedMovies = results[4] as List<MediaItem>;
+      _cachedSeries = results[5] as List<MediaItem>;
       _lastSync = DateTime.now();
 
       _cachedChannels = _resolveCategoryNames(
@@ -326,6 +336,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           title: name,
           subtitle: _asString(item['epg_channel_id']),
           poster: poster,
+          thumbnail: poster,
           genres: categoryId.isNotEmpty ? [categoryId] : [],
           metadata: _liveMetadata(item, streamId, streamUrl, categoryId, poster),
           createdAt: createdAt,
@@ -384,6 +395,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           mediaType: MediaType.movie,
           title: name,
           poster: poster,
+          thumbnail: poster,
           backdrop: backdrop,
           genres: categoryId.isNotEmpty ? [categoryId] : [],
           rating: _parseRating(item['rating']),
@@ -449,6 +461,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           mediaType: MediaType.series,
           title: name,
           poster: poster,
+          thumbnail: poster,
           backdrop: backdrop,
           genres: categoryId.isNotEmpty ? [categoryId] : [],
           rating: _parseRating(item['rating']),
@@ -782,7 +795,8 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
 
   @override
   Future<List<MediaItem>> getCategories() async {
-    final live = _cachedCategories;
+    if (_cachedCategories.isNotEmpty) return _cachedCategories;
+    final live = await _fetchLiveCategories(DateTime.now());
     final movies = await _fetchMovieCategories(DateTime.now());
     final series = await _fetchSeriesCategories(DateTime.now());
     return [...live, ...movies, ...series];

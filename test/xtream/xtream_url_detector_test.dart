@@ -36,6 +36,28 @@ void main() {
       expect(parts.password, 'p');
     });
 
+    test('preserves subpath for player_api.php under a directory', () {
+      final parts = XtreamUrlDetector.parse(
+        'http://example.com/xtream/player_api.php?username=u&password=p',
+      );
+
+      expect(parts, isNotNull);
+      expect(parts!.serverUrl, 'http://example.com/xtream');
+      expect(parts.username, 'u');
+      expect(parts.password, 'p');
+    });
+
+    test('preserves subpath for get.php under a directory', () {
+      final parts = XtreamUrlDetector.parse(
+        'http://example.com:8080/cpanel/get.php?username=u&password=p&type=m3u_plus',
+      );
+
+      expect(parts, isNotNull);
+      expect(parts!.serverUrl, 'http://example.com:8080/cpanel');
+      expect(parts.username, 'u');
+      expect(parts.password, 'p');
+    });
+
     test('rejects a plain M3U playlist URL', () {
       expect(
         XtreamUrlDetector.parse('http://example.com/playlist.m3u'),
