@@ -170,6 +170,12 @@ class PlaybackLocalService {
     return _sessionsBox?.get(id);
   }
 
+  Future<List<PlaybackSessionModel>> getAllSessions() async {
+    final list = _sessionsBox?.values.toList() ?? [];
+    list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return list;
+  }
+
   Future<void> deleteSession(String id) async {
     await _sessionsBox?.delete(id);
   }

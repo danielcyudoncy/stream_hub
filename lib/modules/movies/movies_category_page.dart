@@ -70,24 +70,9 @@ class MoviesCategoryPage extends StatelessWidget {
   }
 
   void _openItem(BuildContext context, MediaItem item) {
-    final streamUrl = item.metadata['streamUrl']?.toString();
-    final directSource = item.metadata['directSource']?.toString();
-    final streamId = item.metadata['streamId']?.toString();
-    final canOpen = (streamUrl != null && streamUrl.isNotEmpty) ||
-        (directSource != null && directSource.isNotEmpty) ||
-        (streamId != null && streamId.isNotEmpty);
-
-    if (!canOpen) {
-      Get.snackbar('Not Available', 'This movie is not available right now.');
-      return;
-    }
-
     Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': [item],
-        'currentId': item.id,
-      },
+      AppRoutes.movieDetails,
+      arguments: item,
     );
   }
 }

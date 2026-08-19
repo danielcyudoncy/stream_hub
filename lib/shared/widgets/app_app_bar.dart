@@ -22,12 +22,17 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
     final colorScheme = theme.colorScheme;
 
     return AppBar(
+      titleSpacing: leading != null ? 0.0 : AppSpacing.sm,
       title: Text(
         title,
-        style: AppTypography.getTitle(color: colorScheme.onSurface),
+        maxLines: 1,
+        softWrap: false,
+        style: AppTypography.getTitle(color: colorScheme.onSurface).copyWith(
+          fontWeight: FontWeight.bold,
+        ),
       ),
       leading: leading,
-      actions: actions != null ? [...actions!, AppSpacing.widthXS] : null,
+      actions: actions != null ? [...actions!, AppSpacing.widthXXS] : null,
       centerTitle: centerTitle,
       backgroundColor: Colors.transparent,
       elevation: 0.0,

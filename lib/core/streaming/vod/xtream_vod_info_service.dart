@@ -277,6 +277,10 @@ class XtreamVodInfoService {
             final year = _stringValue(first['year']);
             final genres = first['genres'];
             final genre = (genres is List) ? genres.join(', ') : _stringValue(first['genre']);
+            final castList = first['cast'] ?? first['actors'] ?? first['stars'];
+            final cast = (castList is List) ? castList.join(', ') : _stringValue(castList);
+            final directorList = first['director'] ?? first['directors'];
+            final director = (directorList is List) ? directorList.join(', ') : _stringValue(directorList);
 
             _logger.info(
               'Enriched movie artwork from metadata for "$rawName" (cleaned: "$cleaned"): poster=$poster',
@@ -289,6 +293,8 @@ class XtreamVodInfoService {
               poster: poster,
               backdrop: backdrop,
               plot: plot,
+              cast: cast,
+              director: director,
               genre: genre,
               releaseDate: year,
               rating: rating,

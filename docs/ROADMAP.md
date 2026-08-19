@@ -255,21 +255,22 @@ Full Xtream Codes panel support and VOD playback across providers.
 - [x] Current program info overlay (XMLTV subtitle via MediaItem)
 - [x] Favorites toggle from player
 - [x] Auto-record playback history for Continue Watching
-- [ ] Resume playback position
+- [x] Resume playback position (VOD resume state & threshold calculation)
 - [ ] Picture-in-Picture
 - [ ] Audio tracks
 - [ ] Subtitles
 
 ---
 
-## Phase 5
+## Phase 5 — Movies (VOD Experience)
 
-Movies & Series
-
-- Movie Library
-- TV Shows
-- Continue Watching
-- Metadata
+- [x] Movie Library (Curated genre carousels, hero spotlight banner, top rated, recently added)
+- [x] Dedicated Movie Details page (backdrop, metadata badges, cast list, director, plot summary, related movies)
+- [x] Dedicated Movie Genre page (search, provider filter, favorites filter, multi-criteria sorting)
+- [x] Continue Watching for Movies (progress indicators, remaining time calculation, resume playback)
+- [x] Seamless VOD Playback integration with Stream Engine, PlaybackEngine, and PlayerController
+- [x] TV navigation & remote focus support across all VOD screens
+- [x] Unit, widget, and integration test coverage across all movie modules
 
 ---
 
