@@ -44,6 +44,14 @@ class XtreamUrlDetector {
     var serverUrl = '${uri.scheme}://${uri.host}';
     if (uri.hasPort) serverUrl = '$serverUrl:${uri.port}';
 
+    // Preserve the directory containing the API script (e.g. /xtream) so that
+    // relative image paths and stream paths resolve correctly.
+    final pathSegments = uri.pathSegments;
+    if (pathSegments.length > 1) {
+      serverUrl =
+          '$serverUrl/${pathSegments.sublist(0, pathSegments.length - 1).join('/')}';
+    }
+
     final username = uri.queryParameters['username'];
     final password = uri.queryParameters['password'];
 

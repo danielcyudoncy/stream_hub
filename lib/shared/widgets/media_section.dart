@@ -69,11 +69,12 @@ class MediaSection extends StatelessWidget {
           ),
         ),
         SizedBox(
-          height: 200,
-          child: ListView.builder(
+          height: 205,
+          child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             itemCount: items.length,
+            separatorBuilder: (context, index) => AppSpacing.widthSM,
             itemBuilder: (context, index) =>
                 itemBuilder(context, items[index], index),
           ),
