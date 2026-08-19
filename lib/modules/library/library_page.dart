@@ -423,7 +423,8 @@ class LibraryPage extends GetView<LibraryController> {
                   child: poster != null && poster.isNotEmpty
                       ? Image.network(
                           poster,
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
                           errorBuilder: (context, error, stackTrace) =>
                               _buildPosterPlaceholder(
                                 context,

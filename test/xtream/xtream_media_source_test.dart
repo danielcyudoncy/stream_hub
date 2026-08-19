@@ -516,5 +516,113 @@ void main() {
       expect(source.state, MediaSourceState.error);
       expect(result.error, contains('returned no content'));
     });
+
+    test('resolves relative stream_icon against server URL for local files', () async {
+      final server = await XtreamTestServer.start(handler: (action, params) {
+        if (action == 'get_vod_streams') {
+          return {
+            'data': [
+              {
+                'stream_id': 501,
+                'name': 'Inception',
+                'stream_icon': '/inception.jpg',
+                'category_id': '2',
+                'container_extension': 'mp4',
+              },
+            ],
+          };
+        }
+        return {'data': <dynamic>[]};
+      });
+      addTearDown(server.close);
+
+      final source = XtreamMediaSource(
+        id: 'p1',
+        config: {
+          'sourceUrl': server.baseUrl,
+          'username': 'demo',
+          'password': 'secret',
+        },
+        logger: LoggingService(),
+      );
+
+      await source.sync();
+
+      final movies = await source.getMovies();
+      expect(movies, hasLength(1));
+      expect(movies.first.poster, '${server.baseUrl}/inception.jpg');
+    });
+
+    test('resolves TMDB hash stream_icon to TMDB image URL', () async {
+      final server = await XtreamTestServer.start(handler: (action, params) {
+        if (action == 'get_vod_streams') {
+          return {
+            'data': [
+              {
+                'stream_id': 503,
+                'name': 'The Dark Knight',
+                'stream_icon': '/qJ2tW6WMUDux911r6m7haRef0WH.jpg',
+                'category_id': '2',
+                'container_extension': 'mp4',
+              },
+            ],
+          };
+        }
+        return {'data': <dynamic>[]};
+      });
+      addTearDown(server.close);
+
+      final source = XtreamMediaSource(
+        id: 'p1',
+        config: {
+          'sourceUrl': server.baseUrl,
+          'username': 'demo',
+          'password': 'secret',
+        },
+        logger: LoggingService(),
+      );
+
+      await source.sync();
+
+      final movies = await source.getMovies();
+      expect(movies, hasLength(1));
+      expect(movies.first.poster, 'https://image.tmdb.org/t/p/w500/qJ2tW6WMUDux911r6m7haRef0WH.jpg');
+    });
+
+    test('resolves multi-segment relative cover against server URL', () async {
+      final server = await XtreamTestServer.start(handler: (action, params) {
+        if (action == 'get_vod_streams') {
+          return {
+            'data': [
+              {
+                'stream_id': 502,
+                'name': 'Interstellar',
+                'cover': '/images/covers/interstellar.jpg',
+                'category_id': '2',
+                'container_extension': 'mp4',
+              },
+            ],
+          };
+        }
+        return {'data': <dynamic>[]};
+      });
+      addTearDown(server.close);
+
+      final source = XtreamMediaSource(
+        id: 'p1',
+        config: {
+          'sourceUrl': server.baseUrl,
+          'username': 'demo',
+          'password': 'secret',
+        },
+        logger: LoggingService(),
+      );
+
+      await source.sync();
+
+      final movies = await source.getMovies();
+      expect(movies, hasLength(1));
+      expect(movies.first.poster, '${server.baseUrl}/images/covers/interstellar.jpg');
+    });
   });
 }

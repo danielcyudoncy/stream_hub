@@ -34,6 +34,7 @@ import 'package:stream_hub/core/streaming/resolver/stream_resolver.dart';
 import 'package:stream_hub/core/streaming/resolver/xtream_stream_resolver.dart';
 import 'package:stream_hub/core/streaming/security/data_encryption.dart';
 import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
+import 'package:stream_hub/core/streaming/vod/xtream_vod_info_service.dart';
 import 'package:stream_hub/core/streaming/session/factories/bearer_server_provider_session_factory.dart';
 import 'package:stream_hub/core/streaming/session/factories/m3u_provider_session_factory.dart';
 import 'package:stream_hub/core/streaming/session/factories/stalker_provider_session_factory.dart';
@@ -118,6 +119,11 @@ class StreamEngineBinding extends Bindings {
 
     Get.put<XtreamSeriesInfoService>(
       XtreamSeriesInfoService(logger: Get.find<LoggingService>()),
+      permanent: true,
+    );
+
+    Get.put<XtreamVodInfoService>(
+      XtreamVodInfoService(logger: Get.find<LoggingService>()),
       permanent: true,
     );
 

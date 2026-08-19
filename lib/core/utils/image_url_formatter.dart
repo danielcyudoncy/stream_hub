@@ -1,16 +1,30 @@
+import 'dart:convert';
 import '../../data/models/media_item.dart';
 
 class ImageUrlFormatter {
   static const String tmdbBaseUrl = 'https://image.tmdb.org/t/p/w500';
 
+  /// Regex pattern to identify TMDB artwork hashes (typically 15+ alphanumeric chars).
+  static final RegExp _tmdbHashPattern = RegExp(
+    r'^[a-zA-Z0-9_-]{15,}\.(jpg|jpeg|png|webp|svg)$',
+    caseSensitive: false,
+  );
+
+  /// Regex pattern to identify any standard image filename without subdirectories.
+  static final RegExp _bareImagePattern = RegExp(
+    r'^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|webp|svg)$',
+    caseSensitive: false,
+  );
+
   /// Formats any raw image string into a valid, displayable absolute URL.
   ///
   /// Handles:
-  /// - TMDB image paths (e.g. `/abc.jpg` -> `https://image.tmdb.org/t/p/w500/abc.jpg`)
-  /// - Raw TMDB filenames (e.g. `abc.jpg` -> `https://image.tmdb.org/t/p/w500/abc.jpg`)
+  /// - TMDB image paths (e.g. `/7bWxSbN1Jq9Acql9B5D8v5Y9p3D.jpg` -> `https://image.tmdb.org/t/p/w500/7bWxSbN1Jq9Acql9B5D8v5Y9p3D.jpg`)
+  /// - Explicit TMDB prefixes (e.g. `/t/p/w500/abc.jpg` -> `https://image.tmdb.org/t/p/w500/abc.jpg`)
   /// - Full HTTP/HTTPS URLs (safely encoded for spaces and special characters)
   /// - Protocol-relative URLs (e.g. `//image.tmdb.org/...` -> `https://image.tmdb.org/...`)
   /// - Server / Portal relative paths (using serverUrl or portalUrl from metadata)
+  /// - JSON-encoded array strings (e.g. `"[\"/path.jpg\"]"`)
   static String? format(
     dynamic raw, {
     String? serverUrl,
@@ -29,7 +43,33 @@ class ImageUrlFormatter {
         str == 'null' ||
         str == '[]' ||
         str == '{}' ||
-        str == 'false') {
+        str == 'false' ||
+        str == 'true' ||
+        str == '0' ||
+        str == 'N/A' ||
+        str == 'n/a' ||
+        str == 'none' ||
+        str == 'undefined') {
+      return null;
+    }
+
+    // Handle JSON array string e.g. "[\"/poster.jpg\"]" or "[\"http://...\"]"
+    if (str.startsWith('[') && str.endsWith(']')) {
+      try {
+        final decoded = jsonDecode(str);
+        if (decoded is List && decoded.isNotEmpty) {
+          return format(decoded.first, serverUrl: serverUrl, item: item);
+        }
+      } catch (_) {
+        var inner = str.substring(1, str.length - 1).trim();
+        if ((inner.startsWith('"') && inner.endsWith('"')) ||
+            (inner.startsWith("'") && inner.endsWith("'"))) {
+          inner = inner.substring(1, inner.length - 1).trim();
+        }
+        if (inner.isNotEmpty) {
+          return format(inner, serverUrl: serverUrl, item: item);
+        }
+      }
       return null;
     }
 
@@ -39,8 +79,19 @@ class ImageUrlFormatter {
       str = str.substring(1, str.length - 1).trim();
     }
 
+    // Remove any newlines or tabs
+    str = str.replaceAll(RegExp(r'[\r\n\t]'), '').trim();
+
     // Replace escaped forward slashes and backslashes
     str = str.replaceAll(r'\/', '/').replaceAll(r'\', '/');
+
+    // Extract any embedded absolute URL (e.g. "http://panel:8080/https://image.tmdb.org/...")
+    final httpIdx = str.lastIndexOf('http://');
+    final httpsIdx = str.lastIndexOf('https://');
+    final lastAbsIdx = httpsIdx > 0 ? httpsIdx : (httpIdx > 0 ? httpIdx : -1);
+    if (lastAbsIdx > 0) {
+      str = str.substring(lastAbsIdx);
+    }
 
     // Protocol-relative URLs
     if (str.startsWith('//')) {
@@ -48,8 +99,18 @@ class ImageUrlFormatter {
     }
 
     // Force HTTPS on TMDB image domains
-    if (str.startsWith('http://image.tmdb.org')) {
-      str = str.replaceFirst('http://image.tmdb.org', 'https://image.tmdb.org');
+    if (str.startsWith('http://image.tmdb.org') ||
+        str.startsWith('http://images.tmdb.org') ||
+        str.startsWith('http://themoviedb.org') ||
+        str.startsWith('http://www.themoviedb.org')) {
+      str = str.replaceFirst('http://', 'https://');
+    }
+
+    // If the string contains TMDB's path prefix "/t/p/" anywhere, extract TMDB image URL
+    final tpIdx = str.indexOf('/t/p/');
+    if (tpIdx != -1) {
+      final tmdbSubpath = str.substring(tpIdx);
+      return _safeEncode('https://image.tmdb.org$tmdbSubpath');
     }
 
     // Already an absolute HTTP/HTTPS URL
@@ -58,8 +119,8 @@ class ImageUrlFormatter {
     }
 
     // Explicit TMDB path prefix
-    if (str.startsWith('/t/p/')) {
-      return _safeEncode('https://image.tmdb.org$str');
+    if (str.startsWith('t/p/')) {
+      return _safeEncode('https://image.tmdb.org/$str');
     }
 
     final effectiveServerUrl = serverUrl ??
@@ -67,29 +128,43 @@ class ImageUrlFormatter {
         item?.metadata['portalUrl']?.toString() ??
         '';
 
-    // TMDB relative path starting with /
+    // Relative path starting with /
     if (str.startsWith('/')) {
       final pathWithoutSlash = str.substring(1);
-      // Single filename after slash (e.g. /1E5baAaEse26fej7uHcjOgEE2t2.jpg) is TMDB
-      if (!pathWithoutSlash.contains('/')) {
+
+      // Check if it's a TMDB hash (e.g. /7bWxSbN1Jq9Acql9B5D8v5Y9p3D.jpg)
+      if (_tmdbHashPattern.hasMatch(pathWithoutSlash)) {
         return _safeEncode('$tmdbBaseUrl$str');
       }
-      // Multi-segment path is relative to server/portal
+
+      // Single filename after slash (e.g. /inception.jpg)
+      if (!pathWithoutSlash.contains('/')) {
+        if (effectiveServerUrl.isNotEmpty) {
+          final cleanBase = effectiveServerUrl.replaceAll(RegExp(r'/+$'), '');
+          return _safeEncode('$cleanBase$str');
+        }
+        return _safeEncode('$tmdbBaseUrl$str');
+      }
+
+      // Multi-segment path is relative to server/portal (e.g. /images/poster.jpg)
       if (effectiveServerUrl.isNotEmpty) {
-        final origin = Uri.tryParse(effectiveServerUrl)?.origin ??
-            effectiveServerUrl.replaceAll(RegExp(r'/+$'), '');
-        return _safeEncode('$origin$str');
+        final cleanBase = effectiveServerUrl.replaceAll(RegExp(r'/+$'), '');
+        return _safeEncode('$cleanBase$str');
       }
       return _safeEncode('$tmdbBaseUrl$str');
     }
 
-    // Bare TMDB filename without leading slash (e.g. 1E5baAaEse26fej7uHcjOgEE2t2.jpg)
-    final isBareImageFile = RegExp(
-      r'^[a-zA-Z0-9_-]+\.(jpg|jpeg|png|webp|svg)$',
-      caseSensitive: false,
-    ).hasMatch(str);
+    // Bare TMDB hash filename without leading slash (e.g. 7bWxSbN1Jq9Acql9B5D8v5Y9p3D.jpg)
+    if (_tmdbHashPattern.hasMatch(str)) {
+      return _safeEncode('$tmdbBaseUrl/$str');
+    }
 
-    if (isBareImageFile) {
+    // Other bare image files without leading slash (e.g. abc.jpg)
+    if (_bareImagePattern.hasMatch(str)) {
+      if (effectiveServerUrl.isNotEmpty) {
+        final cleanBase = effectiveServerUrl.replaceAll(RegExp(r'/+$'), '');
+        return _safeEncode('$cleanBase/$str');
+      }
       return _safeEncode('$tmdbBaseUrl/$str');
     }
 
@@ -138,6 +213,51 @@ class ImageUrlFormatter {
     return extractFromMap(item.metadata, serverUrl: serverUrl);
   }
 
+  /// Extracts an ordered list of all candidate artwork URLs from a [MediaItem].
+  static List<String> extractCandidatesFromMediaItem(MediaItem item) {
+    final urls = <String>{};
+    for (final prop in [item.poster, item.thumbnail, item.backdrop]) {
+      final formatted = format(prop, item: item);
+      if (formatted != null && formatted.isNotEmpty) {
+        urls.add(formatted);
+      }
+    }
+
+    final serverUrl = item.metadata['serverUrl']?.toString() ??
+        item.metadata['portalUrl']?.toString();
+    for (final key in const [
+      'stream_icon',
+      'streamIcon',
+      'cover_big',
+      'coverBig',
+      'cover',
+      'cover_image',
+      'coverImage',
+      'movie_image',
+      'movieImage',
+      'movie_cover',
+      'movieCover',
+      'screenshot_uri',
+      'screenshotUri',
+      'poster_path',
+      'posterPath',
+      'poster',
+      'poster_url',
+      'posterUrl',
+      'backdrop_path',
+      'backdropPath',
+      'backdrop',
+    ]) {
+      final val = item.metadata[key];
+      final formatted = format(val, serverUrl: serverUrl);
+      if (formatted != null && formatted.isNotEmpty) {
+        urls.add(formatted);
+      }
+    }
+
+    return urls.toList(growable: false);
+  }
+
   /// Extracts the best available poster/cover image URL from a raw map
   /// (e.g. Xtream or Stalker API JSON object or MediaItem metadata).
   static String? extractFromMap(
@@ -154,6 +274,8 @@ class ImageUrlFormatter {
       'coverImage',
       'movie_image',
       'movieImage',
+      'movie_cover',
+      'movieCover',
       'screenshot_uri',
       'screenshotUri',
       'poster_path',
@@ -186,6 +308,18 @@ class ImageUrlFormatter {
         return formatted;
       }
     }
+
+    // Check nested objects (e.g. info, movie_data, data)
+    for (final nestedKey in const ['info', 'movie_data', 'movieData', 'data']) {
+      final nested = map[nestedKey];
+      if (nested is Map) {
+        final nestedPoster = extractFromMap(nested, serverUrl: serverUrl);
+        if (nestedPoster != null && nestedPoster.isNotEmpty) {
+          return nestedPoster;
+        }
+      }
+    }
+
     return null;
   }
 }

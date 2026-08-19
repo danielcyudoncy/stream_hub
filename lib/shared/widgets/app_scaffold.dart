@@ -229,9 +229,12 @@ class AppScaffold extends StatelessWidget {
                       color: Colors.white, size: 20.0),
                 ),
                 AppSpacing.widthSM,
-                Text(
-                  'StreamHub Pro',
-                  style: AppTypography.getTitle(color: colorScheme.onSurface),
+                Flexible(
+                  child: Text(
+                    'StreamHub Pro',
+                    style: AppTypography.getTitle(color: colorScheme.onSurface),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
