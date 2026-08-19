@@ -47,8 +47,13 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   int _videoWidth = 0;
   int _videoHeight = 0;
 
-  MediaKitPlayerAdapter({LoggingService? logger})
-      : _logger = logger ?? LoggingService();
+  final bool _hardwareDecode;
+
+  MediaKitPlayerAdapter({
+    LoggingService? logger,
+    bool hardwareDecode = true,
+  })  : _logger = logger ?? LoggingService(),
+        _hardwareDecode = hardwareDecode;
 
   mk.Player? get player => _player;
   VideoController? get videoController => _videoController;
@@ -80,7 +85,13 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   Future<void> initialize() async {
     if (_player != null) return;
     _player = mk.Player();
-    _videoController = VideoController(_player!);
+    _videoController = VideoController(
+      _player!,
+      configuration: VideoControllerConfiguration(
+        hwdec: _hardwareDecode ? 'auto-safe' : 'no',
+        enableHardwareAcceleration: _hardwareDecode,
+      ),
+    );
     _bindStreams();
     _logger.info('MediaKitPlayerAdapter initialized', tag: 'Player');
   }
