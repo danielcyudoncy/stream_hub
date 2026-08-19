@@ -14,6 +14,8 @@ class AppRoutes {
   static const String liveTV = '/live-tv';
   static const String library = '/library';
   static const String movies = '/movies';
+  static const String movieDetails = '/movie-details';
+  static const String movieGenre = '/movie-genre';
   static const String moviesCategory = '/movies-category';
   static const String series = '/series';
   static const String seriesDetails = '/series-details';
