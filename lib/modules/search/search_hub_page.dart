@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -9,6 +10,7 @@ import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/media_poster_card.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'search_hub_controller.dart';
 
 class SearchHubPage extends GetView<SearchHubController> {
@@ -23,65 +25,70 @@ class SearchHubPage extends GetView<SearchHubController> {
     return AppScaffold(
       title: 'Search',
       showNavigation: false,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSearchBar(context, colorScheme),
-          AppSpacing.heightSM,
-          _buildFilterChips(context, colorScheme),
-          AppSpacing.heightSM,
-          Expanded(
-            child: Obx(() {
-              final query = controller.searchQuery.value;
-              final isLoading = controller.isLoading.value;
-              final results = controller.displayedResults;
+      showAppBar: false,
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppSpacing.heightSM,
+            _buildSearchBar(context, colorScheme),
+            AppSpacing.heightSM,
+            _buildFilterChips(context, colorScheme),
+            AppSpacing.heightSM,
+            Expanded(
+              child: Obx(() {
+                final query = controller.searchQuery.value;
+                final isLoading = controller.isLoading.value;
+                final results = controller.displayedResults;
 
-              if (query.isEmpty) {
-                return _buildEmptyState(context, colorScheme);
-              }
+                if (query.isEmpty) {
+                  return _buildEmptyState(context, colorScheme);
+                }
 
-              if (isLoading) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              }
-
-              if (results.isEmpty) {
-                return EmptyLibrary(
-                  icon: AppIcons.search,
-                  title: 'No Results Found',
-                  description: 'No matches found for "$query".',
-                  actionLabel: 'Clear Search',
-                  onAction: controller.clearSearch,
-                );
-              }
-
-              return GridView.builder(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  AppSpacing.xs,
-                  AppSpacing.lg,
-                  AppSpacing.xxl,
-                ),
-                gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                  maxCrossAxisExtent: isTv ? 200.0 : 170.0,
-                  childAspectRatio: 0.65,
-                  crossAxisSpacing: AppSpacing.md,
-                  mainAxisSpacing: AppSpacing.md,
-                ),
-                itemCount: results.length,
-                itemBuilder: (context, index) {
-                  final item = results[index];
-                  return MediaPosterCard(
-                    key: ValueKey(item.id),
-                    item: item,
-                    onTap: () => controller.openItem(item),
+                if (isLoading) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
                   );
-                },
-              );
-            }),
-          ),
-        ],
+                }
+
+                if (results.isEmpty) {
+                  return EmptyLibrary(
+                    icon: AppIcons.search,
+                    title: 'No Results Found',
+                    description: 'No matches found for "$query".',
+                    actionLabel: 'Clear Search',
+                    onAction: controller.clearSearch,
+                  );
+                }
+
+                return GridView.builder(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.xs,
+                    AppSpacing.lg,
+                    AppSpacing.xxl,
+                  ),
+                  gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: isTv ? 200.0 : 170.0,
+                    childAspectRatio: 0.65,
+                    crossAxisSpacing: AppSpacing.md,
+                    mainAxisSpacing: AppSpacing.md,
+                  ),
+                  itemCount: results.length,
+                  itemBuilder: (context, index) {
+                    final item = results[index];
+                    return MediaPosterCard(
+                      key: ValueKey(item.id),
+                      item: item,
+                      onTap: () => controller.openItem(item),
+                    );
+                  },
+                );
+              }),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -89,68 +96,101 @@ class SearchHubPage extends GetView<SearchHubController> {
   Widget _buildSearchBar(BuildContext context, ColorScheme colorScheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xxs,
-        ),
-        decoration: BoxDecoration(
-          color: colorScheme.surfaceContainerHighest,
-          borderRadius: AppRadius.medium,
-          border: Border.all(
-            color: colorScheme.outline.withValues(alpha: 0.2),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              AppIcons.search,
-              color: colorScheme.primary,
-              size: 22.0,
-            ),
-            AppSpacing.widthSM,
-            Expanded(
-              child: TextField(
-                controller: controller.textController,
-                focusNode: controller.searchFocusNode,
-                style: AppTypography.getBody(color: colorScheme.onSurface),
-                textInputAction: TextInputAction.search,
-                onChanged: controller.onSearchChanged,
-                onSubmitted: controller.performSearch,
-                decoration: InputDecoration(
-                  hintText: 'Search movies, series, channels...',
-                  hintStyle: AppTypography.getBody(
-                    color: colorScheme.onSurface.withValues(alpha: 0.5),
-                  ),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
+        children: [
+          TvFocusable(
+            key: const ValueKey('search_back_button'),
+            onTap: () {
+              if (Navigator.canPop(context)) {
+                Get.back();
+              } else {
+                Get.offAllNamed(AppRoutes.home);
+              }
+            },
+            borderRadius: AppRadius.pill,
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colorScheme.outline.withValues(alpha: 0.1),
                 ),
               ),
+              child: Icon(
+                AppIcons.back,
+                color: colorScheme.onSurface,
+                size: 20.0,
+              ),
             ),
-            ListenableBuilder(
-              listenable: controller.textController,
-              builder: (context, _) {
-                if (controller.textController.text.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-                return GestureDetector(
-                  key: const ValueKey('search_clear_button'),
-                  behavior: HitTestBehavior.opaque,
-                  onTap: controller.clearSearch,
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.xs),
-                    child: Icon(
-                      Icons.close,
-                      size: 20.0,
-                      color: colorScheme.onSurfaceVariant,
+          ),
+          AppSpacing.widthSM,
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.xxs,
+              ),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                borderRadius: AppRadius.medium,
+                border: Border.all(
+                  color: colorScheme.outline.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.search,
+                    color: colorScheme.primary,
+                    size: 22.0,
+                  ),
+                  AppSpacing.widthSM,
+                  Expanded(
+                    child: TextField(
+                      controller: controller.textController,
+                      focusNode: controller.searchFocusNode,
+                      style: AppTypography.getBody(color: colorScheme.onSurface),
+                      textInputAction: TextInputAction.search,
+                      onChanged: controller.onSearchChanged,
+                      onSubmitted: controller.performSearch,
+                      decoration: InputDecoration(
+                        hintText: 'Search movies, series, channels...',
+                        hintStyle: AppTypography.getBody(
+                          color: colorScheme.onSurface.withValues(alpha: 0.5),
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12.0),
+                      ),
                     ),
                   ),
-                );
-              },
+                  ListenableBuilder(
+                    listenable: controller.textController,
+                    builder: (context, _) {
+                      if (controller.textController.text.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      return GestureDetector(
+                        key: const ValueKey('search_clear_button'),
+                        behavior: HitTestBehavior.opaque,
+                        onTap: controller.clearSearch,
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xs),
+                          child: Icon(
+                            Icons.close,
+                            size: 20.0,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

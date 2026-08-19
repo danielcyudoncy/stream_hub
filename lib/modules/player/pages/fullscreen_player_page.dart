@@ -215,51 +215,58 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       child: SafeArea(
         bottom: false,
         child: AnimatedOpacity(
-        opacity: _controlsVisible ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 250),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.8),
-                Colors.transparent,
+          opacity: _controlsVisible ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 250),
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: AppSpacing.xs,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.85),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(AppIcons.back, color: Colors.white),
+                  onPressed: _handleBack,
+                ),
+                Expanded(
+                  child: Obx(() {
+                    final title =
+                        _controller.sessionRx.value?.metadata.title ?? 'Player';
+                    return Text(
+                      title,
+                      style: AppTypography.getBody(color: Colors.white).copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  }),
+                ),
+                Obx(() {
+                  final isFav = _controller.isFavoriteRx.value;
+                  return IconButton(
+                    icon: Icon(
+                      isFav ? Icons.favorite : Icons.favorite_border,
+                      color: isFav ? Colors.red : Colors.white70,
+                    ),
+                    onPressed: _controller.toggleFavorite,
+                  );
+                }),
               ],
             ),
           ),
-          child: Row(
-            children: [
-              IconButton(
-                icon: const Icon(AppIcons.back, color: Colors.white),
-                onPressed: _handleBack,
-              ),
-              Expanded(
-                child: Obx(() {
-                  final title =
-                      _controller.sessionRx.value?.metadata.title ?? 'Player';
-                  return Text(
-                    title,
-                    style: AppTypography.getBody(color: Colors.white),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  );
-                }),
-              ),
-              Obx(() {
-                final isFav = _controller.isFavoriteRx.value;
-                return IconButton(
-                  icon: Icon(
-                    isFav ? Icons.favorite : Icons.favorite_border,
-                    color: isFav ? Colors.red : Colors.white70,
-                  ),
-                  onPressed: _controller.toggleFavorite,
-                );
-              }),
-            ],
-          ),
         ),
-      ),
       ),
     );
   }
