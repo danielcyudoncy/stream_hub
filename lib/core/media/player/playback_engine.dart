@@ -207,6 +207,9 @@ class PlaybackEngine {
       title: session.mediaItem.title,
       loadId: 'session',
     );
+    if (session.resumePosition > Duration.zero) {
+      await seek(session.resumePosition);
+    }
   }
 
   /// Plays an authenticated session produced by the Stream Engine.
@@ -264,8 +267,10 @@ class PlaybackEngine {
         canChangeSpeed: true,
         canChangeAspectRatio: true,
         canPictureInPicture: true,
-        canChangeQuality: false,
-        supportsMultipleQualities: false,
+        canChangeQuality: true,
+        canChangeAudioTrack: true,
+        canChangeSubtitle: true,
+        supportsSubtitles: true,
       ),
       metadata: SessionMetadata(
         title: item.title,
@@ -298,7 +303,32 @@ class PlaybackEngine {
       title: session.mediaItemId,
       loadId: 'stream session',
     );
+    if (resumePosition != null && resumePosition > Duration.zero) {
+      await seek(resumePosition);
+    }
+    unawaited(_autoEnableSubtitles());
     return playableMediaSession;
+  }
+
+  Future<void> _autoEnableSubtitles() async {
+    try {
+      final tracks = await _adapter.getAvailableSubtitleTracks();
+      if (tracks.isNotEmpty) {
+        final first = tracks.first;
+        final trackId = (first is Map ? first['id'] : first)?.toString();
+        if (trackId != null &&
+            trackId.isNotEmpty &&
+            trackId != 'no' &&
+            trackId != 'none' &&
+            trackId != '-1') {
+          await setSubtitleTrack(trackId);
+          logger.info(
+            'Auto-enabled subtitle track: $trackId',
+            tag: 'PlaybackEngine',
+          );
+        }
+      }
+    } catch (_) {}
   }
 
   Future<void> play() async {

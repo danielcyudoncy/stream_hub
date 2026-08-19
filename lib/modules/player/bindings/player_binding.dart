@@ -19,11 +19,15 @@ class PlayerBinding extends Bindings {
     Get.put<LoggingService>(LoggingService(), permanent: true);
 
     Get.create<PlayerController>(() {
-      final args = Get.arguments as Map<String, dynamic>?;
-      final items = args?['items'] as List? ?? [];
-      final currentId = args?['currentId'] as String?;
-      final itemId = args?['itemId'] as String?;
-      final streamUrl = args?['streamUrl'] as String?;
+      final args = Get.arguments is Map ? Get.arguments as Map : null;
+      final rawItems = args?['items'];
+      final items = rawItems is List ? rawItems : [];
+      final currentId = args?['currentId']?.toString();
+      final itemId = args?['itemId']?.toString();
+      final streamUrl = args?['streamUrl']?.toString();
+      final resumePosition = args?['resumePosition'] is Duration
+          ? args!['resumePosition'] as Duration
+          : null;
 
       // Items are passed via pendingItems/pendingCurrentId so that onInit —
       // which runs after the binding factory returns — can call setChannelList
@@ -33,6 +37,7 @@ class PlayerBinding extends Bindings {
       return PlayerController(
         itemId: itemId,
         streamUrl: streamUrl,
+        resumePosition: resumePosition,
         pendingItems: items.cast<MediaItem>(),
         pendingCurrentId: currentId,
         streamRepository: Get.find<StreamRepository>(),

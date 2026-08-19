@@ -276,11 +276,12 @@ void main() {
     final controller = buildController();
     await pumpLoad(controller);
 
-    expect(controller.featuredMovies.length, 3);
+    expect(controller.featuredMovies.length, 4);
     expect(controller.featuredMovies.map((item) => item.id), [
       'm3',
       'm2',
       'm1',
+      'm4',
     ]);
   });
 

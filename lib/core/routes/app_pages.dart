@@ -41,6 +41,10 @@ import '../../modules/library/library_binding.dart';
 import '../../modules/movies/movies_page.dart';
 import '../../modules/movies/movies_category_page.dart';
 import '../../modules/movies/movies_binding.dart';
+import '../../modules/movies/movie_details_page.dart';
+import '../../modules/movies/movie_details_binding.dart';
+import '../../modules/movies/movie_genre_page.dart';
+import '../../modules/movies/movie_genre_binding.dart';
 import '../../modules/series/series_page.dart';
 import '../../modules/series/series_binding.dart';
 import '../../modules/series/series_details_page.dart';
@@ -200,6 +204,16 @@ class AppPages {
       name: AppRoutes.movies,
       page: () => const MoviesPage(),
       binding: MoviesBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.movieDetails,
+      page: () => const MovieDetailsPage(),
+      binding: MovieDetailsBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.movieGenre,
+      page: () => const MovieGenrePage(),
+      binding: MovieGenreBinding(),
     ),
     GetPage(
       name: AppRoutes.moviesCategory,

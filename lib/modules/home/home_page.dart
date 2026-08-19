@@ -482,11 +482,8 @@ class HomePage extends GetView<HomeController> {
 
   void _openMovie(MediaItem item) {
     Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': [item],
-        'currentId': item.id,
-      },
+      AppRoutes.movieDetails,
+      arguments: item,
     );
   }
 

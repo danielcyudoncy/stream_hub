@@ -37,6 +37,7 @@ class PlayerController extends GetxController {
 
   final String? itemId;
   final String? streamUrl;
+  final Duration? resumePosition;
 
   /// Items passed from the binding that will be loaded inside [onInit], after
   /// settings are applied and the event listener is registered.
@@ -48,10 +49,12 @@ class PlayerController extends GetxController {
   int _currentChannelIndex = -1;
   MediaItem? _pendingItem;
   late final Worker _sessionWorker;
+  Timer? _progressSaveTimer;
 
   PlayerController({
     this.itemId,
     this.streamUrl,
+    this.resumePosition,
     List<MediaItem>? pendingItems,
     String? pendingCurrentId,
     PlayerAdapter? adapter,
@@ -88,16 +91,30 @@ class PlayerController extends GetxController {
   bool get canSwitchPrevious => _currentChannelIndex > 0;
 
   Worker? _engineWorker;
+  Worker? _stateWorker;
 
   @override
   Future<void> onInit() async {
     super.onInit();
     _sessionWorker = ever(sessionRx, (session) {
       isFavoriteRx.value = session?.mediaItem.favorite ?? false;
+      if (stateRx.value == PlaybackState.playing) {
+        _startProgressTimer();
+      }
+      if (session != null) {
+        _autoSelectSubtitle();
+      }
     });
     _engineWorker = ever(playbackController.engine.engineKindRx, (_) {
       _wireAdapterChannelListeners();
       _syncChannelsToNativeAdapter();
+    });
+    _stateWorker = ever(stateRx, (state) {
+      if (state == PlaybackState.playing) {
+        _startProgressTimer();
+      } else {
+        _stopProgressTimer();
+      }
     });
     await _loadPersistedSettings();
     _wireAdapterChannelListeners();
@@ -105,14 +122,34 @@ class PlayerController extends GetxController {
     // loading/buffering/error events emitted during session creation reach the
     // UI instead of being silently dropped.
     playbackController.addEventListener(_onPlaybackEvent);
+
     if (itemId != null && streamUrl != null) {
       await _autoStart(itemId!, streamUrl!);
     } else if (_pendingItems.isNotEmpty) {
       // Items provided by the binding are started here, after the engine is
       // configured and the event listener is in place.
-      setChannelList(_pendingItems, currentId: _pendingCurrentId);
+      setChannelList(
+        _pendingItems,
+        currentId: _pendingCurrentId,
+        resumePosition: resumePosition,
+      );
     }
     _loadBackgroundChannels();
+  }
+
+  void _startProgressTimer() {
+    if (playbackRepository == null) return;
+    final item = currentItem;
+    if (item == null || item.mediaType == MediaType.channel) return;
+    _progressSaveTimer?.cancel();
+    _progressSaveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _persistCurrentProgress();
+    });
+  }
+
+  void _stopProgressTimer() {
+    _progressSaveTimer?.cancel();
+    _progressSaveTimer = null;
   }
 
   Future<void> _loadBackgroundChannels() async {
@@ -168,8 +205,11 @@ class PlayerController extends GetxController {
 
   @override
   void onClose() {
+    _progressSaveTimer?.cancel();
+    _persistCurrentProgress();
     _sessionWorker.dispose();
     _engineWorker?.dispose();
+    _stateWorker?.dispose();
     playbackController.removeEventListener(_onPlaybackEvent);
     // Tear down the engine and the active backend (player, platform view, or
     // native Activity). stop() alone leaves the adapter initialized and its
@@ -232,13 +272,24 @@ class PlayerController extends GetxController {
     _recordPlayback(mediaItem);
   }
 
-  Future<void> playMediaItem(MediaItem item) async {
+  Future<void> playMediaItem(MediaItem item, {Duration? resumePosition}) async {
     final startedAt = DateTime.now();
     PlayableSession? session;
     _pendingItem = item;
     try {
       if (!playbackController.engine.adapter.isInitialized) {
         await playbackController.engine.initialize();
+      }
+
+      // Check if there is a resume position to use
+      Duration? resume = resumePosition ?? this.resumePosition;
+      if (resume == null &&
+          item.mediaType != MediaType.channel &&
+          playbackRepository != null) {
+        final saved = await playbackRepository!.getWatchProgress(item.id);
+        if (saved != null && saved > Duration.zero) {
+          resume = saved;
+        }
       }
 
       // Derive the actual stream URL from the item's metadata so the Stream
@@ -257,7 +308,7 @@ class PlayerController extends GetxController {
         fallbackUrl: fallbackUrl,
       );
       session = resolved;
-      await playWithSession(item, resolved);
+      await playWithSession(item, resolved, resumePosition: resume);
     } catch (e, st) {
       await _handlePlaybackFailure(item, session, e, st, startedAt);
     }
@@ -400,13 +451,20 @@ class PlayerController extends GetxController {
     }
   }
 
-  void setChannelList(List<MediaItem> channels, {String? currentId}) {
+  void setChannelList(
+    List<MediaItem> channels, {
+    String? currentId,
+    Duration? resumePosition,
+  }) {
     channelList.assignAll(channels);
     _currentChannelIndex =
         currentId != null ? channels.indexWhere((c) => c.id == currentId) : -1;
     _syncChannelsToNativeAdapter();
     if (_currentChannelIndex != -1) {
-      playMediaItem(channels[_currentChannelIndex]);
+      playMediaItem(
+        channels[_currentChannelIndex],
+        resumePosition: resumePosition ?? this.resumePosition,
+      );
     }
   }
 
@@ -433,10 +491,24 @@ class PlayerController extends GetxController {
   }
 
   Future<void> play() => playbackController.play();
-  Future<void> pause() => playbackController.pause();
+
+  Future<void> pause() async {
+    await playbackController.pause();
+    await _persistCurrentProgress();
+  }
+
   Future<void> resume() => playbackController.resume();
-  Future<void> stop() => playbackController.stop();
-  Future<void> seek(Duration position) => playbackController.seek(position);
+
+  Future<void> stop() async {
+    await _persistCurrentProgress();
+    await playbackController.stop();
+  }
+
+  Future<void> seek(Duration position) async {
+    await playbackController.seek(position);
+    await _persistCurrentProgress();
+  }
+
   Future<void> replay() => playbackController.replay();
   Future<void> next() => switchToNextChannel();
   Future<void> previous() => switchToPreviousChannel();
@@ -474,6 +546,24 @@ class PlayerController extends GetxController {
       playbackController.setQuality(quality);
   Future<void> setSubtitleTrack(String trackId) =>
       playbackController.setSubtitleTrack(trackId);
+
+  Future<void> _autoSelectSubtitle() async {
+    try {
+      final tracks =
+          await playbackController.engine.adapter.getAvailableSubtitleTracks();
+      if (tracks.isNotEmpty) {
+        final first = tracks.first;
+        final trackId = (first is Map ? first['id'] : first)?.toString();
+        if (trackId != null &&
+            trackId.isNotEmpty &&
+            trackId != 'no' &&
+            trackId != 'none' &&
+            trackId != '-1') {
+          await setSubtitleTrack(trackId);
+        }
+      }
+    } catch (_) {}
+  }
   Future<void> setAudioTrack(String trackId) =>
       playbackController.setAudioTrack(trackId);
   Future<void> setVolume(double volume) =>
@@ -493,6 +583,22 @@ class PlayerController extends GetxController {
 
   void _recordPlayback(MediaItem item) {
     historyRepository?.add(item);
+  }
+
+  Future<void> _persistCurrentProgress() async {
+    final item = currentItem ?? _pendingItem;
+    final currentPos = position;
+    final totalDur = duration;
+    if (item != null &&
+        playbackRepository != null &&
+        totalDur > Duration.zero &&
+        item.mediaType != MediaType.channel) {
+      try {
+        await playbackRepository!.saveWatchProgress(item, currentPos, totalDur);
+      } catch (e) {
+        // Non-critical logging
+      }
+    }
   }
 
   void _onPlaybackEvent(dynamic event) {

@@ -494,6 +494,11 @@ class LibraryPage extends GetView<LibraryController> {
         AppRoutes.seriesDetails,
         arguments: {'item': item},
       );
+    } else if (item.mediaType == MediaType.movie) {
+      Get.toNamed(
+        AppRoutes.movieDetails,
+        arguments: item,
+      );
     } else {
       Get.toNamed(
         AppRoutes.fullscreenPlayer,
