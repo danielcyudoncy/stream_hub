@@ -42,6 +42,21 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   }
 
   @override
+  Future<PlaybackSessionModel?> getWatchSession(String itemId) async {
+    return localService.getSession(itemId);
+  }
+
+  @override
+  Future<List<PlaybackSessionModel>> getAllWatchSessions() async {
+    return localService.getAllSessions();
+  }
+
+  @override
+  Future<void> deleteWatchProgress(String itemId) async {
+    await localService.deleteSession(itemId);
+  }
+
+  @override
   Future<void> saveAnalytics(PlaybackAnalytics analytics) async {
     final model = PlaybackAnalyticsModel.fromDomain(analytics);
     await localService.saveAnalytics(model);

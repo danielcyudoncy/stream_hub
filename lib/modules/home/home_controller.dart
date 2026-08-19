@@ -11,6 +11,7 @@ import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/repositories/media_source_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
+import '../../../core/media/repositories/playback_repository.dart';
 
 class HomeController extends GetxController {
   final MediaEngine mediaEngine;
@@ -167,7 +168,31 @@ class HomeController extends GetxController {
 
       final history = await historyRepository.getRecent(limit: 20);
       recentlyPlayed.assignAll(history);
-      continueWatching.assignAll(history);
+
+      if (Get.isRegistered<PlaybackRepository>()) {
+        try {
+          final sessions = await Get.find<PlaybackRepository>().getAllWatchSessions();
+          final sessionMap = {for (var s in sessions) s.itemId: s};
+          final inProgressItems = allItems.where((i) {
+            final s = sessionMap[i.id];
+            return s != null && s.completionPercentage > 0.01 && s.completionPercentage < 0.90;
+          }).toList()
+            ..sort((a, b) {
+              final sA = sessionMap[a.id]?.updatedAt ?? a.updatedAt;
+              final sB = sessionMap[b.id]?.updatedAt ?? b.updatedAt;
+              return sB.compareTo(sA);
+            });
+          if (inProgressItems.isNotEmpty) {
+            continueWatching.assignAll(inProgressItems);
+          } else {
+            continueWatching.assignAll(history);
+          }
+        } catch (_) {
+          continueWatching.assignAll(history);
+        }
+      } else {
+        continueWatching.assignAll(history);
+      }
 
       availableGenres.assignAll(CuratedGenre.defaultGenres);
 

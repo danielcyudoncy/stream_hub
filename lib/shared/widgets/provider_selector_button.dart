@@ -38,7 +38,7 @@ class ProviderSelectorButton extends StatelessWidget {
 
         return Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.xs,
+            horizontal: 2.0,
             vertical: AppSpacing.xs,
           ),
           child: TvFocusable(
@@ -53,8 +53,8 @@ class ProviderSelectorButton extends StatelessWidget {
             borderRadius: AppRadius.pill,
             child: Container(
               padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm + 2,
-                vertical: AppSpacing.xs,
+                horizontal: AppSpacing.sm,
+                vertical: 4.0,
               ),
               decoration: BoxDecoration(
                 color: hasSpecificProvider
@@ -77,7 +77,7 @@ class ProviderSelectorButton extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 120),
+                    constraints: const BoxConstraints(maxWidth: 105),
                     child: Text(
                       label,
                       style: AppTypography.getCaption(

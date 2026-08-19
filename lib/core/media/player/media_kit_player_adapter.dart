@@ -43,6 +43,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   StreamSubscription<bool>? _completedSub;
   StreamSubscription<Object>? _errorSub;
   StreamSubscription<mk.VideoParams>? _videoParamsSub;
+  StreamSubscription<mk.Tracks>? _tracksSub;
 
   int _videoWidth = 0;
   int _videoHeight = 0;
@@ -139,6 +140,21 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
       }
     });
 
+    _tracksSub = _player!.stream.tracks.listen((tracks) {
+      if (tracks.subtitle.length > 1) {
+        final currentSub = _player!.state.track.subtitle;
+        if (currentSub == mk.SubtitleTrack.no() ||
+            currentSub.id == 'no' ||
+            currentSub.id.isEmpty) {
+          final firstSub = tracks.subtitle.firstWhere(
+            (s) => s.id != 'no' && s.id != 'null' && s.id.isNotEmpty,
+            orElse: () => mk.SubtitleTrack.auto(),
+          );
+          _player?.setSubtitleTrack(firstSub);
+        }
+      }
+    });
+
     _errorSub = _player!.stream.error.listen((error) {
       _setPlaybackState(PlaybackState.error);
       _errorController.add(
@@ -192,6 +208,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     await _playingSub?.cancel();
     await _bufferingSub?.cancel();
     await _completedSub?.cancel();
+    await _tracksSub?.cancel();
     await _errorSub?.cancel();
     await _videoParamsSub?.cancel();
     await _player?.dispose();
@@ -331,9 +348,15 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
 
   @override
   Future<List<dynamic>> getAvailableSubtitleTracks() async {
-    return [
-      {'id': 'default', 'label': 'Default', 'language': 'en'}
-    ];
+    final subs = _player?.state.tracks.subtitle ?? [];
+    return subs
+        .where((s) => s.id != 'no' && s.id != 'null' && s.id.isNotEmpty)
+        .map((s) => {
+              'id': s.id,
+              'label': s.title ?? s.language ?? s.id,
+              'language': s.language ?? 'und',
+            })
+        .toList();
   }
 
   @override
@@ -345,7 +368,21 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   Future<void> setAudioTrack(String trackId) async {}
 
   @override
-  Future<void> setSubtitleTrack(String trackId) async {}
+  Future<void> setSubtitleTrack(String trackId) async {
+    if (_player == null) return;
+    if (trackId.isEmpty || trackId == 'no' || trackId == 'none' || trackId == '-1') {
+      await _player!.setSubtitleTrack(mk.SubtitleTrack.no());
+    } else if (trackId == 'auto' || trackId == 'default') {
+      await _player!.setSubtitleTrack(mk.SubtitleTrack.auto());
+    } else {
+      final tracks = _player!.state.tracks.subtitle;
+      final matched = tracks.firstWhere(
+        (s) => s.id == trackId,
+        orElse: () => mk.SubtitleTrack.auto(),
+      );
+      await _player!.setSubtitleTrack(matched);
+    }
+  }
 
   @override
   Future<void> setSpeed(PlaybackSpeed speed) async {
