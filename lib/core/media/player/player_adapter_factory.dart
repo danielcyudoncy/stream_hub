@@ -37,6 +37,27 @@ class PlayerAdapterFactory {
         hardwareDecode: hardwareDecode,
       );
     }
-    return MediaKitPlayerAdapter(logger: logger);
+    return MediaKitPlayerAdapter(
+      logger: logger,
+      hardwareDecode: hardwareDecode,
+    );
+  }
+
+  /// Returns whether [kind] is supported on the current platform.
+  static bool isSupported(PlaybackEngineKind kind) {
+    switch (kind) {
+      case PlaybackEngineKind.exoPlayer:
+        return ExoPlayerSurfaceViewAdapter.isSupported;
+      case PlaybackEngineKind.nativeActivity:
+        return NativeActivityPlayerAdapter.isSupported;
+      case PlaybackEngineKind.vlc:
+        return VlcPlayerAdapter.isSupported;
+      case PlaybackEngineKind.mediaKit:
+        return true;
+      case PlaybackEngineKind.avPlayer:
+      case PlaybackEngineKind.fallback:
+      case PlaybackEngineKind.none:
+        return false;
+    }
   }
 }

@@ -793,19 +793,40 @@ class NativePlayerActivity : Activity() {
         )
 
         // Top Bar
+        val statusBarHeight = getStatusBarHeight()
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setBackgroundColor(0xB0000000.toInt())
-            setPadding(dp(10), dp(6), dp(10), dp(6))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xDD000000.toInt(), 0x77000000.toInt(), 0x00000000.toInt()),
+            )
+            setPadding(dp(10), statusBarHeight + dp(6), dp(10), dp(10))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT_WATCH) {
+                setOnApplyWindowInsetsListener { view, insets ->
+                    val topInset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        insets.getInsets(android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.displayCutout()).top
+                    } else {
+                        @Suppress("DEPRECATION")
+                        insets.systemWindowInsetTop
+                    }
+                    val safeTop = if (topInset > 0) topInset else statusBarHeight
+                    view.setPadding(dp(10), safeTop + dp(6), dp(10), dp(10))
+                    insets
+                }
+            }
         }
 
         val backButton = TextView(this).apply {
             text = "✕"
-            textSize = 18f
+            textSize = 16f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(6), dp(8), dp(6))
+            setPadding(dp(8), dp(4), dp(8), dp(4))
+            background = GradientDrawable().apply {
+                setColor(0x33FFFFFF.toInt())
+                cornerRadius = dp(14).toFloat()
+            }
             setOnClickListener { finish() }
         }
 
@@ -816,16 +837,17 @@ class NativePlayerActivity : Activity() {
         }
 
         titleView = TextView(this).apply {
-            textSize = 15f
+            textSize = 12.5f
             typeface = Typeface.DEFAULT_BOLD
             setTextColor(Color.WHITE)
-            maxLines = 1
+            maxLines = 2
+            setLineSpacing(dp(1).toFloat(), 1.05f)
             ellipsize = android.text.TextUtils.TruncateAt.END
             setShadowLayer(3f, 0f, 1f, Color.BLACK)
         }
 
         subtitleEpgView = TextView(this).apply {
-            textSize = 11f
+            textSize = 10.5f
             setTextColor(0xFFCCCCCC.toInt())
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -998,6 +1020,15 @@ class NativePlayerActivity : Activity() {
         setContentView(root)
         applyImmersiveMode()
         setControlsVisible(true)
+    }
+
+    private fun getStatusBarHeight(): Int {
+        var result = dp(24)
+        val resourceId = resources.getIdentifier("status_bar_height", "dimen", "android")
+        if (resourceId > 0) {
+            result = resources.getDimensionPixelSize(resourceId)
+        }
+        return result
     }
 
     private fun pillLayoutParams(): LinearLayout.LayoutParams {

@@ -246,6 +246,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
+      expect(find.byKey(const ValueKey('search_back_button')), findsOneWidget);
       expect(find.byType(TextField), findsOneWidget);
       expect(find.text('Search movies, series, channels...'), findsOneWidget);
       expect(find.text('Trending Categories'), findsOneWidget);

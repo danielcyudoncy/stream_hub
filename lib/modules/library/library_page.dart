@@ -489,13 +489,20 @@ class LibraryPage extends GetView<LibraryController> {
   }
 
   void _openItem(MediaItem item) {
-    Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': [item],
-        'currentId': item.id,
-      },
-    );
+    if (item.mediaType == MediaType.series) {
+      Get.toNamed(
+        AppRoutes.seriesDetails,
+        arguments: {'item': item},
+      );
+    } else {
+      Get.toNamed(
+        AppRoutes.fullscreenPlayer,
+        arguments: {
+          'items': [item],
+          'currentId': item.id,
+        },
+      );
+    }
   }
 
   Widget _buildEmptyLibrary(
