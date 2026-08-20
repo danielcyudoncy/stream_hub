@@ -8,6 +8,7 @@ import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
+import 'subtitle_selector.dart';
 
 class PlayerControls extends StatelessWidget {
   final PlayerController controller;
@@ -135,19 +136,16 @@ class PlayerControls extends StatelessWidget {
                             onSelected: (q) => controller.setQuality(q),
                           ),
                           IconButton(
-                            onPressed: () {},
+                            onPressed: () => _showSubtitlesSheet(context),
                             icon: const Icon(AppIcons.subtitles,
                                 color: Colors.white),
+                            tooltip: 'Subtitles',
                           ),
                           IconButton(
-                            onPressed: () {},
+                            onPressed: () => _showAudioTracksSheet(context),
                             icon: const Icon(AppIcons.audioTrack,
                                 color: Colors.white),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(AppIcons.sleep,
-                                color: Colors.white),
+                            tooltip: 'Audio Tracks',
                           ),
                           IconButton(
                             onPressed: () => _toggleFullscreen(context),
@@ -164,6 +162,62 @@ class PlayerControls extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  void _showSubtitlesSheet(BuildContext context) async {
+    final tracks = await controller.getAvailableSubtitleTracks();
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Obx(() {
+          final selected = controller.selectedSubtitleTrackRx.value;
+          return SafeArea(
+            child: SubtitleSelector(
+              tracks: tracks,
+              selectedTrackId: selected,
+              onSelected: (trackId) {
+                controller.setSubtitleTrack(trackId);
+                Navigator.of(ctx).pop();
+              },
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _showAudioTracksSheet(BuildContext context) async {
+    final tracks = await controller.getAvailableAudioTracks();
+    if (!context.mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainer,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Obx(() {
+          final selected = controller.selectedAudioTrackRx.value;
+          return SafeArea(
+            child: AudioTrackSelector(
+              tracks: tracks,
+              selectedTrackId: selected,
+              onSelected: (trackId) {
+                controller.setAudioTrack(trackId);
+                Navigator.of(ctx).pop();
+              },
+            ),
+          );
+        });
+      },
     );
   }
 

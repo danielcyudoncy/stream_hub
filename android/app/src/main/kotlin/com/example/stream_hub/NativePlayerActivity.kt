@@ -1861,7 +1861,7 @@ class NativePlayerActivity : Activity() {
         val trackSelector = DefaultTrackSelector(this).apply {
             parameters = buildUponParameters()
                 .setAllowMultipleAdaptiveSelections(true)
-                .setExceedRendererCapabilitiesIfNecessary(true)
+                .setExceedRendererCapabilitiesIfNecessary(false)
                 .build()
         }
 

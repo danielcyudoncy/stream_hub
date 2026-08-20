@@ -193,13 +193,28 @@ class SeriesController extends GetxController {
     } catch (_) {}
   }
 
+  static final RegExp _kLiveTvMarkerPattern = RegExp(
+    r'(\b(live|itv|channel|fhd|hevc|uhd|4k|sd|h265|radio|epg|stream|24/7|sports\s*\d)\b|^uk\s*:|^us\s*:|^ca\s*:|^all\s+channels$)',
+    caseSensitive: false,
+  );
+
   void _computeGenres(List<MediaItem> allSeries) {
     final genreSet = <String>{};
     for (final s in allSeries) {
       for (final g in s.genres) {
         final clean = g.trim();
-        if (clean.isNotEmpty) {
-          genreSet.add(clean);
+        if (clean.isEmpty) continue;
+
+        // Skip raw numeric IDs that failed mapping
+        if (RegExp(r'^\d+$').hasMatch(clean)) continue;
+
+        for (final part in clean.split(RegExp(r'[,/|]'))) {
+          final trimmed = part.trim();
+          if (trimmed.isNotEmpty &&
+              !RegExp(r'^\d+$').hasMatch(trimmed) &&
+              !_kLiveTvMarkerPattern.hasMatch(trimmed)) {
+            genreSet.add(trimmed);
+          }
         }
       }
     }

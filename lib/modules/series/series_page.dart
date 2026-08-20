@@ -141,49 +141,56 @@ class SeriesPage extends GetView<SeriesController> {
           ),
 
         // Genre Filter Chips Bar
-        if (controller.availableGenres.isNotEmpty)
-          SliverToBoxAdapter(
-            child: SizedBox(
-              height: 38,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                itemCount: controller.availableGenres.length,
-                separatorBuilder: (context, index) => AppSpacing.widthXS,
-                itemBuilder: (context, index) {
-                  final genre = controller.availableGenres[index];
-                  return TvFocusable(
-                    onTap: () => controller.openGenre(genre),
-                    borderRadius: AppRadius.pill,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.xxs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerLow,
+        Obx(() {
+          if (controller.availableGenres.isEmpty) {
+            return const SliverToBoxAdapter(child: SizedBox.shrink());
+          }
+          return SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  height: 38,
+                  child: ListView.separated(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                    itemCount: controller.availableGenres.length,
+                    separatorBuilder: (context, index) => AppSpacing.widthXS,
+                    itemBuilder: (context, index) {
+                      final genre = controller.availableGenres[index];
+                      return TvFocusable(
+                        onTap: () => controller.openGenre(genre),
                         borderRadius: AppRadius.pill,
-                        border: Border.all(
-                          color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: AppSpacing.xxs,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerLow,
+                            borderRadius: AppRadius.pill,
+                            border: Border.all(
+                              color: colorScheme.outlineVariant.withValues(alpha: 0.4),
+                            ),
+                          ),
+                          child: Center(
+                            child: Text(
+                              genre,
+                              style: AppTypography.getLabel(
+                                color: colorScheme.onSurface,
+                              ).copyWith(fontSize: 12),
+                            ),
+                          ),
                         ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          genre,
-                          style: AppTypography.getLabel(
-                            color: colorScheme.onSurface,
-                          ).copyWith(fontSize: 12),
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
+                      );
+                    },
+                  ),
+                ),
+                AppSpacing.heightMD,
+              ],
             ),
-          ),
-
-        if (controller.availableGenres.isNotEmpty)
-          const SliverToBoxAdapter(child: AppSpacing.heightMD),
+          );
+        }),
 
         // Continue Watching Series Row
         if (controller.continueWatching.isNotEmpty)

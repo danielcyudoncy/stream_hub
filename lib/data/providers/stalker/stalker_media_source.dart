@@ -193,21 +193,39 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
         );
       }
 
-      _logger.info('Fetching Stalker live categories and channels...', tag: 'StalkerMediaSource');
-      final liveCategories = await client.getCategories(StalkerContentType.live);
-      final channels = await client.getOrderedList(StalkerContentType.live);
-      _logger.info('Fetched ${channels.length} live channels and ${liveCategories.length} categories', tag: 'StalkerMediaSource');
+      List<Map<String, dynamic>> liveCategories = const [];
+      List<Map<String, dynamic>> channels = const [];
+      try {
+        _logger.info('Fetching Stalker live categories and channels...', tag: 'StalkerMediaSource');
+        liveCategories = await client.getCategories(StalkerContentType.live);
+        channels = await client.getOrderedList(StalkerContentType.live);
+        _logger.info('Fetched ${channels.length} live channels and ${liveCategories.length} categories', tag: 'StalkerMediaSource');
+      } catch (e) {
+        _logger.warning('Failed to fetch Stalker live channels: $e', tag: 'StalkerMediaSource');
+      }
 
-      _logger.info('Fetching Stalker VOD movies...', tag: 'StalkerMediaSource');
-      final vodCategories = await client.getCategories(StalkerContentType.vod);
-      final movies = await client.getVodList();
-      _logger.info('Fetched ${movies.length} movies and ${vodCategories.length} VOD categories', tag: 'StalkerMediaSource');
+      List<Map<String, dynamic>> vodCategories = const [];
+      List<Map<String, dynamic>> movies = const [];
+      try {
+        _logger.info('Fetching Stalker VOD movies...', tag: 'StalkerMediaSource');
+        vodCategories = await client.getCategories(StalkerContentType.vod);
+        movies = await client.getVodList();
+        _logger.info('Fetched ${movies.length} movies and ${vodCategories.length} VOD categories', tag: 'StalkerMediaSource');
+      } catch (e) {
+        _logger.warning('Failed to fetch Stalker VOD movies: $e', tag: 'StalkerMediaSource');
+      }
 
-      _logger.info('Fetching Stalker TV series...', tag: 'StalkerMediaSource');
-      final seriesCategories =
-          await client.getCategories(StalkerContentType.series);
-      final series = await client.getSeriesList();
-      _logger.info('Fetched ${series.length} series and ${seriesCategories.length} series categories', tag: 'StalkerMediaSource');
+      List<Map<String, dynamic>> seriesCategories = const [];
+      List<Map<String, dynamic>> series = const [];
+      try {
+        _logger.info('Fetching Stalker TV series...', tag: 'StalkerMediaSource');
+        seriesCategories =
+            await client.getCategories(StalkerContentType.series);
+        series = await client.getSeriesList();
+        _logger.info('Fetched ${series.length} series and ${seriesCategories.length} series categories', tag: 'StalkerMediaSource');
+      } catch (e) {
+        _logger.warning('Failed to fetch Stalker TV series: $e', tag: 'StalkerMediaSource');
+      }
 
       final channelItems = _buildChannels(channels, liveCategories, syncStartedAt);
       final movieItems = _buildMovies(movies, vodCategories, syncStartedAt);

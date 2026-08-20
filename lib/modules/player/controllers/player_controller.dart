@@ -51,6 +51,8 @@ class PlayerController extends GetxController {
 
   final RxList<MediaItem> channelList = <MediaItem>[].obs;
   final RxBool isFavoriteRx = false.obs;
+  final RxString selectedSubtitleTrackRx = 'no'.obs;
+  final RxString selectedAudioTrackRx = 'auto'.obs;
   int _currentChannelIndex = -1;
   MediaItem? _pendingItem;
   late final Worker _sessionWorker;
@@ -692,16 +694,65 @@ class PlayerController extends GetxController {
       playbackController.setAspectRatio(mode);
   Future<void> setQuality(PlayerQuality quality) =>
       playbackController.setQuality(quality);
-  Future<void> setSubtitleTrack(String trackId) =>
-      playbackController.setSubtitleTrack(trackId);
+  Future<List<dynamic>> getAvailableSubtitleTracks() async {
+    try {
+      final tracks = await playbackController.engine.adapter.getAvailableSubtitleTracks();
+      final active = tracks.firstWhere(
+        (t) => t is Map && t['selected'] == true,
+        orElse: () => null,
+      );
+      if (active != null && active is Map) {
+        selectedSubtitleTrackRx.value = active['id']?.toString() ?? selectedSubtitleTrackRx.value;
+      }
+      return tracks;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<dynamic>> getAvailableAudioTracks() async {
+    try {
+      final tracks = await playbackController.engine.adapter.getAvailableAudioTracks();
+      final active = tracks.firstWhere(
+        (t) => t is Map && t['selected'] == true,
+        orElse: () => null,
+      );
+      if (active != null && active is Map) {
+        selectedAudioTrackRx.value = active['id']?.toString() ?? selectedAudioTrackRx.value;
+      }
+      return tracks;
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<void> setSubtitleTrack(String trackId) async {
+    selectedSubtitleTrackRx.value = trackId;
+    await playbackController.setSubtitleTrack(trackId);
+  }
 
   Future<void> _autoSelectSubtitle() async {
     try {
-      final tracks =
-          await playbackController.engine.adapter.getAvailableSubtitleTracks();
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      final tracks = await getAvailableSubtitleTracks();
       if (tracks.isNotEmpty) {
-        final first = tracks.first;
-        final trackId = (first is Map ? first['id'] : first)?.toString();
+        // Look for English subtitle track first
+        final englishTrack = tracks.firstWhere(
+          (t) {
+            if (t is Map) {
+              final lang = (t['language'] ?? '').toString().toLowerCase();
+              final label = (t['label'] ?? '').toString().toLowerCase();
+              return lang == 'en' ||
+                  lang == 'eng' ||
+                  lang.startsWith('en') ||
+                  label.contains('english') ||
+                  label.contains('eng');
+            }
+            return false;
+          },
+          orElse: () => tracks.first,
+        );
+        final trackId = (englishTrack is Map ? englishTrack['id'] : englishTrack)?.toString();
         if (trackId != null &&
             trackId.isNotEmpty &&
             trackId != 'no' &&
@@ -712,8 +763,12 @@ class PlayerController extends GetxController {
       }
     } catch (_) {}
   }
-  Future<void> setAudioTrack(String trackId) =>
-      playbackController.setAudioTrack(trackId);
+
+  Future<void> setAudioTrack(String trackId) async {
+    selectedAudioTrackRx.value = trackId;
+    await playbackController.setAudioTrack(trackId);
+  }
+
   Future<void> setVolume(double volume) =>
       playbackController.setVolume(volume);
   Future<void> setMuted(bool muted) => playbackController.setMuted(muted);

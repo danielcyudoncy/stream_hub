@@ -371,4 +371,47 @@ void main() {
     controller.setProvider('');
     expect(controller.movies, hasLength(2));
   });
+
+  test('computes clean movie genres and filters out live TV categories and numeric IDs', () async {
+    catalogRepository.items.addAll([
+      movie(
+        id: 'm1',
+        title: 'Inception',
+        providerId: 'prov-1',
+        providerType: MediaSourceType.xtream,
+        genres: const ['Action', 'Sci-Fi, Thriller', '99', 'UK LIVE : CHANNELS'],
+      ),
+      movie(
+        id: 'm2',
+        title: 'The Hangover',
+        providerId: 'prov-1',
+        providerType: MediaSourceType.xtream,
+        genres: const ['Comedy'],
+      ),
+      movie(
+        id: 'm3',
+        title: 'Our Planet',
+        providerId: 'prov-2',
+        providerType: MediaSourceType.stalker,
+        genres: const ['Documentary'],
+      ),
+    ]);
+
+    final controller = buildController();
+    await pumpLoad(controller);
+
+    expect(controller.availableGenres, contains('Action'));
+    expect(controller.availableGenres, contains('Sci-Fi'));
+    expect(controller.availableGenres, contains('Thriller'));
+    expect(controller.availableGenres, contains('Comedy'));
+    expect(controller.availableGenres, contains('Documentary'));
+
+    // Should NOT contain raw numbers or live TV markers
+    expect(controller.availableGenres.contains('99'), isFalse);
+    expect(controller.availableGenres.contains('UK LIVE : CHANNELS'), isFalse);
+
+    // Switching provider recalculates genres for that provider only
+    controller.setProvider('prov-2');
+    expect(controller.availableGenres, ['Documentary']);
+  });
 }
