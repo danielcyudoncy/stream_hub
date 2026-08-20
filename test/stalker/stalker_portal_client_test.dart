@@ -406,6 +406,88 @@ void main() {
       expect(categories.first['title'], 'Unwrapped News');
     });
 
+    test('fetches live categories from get_genres action when available',
+        () async {
+      final server = await PortalTestServer.start(
+        handler: (action, params) {
+          if (action == 'get_genres' && (params['type'] == 'itv' || params['type'] == 'stb')) {
+            return {
+              'js': [
+                {'id': '10', 'title': 'Live Sports', 'alias': 'sports'},
+                {'id': '20', 'title': 'Live News', 'alias': 'news'},
+              ],
+            };
+          }
+          return defaultHandler(action, params);
+        },
+      );
+      addTearDown(server.close);
+
+      final client = StalkerPortalClient(
+        baseUrl: server.baseUrl,
+        macAddress: '00:1A:79:AA:BB:CC',
+        token: 'tok-real-123',
+      );
+
+      final categories = await client.getCategories(StalkerContentType.live);
+      expect(categories, hasLength(2));
+      expect(categories.first['title'], 'Live Sports');
+    });
+
+    test('creates playable link from various server response formats (ffmpeg, direct, string)',
+        () async {
+      final server = await PortalTestServer.start(
+        handler: (action, params) {
+          if (action == 'create_link') {
+            final cmd = params['cmd']?.toString() ?? '';
+            if (cmd.contains('ffmpeg_wrap')) {
+              return {
+                'js': {
+                  'cmd': 'ffmpeg -re -i http://stream.server.test/live/ch1.ts -c copy',
+                },
+              };
+            }
+            if (cmd.contains('string_js')) {
+              return {
+                'js': 'http://stream.server.test/vod/movie1.mp4',
+              };
+            }
+            if (cmd.contains('relative_cmd')) {
+              return {
+                'js': {'cmd': 'auto /media/series1.mp4'},
+              };
+            }
+          }
+          return defaultHandler(action, params);
+        },
+      );
+      addTearDown(server.close);
+
+      final client = StalkerPortalClient(
+        baseUrl: server.baseUrl,
+        macAddress: '00:1A:79:AA:BB:CC',
+        token: 'tok-real-123',
+      );
+
+      final url1 = await client.createLink(
+        type: StalkerContentType.live,
+        cmd: 'ffmpeg_wrap',
+      );
+      expect(url1, 'http://stream.server.test/live/ch1.ts');
+
+      final url2 = await client.createLink(
+        type: StalkerContentType.vod,
+        cmd: 'string_js',
+      );
+      expect(url2, 'http://stream.server.test/vod/movie1.mp4');
+
+      final url3 = await client.createLink(
+        type: StalkerContentType.series,
+        cmd: 'relative_cmd',
+      );
+      expect(url3, contains('/media/series1.mp4'));
+    });
+
     test('throws StalkerPortalException when every script path is missing',
         () async {
       final server = await PortalTestServer.start(
