@@ -209,15 +209,18 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
       final series = await client.getSeriesList();
       _logger.info('Fetched ${series.length} series and ${seriesCategories.length} series categories', tag: 'StalkerMediaSource');
 
+      final channelItems = _buildChannels(channels, liveCategories, syncStartedAt);
+      final movieItems = _buildMovies(movies, vodCategories, syncStartedAt);
+      final seriesItems = _buildSeries(series, seriesCategories, syncStartedAt);
       final categories = _buildCategories(
         liveCategories,
         vodCategories,
         seriesCategories,
         syncStartedAt,
+        channels: channelItems,
+        movies: movieItems,
+        seriesList: seriesItems,
       );
-      final channelItems = _buildChannels(channels, liveCategories, syncStartedAt);
-      final movieItems = _buildMovies(movies, vodCategories, syncStartedAt);
-      final seriesItems = _buildSeries(series, seriesCategories, syncStartedAt);
 
       // A portal that throttles may answer with empty bodies across the board.
       // Retrying the sync rather than reporting a successful-but-empty library
@@ -244,7 +247,8 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
       _state = MediaSourceState.ready;
       _logger.info(
         'Stalker sync complete: ${channelItems.length} channels, '
-        '${movieItems.length} movies, ${seriesItems.length} series',
+        '${movieItems.length} movies, ${seriesItems.length} series, '
+        '${categories.length} categories',
         tag: 'StalkerMediaSource',
       );
 
@@ -296,35 +300,72 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
     List<Map<String, dynamic>> live,
     List<Map<String, dynamic>> vod,
     List<Map<String, dynamic>> series,
-    DateTime createdAt,
-  ) {
+    DateTime createdAt, {
+    List<MediaItem> channels = const [],
+    List<MediaItem> movies = const [],
+    List<MediaItem> seriesList = const [],
+  }) {
     final categories = <MediaItem>[];
+    final seenCategoryKeys = <String>{};
 
-    void add(List<Map<String, dynamic>> raw, String type) {
+    void addCategoryItem(String type, String genreId, String title) {
+      if (genreId.isEmpty || title.isEmpty) return;
+      final key = '$type-$genreId';
+      if (seenCategoryKeys.contains(key)) return;
+      seenCategoryKeys.add(key);
+
+      categories.add(MediaItem(
+        id: 'stalker-$_id-cat-$type-$genreId',
+        providerId: _id,
+        providerType: MediaSourceType.stalker,
+        mediaType: MediaType.collection,
+        title: title,
+        metadata: {
+          'genreId': genreId,
+          'genre': title,
+          'type': type,
+          'portalUrl': _portalUrl,
+        },
+        createdAt: createdAt,
+        updatedAt: createdAt,
+      ));
+    }
+
+    void addFromRaw(List<Map<String, dynamic>> raw, String type) {
       for (final c in raw) {
-        final genreId = c['id']?.toString() ?? '';
-        final title = c['title']?.toString() ?? '';
-        if (genreId.isEmpty || title.isEmpty) continue;
-        categories.add(MediaItem(
-          id: 'stalker-$_id-cat-$type-$genreId',
-          providerId: _id,
-          providerType: MediaSourceType.stalker,
-          mediaType: MediaType.collection,
-          title: title,
-          metadata: {
-            'genreId': genreId,
-            'genre': title,
-            'type': type,
-          },
-          createdAt: createdAt,
-          updatedAt: createdAt,
-        ));
+        final genreId = c['id']?.toString() ??
+            c['genre_id']?.toString() ??
+            c['category_id']?.toString() ??
+            '';
+        final title = c['title']?.toString() ??
+            c['name']?.toString() ??
+            c['category_name']?.toString() ??
+            c['genre_title']?.toString() ??
+            c['alias']?.toString() ??
+            '';
+        addCategoryItem(type, genreId, title);
       }
     }
 
-    add(live, 'live');
-    add(vod, 'vod');
-    add(series, 'series');
+    addFromRaw(live, 'live');
+    addFromRaw(vod, 'vod');
+    addFromRaw(series, 'series');
+
+    // Dynamic category synthesis from items
+    void synthesizeFromItems(List<MediaItem> items, String type) {
+      for (final item in items) {
+        for (final g in item.genres) {
+          if (g.trim().isEmpty) continue;
+          final genreId = item.metadata['genreId']?.toString() ?? g.toLowerCase().replaceAll(' ', '_');
+          addCategoryItem(type, genreId, g.trim());
+        }
+      }
+    }
+
+    synthesizeFromItems(channels, 'live');
+    synthesizeFromItems(movies, 'vod');
+    synthesizeFromItems(seriesList, 'series');
+
     return categories;
   }
 
@@ -341,8 +382,24 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
       final name = c['name']?.toString() ?? '';
       if (streamId.isEmpty || name.isEmpty) continue;
 
-      final genreId = c['genre_id']?.toString() ?? '';
-      final genreName = genreNames[genreId] ?? genreId;
+      final genreId = c['genre_id']?.toString() ??
+          c['tv_genre_id']?.toString() ??
+          c['category_id']?.toString() ??
+          '';
+      var genreName = genreNames[genreId];
+      if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
+        final directCategory = c['category_name']?.toString() ??
+            c['genre_name']?.toString() ??
+            c['genre']?.toString() ??
+            c['category']?.toString() ??
+            c['group']?.toString();
+        if (directCategory != null && directCategory.isNotEmpty) {
+          genreName = directCategory;
+        } else if (genreName == null || genreName.isEmpty) {
+          genreName = genreId.isNotEmpty ? genreId : 'General';
+        }
+      }
+
       final cmd = c['cmd']?.toString() ?? '';
       final logo = ImageUrlFormatter.extractFromMap(c, serverUrl: _portalUrl);
       final number = c['number']?.toString() ?? '';
@@ -391,8 +448,22 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
       final name = m['name']?.toString() ?? '';
       if (streamId.isEmpty || name.isEmpty) continue;
 
-      final genreId = m['genre_id']?.toString() ?? '';
-      final genreName = genreNames[genreId] ?? genreId;
+      final genreId = m['genre_id']?.toString() ??
+          m['category_id']?.toString() ??
+          '';
+      var genreName = genreNames[genreId];
+      if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
+        final directCategory = m['category_name']?.toString() ??
+            m['genre_name']?.toString() ??
+            m['genre']?.toString() ??
+            m['category']?.toString();
+        if (directCategory != null && directCategory.isNotEmpty) {
+          genreName = directCategory;
+        } else if (genreName == null || genreName.isEmpty) {
+          genreName = genreId.isNotEmpty ? genreId : 'General';
+        }
+      }
+
       final cmd = m['cmd']?.toString() ?? '';
       final directSource = m['direct_source']?.toString() ?? '';
       final cover = ImageUrlFormatter.extractFromMap(m, serverUrl: _portalUrl);
@@ -442,8 +513,22 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
       final name = s['name']?.toString() ?? '';
       if (streamId.isEmpty || name.isEmpty) continue;
 
-      final genreId = s['genre_id']?.toString() ?? '';
-      final genreName = genreNames[genreId] ?? genreId;
+      final genreId = s['genre_id']?.toString() ??
+          s['category_id']?.toString() ??
+          '';
+      var genreName = genreNames[genreId];
+      if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
+        final directCategory = s['category_name']?.toString() ??
+            s['genre_name']?.toString() ??
+            s['genre']?.toString() ??
+            s['category']?.toString();
+        if (directCategory != null && directCategory.isNotEmpty) {
+          genreName = directCategory;
+        } else if (genreName == null || genreName.isEmpty) {
+          genreName = genreId.isNotEmpty ? genreId : 'General';
+        }
+      }
+
       final cmd = s['cmd']?.toString() ?? '';
       final cover = ImageUrlFormatter.extractFromMap(s, serverUrl: _portalUrl);
       final seasons = s['seasons'];
@@ -520,9 +605,23 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
   Map<String, String> _genreNameMap(List<Map<String, dynamic>> categories) {
     final map = <String, String>{};
     for (final c in categories) {
-      final id = c['id']?.toString() ?? '';
-      final title = c['title']?.toString() ?? '';
-      if (id.isNotEmpty && title.isNotEmpty) map[id] = title;
+      final id = c['id']?.toString() ??
+          c['genre_id']?.toString() ??
+          c['category_id']?.toString() ??
+          '';
+      final title = c['title']?.toString() ??
+          c['name']?.toString() ??
+          c['category_name']?.toString() ??
+          c['genre_title']?.toString() ??
+          c['alias']?.toString() ??
+          '';
+      if (id.isNotEmpty && title.isNotEmpty) {
+        map[id] = title;
+        final alias = c['alias']?.toString();
+        if (alias != null && alias.isNotEmpty) {
+          map[alias] = title;
+        }
+      }
     }
     return map;
   }

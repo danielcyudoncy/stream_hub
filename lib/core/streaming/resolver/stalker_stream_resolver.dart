@@ -45,20 +45,24 @@ class StalkerStreamResolver implements StreamResolver {
         message: 'Stalker media item has no playable command.',
       );
     }
-    if (session.baseUrl == null || session.baseUrl!.isEmpty) {
+    final baseUrl = session.baseUrl ??
+        metadata['portalUrl']?.toString() ??
+        metadata['serverUrl']?.toString();
+    if (baseUrl == null || baseUrl.isEmpty) {
       throw const StreamResolutionException(
         message: 'Stalker session is missing the portal URL.',
       );
     }
-    if (session.macAddress == null || session.macAddress!.isEmpty) {
+    final macAddress = session.macAddress ?? metadata['macAddress']?.toString();
+    if (macAddress == null || macAddress.isEmpty) {
       throw const StreamResolutionException(
         message: 'Stalker session is missing the MAC address.',
       );
     }
 
     final client = StalkerPortalClient(
-      baseUrl: session.baseUrl!,
-      macAddress: session.macAddress!,
+      baseUrl: baseUrl,
+      macAddress: macAddress,
       serial: session.deviceId,
       token: session.portalToken,
       logger: _logger,

@@ -405,6 +405,9 @@ class StreamEngine {
   /// player surfaces any real failure during playback. Finite content (HLS,
   /// DASH, MP4, MKV) is still probed so 404/401 issues are caught early.
   bool _shouldProbeNetwork(PlayableSession playable) {
+    if (playable.providerType == MediaSourceType.stalker) {
+      return false;
+    }
     return playable.streamType != StreamType.mpegTs;
   }
 
