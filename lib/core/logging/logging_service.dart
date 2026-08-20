@@ -24,11 +24,17 @@ class LoggingService {
     final logTag = tag != null ? '[$tag]' : '[App]';
     final formattedMessage = '$level $logTag: $message';
 
-    // In debug builds, mirror to the console so logs are visible in logcat
-    // during on-device testing (developer.log only reaches the VM service).
     if (kDebugMode) {
-      debugPrint(formattedMessage);
+      if (error != null) {
+        debugPrint('$formattedMessage: $error');
+        if (stackTrace != null) {
+          debugPrint('$stackTrace');
+        }
+      } else {
+        debugPrint(formattedMessage);
+      }
     }
+
 
     developer.log(
       formattedMessage,

@@ -687,3 +687,29 @@ The following reusable components are used throughout the Home dashboard:
 | `FeatureCard` | Feature preview card for welcome screen |
 | `RecentActivityCard` | Row card for recent activity items |
 | `StorageCard` | Storage usage indicator with progress bar |
+
+---
+
+## Series Experience Guidelines
+
+### Visual Language & Components
+
+1. **`SeriesCard`**:
+   - 2:3 vertical poster card with rounded corners and subtle shadow.
+   - Overlays: rating badge (gold star), seasons count badge, favorite toggle, completed checkmark, and linear progress bar for in-progress series.
+   - TV Remote Focus: scale transformation (`1.05x`) and primary colored border.
+
+2. **`ContinueWatchingSeriesCard`**:
+   - 16:9 widescreen landscape card showcasing the specific episode thumbnail.
+   - Displays series title, episode title, season/episode identifier (`S02E04`), remaining duration, and progress bar with gradient tint.
+
+3. **`EpisodeCard`**:
+   - Multi-state list item with episode thumbnail, duration badge, watched status checkmark, and "NEXT" / "PLAYING" badge.
+   - Supports active playback highlighting and TV focus.
+
+4. **`NextEpisodeOverlay`**:
+   - Non-intrusive floating card in bottom-right corner of player.
+   - Displays 10s animated countdown, next episode thumbnail, and "Play Now" / "Cancel" actions.
+
+5. **`SkipIntroButton`**:
+   - Semi-transparent glassmorphic pill button appearing automatically during intro segments.
