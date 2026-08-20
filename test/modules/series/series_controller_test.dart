@@ -256,4 +256,62 @@ void main() {
     controller.setProvider('');
     expect(controller.series, hasLength(2));
   });
+
+  test('computes clean series genres and filters out live TV categories and numeric IDs', () async {
+    catalogRepository.items.addAll([
+      MediaItem(
+        id: 's1',
+        title: 'Stranger Things',
+        providerId: 'prov-1',
+        providerType: MediaSourceType.xtream,
+        mediaType: MediaType.series,
+        genres: const ['Drama', 'Sci-Fi, Horror', '12', 'UK LIVE : CHANNELS'],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+      MediaItem(
+        id: 's2',
+        title: 'Friends',
+        providerId: 'prov-1',
+        providerType: MediaSourceType.xtream,
+        mediaType: MediaType.series,
+        genres: const ['Comedy', 'Romance'],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+      MediaItem(
+        id: 's3',
+        title: 'Cosmos',
+        providerId: 'prov-2',
+        providerType: MediaSourceType.stalker,
+        mediaType: MediaType.series,
+        genres: const ['Documentary'],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      ),
+    ]);
+
+    final controller = SeriesController(
+      mediaEngine: mediaEngine,
+      mediaLibrary: mediaLibrary,
+      catalogRepository: catalogRepository,
+    );
+
+    await controller.reloadSeries();
+
+    expect(controller.availableGenres, contains('Comedy'));
+    expect(controller.availableGenres, contains('Drama'));
+    expect(controller.availableGenres, contains('Horror'));
+    expect(controller.availableGenres, contains('Sci-Fi'));
+    expect(controller.availableGenres, contains('Romance'));
+    expect(controller.availableGenres, contains('Documentary'));
+
+    // Should NOT contain raw numbers or live TV markers
+    expect(controller.availableGenres.contains('12'), isFalse);
+    expect(controller.availableGenres.contains('UK LIVE : CHANNELS'), isFalse);
+
+    // Switching provider recalculates genres for that provider only
+    controller.setProvider('prov-2');
+    expect(controller.availableGenres, ['Documentary']);
+  });
 }

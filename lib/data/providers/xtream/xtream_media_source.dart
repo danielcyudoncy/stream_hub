@@ -386,6 +386,20 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       final streamUrl = _movieStreamUrl(streamId, ext);
       final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: _serverUrl);
       final backdrop = ImageUrlFormatter.format(item['backdrop_path'], serverUrl: _serverUrl);
+      final rawGenre = _asString(item['genre']) ?? '';
+
+      final genres = <String>[];
+      if (categoryId.isNotEmpty) {
+        genres.add(categoryId);
+      }
+      if (rawGenre.isNotEmpty) {
+        for (final g in rawGenre.split(RegExp(r'[,/|]'))) {
+          final clean = g.trim();
+          if (clean.isNotEmpty && !genres.contains(clean)) {
+            genres.add(clean);
+          }
+        }
+      }
 
       movies.add(
         MediaItem(
@@ -397,7 +411,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           poster: poster,
           thumbnail: poster,
           backdrop: backdrop,
-          genres: categoryId.isNotEmpty ? [categoryId] : [],
+          genres: genres,
           rating: _parseRating(item['rating']),
           description: _asString(item['plot']),
           metadata: _vodMetadata(item, streamId, streamUrl, categoryId, poster),
@@ -452,6 +466,20 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       final categoryId = item['category_id']?.toString() ?? '';
       final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: _serverUrl);
       final backdrop = ImageUrlFormatter.format(item['backdrop_path'], serverUrl: _serverUrl);
+      final rawGenre = _asString(item['genre']) ?? '';
+
+      final genres = <String>[];
+      if (categoryId.isNotEmpty) {
+        genres.add(categoryId);
+      }
+      if (rawGenre.isNotEmpty) {
+        for (final g in rawGenre.split(RegExp(r'[,/|]'))) {
+          final clean = g.trim();
+          if (clean.isNotEmpty && !genres.contains(clean)) {
+            genres.add(clean);
+          }
+        }
+      }
 
       series.add(
         MediaItem(
@@ -463,7 +491,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           poster: poster,
           thumbnail: poster,
           backdrop: backdrop,
-          genres: categoryId.isNotEmpty ? [categoryId] : [],
+          genres: genres,
           rating: _parseRating(item['rating']),
           description: _asString(item['plot']),
           metadata: _seriesMetadata(item, seriesId, categoryId, poster),

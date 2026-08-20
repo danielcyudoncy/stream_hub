@@ -46,6 +46,7 @@ class EmbeddedPlayerPage extends GetView<PlayerController> {
               alignment: Alignment.center,
               children: [
                 _buildVideoLayer(),
+                _buildSubtitleOverlay(),
                 if (controller.sessionRx.value == null &&
                     state != PlaybackState.loading)
                   const Icon(
@@ -99,6 +100,40 @@ class EmbeddedPlayerPage extends GetView<PlayerController> {
         child: ColoredBox(
           color: Colors.black,
           child: engine.adapter.buildPlayerWidget(),
+        ),
+      );
+    });
+  }
+
+  Widget _buildSubtitleOverlay() {
+    return Obx(() {
+      final sub = controller.playbackController.engine.subtitleTextRx.value;
+      if (sub.isEmpty) return const SizedBox.shrink();
+      return Positioned(
+        left: 16,
+        right: 16,
+        bottom: 12,
+        child: IgnorePointer(
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.85),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                sub,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                ),
+              ),
+            ),
+          ),
         ),
       );
     });
