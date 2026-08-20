@@ -49,7 +49,10 @@ import '../../modules/series/series_page.dart';
 import '../../modules/series/series_binding.dart';
 import '../../modules/series/series_details_page.dart';
 import '../../modules/series/series_details_binding.dart';
+import '../../modules/series/series_genre_page.dart';
+import '../../modules/series/series_genre_binding.dart';
 import '../../modules/series/series_category_page.dart';
+
 import '../../modules/search/search_hub_page.dart';
 import '../../modules/search/search_hub_binding.dart';
 import '../../modules/epg/pages/program_details_page.dart';
@@ -230,9 +233,15 @@ class AppPages {
       binding: SeriesDetailsBinding(),
     ),
     GetPage(
+      name: AppRoutes.seriesGenre,
+      page: () => const SeriesGenrePage(),
+      binding: SeriesGenreBinding(),
+    ),
+    GetPage(
       name: AppRoutes.seriesCategory,
       page: () => const SeriesCategoryPage(),
     ),
+
     GetPage(
       name: AppRoutes.search,
       page: () => const SearchHubPage(),

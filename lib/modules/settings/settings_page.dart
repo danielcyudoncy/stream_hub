@@ -304,13 +304,39 @@ class SettingsPage extends GetView<SettingsController> {
                   trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 ),
               ),
-              const SettingsTile(
-                title: 'Playback Settings',
-                subtitle: 'Coming in a future update',
-                leadingIcon: Icons.tune_outlined,
-                onTap: null,
-                trailing: Icon(Icons.arrow_forward_ios, size: 16),
-                showDivider: false,
+              Obx(
+                () => SwitchListTile(
+                  title: Text(
+                    'Autoplay Next Episode',
+                    style: AppTypography.getBody(color: colorScheme.onSurface),
+                  ),
+                  subtitle: Text(
+                    'Automatically countdown and play the next episode in a series',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  value: controller.autoplayNextEpisode.value,
+                  onChanged: controller.toggleAutoplayNextEpisode,
+                  secondary: const Icon(Icons.playlist_play),
+                ),
+              ),
+              Obx(
+                () => SwitchListTile(
+                  title: Text(
+                    'Auto-Skip Intro',
+                    style: AppTypography.getBody(color: colorScheme.onSurface),
+                  ),
+                  subtitle: Text(
+                    'Automatically skip episode intro when timestamp is available',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  value: controller.autoSkipIntro.value,
+                  onChanged: controller.toggleAutoSkipIntro,
+                  secondary: const Icon(Icons.fast_forward_outlined),
+                ),
               ),
             ],
           ),
@@ -318,6 +344,7 @@ class SettingsPage extends GetView<SettingsController> {
       ],
     );
   }
+
 
   Widget _buildNotificationsSection(
     BuildContext context,

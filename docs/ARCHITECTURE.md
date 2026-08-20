@@ -1275,6 +1275,40 @@ lib/
 
 ---
 
+## Series Experience Subsystem
+
+The Series Experience provides a complete TV series tracking and playback ecosystem:
+
+```
+Series Hub / Details / Continue Watching
+  ↓
+NextEpisodeResolver / SeriesProgressService / IntroService
+  ↓
+Episode Selection & Playlist Injection (PlayerController)
+  ↓
+StreamEngine (Resolve PlayableSession)
+  ↓
+PlaybackEngine (Autoplay Next Overlay / Skip Intro Button)
+```
+
+### Components
+
+1. **`NextEpisodeResolver`**:
+   - Deterministic chronological traversal across episodes and season boundaries.
+   - Handles multi-season ordering, non-contiguous episode numbering, and final episode completion.
+2. **`SeriesProgressService`**:
+   - Calculates aggregate series progress percentage and completed episode counts.
+   - Determines dynamic watch action states: `playFirst`, `resume`, `playNext`, `watchAgain`.
+3. **`IntroService`**:
+   - Extracts intro start/end timestamps from episode metadata.
+   - Provides segment caching and active playback position containment checks.
+4. **`NextEpisodeOverlay` & `SkipIntroButton`**:
+   - Non-intrusive floating overlays in `FullscreenPlayerPage`.
+   - 10-second countdown with auto-transition at >92% completion / 15s remaining.
+   - Instant seek to intro conclusion.
+
+---
+
 ## Architecture Rules
 
 - Keep widgets small.
@@ -1291,3 +1325,4 @@ lib/
 - All playback and downloads go through the Stream Engine.
 - Players and download engines only receive `PlayableSession` objects.
 - Stream URLs, tokens, cookies, and credentials are never logged.
+

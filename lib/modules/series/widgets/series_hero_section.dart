@@ -4,12 +4,14 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
 class SeriesHeroSection extends StatelessWidget {
   final MediaItem series;
   final VoidCallback? onWatch;
+  final VoidCallback? onDetails;
   final VoidCallback? onFavorite;
   final bool isFavorite;
 
@@ -17,106 +19,135 @@ class SeriesHeroSection extends StatelessWidget {
     super.key,
     required this.series,
     this.onWatch,
+    this.onDetails,
     this.onFavorite,
     this.isFavorite = false,
   });
 
+  static String? _resolveBackdrop(MediaItem series) {
+    final formattedBackdrop =
+        ImageUrlFormatter.format(series.backdrop, item: series);
+    if (formattedBackdrop != null && formattedBackdrop.isNotEmpty) {
+      return formattedBackdrop;
+    }
+    final formattedPoster =
+        ImageUrlFormatter.format(series.poster, item: series);
+    if (formattedPoster != null && formattedPoster.isNotEmpty) {
+      return formattedPoster;
+    }
+    return ImageUrlFormatter.extractFromMediaItem(series);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final backdrop = series.backdrop;
+    final backdrop = _resolveBackdrop(series);
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final isTv = constraints.maxWidth >= 900;
         final heroHeight = isTv
             ? (constraints.maxHeight * 0.55).clamp(320.0, 600.0)
-            : (constraints.maxHeight * 0.38).clamp(240.0, 400.0);
+            : (constraints.maxHeight * 0.38).clamp(260.0, 420.0);
 
-        return SizedBox(
-          width: double.infinity,
-          height: heroHeight,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (backdrop != null && backdrop.isNotEmpty)
-                Image.network(
-                  backdrop,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      ColoredBox(color: colorScheme.surfaceContainerHighest),
-                )
-              else
-                ColoredBox(color: colorScheme.surfaceContainerHighest),
-              Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.transparent, Colors.black87],
+        return GestureDetector(
+          onTap: onDetails,
+          child: SizedBox(
+            width: double.infinity,
+            height: heroHeight,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (backdrop != null)
+                  Image.network(
+                    backdrop,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) =>
+                        ColoredBox(color: colorScheme.surfaceContainerHighest),
+                  )
+                else
+                  ColoredBox(color: colorScheme.surfaceContainerHighest),
+                Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, Colors.black87],
+                    ),
                   ),
                 ),
-              ),
-              Positioned(
-                left: AppSpacing.lg,
-                right: AppSpacing.lg,
-                bottom: AppSpacing.lg,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      series.title,
-                      style: AppTypography.getHeadline(
-                        color: Colors.white,
-                        scale: isTv ? 1.4 : 1.0,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    AppSpacing.heightXS,
-                    _buildMetaRow(series, colorScheme),
-                    if (series.description != null &&
-                        series.description!.isNotEmpty) ...[
-                      AppSpacing.heightSM,
+                Positioned(
+                  left: AppSpacing.lg,
+                  right: AppSpacing.lg,
+                  bottom: AppSpacing.lg,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Text(
-                        series.description!,
-                        style: AppTypography.getBody(
-                          color: Colors.white70,
-                          scale: isTv ? 1.0 : 0.9,
+                        series.title,
+                        style: AppTypography.getHeadline(
+                          color: Colors.white,
+                          scale: isTv ? 1.4 : 1.0,
                         ),
-                        maxLines: 3,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                    AppSpacing.heightSM,
-                    Row(
-                      children: [
-                        if (onWatch != null)
-                          Expanded(
-                            child: _HeroButton(
-                              icon: AppIcons.play,
-                              label: 'WATCH NOW',
-                              onTap: onWatch,
-                            ),
+                      AppSpacing.heightXS,
+                      _buildMetaRow(series, colorScheme),
+                      if (series.description != null &&
+                          series.description!.isNotEmpty) ...[
+                        AppSpacing.heightSM,
+                        Text(
+                          series.description!,
+                          style: AppTypography.getBody(
+                            color: Colors.white70,
+                            scale: isTv ? 1.0 : 0.9,
                           ),
-                        if (onWatch != null && onFavorite != null)
-                          AppSpacing.widthSM,
-                        if (onFavorite != null)
-                          Expanded(
-                            child: _HeroButton(
-                              icon: isFavorite ? Icons.favorite : AppIcons.add,
-                              label: isFavorite ? 'MY LIST' : 'MY LIST',
-                              onTap: onFavorite,
-                              secondary: true,
-                            ),
-                          ),
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ],
-                    ),
-                  ],
+                      AppSpacing.heightSM,
+                      Row(
+                        children: [
+                          if (onWatch != null)
+                            Expanded(
+                              child: _HeroButton(
+                                icon: AppIcons.play,
+                                label: 'WATCH NOW',
+                                onTap: onWatch,
+                              ),
+                            ),
+                          if (onWatch != null && (onDetails != null || onFavorite != null))
+                            AppSpacing.widthSM,
+                          if (onDetails != null)
+                            Expanded(
+                              child: _HeroButton(
+                                icon: Icons.info_outline,
+                                label: 'DETAILS',
+                                onTap: onDetails,
+                                secondary: true,
+                              ),
+                            ),
+                          if (onDetails != null && onFavorite != null)
+                            AppSpacing.widthSM,
+                          if (onFavorite != null && onDetails == null)
+                            Expanded(
+                              child: _HeroButton(
+                                icon: isFavorite ? Icons.favorite : AppIcons.add,
+                                label: isFavorite ? 'FAVORITE' : 'ADD LIST',
+                                onTap: onFavorite,
+                                secondary: true,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
@@ -130,12 +161,12 @@ class SeriesHeroSection extends StatelessWidget {
       parts.add('⭐ ${series.rating!.toStringAsFixed(1)}');
     }
 
-    final year = series.metadata['year']?.toString();
+    final year = series.metadata['year']?.toString() ?? series.releaseYear?.toString();
     if (year != null && year.isNotEmpty) {
       parts.add(year);
     }
 
-    final seasonCount = series.metadata['seasonCount'];
+    final seasonCount = series.metadata['seasonCount'] ?? series.metadata['seasonsCount'];
     if (seasonCount != null) {
       final seasons = int.tryParse(seasonCount.toString()) ?? 0;
       if (seasons > 0) {
@@ -182,18 +213,19 @@ class _HeroButton extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           gradient: secondary ? null : const LinearGradient(colors: AppColors.primaryGradient),
-          color: secondary ? Colors.white.withValues(alpha: 0.12) : null,
+          color: secondary ? Colors.white.withValues(alpha: 0.15) : null,
           borderRadius: AppRadius.pill,
           border: secondary
-              ? Border.all(color: Colors.white.withValues(alpha: 0.25))
+              ? Border.all(color: Colors.white.withValues(alpha: 0.3))
               : null,
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, color: Colors.white, size: 18.0),
             AppSpacing.widthXS,
-            Expanded(
+            Flexible(
               child: Text(
                 label,
                 style: AppTypography.getButton(color: Colors.white),
