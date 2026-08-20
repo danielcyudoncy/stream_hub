@@ -34,11 +34,16 @@ class BufferInfo {
   /// flag every live stream as unhealthy while it plays (live players keep a
   /// rolling buffer that drains to near-zero against a duration of zero).
   /// Live stalls are surfaced through the adapter's buffering/playing state
-  /// machine instead. VOD is judged by how much of the media is buffered.
+  /// machine instead.
+  ///
+  /// For VOD, players (ExoPlayer, mpv, VLC) maintain a rolling forward buffer
+  /// (typically 20-60s) rather than loading the entire file into RAM. A buffer
+  /// is considered healthy if there is at least 5 seconds buffered ahead of
+  /// playback, or >10% for shorter media.
   bool get isHealthy {
     if (droppedFrames >= 30) return false;
     if (totalDuration <= Duration.zero) return true;
-    return bufferPercentage > 10.0;
+    return bufferHealthMs >= 5000 || bufferPercentage > 10.0;
   }
 
   /// Whether a video frame has been decoded with real pixel dimensions.

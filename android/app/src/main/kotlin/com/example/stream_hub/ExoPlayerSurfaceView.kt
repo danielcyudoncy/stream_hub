@@ -4,8 +4,8 @@ import android.content.Context
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.view.TextureView
 import android.view.View
+import android.widget.FrameLayout
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -26,6 +26,8 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.rtsp.RtspMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.PlayerView
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
@@ -34,15 +36,10 @@ import io.flutter.plugin.platform.PlatformView
 
 /**
  * Android platform view that hosts an ExoPlayer (Media3) backend rendered
- * through a [TextureView].
+ * through a [PlayerView] backed by a hardware [android.view.SurfaceView].
  *
- * Render path: ExoPlayer's MediaCodec pipeline renders into the Surface
- * backed by this TextureView. The TextureView is a regular view in the
- * Android hierarchy, so it is composited natively without the separate
- * SurfaceFlinger layer SurfaceView introduces. SurfaceView misbehaves inside
- * Flutter hybrid-composition platform views on Unisoc/Mali devices (video
- * decodes but never becomes visible), while TextureView is the same approach
- * used by flutter_vlc_player's VLCTextureView.
+ * Render path: ExoPlayer's MediaCodec pipeline renders directly into the
+ * hardware Surface composited by SurfaceFlinger in hybrid-composition mode.
  *
  * Control plane: a per-view [MethodChannel] (`stream_hub/exo_surface_<id>`)
  * carries commands from the Dart adapter; a per-view [EventChannel]
@@ -65,13 +62,6 @@ class ExoPlayerSurfaceView(
         private const val POSITION_INTERVAL_MS = 250L
     }
 
-    private val textureView = TextureView(context).apply {
-        layoutParams = android.widget.FrameLayout.LayoutParams(
-            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-            android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
-        )
-    }
-
     private val player: ExoPlayer = ExoPlayer.Builder(
         context,
         DefaultRenderersFactory(context)
@@ -80,6 +70,16 @@ class ExoPlayerSurfaceView(
                 if (hardwareDecode) MediaCodecSelector.DEFAULT else MediaCodecSelector.PREFER_SOFTWARE
             ),
     ).build()
+
+    private val playerView = PlayerView(context).apply {
+        layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT,
+        )
+        useController = false
+        resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+        player = this@ExoPlayerSurfaceView.player
+    }
 
     private val channel = MethodChannel(messenger, "stream_hub/exo_surface_$viewId")
     private val events = EventChannel(messenger, "stream_hub/exo_surface_events_$viewId")
@@ -141,7 +141,6 @@ class ExoPlayerSurfaceView(
     }
 
     init {
-        player.setVideoTextureView(textureView)
         player.setAudioAttributes(
             AudioAttributes.Builder()
                 .setUsage(C.USAGE_MEDIA)
@@ -185,64 +184,75 @@ class ExoPlayerSurfaceView(
     // ---- Method channel ----------------------------------------------------
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
-        when (call.method) {
-            "load" -> load(call, result)
-            "play" -> {
-                player.play()
-                result.success(null)
-            }
-            "pause" -> {
-                player.pause()
-                result.success(null)
-            }
-            "seekTo" -> {
-                val ms = (call.argument<Number>("positionMs") ?: 0L).toLong()
-                player.seekTo(ms)
-                result.success(null)
-            }
-            "setVolume" -> {
-                val volume = (call.argument<Number>("volume") ?: 1.0).toFloat().coerceIn(0f, 1f)
-                currentVolume = volume
-                player.volume = if (muted) 0f else volume
-                result.success(null)
-            }
-            "setMuted" -> {
-                muted = call.argument<Boolean>("muted") ?: false
-                player.volume = if (muted) 0f else currentVolume
-                result.success(null)
-            }
-            "setSpeed" -> {
-                val speed = (call.argument<Number>("speed") ?: 1.0).toFloat().coerceIn(0.25f, 4f)
-                player.playbackParameters = PlaybackParameters(speed)
-                result.success(null)
-            }
-            "setAspectRatio" -> {
-                applyAspectRatio(call.argument<String>("mode"))
-                result.success(null)
-            }
-            "stop" -> {
-                player.stop()
-                result.success(null)
-            }
-            "getBufferInfo" -> {
-                result.success(
-                    mapOf(
-                        "bufferedMs" to player.bufferedPosition,
-                        "durationMs" to (if (player.duration == C.TIME_UNSET) 0L else player.duration),
+        if (call.method == "dispose") {
+            disposeInternal()
+            result.success(null)
+            return
+        }
+        if (disposed) {
+            result.success(null)
+            return
+        }
+        try {
+            when (call.method) {
+                "load" -> load(call, result)
+                "play" -> {
+                    player.play()
+                    result.success(null)
+                }
+                "pause" -> {
+                    player.pause()
+                    result.success(null)
+                }
+                "seekTo" -> {
+                    val ms = (call.argument<Number>("positionMs") ?: 0L).toLong()
+                    player.seekTo(ms)
+                    result.success(null)
+                }
+                "setVolume" -> {
+                    val volume = (call.argument<Number>("volume") ?: 1.0).toFloat().coerceIn(0f, 1f)
+                    currentVolume = volume
+                    player.volume = if (muted) 0f else volume
+                    result.success(null)
+                }
+                "setMuted" -> {
+                    muted = call.argument<Boolean>("muted") ?: false
+                    player.volume = if (muted) 0f else currentVolume
+                    result.success(null)
+                }
+                "setSpeed" -> {
+                    val speed = (call.argument<Number>("speed") ?: 1.0).toFloat().coerceIn(0.25f, 4f)
+                    player.playbackParameters = PlaybackParameters(speed)
+                    result.success(null)
+                }
+                "setAspectRatio" -> {
+                    applyAspectRatio(call.argument<String>("mode"))
+                    result.success(null)
+                }
+                "stop" -> {
+                    try {
+                        player.stop()
+                    } catch (_: Throwable) {}
+                    result.success(null)
+                }
+                "getBufferInfo" -> {
+                    result.success(
+                        mapOf(
+                            "bufferedMs" to player.bufferedPosition,
+                            "durationMs" to (if (player.duration == C.TIME_UNSET) 0L else player.duration),
+                        )
                     )
-                )
+                }
+                "getAvailableAudioTracks" -> result.success(tracksOf(C.TRACK_TYPE_AUDIO))
+                "getAvailableSubtitleTracks" -> result.success(tracksOf(C.TRACK_TYPE_TEXT))
+                "getAvailableQualities" -> result.success(qualities())
+                "setAudioTrack" -> selectTrack(call.argument<String>("trackId"), C.TRACK_TYPE_AUDIO, result)
+                "setSubtitleTrack" -> selectTrack(call.argument<String>("trackId"), C.TRACK_TYPE_TEXT, result)
+                "setQuality" -> selectQuality(call.argument<String>("quality"), result)
+                else -> result.notImplemented()
             }
-            "getAvailableAudioTracks" -> result.success(tracksOf(C.TRACK_TYPE_AUDIO))
-            "getAvailableSubtitleTracks" -> result.success(tracksOf(C.TRACK_TYPE_TEXT))
-            "getAvailableQualities" -> result.success(qualities())
-            "setAudioTrack" -> selectTrack(call.argument<String>("trackId"), C.TRACK_TYPE_AUDIO, result)
-            "setSubtitleTrack" -> selectTrack(call.argument<String>("trackId"), C.TRACK_TYPE_TEXT, result)
-            "setQuality" -> selectQuality(call.argument<String>("quality"), result)
-            "dispose" -> {
-                disposeInternal()
-                result.success(null)
-            }
-            else -> result.notImplemented()
+        } catch (_: Throwable) {
+            result.success(null)
         }
     }
 
@@ -302,6 +312,12 @@ class ExoPlayerSurfaceView(
     }
 
     private fun applyAspectRatio(mode: String?) {
+        val resizeMode = when (mode) {
+            "fill", "stretch" -> AspectRatioFrameLayout.RESIZE_MODE_FILL
+            "zoom" -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            else -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        }
+        playerView.resizeMode = resizeMode
         val scalingMode = when (mode) {
             "fill", "zoom" -> C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
             else -> C.VIDEO_SCALING_MODE_DEFAULT
@@ -435,5 +451,5 @@ class ExoPlayerSurfaceView(
         disposeInternal()
     }
 
-    override fun getView(): View = textureView
+    override fun getView(): View = playerView
 }

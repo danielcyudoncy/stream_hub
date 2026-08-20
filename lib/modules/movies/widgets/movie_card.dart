@@ -108,6 +108,7 @@ class _MovieCardState extends State<MovieCard> {
     final poster = _resolvedPoster ?? _computeDirectPoster(widget.item);
     final rating = widget.item.formattedRating;
     final year = widget.item.releaseYear;
+    final genre = widget.item.genres.isNotEmpty ? widget.item.genres.first : null;
 
     return SizedBox(
       width: widget.width,
@@ -149,87 +150,86 @@ class _MovieCardState extends State<MovieCard> {
                     else
                       _placeholder(colorScheme),
 
-                    // Top rating badge & Favorite button
-                    Positioned(
-                      top: AppSpacing.xs,
-                      left: AppSpacing.xs,
-                      right: AppSpacing.xs,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (rating != null && rating.isNotEmpty)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6.0,
-                                vertical: 2.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.75),
-                                borderRadius: AppRadius.small,
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const Icon(
-                                    Icons.star_rounded,
-                                    color: Colors.amber,
-                                    size: 12.0,
-                                  ),
-                                  const SizedBox(width: 2.0),
-                                  Text(
-                                    rating,
-                                    style: AppTypography.getCaption(
-                                      color: Colors.white,
-                                      scale: 0.85,
-                                    ).copyWith(fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            )
-                          else
-                            const SizedBox.shrink(),
-                          if (widget.isCompleted)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6.0,
-                                vertical: 2.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.darkSuccess.withValues(alpha: 0.85),
-                                borderRadius: AppRadius.small,
-                              ),
-                              child: const Icon(
-                                Icons.check_rounded,
-                                color: Colors.white,
+                    if (rating != null && rating.isNotEmpty)
+                      Positioned(
+                        top: AppSpacing.xs,
+                        left: AppSpacing.xs,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6.0,
+                            vertical: 2.0,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.75),
+                            borderRadius: AppRadius.small,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star_rounded,
+                                color: Colors.amber,
                                 size: 12.0,
                               ),
-                            )
-                          else if (widget.onToggleFavorite != null || widget.item.favorite)
-                            GestureDetector(
-                              onTap: widget.onToggleFavorite,
-                              behavior: HitTestBehavior.opaque,
-                              child: Container(
-                                padding: const EdgeInsets.all(4.0),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.6),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  widget.item.favorite
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  color: widget.item.favorite
-                                      ? AppColors.darkError
-                                      : Colors.white,
-                                  size: 14.0,
-                                ),
+                              const SizedBox(width: 2.0),
+                              Text(
+                                rating,
+                                style: AppTypography.getCaption(
+                                  color: Colors.white,
+                                  scale: 0.85,
+                                ).copyWith(fontWeight: FontWeight.bold),
                               ),
-                            ),
-                        ],
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
 
-                    // Bottom progress bar (if in progress)
+                    if (widget.isCompleted)
+                      Positioned(
+                        top: AppSpacing.xs,
+                        right: AppSpacing.xs,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6.0,
+                            vertical: 2.0,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.darkSuccess.withValues(alpha: 0.85),
+                            borderRadius: AppRadius.small,
+                          ),
+                          child: const Icon(
+                            Icons.check_rounded,
+                            color: Colors.white,
+                            size: 12.0,
+                          ),
+                        ),
+                      )
+                    else if (widget.onToggleFavorite != null || widget.item.favorite)
+                      Positioned(
+                        top: AppSpacing.xs,
+                        right: AppSpacing.xs,
+                        child: GestureDetector(
+                          onTap: widget.onToggleFavorite,
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            padding: const EdgeInsets.all(4.0),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              widget.item.favorite
+                                  ? Icons.favorite_rounded
+                                  : Icons.favorite_border_rounded,
+                              color: widget.item.favorite
+                                  ? AppColors.darkError
+                                  : Colors.white,
+                              size: 14.0,
+                            ),
+                          ),
+                        ),
+                      ),
+
                     if (widget.progressPercentage != null &&
                         widget.progressPercentage! > 0.0 &&
                         widget.progressPercentage! < 0.95)
@@ -246,38 +246,78 @@ class _MovieCardState extends State<MovieCard> {
                           minHeight: 4.0,
                         ),
                       ),
+
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: DecoratedBox(
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Color(0xCC000000),
+                                Color(0x66000000),
+                                Color(0x00000000),
+                                Color(0x00000000),
+                              ],
+                              stops: [0.0, 0.35, 0.55, 1.0],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    Positioned(
+                      left: AppSpacing.xs,
+                      right: AppSpacing.xs,
+                      bottom: AppSpacing.xs,
+                      child: IgnorePointer(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.item.title,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.getBody(
+                                color: Colors.white,
+                                scale: 0.85,
+                              ).copyWith(fontWeight: FontWeight.w600, height: 1.2),
+                            ),
+                            if (year != null || genre != null || rating != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2.0),
+                                child: Text(
+                                  _buildMetadataText(year, genre, rating),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.getCaption(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    scale: 0.75,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ),
-            AppSpacing.heightXS,
-            Text(
-              widget.item.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.getBody(
-                color: colorScheme.onSurface,
-                scale: 0.9,
-              ).copyWith(fontWeight: FontWeight.w600),
-            ),
-            if (year != null || (widget.item.genres.isNotEmpty))
-              Text(
-                year != null
-                    ? (widget.item.genres.isNotEmpty
-                        ? '$year • ${widget.item.genres.first}'
-                        : '$year')
-                    : widget.item.genres.first,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.getCaption(
-                  color: colorScheme.onSurfaceVariant,
-                  scale: 0.8,
-                ),
-              ),
           ],
         ),
       ),
     );
+  }
+
+  String _buildMetadataText(int? year, String? genre, String? rating) {
+    final parts = <String>[];
+    if (year != null) parts.add(year.toString());
+    if (genre != null) parts.add(genre);
+    if (rating != null) parts.add('$rating★');
+    return parts.join(' • ');
   }
 
   Widget _placeholder(ColorScheme colorScheme) {

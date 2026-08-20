@@ -182,7 +182,7 @@ class _FavoriteQuickCardState extends State<_FavoriteQuickCard> {
                           child: hasPoster
                               ? Image.network(
                                   posterUrl,
-                                  fit: BoxFit.contain,
+                                  fit: BoxFit.cover,
                                   alignment: Alignment.center,
                                   errorBuilder: (context, error, stackTrace) =>
                                       _buildPlaceholder(colorScheme),

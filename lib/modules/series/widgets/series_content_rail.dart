@@ -240,7 +240,7 @@ class ContinueWatchingCard extends StatelessWidget {
                       if (poster != null && poster.isNotEmpty)
                         Image.network(
                           poster,
-                          fit: BoxFit.contain,
+                          fit: BoxFit.cover,
                           alignment: Alignment.center,
                           errorBuilder: (context, error, stackTrace) =>
                               _buildPlaceholder(colorScheme),

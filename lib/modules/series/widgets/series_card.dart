@@ -6,6 +6,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
+import '../../../data/models/series.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
 class SeriesCard extends StatelessWidget {
@@ -33,7 +34,9 @@ class SeriesCard extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final poster = _resolvePoster();
     final rating = item.formattedRating;
-    final year = item.releaseYear;
+    final year = item is Series
+        ? (item as Series).formattedYearRange
+        : (item.releaseYear?.toString());
     final seasonsCount = _resolveSeasonsCount();
 
     return SizedBox(
@@ -46,179 +49,164 @@ class SeriesCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Poster Card with overlays
             Expanded(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  ClipRRect(
-                    borderRadius: AppRadius.medium,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: colorScheme.surfaceContainerHighest,
-                        borderRadius: AppRadius.medium,
-                      ),
-                      child: poster != null && poster.isNotEmpty
-                          ? Image.network(
-                              poster,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _buildPlaceholder(colorScheme),
-                              loadingBuilder: (context, child, progress) {
-                                if (progress == null) return child;
-                                return Center(
-                                  child: SizedBox(
-                                    width: 24.0,
-                                    height: 24.0,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.0,
-                                      value: progress.expectedTotalBytes != null
-                                          ? progress.cumulativeBytesLoaded /
-                                              progress.expectedTotalBytes!
-                                          : null,
-                                    ),
-                                  ),
-                                );
-                              },
-                            )
-                          : _buildPlaceholder(colorScheme),
-                    ),
-                  ),
-
-                  // Rating badge
-                  if (rating != null)
-                    Positioned(
-                      top: AppSpacing.xs,
-                      left: AppSpacing.xs,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xs,
-                          vertical: 2.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black87,
-                          borderRadius: AppRadius.small,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.star,
-                              size: 12.0,
-                              color: AppColors.darkWarning,
+              child: ClipRRect(
+                borderRadius: AppRadius.medium,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (poster != null && poster.isNotEmpty)
+                      Image.network(
+                        poster,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            _buildPlaceholder(colorScheme),
+                        loadingBuilder: (context, child, progress) {
+                          if (progress == null) return child;
+                          return Center(
+                            child: SizedBox(
+                              width: 24.0,
+                              height: 24.0,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.0,
+                                value: progress.expectedTotalBytes != null
+                                    ? progress.cumulativeBytesLoaded /
+                                        progress.expectedTotalBytes!
+                                    : null,
+                              ),
                             ),
-                            const SizedBox(width: 2.0),
-                            Text(
-                              rating,
-                              style: AppTypography.getCaption(
-                                color: Colors.white,
-                                scale: 0.85,
-                              ).copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                          );
+                        },
+                      )
+                    else
+                      _buildPlaceholder(colorScheme),
 
-
-                  // Seasons count badge
-                  if (seasonsCount != null)
-                    Positioned(
-                      bottom: (progressPercentage != null && progressPercentage! > 0)
-                          ? AppSpacing.sm
-                          : AppSpacing.xs,
-                      right: AppSpacing.xs,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.xs,
-                          vertical: 2.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colorScheme.primary.withValues(alpha: 0.9),
-                          borderRadius: AppRadius.small,
-                        ),
-                        child: Text(
-                          seasonsCount,
-                          style: AppTypography.getCaption(
-                            color: colorScheme.onPrimary,
-                            scale: 0.8,
-                          ).copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ),
-
-                  // Favorite toggle
-                  if (onToggleFavorite != null)
-                    Positioned(
-                      top: AppSpacing.xxs,
-                      right: AppSpacing.xxs,
-                      child: TvFocusable(
-                        onTap: onToggleFavorite,
-                        borderRadius: AppRadius.pill,
+                    if (rating != null)
+                      Positioned(
+                        top: AppSpacing.xs,
+                        left: AppSpacing.xs,
                         child: Container(
-                          padding: const EdgeInsets.all(4.0),
-                          decoration: const BoxDecoration(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                            vertical: 2.0,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black87,
+                            borderRadius: AppRadius.small,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                size: 12.0,
+                                color: AppColors.darkWarning,
+                              ),
+                              const SizedBox(width: 2.0),
+                              Text(
+                                rating,
+                                style: AppTypography.getCaption(
+                                  color: Colors.white,
+                                  scale: 0.85,
+                                ).copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    if (seasonsCount != null && !isCompleted)
+                      Positioned(
+                        top: AppSpacing.xs,
+                        right: onToggleFavorite != null ? AppSpacing.xxl : AppSpacing.xs,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.xs,
+                            vertical: 2.0,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colorScheme.primary.withValues(alpha: 0.9),
+                            borderRadius: AppRadius.small,
+                          ),
+                          child: Text(
+                            seasonsCount,
+                            style: AppTypography.getCaption(
+                              color: colorScheme.onPrimary,
+                              scale: 0.8,
+                            ).copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ),
+
+                    if (onToggleFavorite != null)
+                      Positioned(
+                        top: AppSpacing.xxs,
+                        right: AppSpacing.xxs,
+                        child: GestureDetector(
+                          onTap: onToggleFavorite,
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            padding: const EdgeInsets.all(4.0),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              item.favorite ? Icons.favorite : Icons.favorite_border,
+                              size: 16.0,
+                              color: item.favorite ? AppColors.darkError : Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    if (progressPercentage != null && progressPercentage! > 0 && !isCompleted)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(12.0),
+                          ),
+                          child: Container(
+                            height: 4.0,
                             color: Colors.black54,
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: progressPercentage!.clamp(0.0, 1.0),
+                              child: Container(
+                                color: colorScheme.primary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+
+                    if (isCompleted)
+                      Positioned(
+                        top: AppSpacing.xs,
+                        right: onToggleFavorite != null ? AppSpacing.xl : AppSpacing.xs,
+                        child: Container(
+                          padding: const EdgeInsets.all(3.0),
+                          decoration: const BoxDecoration(
+                            color: AppColors.darkSuccess,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(
-                            item.favorite ? Icons.favorite : Icons.favorite_border,
-                            size: 16.0,
-                            color: item.favorite ? AppColors.darkError : Colors.white,
+                          child: const Icon(
+                            Icons.check,
+                            size: 12.0,
+                            color: Colors.white,
                           ),
                         ),
                       ),
-                    ),
-
-                  // Watched progress bar overlay
-                  if (progressPercentage != null && progressPercentage! > 0 && !isCompleted)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: ClipRRect(
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(12.0),
-                        ),
-                        child: Container(
-                          height: 4.0,
-                          color: Colors.black54,
-                          child: FractionallySizedBox(
-                            alignment: Alignment.centerLeft,
-                            widthFactor: progressPercentage!.clamp(0.0, 1.0),
-                            child: Container(
-                              color: colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  // Completed badge overlay
-                  if (isCompleted)
-                    Positioned(
-                      top: AppSpacing.xs,
-                      right: onToggleFavorite != null ? AppSpacing.xl : AppSpacing.xs,
-                      child: Container(
-                        padding: const EdgeInsets.all(3.0),
-                        decoration: const BoxDecoration(
-                          color: AppColors.darkSuccess,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.check,
-                          size: 12.0,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
 
             AppSpacing.heightXS,
 
-            // Title & Year info
             Text(
               item.title,
               maxLines: 1,
@@ -234,7 +222,7 @@ class SeriesCard extends StatelessWidget {
                 children: [
                   if (year != null)
                     Text(
-                      '$year',
+                      year,
                       style: AppTypography.getCaption(
                         color: colorScheme.onSurfaceVariant,
                         scale: 0.9,

@@ -552,8 +552,7 @@ class PlaybackEngine {
         if (state == PlaybackState.completed) {
           _onCompleted();
         } else if (state == PlaybackState.error) {
-          if (await _tryEngineFallback() && _currentSession != null) {
-            await loadSession(_currentSession!);
+          if (await _tryEngineFallback()) {
             return;
           }
           _handleError('Adapter reported error');
@@ -576,8 +575,7 @@ class PlaybackEngine {
     });
 
     _errorSub = adapter.errorStream.listen((error) async {
-      if (await _tryEngineFallback() && _currentSession != null) {
-        await loadSession(_currentSession!);
+      if (await _tryEngineFallback()) {
         return;
       }
       _handleError('Player error: $error');
@@ -695,15 +693,22 @@ class PlaybackEngine {
       );
       await _swapAdapter(candidate);
       final rawSession = _currentPlayableSession;
-      if (rawSession != null) {
-        await _adapter.playSession(rawSession);
-      } else {
-        final currentSession = _currentSession;
-        if (currentSession != null) {
+      final currentSession = _currentSession;
+      try {
+        if (rawSession != null) {
+          await _adapter.playSession(rawSession, title: currentSession?.metadata.title);
+        } else if (currentSession != null) {
           await _adapter.load(currentSession);
         }
+        return true;
+      } catch (e, st) {
+        logger.warning(
+          'Fallback engine ${candidate.displayName} failed to load: $e',
+          tag: 'PlaybackEngine',
+          error: e,
+          stackTrace: st,
+        );
       }
-      return true;
     }
     return false;
   }
@@ -731,7 +736,6 @@ class PlaybackEngine {
       );
     } catch (e, st) {
       if (await _tryEngineFallback()) {
-        await _runLoad(loadAction, title: title, loadId: loadId);
         return;
       }
       _handleError('Failed to load $loadId: $e', st);
@@ -849,7 +853,7 @@ class PlaybackEngine {
         if (activeAdapter is MediaKitPlayerAdapter &&
             !activeAdapter.hasVideoFrames) {
           _silentVideoSeconds += 5;
-          if (_silentVideoSeconds >= 5) {
+          if (_silentVideoSeconds >= 15) {
             logger.warning(
               'Black screen detected: playing but no video frame rendered '
               'for $_silentVideoSeconds s; switching engine',
