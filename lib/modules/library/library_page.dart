@@ -11,6 +11,8 @@ import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../../../modules/movies/widgets/movie_card.dart';
+import '../../../modules/series/widgets/series_card.dart';
 import 'library_controller.dart';
 
 class LibraryPage extends GetView<LibraryController> {
@@ -155,11 +157,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.movies[index];
-                      return _buildLibraryCard(
-                        context,
-                        item,
-                        colorScheme,
+                      return MovieCard(
+                        item: item,
                         width: 140,
+                        height: 220,
+                        onTap: () => _openItem(item),
+                        onToggleFavorite: () => controller.toggleFavorite(item),
                       );
                     },
                   ),
@@ -198,11 +201,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.series[index];
-                      return _buildLibraryCard(
-                        context,
-                        item,
-                        colorScheme,
+                      return SeriesCard(
+                        item: item,
                         width: 140,
+                        height: 220,
+                        onTap: () => _openItem(item),
+                        onToggleFavorite: () => controller.toggleFavorite(item),
                       );
                     },
                   ),
@@ -241,12 +245,7 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.favorites[index];
-                      return _buildLibraryCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 160,
-                      );
+                      return _buildMediaCard(context, item, width: 160, height: 180);
                     },
                   ),
                 ),
@@ -287,12 +286,7 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.continueWatching[index];
-                      return _buildLibraryCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 160,
-                      );
+                      return _buildMediaCard(context, item, width: 160, height: 180);
                     },
                   ),
                 ),
@@ -330,12 +324,7 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.downloads[index];
-                      return _buildLibraryCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 140,
-                      );
+                      return _buildMediaCard(context, item, width: 140, height: 180);
                     },
                   ),
                 ),
@@ -373,12 +362,7 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.history[index];
-                      return _buildLibraryCard(
-                        context,
-                        item,
-                        colorScheme,
-                        width: 160,
-                      );
+                      return _buildMediaCard(context, item, width: 160, height: 180);
                     },
                   ),
                 ),
@@ -387,12 +371,43 @@ class LibraryPage extends GetView<LibraryController> {
     );
   }
 
-  Widget _buildLibraryCard(
+  Widget _buildMediaCard(
+    BuildContext context,
+    MediaItem item, {
+    required double width,
+    required double height,
+  }) {
+    switch (item.mediaType) {
+      case MediaType.channel:
+        return _buildChannelCard(context, item, width, height);
+      case MediaType.movie:
+        return MovieCard(
+          item: item,
+          width: width,
+          height: height,
+          onTap: () => _openItem(item),
+          onToggleFavorite: () => controller.toggleFavorite(item),
+        );
+      case MediaType.series:
+        return SeriesCard(
+          item: item,
+          width: width,
+          height: height,
+          onTap: () => _openItem(item),
+          onToggleFavorite: () => controller.toggleFavorite(item),
+        );
+      default:
+        return _buildChannelCard(context, item, width, height);
+    }
+  }
+
+  Widget _buildChannelCard(
     BuildContext context,
     MediaItem item,
-    ColorScheme colorScheme, {
-    required double width,
-  }) {
+    double width,
+    double height,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
     final formattedPoster = ImageUrlFormatter.extractFromMediaItem(item);
     final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
         ? item.poster!.trim()
@@ -423,7 +438,7 @@ class LibraryPage extends GetView<LibraryController> {
                   child: poster != null && poster.isNotEmpty
                       ? Image.network(
                           poster,
-                          fit: BoxFit.contain,
+                          fit: BoxFit.cover,
                           alignment: Alignment.center,
                           errorBuilder: (context, error, stackTrace) =>
                               _buildPosterPlaceholder(

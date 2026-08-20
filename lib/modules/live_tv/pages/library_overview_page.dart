@@ -6,9 +6,12 @@ import '../controllers/live_tv_library_controller.dart';
 import '../../../core/utils/responsive_helper.dart';
 
 import '../../../core/routes/app_routes.dart';
+import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../modules/movies/widgets/movie_card.dart';
+import '../../../modules/series/widgets/series_card.dart';
 
 class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
   const LibraryOverviewPage({super.key});
@@ -101,19 +104,7 @@ class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
                     final item = items[index];
-                    return ChannelCard(
-                      channel: item,
-                      onTap: () {
-                        if (item.mediaType == MediaType.channel) {
-                          Get.toNamed(
-                            AppRoutes.channelDetails,
-                            parameters: {'channelId': item.id},
-                          );
-                        }
-                      },
-                      onFavorite: () => controller.toggleFavorite(item),
-                      showFavoriteButton: true,
-                    );
+                    return _buildMediaCard(context, item);
                   },
                   childCount: items.length,
                 ),
@@ -123,6 +114,55 @@ class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
         );
       }),
     );
+  }
+
+  Widget _buildMediaCard(BuildContext context, MediaItem item) {
+    switch (item.mediaType) {
+      case MediaType.channel:
+        return ChannelCard(
+          channel: item,
+          onTap: () {
+            Get.toNamed(
+              AppRoutes.channelDetails,
+              parameters: {'channelId': item.id},
+            );
+          },
+          onFavorite: () => controller.toggleFavorite(item),
+          showFavoriteButton: true,
+        );
+      case MediaType.movie:
+        return MovieCard(
+          item: item,
+          onTap: () => Get.toNamed(
+            AppRoutes.movieDetails,
+            arguments: item,
+          ),
+          onToggleFavorite: () => controller.toggleFavorite(item),
+        );
+      case MediaType.series:
+        return SeriesCard(
+          item: item,
+          onTap: () => Get.toNamed(
+            AppRoutes.seriesDetails,
+            arguments: {'item': item},
+          ),
+          onToggleFavorite: () => controller.toggleFavorite(item),
+        );
+      default:
+        return ChannelCard(
+          channel: item,
+          onTap: () {
+            if (item.mediaType == MediaType.channel) {
+              Get.toNamed(
+                AppRoutes.channelDetails,
+                parameters: {'channelId': item.id},
+              );
+            }
+          },
+          onFavorite: () => controller.toggleFavorite(item),
+          showFavoriteButton: true,
+        );
+    }
   }
 
   String _getTitle() {

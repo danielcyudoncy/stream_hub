@@ -127,6 +127,7 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter {
         );
         controller.addOnPlatformViewCreatedListener(params.onPlatformViewCreated);
         controller.addOnPlatformViewCreatedListener(_onPlatformViewCreated);
+        controller.create();
         return controller;
       },
     );
@@ -463,6 +464,9 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter {
   Future<void> dispose() async {
     if (_disposed) return;
     _disposed = true;
+    if (!_viewReady.isCompleted) {
+      _viewReady.completeError(Exception('Adapter disposed before platform view mounted'));
+    }
     try {
       await _channel?.invokeMethod<void>('dispose');
     } catch (e) {

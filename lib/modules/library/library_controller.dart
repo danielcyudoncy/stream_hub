@@ -84,6 +84,19 @@ class LibraryController extends GetxController {
     }
   }
 
+  Future<void> toggleFavorite(MediaItem item) async {
+    final isFav = favorites.any((f) => f.id == item.id) || item.favorite;
+    final updatedItem = item.copyWith(favorite: !isFav);
+
+    if (isFav) {
+      favorites.removeWhere((f) => f.id == item.id);
+      await favoriteRepository.remove(item.id);
+    } else {
+      favorites.add(updatedItem);
+      await favoriteRepository.add(updatedItem);
+    }
+  }
+
   @override
   Future<void> refresh() async {
     await _loadLibraryData();
