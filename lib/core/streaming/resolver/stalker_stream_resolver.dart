@@ -39,36 +39,46 @@ class StalkerStreamResolver implements StreamResolver {
       return _resolution(request, directUrl, metadata);
     }
 
-    final cmd = metadata['cmd']?.toString();
+    final cmd = metadata['cmd']?.toString() ??
+        (request.sourceUrl.startsWith('stalker://')
+            ? request.sourceUrl.substring('stalker://'.length)
+            : null);
     if (cmd == null || cmd.isEmpty) {
       throw const StreamResolutionException(
         message: 'Stalker media item has no playable command.',
       );
     }
-    if (session.baseUrl == null || session.baseUrl!.isEmpty) {
+    final baseUrl = session.baseUrl ??
+        metadata['portalUrl']?.toString() ??
+        metadata['serverUrl']?.toString();
+    if (baseUrl == null || baseUrl.isEmpty) {
       throw const StreamResolutionException(
         message: 'Stalker session is missing the portal URL.',
       );
     }
-    if (session.macAddress == null || session.macAddress!.isEmpty) {
+    final macAddress = session.macAddress ?? metadata['macAddress']?.toString();
+    if (macAddress == null || macAddress.isEmpty) {
       throw const StreamResolutionException(
         message: 'Stalker session is missing the MAC address.',
       );
     }
 
     final client = StalkerPortalClient(
-      baseUrl: session.baseUrl!,
-      macAddress: session.macAddress!,
+      baseUrl: baseUrl,
+      macAddress: macAddress,
       serial: session.deviceId,
       token: session.portalToken,
       logger: _logger,
     );
 
     try {
+      final seriesIdx = metadata['seriesIndex']?.toString() ??
+          metadata['episodeNumber']?.toString();
       final url = await client.createLink(
         type: _contentType(metadata),
         cmd: cmd,
         genre: metadata['genreId']?.toString(),
+        seriesIndex: seriesIdx,
       );
       return _resolution(request, url, metadata);
     } on StalkerPortalException catch (e) {
@@ -121,17 +131,47 @@ class StalkerStreamResolver implements StreamResolver {
       final value = metadata[key]?.toString();
       if (value != null && value.isNotEmpty) return value;
     }
+
+    final cmd = metadata['cmd']?.toString();
+    if (cmd != null && cmd.isNotEmpty) {
+      final clean = cmd
+          .replaceFirst(
+            RegExp(
+              r'^(ffmpeg\s+(-re\s+)?-i\s+|ffmpeg\s+|ffrt\d*\s+|auto\s+)',
+              caseSensitive: false,
+            ),
+            '',
+          )
+          .trim();
+      final uri = Uri.tryParse(clean);
+      if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        final host = uri.host.toLowerCase();
+        if (!host.contains('localhost') && !host.contains('127.0.0.1')) {
+          if (!clean.contains('stream=&') &&
+              !clean.contains('stream=%26') &&
+              !clean.endsWith('stream=')) {
+            return clean;
+          }
+        }
+      }
+    }
     return null;
   }
 
   static StalkerContentType _contentType(Map<String, dynamic> metadata) {
-    switch (metadata['type']?.toString()) {
-      case 'vod':
-        return StalkerContentType.vod;
-      case 'series':
-        return StalkerContentType.series;
-      default:
-        return StalkerContentType.live;
+    final type = metadata['type']?.toString().toLowerCase();
+    final mediaType = metadata['mediaType']?.toString().toLowerCase();
+    if (type == 'series' ||
+        type == 'episode' ||
+        mediaType == 'series' ||
+        mediaType == 'episode' ||
+        metadata.containsKey('seriesIndex') ||
+        metadata.containsKey('seasonNumber')) {
+      return StalkerContentType.series;
     }
+    if (type == 'vod' || mediaType == 'movie') {
+      return StalkerContentType.vod;
+    }
+    return StalkerContentType.live;
   }
 }

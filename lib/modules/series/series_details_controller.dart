@@ -1,4 +1,5 @@
 // modules/series/series_details_controller.dart
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
@@ -15,6 +16,7 @@ import 'package:stream_hub/data/models/cast_member.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playback_session_model.dart';
 import 'package:stream_hub/data/models/series_progress.dart';
+import 'package:stream_hub/data/providers/stalker/stalker_portal_client.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
@@ -83,7 +85,7 @@ class SeriesDetailsController extends GetxController {
     _series = _initialSeries ??
         (args is MediaItem
             ? args
-            : (args is Map<String, dynamic> ? args['item'] as MediaItem? : null));
+            : (args is Map ? args['item'] as MediaItem? : null));
     isFavorite.value = _series?.favorite ?? false;
     _parseCastMembers();
     _load();
@@ -239,8 +241,201 @@ class SeriesDetailsController extends GetxController {
       );
     }
 
-    // For non-Xtream providers, always try catalog first
-    return _catalogSeasonGroups(series, seriesId);
+    if (series.providerType == MediaSourceType.stalker) {
+      try {
+        final groups = await _stalkerSeasonGroups(series, seriesId);
+        if (groups.isNotEmpty) {
+          _cacheEpisodes(groups);
+          return groups;
+        }
+      } catch (e) {
+        logger.info(
+          'Failed live stalker season fetch for series $seriesId, attempting catalog fallback: $e',
+          tag: 'SeriesDetailsController',
+        );
+      }
+    }
+
+    // For other providers or fallbacks, try catalog first
+    final catalog = await _catalogSeasonGroups(series, seriesId);
+    if (catalog.isNotEmpty) return catalog;
+
+    final fallback = _synthesizeFallbackSeason(series, seriesId);
+    if (fallback.isNotEmpty) {
+      unawaited(_cacheEpisodes(fallback));
+      return fallback;
+    }
+
+    return const [];
+  }
+
+  Future<List<SeasonGroup>> _stalkerSeasonGroups(
+    MediaItem series,
+    String seriesId,
+  ) async {
+    final session = await _sessionFor(series);
+    final baseUrl = session.baseUrl ?? series.metadata['portalUrl']?.toString();
+    final mac = session.macAddress ?? series.metadata['macAddress']?.toString();
+    if (baseUrl == null || baseUrl.isEmpty || mac == null || mac.isEmpty) {
+      return const [];
+    }
+
+    final client = StalkerPortalClient(
+      baseUrl: baseUrl,
+      macAddress: mac,
+      serial: session.deviceId,
+      token: session.portalToken,
+      logger: logger,
+    );
+
+    final rawSeasons = await client.getSeriesSeasons(seriesId);
+    if (rawSeasons.isEmpty) return const [];
+
+    final groups = <SeasonGroup>[];
+    for (var i = 0; i < rawSeasons.length; i++) {
+      final seasonItem = rawSeasons[i];
+      final seasonName = seasonItem['name']?.toString() ?? 'Season ${i + 1}';
+      final seasonNum = int.tryParse(seasonItem['season_num']?.toString() ?? '') ??
+          int.tryParse(seasonItem['season_number']?.toString() ?? '') ??
+          (seasonItem['id'] != null && seasonItem['id'].toString().contains(':')
+              ? int.tryParse(seasonItem['id'].toString().split(':').last)
+              : null) ??
+          int.tryParse(RegExp(r'\d+').firstMatch(seasonName)?.group(0) ?? '') ??
+          (i + 1);
+      final seasonCmd = seasonItem['cmd']?.toString() ?? series.metadata['cmd']?.toString() ?? '';
+
+      final epListRaw = seasonItem['series'] ?? seasonItem['episodes'] ?? seasonItem['files'];
+      final epNumbers = <int>[];
+      if (epListRaw is List) {
+        for (final el in epListRaw) {
+          final n = int.tryParse(el.toString());
+          if (n != null) epNumbers.add(n);
+        }
+      } else if (epListRaw is String && epListRaw.isNotEmpty) {
+        for (final part in epListRaw.split(RegExp(r'[,;]'))) {
+          final n = int.tryParse(part.trim());
+          if (n != null) epNumbers.add(n);
+        }
+      } else if (epListRaw is num && epListRaw > 0) {
+        for (var ep = 1; ep <= epListRaw.toInt(); ep++) {
+          epNumbers.add(ep);
+        }
+      }
+
+      if (epNumbers.isEmpty) {
+        epNumbers.add(1);
+      } else {
+        epNumbers.sort();
+      }
+
+      final episodes = epNumbers.map((epNum) {
+        return MediaItem(
+          id: '${series.id}_s${seasonNum}_ep$epNum',
+          providerId: series.providerId,
+          providerType: series.providerType,
+          mediaType: MediaType.episode,
+          title: epNumbers.length == 1 && seasonItem['name'] != null ? '${seasonItem['name']}' : 'Episode $epNum',
+          subtitle: seasonName,
+          poster: seasonItem['screenshot_uri']?.toString() ?? series.poster,
+          backdrop: series.backdrop,
+          genres: series.genres,
+          metadata: {
+            ...series.metadata,
+            'type': 'series',
+            'seriesId': seriesId,
+            'seasonNumber': seasonNum,
+            'episodeNumber': epNum,
+            'seriesIndex': epNum,
+            if (seasonCmd.isNotEmpty) 'cmd': seasonCmd,
+          },
+          createdAt: series.createdAt,
+          updatedAt: series.updatedAt,
+        );
+      }).toList();
+
+      groups.add(
+        SeasonGroup(
+          number: seasonNum,
+          name: seasonName,
+          episodes: episodes,
+        ),
+      );
+    }
+    _sortSeasonGroups(groups);
+    return groups;
+  }
+
+  List<SeasonGroup> _sortSeasonGroups(List<SeasonGroup> groups) {
+    groups.sort((a, b) => a.number.compareTo(b.number));
+    for (final group in groups) {
+      group.episodes.sort((a, b) {
+        final epA = int.tryParse(a.metadata['episodeNumber']?.toString() ?? '') ??
+            int.tryParse(a.metadata['seriesIndex']?.toString() ?? '') ??
+            int.tryParse(RegExp(r'\d+').firstMatch(a.title)?.group(0) ?? '') ??
+            0;
+        final epB = int.tryParse(b.metadata['episodeNumber']?.toString() ?? '') ??
+            int.tryParse(b.metadata['seriesIndex']?.toString() ?? '') ??
+            int.tryParse(RegExp(r'\d+').firstMatch(b.title)?.group(0) ?? '') ??
+            0;
+        return epA.compareTo(epB);
+      });
+    }
+    return groups;
+  }
+
+  List<SeasonGroup> _synthesizeFallbackSeason(MediaItem series, String seriesId) {
+    final seriesRaw = series.metadata['series'] ?? series.metadata['episodes'];
+    final epNumbers = <int>[];
+    if (seriesRaw is List) {
+      for (final el in seriesRaw) {
+        final n = int.tryParse(el.toString());
+        if (n != null) epNumbers.add(n);
+      }
+    } else if (seriesRaw is String && seriesRaw.isNotEmpty) {
+      for (final part in seriesRaw.split(RegExp(r'[,;]'))) {
+        final n = int.tryParse(part.trim());
+        if (n != null) epNumbers.add(n);
+      }
+    } else if (seriesRaw is num && seriesRaw > 0) {
+      for (var i = 1; i <= seriesRaw.toInt(); i++) {
+        epNumbers.add(i);
+      }
+    }
+
+    if (epNumbers.isEmpty) {
+      epNumbers.add(1);
+    }
+
+    final episodes = epNumbers.map((epNum) {
+      return MediaItem(
+        id: '${series.id}_ep_$epNum',
+        providerId: series.providerId,
+        providerType: series.providerType,
+        mediaType: MediaType.episode,
+        title: epNumbers.length == 1 ? series.title : 'Episode $epNum',
+        subtitle: 'Season 1',
+        poster: series.poster,
+        backdrop: series.backdrop,
+        genres: series.genres,
+        metadata: {
+          ...series.metadata,
+          'seriesId': seriesId,
+          'episodeNumber': epNum,
+          'seasonNumber': 1,
+          'seriesIndex': epNum,
+        },
+        createdAt: series.createdAt,
+        updatedAt: series.updatedAt,
+      );
+    }).toList();
+
+    return [
+      SeasonGroup(
+        number: 1,
+        name: 'Season 1',
+        episodes: episodes,
+      ),
+    ];
   }
 
   Future<void> _cacheEpisodes(List<SeasonGroup> groups) async {
@@ -270,7 +465,7 @@ class SeriesDetailsController extends GetxController {
       alternativeIds: [if (streamId != null && streamId.isNotEmpty) streamId],
     );
     if (info.seasons.isEmpty) return const [];
-    return info.seasons.map((season) {
+    final groups = info.seasons.map((season) {
       return SeasonGroup(
         number: season.number,
         name: season.name,
@@ -282,6 +477,8 @@ class SeriesDetailsController extends GetxController {
             .toList(),
       );
     }).toList();
+    _sortSeasonGroups(groups);
+    return groups;
   }
 
   Future<List<SeasonGroup>> _catalogSeasonGroups(
@@ -478,9 +675,22 @@ class SeriesDetailsController extends GetxController {
         series.metadata['series_id']?.toString() ??
         series.metadata['streamId']?.toString() ??
         series.metadata['stream_id']?.toString();
-    if (direct != null && direct.isNotEmpty) return direct;
+    if (direct != null && direct.isNotEmpty) {
+      return direct.contains(':') ? direct.split(':').first : direct;
+    }
     if (series.id.startsWith('xtream-series-')) {
       return series.id.replaceFirst('xtream-series-', '');
+    }
+    if (series.id.startsWith('stalker-series-')) {
+      final raw = series.id.replaceFirst('stalker-series-', '');
+      return raw.contains(':') ? raw.split(':').first : raw;
+    }
+    if (series.id.startsWith('stalker-vod-')) {
+      final raw = series.id.replaceFirst('stalker-vod-', '');
+      return raw.contains(':') ? raw.split(':').first : raw;
+    }
+    if (series.id.contains(':')) {
+      return series.id.split(':').first;
     }
     return series.id;
   }

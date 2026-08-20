@@ -11,7 +11,7 @@ import 'series_details_controller.dart';
 class SeriesDetailsBinding extends Bindings {
   @override
   void dependencies() {
-    Get.create<SeriesDetailsController>(
+    Get.lazyPut<SeriesDetailsController>(
       () => SeriesDetailsController(
         sessionManager: Get.find<SessionManager>(),
         providerRepository: Get.find<ProviderRepository>(),

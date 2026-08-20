@@ -26,6 +26,28 @@ class StalkerProviderSessionFactory implements ProviderSessionFactory {
             '')
         .toString();
 
+    final mac = existing?.macAddress ??
+        config['macAddress']?.toString() ??
+        itemMetadata['macAddress']?.toString();
+    final deviceId = existing?.deviceId ??
+        config['deviceId']?.toString() ??
+        (mac != null && mac.isNotEmpty ? mac : null);
+    final token = existing?.portalToken ?? config['portalToken']?.toString();
+
+    final headers = <String, String>{
+      'X-User-Agent': 'Model: MAG250; Link: WiFi',
+      if (existing?.headers != null) ...existing!.headers,
+    };
+
+    final cookies = <String, String>{
+      if (mac != null && mac.isNotEmpty) 'mac': mac,
+      if (deviceId != null && deviceId.isNotEmpty) 'sn': deviceId,
+      'stb_lang': 'en',
+      'timezone': 'UTC',
+      if (token != null && token.isNotEmpty) 'token': token,
+      if (existing?.cookies != null) ...existing!.cookies,
+    };
+
     return ProviderSession(
       providerId:
           existing?.providerId ??
@@ -34,17 +56,22 @@ class StalkerProviderSessionFactory implements ProviderSessionFactory {
       sessionId:
           existing?.sessionId ??
           'stalker_${DateTime.now().millisecondsSinceEpoch}',
-      macAddress: existing?.macAddress ?? config['macAddress']?.toString(),
-      deviceId: existing?.deviceId ?? config['deviceId']?.toString(),
-      portalToken: existing?.portalToken ?? config['portalToken']?.toString(),
+      macAddress: mac,
+      deviceId: deviceId,
+      portalToken: token,
       expiresAt:
           existing?.expiresAt ?? DateTime.now().add(const Duration(hours: 8)),
-      userAgent: config['userAgent']?.toString(),
-      referer: config['referer']?.toString(),
-      origin: config['origin']?.toString(),
+      userAgent: config['userAgent']?.toString() ??
+          'Mozilla/5.0 (QtEmbedded; U; Linux; C) AppleWebKit/533.3 (KHTML, like Gecko) MAG200 stbapp ver: 4.8.0 rev: 1.0',
+      referer: config['referer']?.toString() ??
+          (portalUrl.isNotEmpty ? '$portalUrl/' : null),
+      origin: config['origin']?.toString() ??
+          (portalUrl.isNotEmpty ? portalUrl : null),
       timeout: Duration(seconds: (config['timeout'] ?? 15)),
       capabilities: const StreamCapabilities.live(),
       baseUrl: portalUrl.isNotEmpty ? portalUrl : null,
+      headers: headers,
+      cookies: cookies,
     );
   }
 }
