@@ -50,6 +50,7 @@ class MoviesController extends GetxController {
   // Dynamic Genres: Map of genre display title -> list of movies
   final RxMap<String, List<MediaItem>> genreSections =
       <String, List<MediaItem>>{}.obs;
+  final RxList<String> availableGenres = <String>[].obs;
 
   // Watch Progress maps
   final RxMap<String, double> progressMap = <String, double>{}.obs;
@@ -144,6 +145,7 @@ class MoviesController extends GetxController {
     }
     movies.assignAll(filtered);
     _computeSections(filtered);
+    _computeGenres(filtered);
   }
 
   void _computeSections(List<MediaItem> allMovies) {
@@ -329,6 +331,47 @@ class MoviesController extends GetxController {
         (streamId != null && streamId.isNotEmpty);
   }
 
+  static final RegExp _kLiveTvMarkerPattern = RegExp(
+    r'(\b(live|itv|channel|fhd|hevc|uhd|4k|sd|h265|radio|epg|stream|24/7|sports\s*\d)\b|^uk\s*:|^us\s*:|^ca\s*:|^all\s+channels$)',
+    caseSensitive: false,
+  );
+
+  void _computeGenres(List<MediaItem> allMovies) {
+    final genreSet = <String>{};
+    for (final m in allMovies) {
+      for (final g in m.genres) {
+        final clean = g.trim();
+        if (clean.isEmpty) continue;
+        if (RegExp(r'^\d+$').hasMatch(clean)) continue;
+
+        for (final part in clean.split(RegExp(r'[,/|]'))) {
+          final trimmed = part.trim();
+          if (trimmed.isNotEmpty &&
+              !RegExp(r'^\d+$').hasMatch(trimmed) &&
+              !_kLiveTvMarkerPattern.hasMatch(trimmed)) {
+            genreSet.add(trimmed);
+          }
+        }
+      }
+
+      final cat = m.metadata['category_name']?.toString().trim() ??
+          m.metadata['categoryName']?.toString().trim() ??
+          m.metadata['genre']?.toString().trim();
+      if (cat != null && cat.isNotEmpty) {
+        for (final part in cat.split(RegExp(r'[,/|]'))) {
+          final trimmed = part.trim();
+          if (trimmed.isNotEmpty &&
+              !RegExp(r'^\d+$').hasMatch(trimmed) &&
+              !_kLiveTvMarkerPattern.hasMatch(trimmed)) {
+            genreSet.add(trimmed);
+          }
+        }
+      }
+    }
+    final sorted = genreSet.toList()..sort();
+    availableGenres.assignAll(sorted);
+  }
+
   void openMovie(MediaItem item) {
     Get.toNamed(
       AppRoutes.movieDetails,
@@ -344,6 +387,22 @@ class MoviesController extends GetxController {
         'items': items,
       },
     );
+  }
+
+  void openGenreByName(String genreName) {
+    final target = genreName.toLowerCase().trim();
+    final matching = movies.where((m) {
+      final inGenres = m.genres.any((g) => g.toLowerCase().contains(target));
+      final inCat = (m.metadata['category_name']?.toString() ??
+              m.metadata['categoryName']?.toString() ??
+              m.metadata['genre']?.toString() ??
+              '')
+          .toLowerCase()
+          .contains(target);
+      return inGenres || inCat;
+    }).toList();
+
+    openGenre(genreName, matching.isNotEmpty ? matching : movies);
   }
 
   void playMovieDirectly(MediaItem item, {Duration? resumePosition}) {

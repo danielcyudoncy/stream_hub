@@ -58,6 +58,9 @@ class PlaybackEngine {
   final Rx<BufferInfo?> bufferInfoRx = Rx<BufferInfo?>(null);
   final Rx<String> errorMessageRx = ''.obs;
   final Rx<PlaybackEngineKind> engineKindRx = Rx<PlaybackEngineKind>(PlaybackEngineKind.mediaKit);
+  final Rx<String> subtitleTextRx = ''.obs;
+  final Rx<String> selectedSubtitleTrackRx = 'no'.obs;
+  final Rx<String> selectedAudioTrackRx = 'auto'.obs;
 
   final List<void Function(PlaybackState)> _stateListeners = [];
   final List<void Function(Duration)> _positionListeners = [];
@@ -374,6 +377,9 @@ class PlaybackEngine {
   }
 
   Future<void> stop() async {
+    if (_state == PlaybackState.stopped || _state == PlaybackState.idle) {
+      return;
+    }
     await adapter.stop();
     _setState(PlaybackState.stopped);
     _finalizeAnalytics();
@@ -449,25 +455,30 @@ class PlaybackEngine {
     _analytics?.qualityChanges[quality.displayName] =
         (_analytics?.qualityChanges[quality.displayName] ?? 0) + 1;
     _publishEvent(QualityChangedEvent(
-      sessionId: _currentSession!.id,
+      sessionId: _currentSession?.id ?? '',
       quality: quality,
       occurredAt: DateTime.now(),
     ));
   }
 
   Future<void> setSubtitleTrack(String trackId) async {
+    selectedSubtitleTrackRx.value = trackId;
+    if (trackId == 'no' || trackId == 'none' || trackId == '-1' || trackId.isEmpty) {
+      subtitleTextRx.value = '';
+    }
     await adapter.setSubtitleTrack(trackId);
     _publishEvent(SubtitleChangedEvent(
-      sessionId: _currentSession!.id,
+      sessionId: _currentSession?.id ?? '',
       subtitleTrackId: trackId,
       occurredAt: DateTime.now(),
     ));
   }
 
   Future<void> setAudioTrack(String trackId) async {
+    selectedAudioTrackRx.value = trackId;
     await adapter.setAudioTrack(trackId);
     _publishEvent(AudioChangedEvent(
-      sessionId: _currentSession!.id,
+      sessionId: _currentSession?.id ?? '',
       audioTrackId: trackId,
       occurredAt: DateTime.now(),
     ));
@@ -523,6 +534,7 @@ class PlaybackEngine {
   }
 
   void _setState(PlaybackState newState) {
+    if (_state == newState) return;
     _state = newState;
     stateRx.value = newState;
     if (newState != PlaybackState.error) {
@@ -572,7 +584,7 @@ class PlaybackEngine {
     });
 
     _subtitleSub = adapter.subtitleStream.listen((text) {
-      // Subtitles handled by UI overlay
+      subtitleTextRx.value = text;
     });
   }
 
@@ -606,9 +618,10 @@ class PlaybackEngine {
       isLive: isLive,
     );
     if (settings.preferredPlayer == PlaybackEnginePreference.auto &&
+        isLive &&
         await HardwareDetector.isUnisocOrMali()) {
       logger.warning(
-        'Unisoc/Mali chipset detected, forcing Native Activity Player to avoid black screen',
+        'Unisoc/Mali chipset detected, forcing Native Activity Player for Live TV to avoid black screen',
         tag: 'PlaybackEngine',
       );
       selected = PlaybackEngineKind.nativeActivity;
@@ -662,7 +675,6 @@ class PlaybackEngine {
   /// through candidates until all supported options have been exhausted.
   Future<bool> _tryEngineFallback() async {
     if (!allowEngineFallback) return false;
-    if (_engineKind == PlaybackEngineKind.nativeActivity) return false;
     if (settings.preferredPlayer != PlaybackEnginePreference.auto) return false;
 
     _attemptedEngines.add(_engineKind);

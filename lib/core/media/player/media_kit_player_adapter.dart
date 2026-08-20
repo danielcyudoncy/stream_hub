@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart';
@@ -44,6 +45,8 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   StreamSubscription<Object>? _errorSub;
   StreamSubscription<mk.VideoParams>? _videoParamsSub;
   StreamSubscription<mk.Tracks>? _tracksSub;
+  StreamSubscription<List<String>>? _subtitleSub;
+  StreamSubscription<mk.Track>? _trackSub;
 
   int _videoWidth = 0;
   int _videoHeight = 0;
@@ -79,17 +82,44 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   Widget buildPlayerWidget() {
     final controller = _videoController;
     if (controller == null) return const SizedBox.shrink();
-    return Video(controller: controller);
+    return Video(
+      controller: controller,
+      subtitleViewConfiguration: const SubtitleViewConfiguration(
+        style: TextStyle(
+          height: 1.4,
+          fontSize: 22.0,
+          letterSpacing: 0.0,
+          wordSpacing: 0.0,
+          color: Color(0xffffffff),
+          fontWeight: FontWeight.w600,
+          backgroundColor: Color(0x99000000),
+        ),
+        textAlign: TextAlign.center,
+        padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+      ),
+    );
   }
 
   @override
   Future<void> initialize() async {
     if (_player != null) return;
-    _player = mk.Player();
+    _player = mk.Player(
+      configuration: const mk.PlayerConfiguration(
+        bufferSize: 32 * 1024 * 1024,
+      ),
+    );
+    if (Platform.isAndroid && _player is mk.NativePlayer) {
+      try {
+        await (_player as dynamic).setProperty('hwdec', 'mediacodec-copy');
+        await (_player as dynamic).setProperty('vd-lavc-dr', 'no');
+      } catch (_) {}
+    }
     _videoController = VideoController(
       _player!,
       configuration: VideoControllerConfiguration(
-        hwdec: _hardwareDecode ? 'auto-safe' : 'no',
+        hwdec: Platform.isAndroid
+            ? 'mediacodec-copy'
+            : (_hardwareDecode ? 'auto-safe' : 'no'),
         enableHardwareAcceleration: _hardwareDecode,
       ),
     );
@@ -140,19 +170,20 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
       }
     });
 
+    _subtitleSub = _player!.stream.subtitle.listen((lines) {
+      final text = lines.join('\n').trim();
+      _subtitleController.add(text);
+    });
+
     _tracksSub = _player!.stream.tracks.listen((tracks) {
-      if (tracks.subtitle.length > 1) {
-        final currentSub = _player!.state.track.subtitle;
-        if (currentSub == mk.SubtitleTrack.no() ||
-            currentSub.id == 'no' ||
-            currentSub.id.isEmpty) {
-          final firstSub = tracks.subtitle.firstWhere(
-            (s) => s.id != 'no' && s.id != 'null' && s.id.isNotEmpty,
-            orElse: () => mk.SubtitleTrack.auto(),
-          );
-          _player?.setSubtitleTrack(firstSub);
-        }
-      }
+      // Available tracks refreshed
+    });
+
+    _trackSub = _player!.stream.track.listen((track) {
+      _logger.debug(
+        'Active track changed: sub=${track.subtitle.id} (${track.subtitle.title ?? track.subtitle.language}), audio=${track.audio.id}',
+        tag: 'Player',
+      );
     });
 
     _errorSub = _player!.stream.error.listen((error) {
@@ -209,6 +240,8 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     await _bufferingSub?.cancel();
     await _completedSub?.cancel();
     await _tracksSub?.cancel();
+    await _subtitleSub?.cancel();
+    await _trackSub?.cancel();
     await _errorSub?.cancel();
     await _videoParamsSub?.cancel();
     await _player?.dispose();
@@ -341,20 +374,38 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
 
   @override
   Future<List<dynamic>> getAvailableAudioTracks() async {
-    return [
-      {'id': 'default', 'label': 'Default', 'language': 'en'}
-    ];
+    final audios = _player?.state.tracks.audio ?? [];
+    final currentAudioId = _player?.state.track.audio.id;
+    return audios
+        .where((a) => a.id != 'no' && a.id != 'null' && a.id.isNotEmpty)
+        .map((a) => {
+              'id': a.id,
+              'label': (a.title != null && a.title!.isNotEmpty)
+                  ? a.title!
+                  : ((a.language != null && a.language!.isNotEmpty)
+                      ? a.language!.toUpperCase()
+                      : 'Track ${a.id}'),
+              'language': a.language ?? 'und',
+              'selected': a.id == currentAudioId,
+            })
+        .toList();
   }
 
   @override
   Future<List<dynamic>> getAvailableSubtitleTracks() async {
     final subs = _player?.state.tracks.subtitle ?? [];
+    final currentSubId = _player?.state.track.subtitle.id;
     return subs
         .where((s) => s.id != 'no' && s.id != 'null' && s.id.isNotEmpty)
         .map((s) => {
               'id': s.id,
-              'label': s.title ?? s.language ?? s.id,
+              'label': (s.title != null && s.title!.isNotEmpty)
+                  ? s.title!
+                  : ((s.language != null && s.language!.isNotEmpty)
+                      ? s.language!.toUpperCase()
+                      : 'Track ${s.id}'),
               'language': s.language ?? 'und',
+              'selected': s.id == currentSubId,
             })
         .toList();
   }
@@ -365,11 +416,37 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   }
 
   @override
-  Future<void> setAudioTrack(String trackId) async {}
+  Future<void> setAudioTrack(String trackId) async {
+    if (_player == null) return;
+    _logger.info('Setting audio track: $trackId', tag: 'Player');
+    if (trackId.isEmpty || trackId == 'no' || trackId == 'none' || trackId == '-1') {
+      await _player!.setAudioTrack(mk.AudioTrack.no());
+    } else if (trackId == 'auto' || trackId == 'default') {
+      await _player!.setAudioTrack(mk.AudioTrack.auto());
+    } else {
+      final tracks = _player!.state.tracks.audio;
+      final matched = tracks.firstWhere(
+        (a) =>
+            a.id == trackId ||
+            a.id.toLowerCase() == trackId.toLowerCase() ||
+            (a.title != null && a.title!.toLowerCase() == trackId.toLowerCase()) ||
+            (a.language != null && a.language!.toLowerCase() == trackId.toLowerCase()),
+        orElse: () {
+          final idx = int.tryParse(trackId);
+          if (idx != null && idx >= 0 && idx < tracks.length) {
+            return tracks[idx];
+          }
+          return mk.AudioTrack.auto();
+        },
+      );
+      await _player!.setAudioTrack(matched);
+    }
+  }
 
   @override
   Future<void> setSubtitleTrack(String trackId) async {
     if (_player == null) return;
+    _logger.info('Setting subtitle track: $trackId', tag: 'Player');
     if (trackId.isEmpty || trackId == 'no' || trackId == 'none' || trackId == '-1') {
       await _player!.setSubtitleTrack(mk.SubtitleTrack.no());
     } else if (trackId == 'auto' || trackId == 'default') {
@@ -377,8 +454,18 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     } else {
       final tracks = _player!.state.tracks.subtitle;
       final matched = tracks.firstWhere(
-        (s) => s.id == trackId,
-        orElse: () => mk.SubtitleTrack.auto(),
+        (s) =>
+            s.id == trackId ||
+            s.id.toLowerCase() == trackId.toLowerCase() ||
+            (s.title != null && s.title!.toLowerCase() == trackId.toLowerCase()) ||
+            (s.language != null && s.language!.toLowerCase() == trackId.toLowerCase()),
+        orElse: () {
+          final idx = int.tryParse(trackId);
+          if (idx != null && idx >= 0 && idx < tracks.length) {
+            return tracks[idx];
+          }
+          return mk.SubtitleTrack.auto();
+        },
       );
       await _player!.setSubtitleTrack(matched);
     }
