@@ -3,12 +3,14 @@ import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/provider_selector_button.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'movies_controller.dart';
 import 'widgets/continue_watching_movie_card.dart';
 import 'widgets/movie_card.dart';
@@ -84,7 +86,63 @@ class MoviesPage extends GetView<MoviesController> {
                 const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
               ],
 
-              // 2. Continue Watching Row
+              // 2. Movie Categories & Genres Filter Chips Bar
+              Obx(() {
+                if (controller.availableGenres.isEmpty) {
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
+                return SliverToBoxAdapter(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        height: 38,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.lg,
+                          ),
+                          itemCount: controller.availableGenres.length,
+                          separatorBuilder: (context, index) =>
+                              AppSpacing.widthXS,
+                          itemBuilder: (context, index) {
+                            final genre = controller.availableGenres[index];
+                            return TvFocusable(
+                              onTap: () => controller.openGenreByName(genre),
+                              borderRadius: AppRadius.pill,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppSpacing.md,
+                                  vertical: AppSpacing.xxs,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colorScheme.surfaceContainerLow,
+                                  borderRadius: AppRadius.pill,
+                                  border: Border.all(
+                                    color: colorScheme.outlineVariant
+                                        .withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    genre,
+                                    style: AppTypography.getLabel(
+                                      color: colorScheme.onSurface,
+                                    ).copyWith(fontSize: 12),
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      AppSpacing.heightMD,
+                    ],
+                  ),
+                );
+              }),
+
+              // 3. Continue Watching Row
               if (controller.continueWatchingMovies.isNotEmpty) ...[
                 SliverToBoxAdapter(
                   child: _buildContinueWatchingSection(context),

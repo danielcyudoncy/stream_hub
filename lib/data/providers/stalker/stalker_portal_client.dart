@@ -222,11 +222,14 @@ class StalkerPortalClient {
       }
 
       if (type == StalkerContentType.vod) {
-        final catVod = await _tryGetCategoriesAction('get_categories', extra: {'type': 'vod'});
-        if (catVod.isNotEmpty) return catVod;
+        final vodSub = await _tryGetCategoriesAction('vod', extra: {'sub': 'get_categories'});
+        if (vodSub.isNotEmpty) return vodSub;
 
         final vodCat = await _tryGetCategoriesAction('get_vod_categories', extra: {'type': 'vod'});
         if (vodCat.isNotEmpty) return vodCat;
+
+        final catVod = await _tryGetCategoriesAction('get_categories', extra: {'type': 'vod', 'category_type': 'vod'});
+        if (catVod.isNotEmpty) return catVod;
 
         final genresVod = await _tryGetCategoriesAction('get_genres', extra: {'type': 'vod'});
         if (genresVod.isNotEmpty) return genresVod;
@@ -235,11 +238,14 @@ class StalkerPortalClient {
       }
 
       if (type == StalkerContentType.series) {
-        final catSeries = await _tryGetCategoriesAction('get_categories', extra: {'type': 'series'});
-        if (catSeries.isNotEmpty) return catSeries;
+        final seriesSub = await _tryGetCategoriesAction('series', extra: {'sub': 'get_categories'});
+        if (seriesSub.isNotEmpty) return seriesSub;
 
         final seriesCat = await _tryGetCategoriesAction('get_series_categories', extra: {'type': 'series'});
         if (seriesCat.isNotEmpty) return seriesCat;
+
+        final catSeries = await _tryGetCategoriesAction('get_categories', extra: {'type': 'series', 'category_type': 'series'});
+        if (catSeries.isNotEmpty) return catSeries;
 
         final genresSeries = await _tryGetCategoriesAction('get_genres', extra: {'type': 'series'});
         if (genresSeries.isNotEmpty) return genresSeries;
@@ -372,12 +378,26 @@ class StalkerPortalClient {
         'page': page,
         'max_rows': 500,
       };
-      final data = await _request(
-        action,
-        extra: params,
-        allowEmpty: true,
-        retryEmpty: retryEmpty && page == 1,
-      );
+
+      Map<String, dynamic> data;
+      try {
+        data = await _request(
+          action,
+          extra: params,
+          allowEmpty: true,
+          retryEmpty: retryEmpty && page == 1,
+        );
+      } catch (e) {
+        if (allItems.isNotEmpty) {
+          _logger.warning(
+            'Stalker pagination interrupted at page $page for $action: $e. '
+            'Preserving ${allItems.length} items collected so far.',
+            tag: 'StalkerPortalClient',
+          );
+          break;
+        }
+        rethrow;
+      }
 
       final batch = _extractList(data);
       if (batch.isEmpty) break;
@@ -419,6 +439,8 @@ class StalkerPortalClient {
       }
 
       page++;
+      // Pacing delay to prevent overwhelming low-resource portal servers
+      await Future.delayed(const Duration(milliseconds: 60));
     }
 
     return allItems;
@@ -580,15 +602,12 @@ class StalkerPortalClient {
     Object? lastError;
     for (final uri in candidates) {
       try {
-        final response = await _getJson(
-          uri,
-          params,
-          allowEmpty: allowEmpty,
-          retryEmpty: retryEmpty,
-        );
+        final response = await _getJsonOnce(uri, params);
         _scriptUri = uri;
         return response;
       } on StalkerPortalException catch (e) {
+        lastError = e;
+      } catch (e) {
         lastError = e;
       }
     }
@@ -721,6 +740,26 @@ class StalkerPortalClient {
         _logger.warning(
           'Stalker request throttled (${e.message}); retrying in '
           '${delay.inMilliseconds}ms (attempt $attempt/$_kMaxHttpRetries)...',
+          tag: 'StalkerPortalClient',
+          error: e,
+        );
+        await Future.delayed(delay);
+      } catch (e) {
+        // Handle network/transport errors like HttpException: Connection reset by peer,
+        // SocketException, TimeoutException, etc.
+        if (attempt >= _kMaxHttpRetries) {
+          if (allowEmpty) return const {};
+          throw StalkerPortalException(
+            'Stalker network error: $e',
+            action: params['action']?.toString(),
+            originalError: e,
+          );
+        }
+        attempt++;
+        final delay = _retryBaseDelay * attempt;
+        _logger.warning(
+          'Stalker network error ($e); retrying in ${delay.inMilliseconds}ms '
+          '(attempt $attempt/$_kMaxHttpRetries)...',
           tag: 'StalkerPortalClient',
           error: e,
         );

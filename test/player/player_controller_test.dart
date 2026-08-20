@@ -104,21 +104,30 @@ class _FakePlayerAdapter implements PlayerAdapter {
   @override
   PlayerQuality get currentQuality => PlayerQuality.auto;
 
-  @override
-  Future<List<dynamic>> getAvailableAudioTracks() async => const [];
+  List<dynamic> subtitleTracks = [];
+  List<dynamic> audioTracks = [];
+  String? lastSubtitleTrack;
+  String? lastAudioTrack;
 
   @override
-  Future<List<dynamic>> getAvailableSubtitleTracks() async => const [];
+  Future<List<dynamic>> getAvailableAudioTracks() async => audioTracks;
+
+  @override
+  Future<List<dynamic>> getAvailableSubtitleTracks() async => subtitleTracks;
 
   @override
   Future<List<PlayerQuality>> getAvailableQualities() async =>
       const [PlayerQuality.auto];
 
   @override
-  Future<void> setAudioTrack(String trackId) async {}
+  Future<void> setAudioTrack(String trackId) async {
+    lastAudioTrack = trackId;
+  }
 
   @override
-  Future<void> setSubtitleTrack(String trackId) async {}
+  Future<void> setSubtitleTrack(String trackId) async {
+    lastSubtitleTrack = trackId;
+  }
 
   @override
   Future<void> setSpeed(PlaybackSpeed speed) async {}
@@ -366,6 +375,57 @@ void main() {
       await controller.switchToPreviousChannel();
       await pumpEventQueue();
       expect(adapter.playedSessions.last.mediaItemId, 'chan-2');
+
+      await controller.playbackController.engine.dispose();
+    });
+
+    test('getAvailableSubtitleTracks and setSubtitleTrack update player state and observable',
+        () async {
+      final adapter = _FakePlayerAdapter();
+      adapter.subtitleTracks = [
+        {'id': '1', 'label': 'English', 'language': 'eng'},
+        {'id': '2', 'label': 'Spanish', 'language': 'spa'},
+      ];
+      final repository = _FakeStreamRepository();
+      final controller = PlayerController(
+        adapter: adapter,
+        streamRepository: repository,
+      );
+
+      final tracks = await controller.getAvailableSubtitleTracks();
+      expect(tracks, hasLength(2));
+      expect(tracks.first['label'], 'English');
+
+      await controller.setSubtitleTrack('1');
+      expect(controller.selectedSubtitleTrackRx.value, '1');
+      expect(adapter.lastSubtitleTrack, '1');
+
+      await controller.setSubtitleTrack('no');
+      expect(controller.selectedSubtitleTrackRx.value, 'no');
+      expect(adapter.lastSubtitleTrack, 'no');
+
+      await controller.playbackController.engine.dispose();
+    });
+
+    test('getAvailableAudioTracks and setAudioTrack update player state and observable',
+        () async {
+      final adapter = _FakePlayerAdapter();
+      adapter.audioTracks = [
+        {'id': '1', 'label': 'English (AAC)', 'language': 'eng'},
+        {'id': '2', 'label': 'French (AC3)', 'language': 'fra'},
+      ];
+      final repository = _FakeStreamRepository();
+      final controller = PlayerController(
+        adapter: adapter,
+        streamRepository: repository,
+      );
+
+      final tracks = await controller.getAvailableAudioTracks();
+      expect(tracks, hasLength(2));
+
+      await controller.setAudioTrack('2');
+      expect(controller.selectedAudioTrackRx.value, '2');
+      expect(adapter.lastAudioTrack, '2');
 
       await controller.playbackController.engine.dispose();
     });
