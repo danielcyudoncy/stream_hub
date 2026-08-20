@@ -967,13 +967,19 @@ class StalkerPortalClient {
     // Match HTTP/HTTPS full URL
     final httpMatch = RegExp(r'''https?://[^\s"'<>]+''', caseSensitive: false).firstMatch(trimmed);
     if (httpMatch != null) {
-      return _sanitizeUrl(httpMatch.group(0)!);
+      final sanitized = _sanitizeUrl(httpMatch.group(0)!);
+      if (!_isCorruptedStreamUrl(sanitized)) {
+        return sanitized;
+      }
     }
 
     // Match stream protocols
     final protoMatch = RegExp(r'''(rtmp|rtmps|rtsp|mms|udp)://[^\s"'<>]+''', caseSensitive: false).firstMatch(trimmed);
     if (protoMatch != null) {
-      return _sanitizeUrl(protoMatch.group(0)!);
+      final sanitized = _sanitizeUrl(protoMatch.group(0)!);
+      if (!_isCorruptedStreamUrl(sanitized)) {
+        return sanitized;
+      }
     }
 
     final uri = Uri.tryParse(trimmed);
@@ -985,7 +991,9 @@ class StalkerPortalClient {
             uri.scheme == 'rtmps' ||
             uri.scheme == 'mms' ||
             uri.scheme == 'udp')) {
-      return trimmed;
+      if (!_isCorruptedStreamUrl(trimmed)) {
+        return trimmed;
+      }
     }
 
     if (baseUrl != null && baseUrl.isNotEmpty) {
@@ -1026,6 +1034,12 @@ class StalkerPortalClient {
       return 'http://$trimmed';
     }
     return trimmed;
+  }
+
+  static bool _isCorruptedStreamUrl(String url) {
+    return url.contains('stream=&') ||
+        url.contains('stream=%26') ||
+        url.endsWith('stream=');
   }
 
   static String _normalizeMac(String mac) {

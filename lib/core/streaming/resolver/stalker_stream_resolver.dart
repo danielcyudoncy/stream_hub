@@ -131,6 +131,30 @@ class StalkerStreamResolver implements StreamResolver {
       final value = metadata[key]?.toString();
       if (value != null && value.isNotEmpty) return value;
     }
+
+    final cmd = metadata['cmd']?.toString();
+    if (cmd != null && cmd.isNotEmpty) {
+      final clean = cmd
+          .replaceFirst(
+            RegExp(
+              r'^(ffmpeg\s+(-re\s+)?-i\s+|ffmpeg\s+|ffrt\d*\s+|auto\s+)',
+              caseSensitive: false,
+            ),
+            '',
+          )
+          .trim();
+      final uri = Uri.tryParse(clean);
+      if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        final host = uri.host.toLowerCase();
+        if (!host.contains('localhost') && !host.contains('127.0.0.1')) {
+          if (!clean.contains('stream=&') &&
+              !clean.contains('stream=%26') &&
+              !clean.endsWith('stream=')) {
+            return clean;
+          }
+        }
+      }
+    }
     return null;
   }
 
