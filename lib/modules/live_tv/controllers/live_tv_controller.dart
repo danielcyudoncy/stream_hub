@@ -139,11 +139,19 @@ class LiveTVController extends GetxController {
           resolutionSet.add(res);
         }
         for (final genre in item.genres) {
-          categorySet.add(genre);
+          if (genre.isNotEmpty) categorySet.add(genre);
         }
       }
 
-      categories.assignAll(['All Channels', ...categorySet]);
+      final allCategories = await catalogRepository.getByType(MediaType.collection);
+      for (final cat in allCategories) {
+        if (cat.metadata['type'] == 'live' || cat.metadata['type'] == null) {
+          if (cat.title.isNotEmpty) categorySet.add(cat.title);
+        }
+      }
+
+      final sortedCategories = categorySet.toList()..sort();
+      categories.assignAll(['All Channels', ...sortedCategories]);
       providers.assignAll(providerSet.toList()..sort());
       languages.assignAll(languageSet.toList()..sort());
       countries.assignAll(countrySet.toList()..sort());
@@ -224,7 +232,10 @@ class LiveTVController extends GetxController {
 
     if (selectedCategory.value != 'All Channels') {
       result = result
-          .where((item) => item.genres.contains(selectedCategory.value))
+          .where((item) =>
+              item.genres.contains(selectedCategory.value) ||
+              item.metadata['genre'] == selectedCategory.value ||
+              item.metadata['category_name'] == selectedCategory.value)
           .toList();
     }
 
