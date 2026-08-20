@@ -274,10 +274,38 @@ class StalkerPortalClient {
     }
   }
 
-  /// Live TV channel list (`get_ordered_list?type=itv`), fetching all pages.
+  /// Live TV channel list (`get_all_channels` / `get_ordered_list?type=itv`), fetching all pages.
   Future<List<Map<String, dynamic>>> getOrderedList(
     StalkerContentType type,
   ) async {
+    if (type == StalkerContentType.live) {
+      try {
+        final allChannelsItv = await _request('get_all_channels', extra: {'type': 'itv'}, allowEmpty: true);
+        final list = _extractList(allChannelsItv);
+        if (list.isNotEmpty) return list;
+      } catch (_) {}
+
+      try {
+        final allChannelsStb = await _request('get_all_channels', extra: {'type': 'stb'}, allowEmpty: true);
+        final list = _extractList(allChannelsStb);
+        if (list.isNotEmpty) return list;
+      } catch (_) {}
+
+      final withStar = await _fetchPaginatedList(
+        'get_ordered_list',
+        extra: {'type': type.apiType, 'genre': '*'},
+        retryEmpty: false,
+      );
+      if (withStar.isNotEmpty) return withStar;
+
+      final withAll = await _fetchPaginatedList(
+        'get_ordered_list',
+        extra: {'type': type.apiType, 'genre': 'all'},
+        retryEmpty: false,
+      );
+      if (withAll.isNotEmpty) return withAll;
+    }
+
     return _fetchPaginatedList(
       'get_ordered_list',
       extra: {'type': type.apiType},
