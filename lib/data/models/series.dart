@@ -86,4 +86,18 @@ class Series extends MediaItem {
       episodeIds: episodeIds ?? this.episodeIds,
     );
   }
+
+  String? get formattedYearRange {
+    if (startYear != null && endYear != null) {
+      return startYear == endYear ? '$startYear' : '$startYear–$endYear';
+    }
+    if (startYear != null) return '$startYear';
+    return releaseYear != null ? '$releaseYear' : null;
+  }
+
+
+  String get formattedSeasons {
+    final count = seasons ?? int.tryParse(metadata['seasonsCount']?.toString() ?? '') ?? 1;
+    return '$count ${count == 1 ? 'Season' : 'Seasons'}';
+  }
 }

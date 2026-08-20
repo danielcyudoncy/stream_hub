@@ -274,6 +274,22 @@ Full Xtream Codes panel support and VOD playback across providers.
 
 ---
 
+## Phase 5 — Series Experience
+
+- [x] Series Domain Models (`Season`, `IntroSegment`, `SeriesProgress`, `SeriesWatchActionType`)
+- [x] Deterministic Episode Traversal (`NextEpisodeResolver` with non-contiguous season/episode resolution and completion detection)
+- [x] Comprehensive Series Watch Progress (`SeriesProgressService` with percentage, resume position, next up episode, completed states)
+- [x] Intro Segment Tracking & Skip (`IntroService` with timestamp extraction and cached segments)
+- [x] Curated Series Hub (`SeriesPage`, `SeriesController` with Continue Watching, curated genre carousels, hero spotlight, TV focus)
+- [x] Premium Series Details (`SeriesDetailsPage`, `SeriesDetailsController` with dynamic primary watch action, season selector, multi-state episode list, cast member avatars, related series)
+- [x] Genre Browsing & Sorting (`SeriesGenrePage`, `SeriesGenreController` with search and sorting)
+- [x] Seamless Autoplay & Skip Intro Overlays (`NextEpisodeOverlay`, `SkipIntroButton`, integrated with `PlayerController` and `FullscreenPlayerPage`)
+- [x] Player Settings Persistence (`autoplayNextEpisode`, `autoSkipIntro` in `PlayerSettings`, `PlayerSettingsModel`, and `SettingsPage`)
+- [x] Full test suite (models, resolver, progress service, intro service, controllers, widgets)
+
+---
+
+
 ## Phase 6
 
 EPG

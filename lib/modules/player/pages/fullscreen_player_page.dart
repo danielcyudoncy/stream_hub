@@ -9,6 +9,8 @@ import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/player/widgets/player_controls.dart';
+import 'package:stream_hub/modules/player/widgets/next_episode_overlay.dart';
+import 'package:stream_hub/modules/player/widgets/skip_intro_button.dart';
 
 class FullscreenPlayerPage extends StatefulWidget {
   const FullscreenPlayerPage({super.key});
@@ -38,12 +40,9 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       } else if (state == PlaybackState.stopped &&
           _controller.playbackController.engine.adapter
               is NativeActivityPlayerAdapter) {
-        // The native player Activity closed itself (its ✕ button or the system
-        // back gesture), which destroys the only place rendering the video.
-        // Leave the player route so the previously opened screen is restored
-        // instead of a blank black surface. `stopped` can only reach the engine
-        // from this adapter's onFinished event (channel switches never stop),
-        // so this can't fire spuriously.
+        // The native Activity finished (e.g. user pressed back on the TV remote
+        // inside the native player UI). Pop the fullscreen page so the app
+        // returns to the previous screen.
         _handleBack();
       }
     });
@@ -61,6 +60,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
 
   @override
   void dispose() {
+
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -88,6 +88,8 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
             children: [
               _buildVideoLayer(),
               _buildStateOverlay(),
+              _buildSkipIntroOverlay(),
+              _buildNextEpisodeOverlay(),
               if (_controlsVisible) _buildControlsOverlay(context),
               _buildTopBar(context),
             ],
@@ -95,6 +97,32 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         ),
       ),
     );
+  }
+
+  Widget _buildSkipIntroOverlay() {
+    return Obx(() {
+      if (_controller.showSkipIntroRx.value) {
+        return SkipIntroButton(
+          onSkip: _controller.skipIntro,
+        );
+      }
+      return const SizedBox.shrink();
+    });
+  }
+
+  Widget _buildNextEpisodeOverlay() {
+    return Obx(() {
+      final show = _controller.showNextEpisodeOverlayRx.value;
+      final nextEp = _controller.nextEpisodeRx.value;
+      if (show && nextEp != null) {
+        return NextEpisodeOverlay(
+          nextEpisode: nextEp,
+          onPlayNow: _controller.playNextEpisode,
+          onCancel: _controller.cancelNextEpisodeCountdown,
+        );
+      }
+      return const SizedBox.shrink();
+    });
   }
 
   Widget _buildVideoLayer() {

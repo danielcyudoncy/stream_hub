@@ -1,5 +1,6 @@
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
+import 'package:stream_hub/data/models/intro_segment.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/media_metadata.dart';
 
@@ -11,6 +12,7 @@ class Episode extends MediaItem {
   final DateTime? airDate;
   final MediaMetadata? mediaMetadata;
   final String? streamUrl;
+  final IntroSegment? introSegment;
 
   const Episode({
     required super.id,
@@ -39,7 +41,25 @@ class Episode extends MediaItem {
     this.airDate,
     this.mediaMetadata,
     this.streamUrl,
+    this.introSegment,
   });
+
+  String get formattedEpisodeCode {
+    final sStr = seasonNumber.toString().padLeft(2, '0');
+    final eStr = episodeNumber.toString().padLeft(2, '0');
+    return 'S${sStr}E$eStr';
+  }
+
+  String? get formattedRuntime {
+    if (runtime == null || runtime! <= 0) return null;
+    final duration = Duration(minutes: runtime!);
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes % 60;
+    if (hours > 0) {
+      return '${hours}h ${minutes > 0 ? '${minutes}m' : ''}'.trim();
+    }
+    return '${minutes}m';
+  }
 
   @override
   Episode copyWith({
@@ -69,6 +89,7 @@ class Episode extends MediaItem {
     DateTime? airDate,
     MediaMetadata? mediaMetadata,
     String? streamUrl,
+    IntroSegment? introSegment,
   }) {
     return Episode(
       id: id ?? this.id,
@@ -97,6 +118,7 @@ class Episode extends MediaItem {
       airDate: airDate ?? this.airDate,
       mediaMetadata: mediaMetadata ?? this.mediaMetadata,
       streamUrl: streamUrl ?? this.streamUrl,
+      introSegment: introSegment ?? this.introSegment,
     );
   }
 }

@@ -3,18 +3,47 @@ import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
+import '../../../core/media/repositories/playback_repository.dart';
+import '../../../core/routes/app_routes.dart';
+import '../../../core/streaming/series/next_episode_resolver.dart';
+import '../../../core/streaming/series/series_progress_service.dart';
 import '../../../data/models/media_item.dart';
+import '../../../data/models/playback_session_model.dart';
+import '../../../data/models/series_progress.dart';
 import '../../../data/repositories/catalog_repository.dart';
+import '../../../data/repositories/favorite_repository.dart';
+
+class ContinueWatchingSeriesItem {
+  final MediaItem series;
+  final MediaItem? episode;
+  final Duration position;
+  final Duration duration;
+  final SeriesProgress progress;
+
+  const ContinueWatchingSeriesItem({
+    required this.series,
+    this.episode,
+    required this.position,
+    required this.duration,
+    required this.progress,
+  });
+}
 
 class SeriesController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
+  final PlaybackRepository? playbackRepository;
+  final FavoriteRepository? favoriteRepository;
+  final SeriesProgressService progressService;
 
   SeriesController({
     required this.mediaEngine,
     required this.mediaLibrary,
     required this.catalogRepository,
+    this.playbackRepository,
+    this.favoriteRepository,
+    this.progressService = const SeriesProgressService(),
   });
 
   final RxBool isLoading = true.obs;
@@ -22,7 +51,7 @@ class SeriesController extends GetxController {
   final RxList<MediaItem> series = <MediaItem>[].obs;
   final List<MediaItem> _allSeries = <MediaItem>[];
   final RxList<MediaItem> featuredSeries = <MediaItem>[].obs;
-  final RxList<MediaItem> continueWatching = <MediaItem>[].obs;
+  final RxList<ContinueWatchingSeriesItem> continueWatching = <ContinueWatchingSeriesItem>[].obs;
   final RxList<MediaItem> trendingSeries = <MediaItem>[].obs;
   final RxList<MediaItem> topRatedSeries = <MediaItem>[].obs;
   final RxList<MediaItem> recentlyAddedSeries = <MediaItem>[].obs;
@@ -30,6 +59,12 @@ class SeriesController extends GetxController {
   final RxList<MediaItem> comedySeries = <MediaItem>[].obs;
   final RxList<MediaItem> actionAdventureSeries = <MediaItem>[].obs;
   final RxList<MediaItem> sciFiFantasySeries = <MediaItem>[].obs;
+  final RxList<MediaItem> animationSeries = <MediaItem>[].obs;
+  final RxList<MediaItem> documentarySeries = <MediaItem>[].obs;
+
+  final RxMap<String, double> progressMap = <String, double>{}.obs;
+  final RxSet<String> completedSeriesIds = <String>{}.obs;
+  final RxList<String> availableGenres = <String>[].obs;
 
   @override
   void onInit() {
@@ -65,6 +100,8 @@ class SeriesController extends GetxController {
     }
     series.assignAll(filtered);
     _computeSections(filtered);
+    _computeGenres(filtered);
+    _loadContinueWatching(filtered);
   }
 
   Future<void> _loadSeries() async {
@@ -88,133 +125,180 @@ class SeriesController extends GetxController {
     }
   }
 
-  void _computeSections(List<MediaItem> allSeries) {
-    final now = DateTime.now();
-    final weekAgo = now.subtract(const Duration(days: 7));
+  Future<void> _loadContinueWatching(List<MediaItem> activeSeries) async {
+    if (playbackRepository == null) return;
+    try {
+      final sessions = await playbackRepository!.getAllWatchSessions();
+      if (sessions.isEmpty) {
+        continueWatching.clear();
+        return;
+      }
 
-    // Featured series - highest rated, most recently updated
-    featuredSeries.assignAll(
-      _takePreferred(
-        preferred: allSeries.where((item) => item.rating != null).toList()
-          ..sort((a, b) {
-            final ratingCompare = b.rating!.compareTo(a.rating!);
-            if (ratingCompare != 0) return ratingCompare;
-            return b.updatedAt.compareTo(a.updatedAt);
-          }),
-        fallback: allSeries,
-        limit: 5,
-      ),
-    );
+      final sessionsByItem = <String, PlaybackSessionModel>{
+        for (final s in sessions) s.itemId: s,
+      };
 
-    // Trending series - most recently updated
-    trendingSeries.assignAll(
-      _takePreferred(
-        preferred: List<MediaItem>.of(allSeries),
-        fallback: allSeries,
-        limit: 15,
-      ),
-    );
+      final cwList = <ContinueWatchingSeriesItem>[];
 
-    // Top rated series - sorted by rating
-    topRatedSeries.assignAll(
-      _takePreferred(
-        preferred: allSeries.where((item) => item.rating != null).toList()
-          ..sort((a, b) => b.rating!.compareTo(a.rating!)),
-        fallback: allSeries,
-        limit: 15,
-      ),
-    );
+      for (final s in activeSeries) {
+        // Find episodes for this series
+        final episodes = await catalogRepository.getByType(MediaType.episode);
+        final seriesEpisodes = episodes.where((e) {
+          final sId = e.metadata['seriesId']?.toString() ?? e.metadata['series_id']?.toString();
+          return sId == s.id || e.id.startsWith('${s.id}_');
+        }).toList();
 
-    // Recently added series - added in the last week
-    recentlyAddedSeries.assignAll(
-      _takePreferred(
-        preferred:
-            allSeries.where((item) => item.createdAt.isAfter(weekAgo)).toList()
-              ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-        fallback: allSeries,
-        limit: 15,
-      ),
-    );
+        if (seriesEpisodes.isEmpty) continue;
 
-    // Genre-based sections
-    dramaSeries.assignAll(
-      _takePreferred(
-        preferred: allSeries.where(_isDrama).toList(),
-        fallback: allSeries,
-        limit: 15,
-      ),
-    );
+        // Group into seasons
+        final seasonsMap = <int, List<MediaItem>>{};
+        for (final ep in seriesEpisodes) {
+          final sNum = NextEpisodeResolver.seasonNumberFor(ep);
+          seasonsMap.putIfAbsent(sNum, () => []).add(ep);
+        }
+        final seasonGroups = seasonsMap.entries.map((e) {
+          return SeasonGroup(
+            number: e.key,
+            name: 'Season ${e.key}',
+            episodes: e.value,
+          );
+        }).toList();
 
-    comedySeries.assignAll(
-      _takePreferred(
-        preferred: allSeries.where(_isComedy).toList(),
-        fallback: allSeries,
-        limit: 15,
-      ),
-    );
+        final prog = progressService.computeProgress(
+          series: s,
+          seasons: seasonGroups,
+          watchSessions: sessionsByItem,
+        );
 
-    actionAdventureSeries.assignAll(
-      _takePreferred(
-        preferred: allSeries.where(_isActionOrAdventure).toList(),
-        fallback: allSeries,
-        limit: 15,
-      ),
-    );
+        if (prog.overallPercentage > 0) {
+          progressMap[s.id] = prog.overallPercentage;
+        }
+        if (prog.isCompleted) {
+          completedSeriesIds.add(s.id);
+        }
 
-    sciFiFantasySeries.assignAll(
-      _takePreferred(
-        preferred: allSeries.where(_isSciFiOrFantasy).toList(),
-        fallback: allSeries,
-        limit: 15,
-      ),
-    );
+        // If in-progress or next up, add to continue watching list
+        if (!prog.isCompleted && prog.actionType == SeriesWatchActionType.resume) {
+          cwList.add(ContinueWatchingSeriesItem(
+            series: s,
+            episode: prog.nextEpisodeToWatch ?? prog.currentEpisode,
+            position: prog.currentPosition,
+            duration: prog.currentDuration,
+            progress: prog,
+          ));
+        }
+      }
+
+      continueWatching.assignAll(cwList);
+    } catch (_) {}
   }
 
-  List<MediaItem> _takePreferred({
-    required List<MediaItem> preferred,
-    required List<MediaItem> fallback,
-    required int limit,
-  }) {
-    final result = <MediaItem>[];
-    final seen = <String>{};
-
-    void addItems(Iterable<MediaItem> items) {
-      for (final item in items) {
-        if (result.length >= limit) return;
-        if (seen.add(item.id)) {
-          result.add(item);
+  void _computeGenres(List<MediaItem> allSeries) {
+    final genreSet = <String>{};
+    for (final s in allSeries) {
+      for (final g in s.genres) {
+        final clean = g.trim();
+        if (clean.isNotEmpty) {
+          genreSet.add(clean);
         }
       }
     }
+    final sorted = genreSet.toList()..sort();
+    availableGenres.assignAll(sorted);
+  }
 
-    addItems(preferred);
-    addItems(fallback);
-    return result.take(limit).toList();
+  void _computeSections(List<MediaItem> allSeries) {
+    // Featured series - up to 6 top series with backdrop for the hero carousel
+    final withBackdrop = allSeries
+        .where((item) => item.backdrop != null && item.backdrop!.isNotEmpty)
+        .toList();
+    if (withBackdrop.isNotEmpty) {
+      withBackdrop.sort((a, b) {
+        final rA = a.rating ?? 0.0;
+        final rB = b.rating ?? 0.0;
+        final rComp = rB.compareTo(rA);
+        if (rComp != 0) return rComp;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
+      featuredSeries.assignAll(withBackdrop.take(6).toList());
+    } else {
+      featuredSeries.assignAll(allSeries.take(6).toList());
+    }
+
+    // Trending series - most recently updated
+    trendingSeries.assignAll(
+      allSeries.take(15).toList(),
+    );
+
+    // Top rated series - sorted by rating
+    final rated = allSeries.where((item) => item.rating != null).toList()
+      ..sort((a, b) => b.rating!.compareTo(a.rating!));
+    topRatedSeries.assignAll(rated.take(15).toList());
+
+    // Recently added series - sorted by createdAt
+    final recent = List<MediaItem>.of(allSeries)
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    recentlyAddedSeries.assignAll(recent.take(15).toList());
+
+    // Genre-based sections - strictly contain items that actually match the genre
+    dramaSeries.assignAll(allSeries.where(_isDrama).take(15).toList());
+    comedySeries.assignAll(allSeries.where(_isComedy).take(15).toList());
+    actionAdventureSeries.assignAll(
+      allSeries.where(_isActionOrAdventure).take(15).toList(),
+    );
+    sciFiFantasySeries.assignAll(
+      allSeries.where(_isSciFiOrFantasy).take(15).toList(),
+    );
+    animationSeries.assignAll(allSeries.where(_isAnimation).take(15).toList());
+    documentarySeries.assignAll(
+      allSeries.where(_isDocumentary).take(15).toList(),
+    );
   }
 
   // Genre filters
-  bool _isDrama(MediaItem item) {
-    final genres = item.genres.map((genre) => genre.toLowerCase()).toList();
-    return genres.any((genre) => genre.contains('drama'));
+  bool _isDrama(MediaItem item) => _hasGenre(item, ['drama']);
+  bool _isComedy(MediaItem item) => _hasGenre(item, ['comedy']);
+  bool _isActionOrAdventure(MediaItem item) =>
+      _hasGenre(item, ['action', 'adventure']);
+  bool _isSciFiOrFantasy(MediaItem item) =>
+      _hasGenre(item, ['sci-fi', 'scifi', 'science', 'fantasy']);
+  bool _isAnimation(MediaItem item) =>
+      _hasGenre(item, ['animation', 'anime', 'cartoon']);
+  bool _isDocumentary(MediaItem item) =>
+      _hasGenre(item, ['documentary', 'doc', 'biography']);
+
+  bool _hasGenre(MediaItem item, List<String> targets) {
+    final genreStrings = <String>[
+      ...item.genres,
+      if (item.metadata['genre'] != null) item.metadata['genre'].toString(),
+      if (item.metadata['category_name'] != null)
+        item.metadata['category_name'].toString(),
+      if (item.metadata['categoryName'] != null)
+        item.metadata['categoryName'].toString(),
+      if (item.metadata['group-title'] != null)
+        item.metadata['group-title'].toString(),
+    ].map((g) => g.toLowerCase());
+
+    return genreStrings.any((g) => targets.any((t) => g.contains(t)));
   }
 
-  bool _isComedy(MediaItem item) {
-    final genres = item.genres.map((genre) => genre.toLowerCase()).toList();
-    return genres.any((genre) => genre.contains('comedy'));
+
+  void openSeries(MediaItem item) {
+    Get.toNamed(AppRoutes.seriesDetails, arguments: item);
   }
 
-  bool _isActionOrAdventure(MediaItem item) {
-    final genres = item.genres.map((genre) => genre.toLowerCase()).toList();
-    return genres.any((genre) => genre.contains('action')) ||
-        genres.any((genre) => genre.contains('adventure'));
+  void openGenre(String genreName) {
+    Get.toNamed(AppRoutes.seriesGenre, arguments: genreName);
   }
 
-  bool _isSciFiOrFantasy(MediaItem item) {
-    final genres = item.genres.map((genre) => genre.toLowerCase()).toList();
-    return genres.any((genre) => genre.contains('sci-fi')) ||
-        genres.any((genre) => genre.contains('scifi')) ||
-        genres.any((genre) => genre.contains('science')) ||
-        genres.any((genre) => genre.contains('fantasy'));
+  Future<void> toggleFavorite(MediaItem item) async {
+    if (favoriteRepository == null) return;
+    if (item.favorite) {
+      await favoriteRepository!.remove(item.id);
+    } else {
+      await favoriteRepository!.add(item.copyWith(favorite: true));
+    }
+    _loadSeries();
   }
 
   @override

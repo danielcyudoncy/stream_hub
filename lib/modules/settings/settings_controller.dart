@@ -35,6 +35,8 @@ class SettingsController extends GetxController {
   final RxBool parentalLockEnabled = false.obs;
   final Rx<PlaybackEnginePreference> preferredPlayer =
       PlaybackEnginePreference.auto.obs;
+  final RxBool autoplayNextEpisode = true.obs;
+  final RxBool autoSkipIntro = false.obs;
   final RxBool isLoading = false.obs;
   final RxString errorMessage = ''.obs;
 
@@ -88,6 +90,10 @@ class SettingsController extends GetxController {
       _playerSettings = await repository.getSettings();
       preferredPlayer.value =
           _playerSettings?.preferredPlayer ?? PlaybackEnginePreference.auto;
+      autoplayNextEpisode.value =
+          _playerSettings?.autoplayNextEpisode ?? true;
+      autoSkipIntro.value =
+          _playerSettings?.autoSkipIntro ?? false;
     } catch (e) {
       _logger.warning(
         'Failed to load player settings',
@@ -95,6 +101,30 @@ class SettingsController extends GetxController {
         error: e,
       );
     }
+  }
+
+  Future<void> toggleAutoplayNextEpisode(bool value) async {
+    final repository = _playbackRepository;
+    if (repository == null) return;
+    try {
+      autoplayNextEpisode.value = value;
+      final base = _playerSettings ?? const PlayerSettings();
+      final updated = base.copyWith(autoplayNextEpisode: value);
+      await repository.updateSettings(updated);
+      _playerSettings = updated;
+    } catch (_) {}
+  }
+
+  Future<void> toggleAutoSkipIntro(bool value) async {
+    final repository = _playbackRepository;
+    if (repository == null) return;
+    try {
+      autoSkipIntro.value = value;
+      final base = _playerSettings ?? const PlayerSettings();
+      final updated = base.copyWith(autoSkipIntro: value);
+      await repository.updateSettings(updated);
+      _playerSettings = updated;
+    } catch (_) {}
   }
 
   Future<void> changePreferredPlayer(PlaybackEnginePreference preference) async {
@@ -117,6 +147,7 @@ class SettingsController extends GetxController {
       isLoading.value = false;
     }
   }
+
 
   String _themeModeToString(ThemeMode mode) {
     switch (mode) {

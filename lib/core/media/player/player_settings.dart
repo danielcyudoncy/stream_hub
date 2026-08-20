@@ -21,6 +21,8 @@ class PlayerSettings {
   final bool enableKeyboardShortcuts;
   final bool enableTvRemote;
   final PlaybackEnginePreference preferredPlayer;
+  final bool autoplayNextEpisode;
+  final bool autoSkipIntro;
 
   const PlayerSettings({
     this.defaultQuality = PlayerQuality.auto,
@@ -40,6 +42,8 @@ class PlayerSettings {
     this.enableKeyboardShortcuts = true,
     this.enableTvRemote = true,
     this.preferredPlayer = PlaybackEnginePreference.auto,
+    this.autoplayNextEpisode = true,
+    this.autoSkipIntro = false,
   });
 
   PlayerSettings copyWith({
@@ -60,6 +64,8 @@ class PlayerSettings {
     bool? enableKeyboardShortcuts,
     bool? enableTvRemote,
     PlaybackEnginePreference? preferredPlayer,
+    bool? autoplayNextEpisode,
+    bool? autoSkipIntro,
   }) {
     return PlayerSettings(
       defaultQuality: defaultQuality ?? this.defaultQuality,
@@ -82,6 +88,9 @@ class PlayerSettings {
           enableKeyboardShortcuts ?? this.enableKeyboardShortcuts,
       enableTvRemote: enableTvRemote ?? this.enableTvRemote,
       preferredPlayer: preferredPlayer ?? this.preferredPlayer,
+      autoplayNextEpisode: autoplayNextEpisode ?? this.autoplayNextEpisode,
+      autoSkipIntro: autoSkipIntro ?? this.autoSkipIntro,
     );
   }
 }
+

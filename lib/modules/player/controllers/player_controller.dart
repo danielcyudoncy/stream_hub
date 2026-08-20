@@ -19,6 +19,9 @@ import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/media_library.dart';
+import 'package:stream_hub/core/streaming/series/next_episode_resolver.dart';
+import 'package:stream_hub/core/streaming/series/intro_service.dart';
+import 'package:stream_hub/data/models/intro_segment.dart';
 import 'package:stream_hub/data/models/channel.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playable_stream.dart';
@@ -34,6 +37,8 @@ class PlayerController extends GetxController {
   final PlaybackRepository? playbackRepository;
   final CatalogRepository? catalogRepository;
   final IptvCore? iptvCore;
+  final NextEpisodeResolver nextEpisodeResolver;
+  final IntroService introService;
 
   final String? itemId;
   final String? streamUrl;
@@ -51,6 +56,17 @@ class PlayerController extends GetxController {
   late final Worker _sessionWorker;
   Timer? _progressSaveTimer;
 
+  // Series & Episode Autoplay / Skip Intro support
+  final RxBool isEpisodeRx = false.obs;
+  final Rx<MediaItem?> nextEpisodeRx = Rx<MediaItem?>(null);
+  final Rx<MediaItem?> previousEpisodeRx = Rx<MediaItem?>(null);
+  final RxBool showNextEpisodeOverlayRx = false.obs;
+  final RxBool showSkipIntroRx = false.obs;
+  final Rx<IntroSegment?> activeIntroSegmentRx = Rx<IntroSegment?>(null);
+  bool _hasTriggeredNextEpisodeOverlay = false;
+  bool _userCancelledNextEpisode = false;
+  Worker? _positionWorker;
+
   PlayerController({
     this.itemId,
     this.streamUrl,
@@ -67,8 +83,12 @@ class PlayerController extends GetxController {
     this.playbackRepository,
     this.catalogRepository,
     IptvCore? iptvCore,
+    NextEpisodeResolver? nextEpisodeResolver,
+    IntroService? introService,
   })  : _pendingItems = pendingItems ?? const [],
         _pendingCurrentId = pendingCurrentId,
+        nextEpisodeResolver = nextEpisodeResolver ?? const NextEpisodeResolver(),
+        introService = introService ?? IntroService(),
         playbackController = PlaybackController(
           adapter: adapter,
           engineKind: engineKind,
@@ -87,8 +107,8 @@ class PlayerController extends GetxController {
   Duration get duration => playbackController.engine.durationRx.value;
   Duration get buffer => playbackController.engine.bufferRx.value;
   MediaItem? get currentItem => session?.mediaItem;
-  bool get canSwitchNext => _currentChannelIndex < channelList.length - 1;
-  bool get canSwitchPrevious => _currentChannelIndex > 0;
+  bool get canSwitchNext => _currentChannelIndex < channelList.length - 1 || nextEpisodeRx.value != null;
+  bool get canSwitchPrevious => _currentChannelIndex > 0 || previousEpisodeRx.value != null;
 
   Worker? _engineWorker;
   Worker? _stateWorker;
@@ -103,6 +123,7 @@ class PlayerController extends GetxController {
       }
       if (session != null) {
         _autoSelectSubtitle();
+        _onMediaSessionChanged(session.mediaItem);
       }
     });
     _engineWorker = ever(playbackController.engine.engineKindRx, (_) {
@@ -115,6 +136,9 @@ class PlayerController extends GetxController {
       } else {
         _stopProgressTimer();
       }
+    });
+    _positionWorker = ever(playbackController.engine.positionRx, (pos) {
+      _checkIntroAndAutoplay(pos);
     });
     await _loadPersistedSettings();
     _wireAdapterChannelListeners();
@@ -136,6 +160,7 @@ class PlayerController extends GetxController {
     }
     _loadBackgroundChannels();
   }
+
 
   void _startProgressTimer() {
     if (playbackRepository == null) return;
@@ -210,6 +235,7 @@ class PlayerController extends GetxController {
     _sessionWorker.dispose();
     _engineWorker?.dispose();
     _stateWorker?.dispose();
+    _positionWorker?.dispose();
     playbackController.removeEventListener(_onPlaybackEvent);
     // Tear down the engine and the active backend (player, platform view, or
     // native Activity). stop() alone leaves the adapter initialized and its
@@ -217,6 +243,113 @@ class PlayerController extends GetxController {
     playbackController.dispose();
     super.onClose();
   }
+
+  void _onMediaSessionChanged(MediaItem item) {
+    _hasTriggeredNextEpisodeOverlay = false;
+    _userCancelledNextEpisode = false;
+    showNextEpisodeOverlayRx.value = false;
+    showSkipIntroRx.value = false;
+
+    final isEp = item.mediaType == MediaType.episode ||
+        (item.metadata['seriesId'] != null ||
+            item.metadata['isEpisode'] == true ||
+            item.metadata['seasonNumber'] != null);
+    isEpisodeRx.value = isEp;
+
+    activeIntroSegmentRx.value = introService.getIntroSegment(item);
+
+    if (isEp) {
+      _resolveAdjacentEpisodes(item);
+    } else {
+      nextEpisodeRx.value = null;
+      previousEpisodeRx.value = null;
+    }
+  }
+
+  void _resolveAdjacentEpisodes(MediaItem currentEp) {
+    if (channelList.isNotEmpty && channelList.length > 1) {
+      // Group channelList by season
+      final seasonsMap = <int, List<MediaItem>>{};
+      for (final itm in channelList) {
+        final sNum = NextEpisodeResolver.seasonNumberFor(itm);
+        seasonsMap.putIfAbsent(sNum, () => []).add(itm);
+      }
+      final seasonGroups = seasonsMap.entries.map((e) {
+        return SeasonGroup(
+          number: e.key,
+          name: 'Season ${e.key}',
+          episodes: e.value,
+        );
+      }).toList();
+
+      final nextRes = nextEpisodeResolver.resolveNext(
+        currentEpisode: currentEp,
+        seasons: seasonGroups,
+      );
+      nextEpisodeRx.value = nextRes.nextEpisode;
+      previousEpisodeRx.value = nextEpisodeResolver.resolvePrevious(
+        currentEpisode: currentEp,
+        seasons: seasonGroups,
+      );
+    }
+  }
+
+  void _checkIntroAndAutoplay(Duration pos) {
+    // Intro segment check
+    final intro = activeIntroSegmentRx.value;
+    if (intro != null && intro.containsPosition(pos)) {
+      if (playbackController.settings.autoSkipIntro) {
+        skipIntro();
+      } else {
+        showSkipIntroRx.value = true;
+      }
+    } else {
+      showSkipIntroRx.value = false;
+    }
+
+    // Next episode countdown check
+    if (isEpisodeRx.value &&
+        playbackController.settings.autoplayNextEpisode &&
+        !_userCancelledNextEpisode &&
+        !_hasTriggeredNextEpisodeOverlay &&
+        nextEpisodeRx.value != null &&
+        duration > Duration.zero) {
+      final progress = pos.inMilliseconds / duration.inMilliseconds;
+      if (progress >= 0.92 || (duration - pos) <= const Duration(seconds: 15)) {
+        _hasTriggeredNextEpisodeOverlay = true;
+        showNextEpisodeOverlayRx.value = true;
+      }
+    }
+  }
+
+  Future<void> skipIntro() async {
+    final intro = activeIntroSegmentRx.value;
+    if (intro != null) {
+      await seek(intro.end);
+      showSkipIntroRx.value = false;
+    }
+  }
+
+  Future<void> playNextEpisode() async {
+    showNextEpisodeOverlayRx.value = false;
+    final nextEp = nextEpisodeRx.value;
+    if (nextEp != null) {
+      await playMediaItem(nextEp);
+    }
+  }
+
+  Future<void> playPreviousEpisode() async {
+    final prevEp = previousEpisodeRx.value;
+    if (prevEp != null) {
+      await playMediaItem(prevEp);
+    }
+  }
+
+  void cancelNextEpisodeCountdown() {
+    showNextEpisodeOverlayRx.value = false;
+    _userCancelledNextEpisode = true;
+  }
+
 
   Future<void> _autoStart(String id, String url) async {
     final mediaItem = MediaItem(
@@ -510,8 +643,23 @@ class PlayerController extends GetxController {
   }
 
   Future<void> replay() => playbackController.replay();
-  Future<void> next() => switchToNextChannel();
-  Future<void> previous() => switchToPreviousChannel();
+
+  Future<void> next() async {
+    if (isEpisodeRx.value && nextEpisodeRx.value != null) {
+      await playNextEpisode();
+    } else {
+      await switchToNextChannel();
+    }
+  }
+
+  Future<void> previous() async {
+    if (isEpisodeRx.value && previousEpisodeRx.value != null) {
+      await playPreviousEpisode();
+    } else {
+      await switchToPreviousChannel();
+    }
+  }
+
   Future<void> retry() async {
     final pending = _pendingItem;
     if (pending != null) {
