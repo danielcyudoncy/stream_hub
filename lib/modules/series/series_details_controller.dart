@@ -3,42 +3,33 @@ import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
+import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
+import 'package:stream_hub/core/streaming/series/next_episode_resolver.dart';
+import 'package:stream_hub/core/streaming/series/series_progress_service.dart';
 import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
 import 'package:stream_hub/core/streaming/session/session_manager.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
+import 'package:stream_hub/data/models/cast_member.dart';
 import 'package:stream_hub/data/models/media_item.dart';
+import 'package:stream_hub/data/models/playback_session_model.dart';
+import 'package:stream_hub/data/models/series_progress.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
 
-/// A group of episodes that belong to one season.
-class SeasonGroup {
-  final int number;
-  final String name;
-  final List<MediaItem> episodes;
-
-  const SeasonGroup({
-    required this.number,
-    required this.name,
-    required this.episodes,
-  });
-}
-
-/// Loads a series' seasons and episodes and prepares individual episodes for
-/// playback.
-///
-/// Xtream episodes are discovered live through `get_series_info`. Stalker
-/// episodes were already synced into the local catalog during provider sync,
-/// so they are read from there. The UI consumes only normalized [MediaItem]s.
+/// Loads a series' seasons and episodes and prepares individual episodes for playback.
 class SeriesDetailsController extends GetxController {
   final SessionManager sessionManager;
   final ProviderRepository providerRepository;
   final CatalogRepository catalogRepository;
   final XtreamSeriesInfoService seriesInfoService;
   final FavoriteRepository? favoriteRepository;
+  final PlaybackRepository? playbackRepository;
   final LoggingService logger;
+  final SeriesProgressService progressService;
+  final NextEpisodeResolver resolver;
   final MediaItem? _initialSeries;
 
   SeriesDetailsController({
@@ -47,6 +38,9 @@ class SeriesDetailsController extends GetxController {
     required this.catalogRepository,
     required this.seriesInfoService,
     this.favoriteRepository,
+    this.playbackRepository,
+    this.progressService = const SeriesProgressService(),
+    this.resolver = const NextEpisodeResolver(),
     LoggingService? logger,
     MediaItem? initialSeries,
   }) : logger = logger ?? LoggingService(),
@@ -65,6 +59,12 @@ class SeriesDetailsController extends GetxController {
   final RxInt selectedSeasonIndex = 0.obs;
   final RxBool isFavorite = false.obs;
 
+  final Rx<SeriesProgress?> seriesProgress = Rx<SeriesProgress?>(null);
+  final RxMap<String, double> episodeProgressMap = <String, double>{}.obs;
+  final RxSet<String> completedEpisodeIds = <String>{}.obs;
+  final RxList<MediaItem> relatedSeries = <MediaItem>[].obs;
+  final RxList<CastMember> castMembers = <CastMember>[].obs;
+
   SeasonGroup? get selectedSeason {
     final index = selectedSeasonIndex.value;
     if (seasons.isEmpty || index < 0 || index >= seasons.length) return null;
@@ -80,12 +80,38 @@ class SeriesDetailsController extends GetxController {
   void onInit() {
     super.onInit();
     final args = Get.arguments;
-    _series =
-        _initialSeries ??
-        (args is Map<String, dynamic> ? args['item'] as MediaItem? : null);
+    _series = _initialSeries ??
+        (args is MediaItem
+            ? args
+            : (args is Map<String, dynamic> ? args['item'] as MediaItem? : null));
     isFavorite.value = _series?.favorite ?? false;
+    _parseCastMembers();
     _load();
   }
+
+  void _parseCastMembers() {
+    final s = _series;
+    if (s == null) return;
+    final rawCast = s.metadata['cast'] ?? s.metadata['actors'];
+    if (rawCast is List) {
+      castMembers.assignAll(
+        rawCast.map((c) {
+          if (c is Map) {
+            return CastMember.fromMap(c);
+          }
+          return CastMember.fromString(c.toString());
+        }).where((c) => c.name.isNotEmpty),
+      );
+    } else if (rawCast is String && rawCast.trim().isNotEmpty) {
+      final names = rawCast.split(RegExp(r'[,;/]'));
+      castMembers.assignAll(
+        names
+            .map((n) => CastMember.fromString(n))
+            .where((c) => c.name.isNotEmpty),
+      );
+    }
+  }
+
 
   Future<void> _load() async {
     isLoading.value = true;
@@ -100,18 +126,17 @@ class SeriesDetailsController extends GetxController {
       final groups = await _fetchSeasonGroups(series);
       seasons.assignAll(groups);
       selectedSeasonIndex.value = 0;
+      await _loadProgress();
+      await _loadRelatedSeries();
     } on StreamSeriesInfoUnavailableException catch (e) {
       logger.warning(
-        'Provider does not expose series info for ${_series?.id} '
-        '(series info unavailable: provider may not support this endpoint '
-        'or all ID candidates were rejected)',
+        'Provider does not expose series info for ${_series?.id}',
         tag: 'SeriesDetailsController',
         error: e,
       );
       infoMessage.value =
           'Episode list unavailable from provider.\n'
-          'Your provider may not support episode discovery for this series.\n'
-          'Try adding episodes manually or enable offline mode.';
+          'Your provider may not support episode discovery for this series.';
     } catch (e) {
       logger.warning(
         'Failed to load episodes for series ${_series?.id} (error: $e)',
@@ -122,6 +147,62 @@ class SeriesDetailsController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> _loadProgress() async {
+    final s = _series;
+    if (s == null || playbackRepository == null) return;
+    try {
+      final sessions = await playbackRepository!.getAllWatchSessions();
+      final sessionsByItem = <String, PlaybackSessionModel>{
+        for (final item in sessions) item.itemId: item,
+      };
+
+      for (final season in seasons) {
+        for (final ep in season.episodes) {
+          final sess = sessionsByItem[ep.id];
+          if (sess != null) {
+            episodeProgressMap[ep.id] = sess.completionPercentage;
+            if (sess.completionPercentage >= 0.90) {
+              completedEpisodeIds.add(ep.id);
+            }
+          }
+        }
+      }
+
+      final computed = progressService.computeProgress(
+        series: s,
+        seasons: seasons,
+        watchSessions: sessionsByItem,
+      );
+      seriesProgress.value = computed;
+
+      // If there's an in-progress or next episode, auto-select its season tab
+      final targetEp = computed.nextEpisodeToWatch;
+      if (targetEp != null) {
+        final targetSeasonNum = NextEpisodeResolver.seasonNumberFor(targetEp);
+        final targetSeasonIdx = seasons.indexWhere((s) => s.number == targetSeasonNum);
+        if (targetSeasonIdx >= 0) {
+          selectedSeasonIndex.value = targetSeasonIdx;
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadRelatedSeries() async {
+    final s = _series;
+    if (s == null) return;
+    try {
+      final all = await catalogRepository.getByType(MediaType.series);
+      final related = all.where((item) {
+        if (item.id == s.id) return false;
+        if (s.genres.isNotEmpty && item.genres.isNotEmpty) {
+          return item.genres.any((g) => s.genres.contains(g));
+        }
+        return item.providerId == s.providerId;
+      }).take(10).toList();
+      relatedSeries.assignAll(related);
+    } catch (_) {}
   }
 
   void selectSeason(int index) {
@@ -162,9 +243,6 @@ class SeriesDetailsController extends GetxController {
     return _catalogSeasonGroups(series, seriesId);
   }
 
-  /// Persists freshly discovered episodes into the local catalog so the
-  /// catalog fallback (and the unified library) has them for later opens —
-  /// including offline and panels whose `get_series_info` is flaky.
   Future<void> _cacheEpisodes(List<SeasonGroup> groups) async {
     try {
       final episodes = groups.expand((group) => group.episodes).toList();
@@ -180,8 +258,6 @@ class SeriesDetailsController extends GetxController {
     }
   }
 
-  /// Fetches the live `get_series_info` structure for Xtream panels. Falls back
-  /// to the stream ID when the panel rejects the series ID with 404.
   Future<List<SeasonGroup>> _xtreamSeasonGroups(
     MediaItem series,
     String seriesId,
@@ -208,9 +284,6 @@ class SeriesDetailsController extends GetxController {
     }).toList();
   }
 
-  /// Groups episodes that were already persisted during provider sync
-  /// (e.g. Stalker portals) by season. Returns an empty list when the provider
-  /// synced no episodes for this series.
   Future<List<SeasonGroup>> _catalogSeasonGroups(
     MediaItem series,
     String seriesId,
@@ -219,7 +292,9 @@ class SeriesDetailsController extends GetxController {
     final episodes = allItems.where((item) {
       return item.mediaType == MediaType.episode &&
           item.providerId == series.providerId &&
-          item.metadata['seriesId']?.toString() == seriesId;
+          (item.metadata['seriesId']?.toString() == seriesId ||
+              item.id.startsWith('${series.id}_') ||
+              item.id.startsWith('xtream-episode-$seriesId'));
     }).toList();
 
     if (episodes.isEmpty) return const [];
@@ -281,24 +356,6 @@ class SeriesDetailsController extends GetxController {
           }
         : null;
 
-    final hasUsername = (provider?.username?.isNotEmpty ?? false);
-    final hasPassword = (provider?.password?.isNotEmpty ?? false);
-    final username = provider?.username ?? '(missing)';
-    final password = provider?.password != null ? '(present)' : '(missing)';
-
-    logger.debug(
-      'SeriesDetailsController._sessionFor: '
-      'series=${series.id}, '
-      'providerId=${series.providerId}, '
-      'providerFound=${provider != null}, '
-      'username=$username, '
-      'password=$password, '
-      'hasUsername=$hasUsername, '
-      'hasPassword=$hasPassword, '
-      'hasValidCredentials=${hasUsername && hasPassword}',
-      tag: 'SeriesDetailsController',
-    );
-
     return sessionManager.getOrCreateSession(
       mediaItemId: series.id,
       providerType: series.providerType,
@@ -349,12 +406,31 @@ class SeriesDetailsController extends GetxController {
     );
   }
 
-  /// Plays a single episode.
-  void playEpisode(MediaItem episode) {
+  /// Triggers the primary action (Play S01E01 / Resume / Play Next / Watch Again).
+  void playPrimaryAction() {
+    final prog = seriesProgress.value;
+    final allEps = seasons.expand((s) => s.episodes).toList();
+    if (allEps.isEmpty) return;
+
+    final target = prog?.nextEpisodeToWatch ?? allEps.first;
     Get.toNamed(
       AppRoutes.fullscreenPlayer,
       arguments: {
-        'items': [episode],
+        'items': allEps,
+        'currentId': target.id,
+        if (prog?.actionType == SeriesWatchActionType.resume && prog?.currentPosition != null)
+          'resumePosition': prog!.currentPosition,
+      },
+    );
+  }
+
+  /// Plays a single episode, passing all episodes in the season for next/prev playlist support.
+  void playEpisode(MediaItem episode) {
+    final allSeasonEps = selectedSeason?.episodes ?? seasons.expand((s) => s.episodes).toList();
+    Get.toNamed(
+      AppRoutes.fullscreenPlayer,
+      arguments: {
+        'items': allSeasonEps.isNotEmpty ? allSeasonEps : [episode],
         'currentId': episode.id,
       },
     );
@@ -391,6 +467,10 @@ class SeriesDetailsController extends GetxController {
         error: e,
       );
     }
+  }
+
+  void openRelatedSeries(MediaItem item) {
+    Get.toNamed(AppRoutes.seriesDetails, arguments: item, preventDuplicates: false);
   }
 
   static String? _seriesId(MediaItem series) {

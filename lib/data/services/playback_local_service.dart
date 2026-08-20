@@ -83,25 +83,50 @@ class PlayerSettingsModelAdapter extends TypeAdapter<PlayerSettingsModel> {
 
   @override
   PlayerSettingsModel read(BinaryReader reader) {
+    final id = reader.readString();
+    final defaultQuality = reader.readString();
+    final preferredAudioLanguage = reader.readString();
+    final preferredSubtitleLanguage = reader.readString();
+    final hardwareDecode = reader.readBool();
+    final bufferSizeSeconds = reader.readInt();
+    final autoResume = reader.readBool();
+    final autoFullscreen = reader.readBool();
+    final defaultSpeed = reader.readDouble();
+    final defaultAspectRatio = reader.readString();
+    final rememberPosition = reader.readBool();
+    final skipForwardSeconds = reader.readInt();
+    final skipBackwardSeconds = reader.readInt();
+    final enableSubtitlesByDefault = reader.readBool();
+    final enableGestures = reader.readBool();
+    final enableKeyboardShortcuts = reader.readBool();
+    final enableTvRemote = reader.readBool();
+    final updatedAt = DateTime.fromMillisecondsSinceEpoch(reader.readInt());
+    final preferredPlayer = reader.availableBytes > 0 ? reader.readString() : 'auto';
+    final autoplayNextEpisode = reader.availableBytes > 0 ? reader.readBool() : true;
+    final autoSkipIntro = reader.availableBytes > 0 ? reader.readBool() : false;
+
     return PlayerSettingsModel(
-      id: reader.readString(),
-      defaultQuality: reader.readString(),
-      preferredAudioLanguage: reader.readString(),
-      preferredSubtitleLanguage: reader.readString(),
-      hardwareDecode: reader.readBool(),
-      bufferSizeSeconds: reader.readInt(),
-      autoResume: reader.readBool(),
-      autoFullscreen: reader.readBool(),
-      defaultSpeed: reader.readDouble(),
-      defaultAspectRatio: reader.readString(),
-      rememberPosition: reader.readBool(),
-      skipForwardSeconds: reader.readInt(),
-      skipBackwardSeconds: reader.readInt(),
-      enableSubtitlesByDefault: reader.readBool(),
-      enableGestures: reader.readBool(),
-      enableKeyboardShortcuts: reader.readBool(),
-      enableTvRemote: reader.readBool(),
-      updatedAt: DateTime.fromMillisecondsSinceEpoch(reader.readInt()),
+      id: id,
+      defaultQuality: defaultQuality,
+      preferredAudioLanguage: preferredAudioLanguage,
+      preferredSubtitleLanguage: preferredSubtitleLanguage,
+      hardwareDecode: hardwareDecode,
+      bufferSizeSeconds: bufferSizeSeconds,
+      autoResume: autoResume,
+      autoFullscreen: autoFullscreen,
+      defaultSpeed: defaultSpeed,
+      defaultAspectRatio: defaultAspectRatio,
+      rememberPosition: rememberPosition,
+      skipForwardSeconds: skipForwardSeconds,
+      skipBackwardSeconds: skipBackwardSeconds,
+      enableSubtitlesByDefault: enableSubtitlesByDefault,
+      enableGestures: enableGestures,
+      enableKeyboardShortcuts: enableKeyboardShortcuts,
+      enableTvRemote: enableTvRemote,
+      updatedAt: updatedAt,
+      preferredPlayer: preferredPlayer,
+      autoplayNextEpisode: autoplayNextEpisode,
+      autoSkipIntro: autoSkipIntro,
     );
   }
 
@@ -125,8 +150,12 @@ class PlayerSettingsModelAdapter extends TypeAdapter<PlayerSettingsModel> {
     writer.writeBool(obj.enableKeyboardShortcuts);
     writer.writeBool(obj.enableTvRemote);
     writer.writeInt(obj.updatedAt.millisecondsSinceEpoch);
+    writer.writeString(obj.preferredPlayer);
+    writer.writeBool(obj.autoplayNextEpisode);
+    writer.writeBool(obj.autoSkipIntro);
   }
 }
+
 
 class PlaybackLocalService {
   static const String boxSessions = 'playback_sessions';

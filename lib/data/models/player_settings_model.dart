@@ -66,6 +66,12 @@ class PlayerSettingsModel extends HiveObject {
   @HiveField(18)
   String preferredPlayer;
 
+  @HiveField(19)
+  bool autoplayNextEpisode;
+
+  @HiveField(20)
+  bool autoSkipIntro;
+
   PlayerSettingsModel({
     required this.id,
     this.defaultQuality = 'auto',
@@ -85,6 +91,8 @@ class PlayerSettingsModel extends HiveObject {
     this.enableKeyboardShortcuts = true,
     this.enableTvRemote = true,
     this.preferredPlayer = 'auto',
+    this.autoplayNextEpisode = true,
+    this.autoSkipIntro = false,
     required this.updatedAt,
   });
 
@@ -110,6 +118,8 @@ class PlayerSettingsModel extends HiveObject {
       enableKeyboardShortcuts: enableKeyboardShortcuts,
       enableTvRemote: enableTvRemote,
       preferredPlayer: _parsePreferredPlayer(preferredPlayer),
+      autoplayNextEpisode: autoplayNextEpisode,
+      autoSkipIntro: autoSkipIntro,
     );
   }
 
@@ -133,9 +143,12 @@ class PlayerSettingsModel extends HiveObject {
       enableKeyboardShortcuts: settings.enableKeyboardShortcuts,
       enableTvRemote: settings.enableTvRemote,
       preferredPlayer: settings.preferredPlayer.name,
+      autoplayNextEpisode: settings.autoplayNextEpisode,
+      autoSkipIntro: settings.autoSkipIntro,
       updatedAt: DateTime.now(),
     );
   }
+
 
   PlayerQuality _parseQuality(String value) {
     try {
