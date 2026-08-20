@@ -1,4 +1,5 @@
 // modules/series/series_details_controller.dart
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
@@ -83,7 +84,7 @@ class SeriesDetailsController extends GetxController {
     _series = _initialSeries ??
         (args is MediaItem
             ? args
-            : (args is Map<String, dynamic> ? args['item'] as MediaItem? : null));
+            : (args is Map ? args['item'] as MediaItem? : null));
     isFavorite.value = _series?.favorite ?? false;
     _parseCastMembers();
     _load();
@@ -240,7 +241,78 @@ class SeriesDetailsController extends GetxController {
     }
 
     // For non-Xtream providers, always try catalog first
-    return _catalogSeasonGroups(series, seriesId);
+    final catalog = await _catalogSeasonGroups(series, seriesId);
+    if (catalog.isNotEmpty) return catalog;
+
+    final fallback = _synthesizeFallbackSeason(series, seriesId);
+    if (fallback.isNotEmpty) {
+      unawaited(_cacheEpisodes(fallback));
+      return fallback;
+    }
+
+    return const [];
+  }
+
+  List<SeasonGroup> _synthesizeFallbackSeason(MediaItem series, String seriesId) {
+    final cmd = series.metadata['cmd']?.toString();
+    final direct = series.metadata['directSource']?.toString() ??
+        series.metadata['streamUrl']?.toString();
+    if ((cmd == null || cmd.isEmpty) && (direct == null || direct.isEmpty)) {
+      return const [];
+    }
+
+    final seriesRaw = series.metadata['series'] ?? series.metadata['episodes'];
+    final epNumbers = <int>[];
+    if (seriesRaw is List) {
+      for (final el in seriesRaw) {
+        final n = int.tryParse(el.toString());
+        if (n != null) epNumbers.add(n);
+      }
+    } else if (seriesRaw is String && seriesRaw.isNotEmpty) {
+      for (final part in seriesRaw.split(RegExp(r'[,;]'))) {
+        final n = int.tryParse(part.trim());
+        if (n != null) epNumbers.add(n);
+      }
+    } else if (seriesRaw is num && seriesRaw > 0) {
+      for (var i = 1; i <= seriesRaw.toInt(); i++) {
+        epNumbers.add(i);
+      }
+    }
+
+    if (epNumbers.isEmpty) {
+      epNumbers.add(1);
+    }
+
+    final episodes = epNumbers.map((epNum) {
+      return MediaItem(
+        id: '${series.id}_ep_$epNum',
+        providerId: series.providerId,
+        providerType: series.providerType,
+        mediaType: MediaType.episode,
+        title: epNumbers.length == 1 ? series.title : 'Episode $epNum',
+        subtitle: 'Season 1',
+        poster: series.poster,
+        backdrop: series.backdrop,
+        genres: series.genres,
+        metadata: {
+          ...series.metadata,
+          'seriesId': seriesId,
+          'episodeNumber': epNum,
+          'seasonNumber': 1,
+          'seriesIndex': epNum,
+        },
+        createdAt: series.createdAt,
+        updatedAt: series.updatedAt,
+      );
+    }).toList();
+
+    return [
+      SeasonGroup(
+        number: 1,
+        name: 'Season 1',
+        episodes: episodes,
+      ),
+    ];
   }
 
   Future<void> _cacheEpisodes(List<SeasonGroup> groups) async {

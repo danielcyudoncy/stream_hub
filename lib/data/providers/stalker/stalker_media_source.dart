@@ -556,6 +556,7 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
         updatedAt: createdAt,
       ));
 
+      var addedEpisodes = 0;
       for (final season in seasonsList) {
         final seasonId = season['id']?.toString() ?? '';
         final seasonName = season['name']?.toString() ?? '';
@@ -590,6 +591,117 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
               'seriesName': name,
               'seasonId': seasonId,
               'seasonName': seasonName,
+              'portalUrl': _portalUrl,
+            },
+            createdAt: createdAt,
+            updatedAt: createdAt,
+          ));
+          addedEpisodes++;
+        }
+      }
+
+      // If no nested seasons but 'series' array or 'episodes' list exists on the series item
+      if (addedEpisodes == 0) {
+        final seriesRaw = s['series'] ?? s['episodes'];
+        final epNumbers = <int>[];
+        if (seriesRaw is List) {
+          for (final el in seriesRaw) {
+            if (el is Map) {
+              final epId = el['id']?.toString() ?? '';
+              final epName = el['name']?.toString() ?? '';
+              final epCmd = el['cmd']?.toString() ?? cmd;
+              if (epId.isNotEmpty) {
+                items.add(MediaItem(
+                  id: 'stalker-$_id-series-$streamId-ep-$epId',
+                  providerId: _id,
+                  providerType: MediaSourceType.stalker,
+                  mediaType: MediaType.episode,
+                  title: epName.isNotEmpty ? epName : '$name Episode $epId',
+                  subtitle: 'Season 1',
+                  poster: cover,
+                  genres: genreName.isNotEmpty ? [genreName] : [],
+                  metadata: {
+                    'type': 'series',
+                    'cmd': epCmd,
+                    'genreId': genreId,
+                    'genre': genreName,
+                    'streamId': epId,
+                    'seriesId': streamId,
+                    'seriesName': name,
+                    'seasonNumber': 1,
+                    'portalUrl': _portalUrl,
+                  },
+                  createdAt: createdAt,
+                  updatedAt: createdAt,
+                ));
+                addedEpisodes++;
+              }
+            } else {
+              final n = int.tryParse(el.toString());
+              if (n != null) epNumbers.add(n);
+            }
+          }
+        } else if (seriesRaw is String && seriesRaw.isNotEmpty) {
+          for (final part in seriesRaw.split(RegExp(r'[,;]'))) {
+            final n = int.tryParse(part.trim());
+            if (n != null) epNumbers.add(n);
+          }
+        } else if (seriesRaw is num && seriesRaw > 0) {
+          for (var i = 1; i <= seriesRaw.toInt(); i++) {
+            epNumbers.add(i);
+          }
+        }
+
+        for (final num in epNumbers) {
+          items.add(MediaItem(
+            id: 'stalker-$_id-series-$streamId-ep-$num',
+            providerId: _id,
+            providerType: MediaSourceType.stalker,
+            mediaType: MediaType.episode,
+            title: epNumbers.length == 1 ? name : 'Episode $num',
+            subtitle: 'Season 1',
+            poster: cover,
+            genres: genreName.isNotEmpty ? [genreName] : [],
+            metadata: {
+              'type': 'series',
+              'cmd': cmd,
+              'genreId': genreId,
+              'genre': genreName,
+              'streamId': streamId,
+              'seriesId': streamId,
+              'seriesName': name,
+              'episodeNumber': num,
+              'seasonNumber': 1,
+              'seriesIndex': num,
+              'portalUrl': _portalUrl,
+            },
+            createdAt: createdAt,
+            updatedAt: createdAt,
+          ));
+          addedEpisodes++;
+        }
+
+        // Fallback: If still 0 episodes but cmd is non-empty, create default Episode 1
+        if (addedEpisodes == 0 && cmd.isNotEmpty) {
+          items.add(MediaItem(
+            id: 'stalker-$_id-series-$streamId-ep-1',
+            providerId: _id,
+            providerType: MediaSourceType.stalker,
+            mediaType: MediaType.episode,
+            title: name,
+            subtitle: 'Season 1',
+            poster: cover,
+            genres: genreName.isNotEmpty ? [genreName] : [],
+            metadata: {
+              'type': 'series',
+              'cmd': cmd,
+              'genreId': genreId,
+              'genre': genreName,
+              'streamId': streamId,
+              'seriesId': streamId,
+              'seriesName': name,
+              'episodeNumber': 1,
+              'seasonNumber': 1,
               'portalUrl': _portalUrl,
             },
             createdAt: createdAt,
