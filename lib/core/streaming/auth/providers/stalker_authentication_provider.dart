@@ -68,12 +68,24 @@ class StalkerAuthenticationProvider implements AuthenticationProvider {
         'Stalker portal token refreshed for ${session.providerId}',
         tag: 'StalkerAuthenticationProvider',
       );
+      final updatedCookies = <String, String>{
+        ...session.cookies,
+        if (session.macAddress != null && session.macAddress!.isNotEmpty)
+          'mac': session.macAddress!,
+        if ((handshake.serial ?? session.deviceId) != null)
+          'sn': handshake.serial ?? session.deviceId!,
+        'stb_lang': 'en',
+        'timezone': 'UTC',
+        'token': handshake.token,
+      };
+
       return session.copyWith(
         portalToken: handshake.token,
         deviceId: handshake.serial ?? session.deviceId,
         sessionId:
             'stalker_${session.providerId}_${DateTime.now().millisecondsSinceEpoch}',
         expiresAt: DateTime.now().add(_kTokenLifetime),
+        cookies: updatedCookies,
       );
     } on StreamAuthException {
       rethrow;

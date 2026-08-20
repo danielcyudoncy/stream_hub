@@ -362,9 +362,17 @@ class StreamEngine {
       }
     }
 
+    // Check Stalker cmd first so Stalker streams resolve via StalkerStreamResolver
+    final cmd = itemMetadata['cmd']?.toString();
+    if (cmd != null && cmd.isNotEmpty) {
+      return 'stalker://$cmd';
+    }
+
     final seriesId = itemMetadata['seriesId']?.toString() ??
         itemMetadata['series_id']?.toString();
-    if (seriesId != null && seriesId.isNotEmpty) {
+    if (seriesId != null &&
+        seriesId.isNotEmpty &&
+        providerSession?.providerType != MediaSourceType.stalker) {
       return 'series://$seriesId';
     }
 
@@ -374,7 +382,8 @@ class StreamEngine {
         streamId.isNotEmpty &&
         providerSession != null &&
         providerSession.baseUrl != null &&
-        providerSession.baseUrl!.isNotEmpty) {
+        providerSession.baseUrl!.isNotEmpty &&
+        providerSession.providerType != MediaSourceType.stalker) {
       final isVod = itemMetadata['isVod'] == true ||
           itemMetadata['containerExtension'] != null ||
           itemMetadata['container_extension'] != null;
@@ -385,11 +394,6 @@ class StreamEngine {
       final u = providerSession.username ?? '';
       final p = providerSession.password ?? '';
       return '${providerSession.baseUrl}/$typeSegment/$u/$p/$streamId.$ext';
-    }
-
-    final cmd = itemMetadata['cmd']?.toString();
-    if (cmd != null && cmd.isNotEmpty) {
-      return 'stalker://$cmd';
     }
 
     return null;
@@ -405,6 +409,9 @@ class StreamEngine {
   /// player surfaces any real failure during playback. Finite content (HLS,
   /// DASH, MP4, MKV) is still probed so 404/401 issues are caught early.
   bool _shouldProbeNetwork(PlayableSession playable) {
+    if (playable.providerType == MediaSourceType.stalker) {
+      return false;
+    }
     return playable.streamType != StreamType.mpegTs;
   }
 

@@ -23,12 +23,15 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     return AppBar(
       titleSpacing: leading != null ? 0.0 : AppSpacing.sm,
-      title: Text(
-        title,
-        maxLines: 1,
-        softWrap: false,
-        style: AppTypography.getTitle(color: colorScheme.onSurface).copyWith(
-          fontWeight: FontWeight.bold,
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: centerTitle ? Alignment.center : Alignment.centerLeft,
+        child: Text(
+          title,
+          maxLines: 1,
+          style: AppTypography.getTitle(color: colorScheme.onSurface).copyWith(
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       leading: leading,

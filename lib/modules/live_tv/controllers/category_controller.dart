@@ -59,25 +59,74 @@ class CategoryController extends GetxController {
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
 
-      final groupByCategory = <String, List<MediaItem>>{};
+      final categoryItems = allItems
+          .where((item) =>
+              item.mediaType == MediaType.collection &&
+              (item.metadata['type'] == 'live' || item.metadata['type'] == null))
+          .toList();
+
+      // Index channels by genre name, genreId, and category title
+      final channelsByGenreName = <String, List<MediaItem>>{};
+      final channelsByGenreId = <String, List<MediaItem>>{};
+
       for (final item in channelItems) {
+        final genreId = item.metadata['genreId']?.toString() ?? '';
+        if (genreId.isNotEmpty) {
+          channelsByGenreId.putIfAbsent(genreId, () => []).add(item);
+        }
         for (final genre in item.genres) {
-          groupByCategory.putIfAbsent(genre, () => []).add(item);
+          if (genre.isNotEmpty) {
+            channelsByGenreName.putIfAbsent(genre, () => []).add(item);
+          }
         }
       }
 
-      categories.assignAll(
-        groupByCategory.entries.map((entry) {
-          return Category(
+      final categoryMap = <String, Category>{};
+
+      // 1. Add all collection items from catalog (e.g. all 114 categories)
+      for (final catItem in categoryItems) {
+        final genreId = catItem.metadata['genreId']?.toString() ?? catItem.id;
+        final name = catItem.title;
+        if (name.isEmpty) continue;
+
+        final matching = <String>{};
+        if (channelsByGenreName.containsKey(name)) {
+          matching.addAll(channelsByGenreName[name]!.map((e) => e.id));
+        }
+        if (genreId.isNotEmpty && channelsByGenreId.containsKey(genreId)) {
+          matching.addAll(channelsByGenreId[genreId]!.map((e) => e.id));
+        }
+
+        final id = catItem.id.isNotEmpty
+            ? catItem.id
+            : name.toLowerCase().replaceAll(' ', '_');
+
+        categoryMap[name] = Category(
+          id: id,
+          name: name,
+          channelIds: matching.toList(),
+          updatedAt: catItem.updatedAt,
+          createdAt: catItem.createdAt,
+        );
+      }
+
+      // 2. Add any additional genres found on channels
+      for (final entry in channelsByGenreName.entries) {
+        if (!categoryMap.containsKey(entry.key)) {
+          categoryMap[entry.key] = Category(
             id: entry.key.toLowerCase().replaceAll(' ', '_'),
             name: entry.key,
             channelIds: entry.value.map((item) => item.id).toList(),
             updatedAt: DateTime.now(),
             createdAt: DateTime.now(),
           );
-        }).toList()
-          ..sort((a, b) => a.name.compareTo(b.name)),
-      );
+        }
+      }
+
+      final sortedCategories = categoryMap.values.toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+
+      categories.assignAll(sortedCategories);
 
       if (categories.isNotEmpty) {
         if (selectedCategoryId.value.isEmpty ||
@@ -113,7 +162,12 @@ class CategoryController extends GetxController {
       final allItems = await catalogRepository.getAllItems();
       selectedCategoryChannels.assignAll(
         allItems
-            .where((item) => item.genres.contains(category.name))
+            .where((item) =>
+                item.mediaType == MediaType.channel &&
+                (item.genres.contains(category.name) ||
+                    item.metadata['genreId']?.toString() == category.id ||
+                    item.metadata['genre']?.toString() == category.name ||
+                    category.channelIds.contains(item.id)))
             .map((item) => item.copyWith(favorite: favIds.contains(item.id)))
             .toList(),
       );

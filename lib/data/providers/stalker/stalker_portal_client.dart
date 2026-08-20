@@ -198,35 +198,114 @@ class StalkerPortalClient {
 
   /// Live TV / VOD / Series categories.
   ///
-  /// Not every portal implements `get_categories`; some answer with an empty
-  /// body. Such portals simply yield no categories, so empty responses are
-  /// tolerated immediately rather than retried.
+  /// For live TV (itv), Stalker/Ministra portals expose genres via `get_genres`.
+  /// For VOD and Series, portals support `get_categories`, `get_vod_categories`,
+  /// `get_series_categories`, or `get_genres`.
   Future<List<Map<String, dynamic>>> getCategories(
     StalkerContentType type,
   ) async {
     try {
+      if (type == StalkerContentType.live) {
+        final genres = await _tryGetCategoriesAction('get_genres', extra: {'type': 'itv'});
+        if (genres.isNotEmpty) return genres;
+
+        final genresStb = await _tryGetCategoriesAction('get_genres', extra: {'type': 'stb'});
+        if (genresStb.isNotEmpty) return genresStb;
+
+        final catItv = await _tryGetCategoriesAction('get_categories', extra: {'type': 'itv'});
+        if (catItv.isNotEmpty) return catItv;
+
+        final catStb = await _tryGetCategoriesAction('get_categories', extra: {'type': 'stb'});
+        if (catStb.isNotEmpty) return catStb;
+
+        return const [];
+      }
+
+      if (type == StalkerContentType.vod) {
+        final catVod = await _tryGetCategoriesAction('get_categories', extra: {'type': 'vod'});
+        if (catVod.isNotEmpty) return catVod;
+
+        final vodCat = await _tryGetCategoriesAction('get_vod_categories', extra: {'type': 'vod'});
+        if (vodCat.isNotEmpty) return vodCat;
+
+        final genresVod = await _tryGetCategoriesAction('get_genres', extra: {'type': 'vod'});
+        if (genresVod.isNotEmpty) return genresVod;
+
+        return const [];
+      }
+
+      if (type == StalkerContentType.series) {
+        final catSeries = await _tryGetCategoriesAction('get_categories', extra: {'type': 'series'});
+        if (catSeries.isNotEmpty) return catSeries;
+
+        final seriesCat = await _tryGetCategoriesAction('get_series_categories', extra: {'type': 'series'});
+        if (seriesCat.isNotEmpty) return seriesCat;
+
+        final genresSeries = await _tryGetCategoriesAction('get_genres', extra: {'type': 'series'});
+        if (genresSeries.isNotEmpty) return genresSeries;
+
+        return const [];
+      }
+
       final data = await _request(
         'get_categories',
         extra: {'type': type.apiType},
         allowEmpty: true,
       );
       return _extractList(data);
-    } on StalkerPortalException catch (e) {
-      if (e.statusCode == 429 || e.isEmptyResponse) {
-        _logger.warning(
-          'Stalker get_categories (${type.name}) throttled or unsupported: ${e.message}',
-          tag: 'StalkerPortalClient',
-        );
-        return const [];
-      }
-      rethrow;
+    } catch (e) {
+      _logger.warning(
+        'Stalker getCategories (${type.name}) error: $e',
+        tag: 'StalkerPortalClient',
+      );
+      return const [];
     }
   }
 
-  /// Live TV channel list (`get_ordered_list?type=itv`), fetching all pages.
+  Future<List<Map<String, dynamic>>> _tryGetCategoriesAction(
+    String action, {
+    Map<String, dynamic>? extra,
+  }) async {
+    try {
+      final data = await _request(action, extra: extra, allowEmpty: true);
+      return _extractList(data);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  /// Live TV channel list (`get_all_channels` / `get_ordered_list?type=itv`), fetching all pages.
   Future<List<Map<String, dynamic>>> getOrderedList(
     StalkerContentType type,
   ) async {
+    if (type == StalkerContentType.live) {
+      try {
+        final allChannelsItv = await _request('get_all_channels', extra: {'type': 'itv'}, allowEmpty: true);
+        final list = _extractList(allChannelsItv);
+        if (list.isNotEmpty) return list;
+      } catch (_) {}
+
+      try {
+        final allChannelsStb = await _request('get_all_channels', extra: {'type': 'stb'}, allowEmpty: true);
+        final list = _extractList(allChannelsStb);
+        if (list.isNotEmpty) return list;
+      } catch (_) {}
+
+      final withStar = await _fetchPaginatedList(
+        'get_ordered_list',
+        extra: {'type': type.apiType, 'genre': '*'},
+        retryEmpty: false,
+      );
+      if (withStar.isNotEmpty) return withStar;
+
+      final withAll = await _fetchPaginatedList(
+        'get_ordered_list',
+        extra: {'type': type.apiType, 'genre': 'all'},
+        retryEmpty: false,
+      );
+      if (withAll.isNotEmpty) return withAll;
+    }
+
     return _fetchPaginatedList(
       'get_ordered_list',
       extra: {'type': type.apiType},
@@ -345,35 +424,122 @@ class StalkerPortalClient {
     return allItems;
   }
 
+  /// Fetches the seasons and episodes list for a TV series container.
+  ///
+  /// Ministra / Stalker middleware queries `type=series&action=get_ordered_list&movie_id=$seriesId`.
+  Future<List<Map<String, dynamic>>> getSeriesSeasons(String seriesId) async {
+    final cleanId = seriesId.contains(':') ? seriesId.split(':').first : seriesId;
+    try {
+      final seasons = await _fetchPaginatedList(
+        'get_ordered_list',
+        extra: {'type': 'series', 'movie_id': cleanId},
+        maxItems: 500,
+      );
+      if (seasons.isNotEmpty) return seasons;
+    } catch (e) {
+      _logger.debug(
+        'getSeriesSeasons failed for $seriesId: $e',
+        tag: 'StalkerPortalClient',
+      );
+    }
+    return const [];
+  }
+
   /// Converts a stored `cmd` into a playable stream URL.
   ///
-  /// Some portals answer with a direct `url`, others embed the stream inside an
-  /// `ffmpeg -i 'URL' ...` command. When the portal returns neither, the input
-  /// `cmd` is used as a fallback (many portals ship it as a direct URL).
+  /// Tries standard `type=stb` router action and fallback `type=apiType`.
+  /// Handles nested JSON wrappers, string responses, lists, command wrappers
+  /// (ffmpeg, auto, ffrt), and relative URLs.
   Future<String> createLink({
     required StalkerContentType type,
     required String cmd,
     String? genre,
+    String? seriesIndex,
   }) async {
-    final data = await _request(
-      'create_link',
-      extra: {
-        'type': type.apiType,
-        'cmd': cmd,
-        if (genre != null && genre.isNotEmpty) 'genre': genre,
-      },
-    );
-    final js = _envelope(data);
-
-    final url = _stringAt(js, ['url', 'data.url', 'cmd', 'data.cmd']) ??
-        _stringAt(data, ['url', 'data.url', 'cmd', 'data.cmd']);
-    if (url != null && url.isNotEmpty) {
-      final extracted = _extractStreamUrl(url);
-      if (extracted != null) return extracted;
+    if (_token == null || _token!.isEmpty) {
+      try {
+        final handshakeResult = await handshake();
+        _token = handshakeResult.token;
+      } catch (e) {
+        _logger.debug(
+          'Handshake before createLink failed: $e',
+          tag: 'StalkerPortalClient',
+        );
+      }
     }
 
-    final direct = _extractStreamUrl(cmd);
-    if (direct != null) return direct;
+    final isVodOrSeries =
+        type == StalkerContentType.series || type == StalkerContentType.vod;
+    final primaryType = isVodOrSeries
+        ? 'vod'
+        : (type == StalkerContentType.live ? 'itv' : type.apiType);
+
+    final candidates = <Map<String, dynamic>>[
+      {
+        'type': primaryType,
+        'cmd': cmd,
+        if (genre != null && genre.isNotEmpty) 'genre': genre,
+        if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+        'forced_storage': '0',
+        'disable_ad': '0',
+      },
+      if (isVodOrSeries) ...[
+        {
+          'type': 'vod',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+          if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+        },
+        {
+          'type': 'stb',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+          if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+        },
+        {
+          'type': 'series',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+          if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+        },
+      ] else ...[
+        {
+          'type': 'stb',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+        },
+        {
+          'type': 'itv',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+        },
+      ],
+    ];
+
+    for (final extraParams in candidates) {
+      try {
+        final data = await _request(
+          'create_link',
+          extra: extraParams,
+          allowEmpty: true,
+        );
+
+        final resolved = _extractStreamUrlFromResponse(data, _baseUrl);
+        if (resolved != null && resolved.isNotEmpty) {
+          return resolved;
+        }
+      } catch (e) {
+        _logger.debug(
+          'Stalker create_link attempt with type=${extraParams['type']} failed: $e',
+          tag: 'StalkerPortalClient',
+        );
+      }
+    }
+
+    final direct = _extractStreamUrl(cmd, _baseUrl);
+    if (direct != null && direct.isNotEmpty) {
+      return direct;
+    }
 
     throw const StalkerPortalException(
       'Portal did not return a playable stream URL.',
@@ -747,16 +913,114 @@ class StalkerPortalClient {
     return null;
   }
 
-  /// Extracts the stream URL from a `cmd` value which is usually an
-  /// `ffmpeg -i 'URL' ...` command. Falls back to the raw value when it is
-  /// already a plain http(s) URL.
-  static String? _extractStreamUrl(String input) {
-    final trimmed = input.trim();
+  static String? _extractStreamUrlFromResponse(
+    Map<String, dynamic> data, [
+    String? baseUrl,
+  ]) {
+    // 1. Check data['js'] as String
+    final js = data['js'];
+    if (js is String && js.trim().isNotEmpty) {
+      final url = _extractStreamUrl(js, baseUrl);
+      if (url != null) return url;
+    }
+    // 2. Check data['js'] as Map
+    if (js is Map) {
+      final url = _stringAt(Map<String, dynamic>.from(js), [
+        'url',
+        'data.url',
+        'cmd',
+        'data.cmd',
+        'stream_url',
+        'data.stream_url',
+      ]);
+      if (url != null && url.isNotEmpty) {
+        final extracted = _extractStreamUrl(url, baseUrl);
+        if (extracted != null) return extracted;
+      }
+    }
+    // 3. Check data['js'] as List
+    if (js is List && js.isNotEmpty) {
+      for (final item in js) {
+        if (item is Map) {
+          final url = _stringAt(Map<String, dynamic>.from(item), [
+            'url',
+            'data.url',
+            'cmd',
+            'data.cmd',
+            'stream_url',
+          ]);
+          if (url != null && url.isNotEmpty) {
+            final extracted = _extractStreamUrl(url, baseUrl);
+            if (extracted != null) return extracted;
+          }
+        } else if (item is String) {
+          final extracted = _extractStreamUrl(item, baseUrl);
+          if (extracted != null) return extracted;
+        }
+      }
+    }
+    // 4. Check data direct fields
+    final direct = _stringAt(data, [
+      'url',
+      'data.url',
+      'cmd',
+      'data.cmd',
+      'stream_url',
+      'data.stream_url',
+    ]);
+    if (direct != null && direct.isNotEmpty) {
+      final extracted = _extractStreamUrl(direct, baseUrl);
+      if (extracted != null) return extracted;
+    }
+
+    return null;
+  }
+
+  /// Extracts the stream URL from a `cmd` or response value which may be an
+  /// `ffmpeg -i 'URL' ...`, `ffrt URL`, `auto /media/...` command or raw URL.
+  static String? _extractStreamUrl(String input, [String? baseUrl]) {
+    var trimmed = input.trim();
     if (trimmed.isEmpty) return null;
 
-    final match = RegExp(r'''https?://[^\s"'<>]+''').firstMatch(trimmed);
-    if (match != null) {
-      return _sanitizeUrl(match.group(0)!);
+    // Clean common command / proxy wrappers
+    const prefixes = [
+      'ffmpeg -re -i ',
+      'ffmpeg -i ',
+      'ffmpeg ',
+      'ffrt4 ',
+      'ffrt3 ',
+      'ffrt2 ',
+      'ffrt ',
+      'auto ',
+    ];
+    for (final p in prefixes) {
+      if (trimmed.toLowerCase().startsWith(p)) {
+        trimmed = trimmed.substring(p.length).trim();
+      }
+    }
+
+    // Unquote if wrapped in quotes
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      trimmed = trimmed.substring(1, trimmed.length - 1).trim();
+    }
+
+    // Match HTTP/HTTPS full URL
+    final httpMatch = RegExp(r'''https?://[^\s"'<>]+''', caseSensitive: false).firstMatch(trimmed);
+    if (httpMatch != null) {
+      final sanitized = _sanitizeUrl(httpMatch.group(0)!);
+      if (!_isCorruptedStreamUrl(sanitized)) {
+        return sanitized;
+      }
+    }
+
+    // Match stream protocols
+    final protoMatch = RegExp(r'''(rtmp|rtmps|rtsp|mms|udp)://[^\s"'<>]+''', caseSensitive: false).firstMatch(trimmed);
+    if (protoMatch != null) {
+      final sanitized = _sanitizeUrl(protoMatch.group(0)!);
+      if (!_isCorruptedStreamUrl(sanitized)) {
+        return sanitized;
+      }
     }
 
     final uri = Uri.tryParse(trimmed);
@@ -764,9 +1028,24 @@ class StalkerPortalClient {
         (uri.scheme == 'http' ||
             uri.scheme == 'https' ||
             uri.scheme == 'rtmp' ||
-            uri.scheme == 'rtsp')) {
-      return trimmed;
+            uri.scheme == 'rtsp' ||
+            uri.scheme == 'rtmps' ||
+            uri.scheme == 'mms' ||
+            uri.scheme == 'udp')) {
+      if (!_isCorruptedStreamUrl(trimmed)) {
+        return trimmed;
+      }
     }
+
+    if (baseUrl != null && baseUrl.isNotEmpty) {
+      if (trimmed.startsWith('/') || (trimmed.contains('.') && !trimmed.contains(' '))) {
+        final base = Uri.tryParse(baseUrl);
+        if (base != null && base.hasScheme && base.host.isNotEmpty) {
+          return base.resolve(trimmed).toString();
+        }
+      }
+    }
+
     return null;
   }
 
@@ -796,6 +1075,21 @@ class StalkerPortalClient {
       return 'http://$trimmed';
     }
     return trimmed;
+  }
+
+  static bool _isCorruptedStreamUrl(String url) {
+    if (url.contains('stream=&') ||
+        url.contains('stream=%26') ||
+        url.endsWith('stream=')) {
+      return true;
+    }
+    final lower = url.toLowerCase();
+    if (lower.contains('/play/live.php') || lower.contains('/play/movie.php')) {
+      if (!lower.contains('stream=')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static String _normalizeMac(String mac) {
