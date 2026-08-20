@@ -662,6 +662,7 @@ class PlaybackEngine {
   /// through candidates until all supported options have been exhausted.
   Future<bool> _tryEngineFallback() async {
     if (!allowEngineFallback) return false;
+    if (_engineKind == PlaybackEngineKind.nativeActivity) return false;
     if (settings.preferredPlayer != PlaybackEnginePreference.auto) return false;
 
     _attemptedEngines.add(_engineKind);

@@ -306,6 +306,7 @@ class NativePlayerActivity : Activity() {
                     "Stream format or codec unsupported."
                 else -> "${error.errorCodeName}: ${error.message}"
             }
+            android.util.Log.e("NativePlayerActivity", "ExoPlayer playback error on $streamUrl (code=${error.errorCode}, httpCode=$httpCode): $friendlyMsg", error)
             showError(friendlyMsg)
             emit("onError", mapOf("message" to friendlyMsg))
         }
@@ -1951,12 +1952,36 @@ class NativePlayerActivity : Activity() {
                 requestProperties[key] = value
             }
         }
+
+        try {
+            val cookieManager = (java.net.CookieHandler.getDefault() as? java.net.CookieManager)
+                ?: java.net.CookieManager(null, java.net.CookiePolicy.ACCEPT_ALL).also {
+                    java.net.CookieHandler.setDefault(it)
+                }
+            val cookieVal = headers["Cookie"] ?: headers["cookie"]
+            if (!cookieVal.isNullOrBlank() && streamUrl.isNotBlank()) {
+                val uriObj = java.net.URI.create(streamUrl)
+                for (part in cookieVal.split(";")) {
+                    val trimmed = part.trim()
+                    if (trimmed.isNotBlank()) {
+                        try {
+                            val parsedCookies = java.net.HttpCookie.parse(trimmed)
+                            for (c in parsedCookies) {
+                                cookieManager.cookieStore.add(uriObj, c)
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
         return DefaultHttpDataSource.Factory()
             .setUserAgent(userAgent)
             .setDefaultRequestProperties(requestProperties)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(CONNECT_TIMEOUT_MS)
             .setReadTimeoutMs(READ_TIMEOUT_MS)
+            .setKeepPostFor302Redirects(true)
     }
 
     // ---- Controls Toggle & Transport ----------------------------------------
