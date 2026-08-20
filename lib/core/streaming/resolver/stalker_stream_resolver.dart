@@ -39,7 +39,10 @@ class StalkerStreamResolver implements StreamResolver {
       return _resolution(request, directUrl, metadata);
     }
 
-    final cmd = metadata['cmd']?.toString();
+    final cmd = metadata['cmd']?.toString() ??
+        (request.sourceUrl.startsWith('stalker://')
+            ? request.sourceUrl.substring('stalker://'.length)
+            : null);
     if (cmd == null || cmd.isEmpty) {
       throw const StreamResolutionException(
         message: 'Stalker media item has no playable command.',
@@ -69,10 +72,13 @@ class StalkerStreamResolver implements StreamResolver {
     );
 
     try {
+      final seriesIdx = metadata['seriesIndex']?.toString() ??
+          metadata['episodeNumber']?.toString();
       final url = await client.createLink(
         type: _contentType(metadata),
         cmd: cmd,
         genre: metadata['genreId']?.toString(),
+        seriesIndex: seriesIdx,
       );
       return _resolution(request, url, metadata);
     } on StalkerPortalException catch (e) {

@@ -1915,10 +1915,19 @@ class NativePlayerActivity : Activity() {
                 setConstantBitrateSeekingEnabled(true)
             }
 
-            val mediaSource: MediaSource = when (Util.inferContentType(uri, "")) {
-                C.CONTENT_TYPE_HLS -> HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
-                C.CONTENT_TYPE_DASH -> DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
-                C.CONTENT_TYPE_RTSP -> RtspMediaSource.Factory().createMediaSource(mediaItem)
+            val urlString = uri.toString().lowercase()
+            val isHls = urlString.contains(".m3u8") ||
+                urlString.contains("extension=m3u8") ||
+                urlString.contains("format=m3u8") ||
+                urlString.contains("output=m3u8") ||
+                urlString.contains("type=m3u8") ||
+                urlString.contains("/hls/") ||
+                Util.inferContentType(uri, "") == C.CONTENT_TYPE_HLS
+
+            val mediaSource: MediaSource = when {
+                isHls -> HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
+                Util.inferContentType(uri, "") == C.CONTENT_TYPE_DASH -> DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
+                Util.inferContentType(uri, "") == C.CONTENT_TYPE_RTSP -> RtspMediaSource.Factory().createMediaSource(mediaItem)
                 else -> ProgressiveMediaSource.Factory(httpDataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
             }
             loadingSpinner?.visibility = View.VISIBLE

@@ -433,17 +433,45 @@ class StalkerPortalClient {
     required StalkerContentType type,
     required String cmd,
     String? genre,
+    String? seriesIndex,
   }) async {
+    if (_token == null || _token!.isEmpty) {
+      try {
+        final handshakeResult = await handshake();
+        _token = handshakeResult.token;
+      } catch (e) {
+        _logger.debug(
+          'Handshake before createLink failed: $e',
+          tag: 'StalkerPortalClient',
+        );
+      }
+    }
+
     final candidates = <Map<String, dynamic>>[
-      {
-        'type': 'stb',
-        'cmd': cmd,
-        if (genre != null && genre.isNotEmpty) 'genre': genre,
-      },
       {
         'type': type.apiType,
         'cmd': cmd,
         if (genre != null && genre.isNotEmpty) 'genre': genre,
+        if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+        'forced_storage': '0',
+        'disable_ad': '0',
+      },
+      {
+        'type': 'stb',
+        'cmd': cmd,
+        if (genre != null && genre.isNotEmpty) 'genre': genre,
+        if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+      },
+      {
+        'type': 'itv',
+        'cmd': cmd,
+        if (genre != null && genre.isNotEmpty) 'genre': genre,
+      },
+      {
+        'type': 'vod',
+        'cmd': cmd,
+        if (genre != null && genre.isNotEmpty) 'genre': genre,
+        if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
       },
     ];
 
