@@ -159,13 +159,19 @@ class StalkerStreamResolver implements StreamResolver {
   }
 
   static StalkerContentType _contentType(Map<String, dynamic> metadata) {
-    switch (metadata['type']?.toString()) {
-      case 'vod':
-        return StalkerContentType.vod;
-      case 'series':
-        return StalkerContentType.series;
-      default:
-        return StalkerContentType.live;
+    final type = metadata['type']?.toString().toLowerCase();
+    final mediaType = metadata['mediaType']?.toString().toLowerCase();
+    if (type == 'series' ||
+        type == 'episode' ||
+        mediaType == 'series' ||
+        mediaType == 'episode' ||
+        metadata.containsKey('seriesIndex') ||
+        metadata.containsKey('seasonNumber')) {
+      return StalkerContentType.series;
     }
+    if (type == 'vod' || mediaType == 'movie') {
+      return StalkerContentType.vod;
+    }
+    return StalkerContentType.live;
   }
 }

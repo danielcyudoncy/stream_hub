@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/responsive_helper.dart';
 import '../../data/repositories/provider_repository.dart';
 import '../../modules/provider_manager/models/provider_model.dart';
 import 'provider_filter_sheet.dart';
@@ -77,7 +78,9 @@ class ProviderSelectorButton extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 105),
+                    constraints: BoxConstraints(
+                      maxWidth: ResponsiveHelper.isPhone(context) ? 80 : 110,
+                    ),
                     child: Text(
                       label,
                       style: AppTypography.getCaption(
