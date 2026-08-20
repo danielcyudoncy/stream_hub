@@ -424,6 +424,27 @@ class StalkerPortalClient {
     return allItems;
   }
 
+  /// Fetches the seasons and episodes list for a TV series container.
+  ///
+  /// Ministra / Stalker middleware queries `type=series&action=get_ordered_list&movie_id=$seriesId`.
+  Future<List<Map<String, dynamic>>> getSeriesSeasons(String seriesId) async {
+    final cleanId = seriesId.contains(':') ? seriesId.split(':').first : seriesId;
+    try {
+      final seasons = await _fetchPaginatedList(
+        'get_ordered_list',
+        extra: {'type': 'series', 'movie_id': cleanId},
+        maxItems: 500,
+      );
+      if (seasons.isNotEmpty) return seasons;
+    } catch (e) {
+      _logger.debug(
+        'getSeriesSeasons failed for $seriesId: $e',
+        tag: 'StalkerPortalClient',
+      );
+    }
+    return const [];
+  }
+
   /// Converts a stored `cmd` into a playable stream URL.
   ///
   /// Tries standard `type=stb` router action and fallback `type=apiType`.
@@ -447,32 +468,52 @@ class StalkerPortalClient {
       }
     }
 
+    final isVodOrSeries =
+        type == StalkerContentType.series || type == StalkerContentType.vod;
+    final primaryType = isVodOrSeries
+        ? 'vod'
+        : (type == StalkerContentType.live ? 'itv' : type.apiType);
+
     final candidates = <Map<String, dynamic>>[
       {
-        'type': type.apiType,
+        'type': primaryType,
         'cmd': cmd,
         if (genre != null && genre.isNotEmpty) 'genre': genre,
         if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
         'forced_storage': '0',
         'disable_ad': '0',
       },
-      {
-        'type': 'stb',
-        'cmd': cmd,
-        if (genre != null && genre.isNotEmpty) 'genre': genre,
-        if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
-      },
-      {
-        'type': 'itv',
-        'cmd': cmd,
-        if (genre != null && genre.isNotEmpty) 'genre': genre,
-      },
-      {
-        'type': 'vod',
-        'cmd': cmd,
-        if (genre != null && genre.isNotEmpty) 'genre': genre,
-        if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
-      },
+      if (isVodOrSeries) ...[
+        {
+          'type': 'vod',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+          if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+        },
+        {
+          'type': 'stb',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+          if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+        },
+        {
+          'type': 'series',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+          if (seriesIndex != null && seriesIndex.isNotEmpty) 'series': seriesIndex,
+        },
+      ] else ...[
+        {
+          'type': 'stb',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+        },
+        {
+          'type': 'itv',
+          'cmd': cmd,
+          if (genre != null && genre.isNotEmpty) 'genre': genre,
+        },
+      ],
     ];
 
     for (final extraParams in candidates) {
@@ -1037,9 +1078,18 @@ class StalkerPortalClient {
   }
 
   static bool _isCorruptedStreamUrl(String url) {
-    return url.contains('stream=&') ||
+    if (url.contains('stream=&') ||
         url.contains('stream=%26') ||
-        url.endsWith('stream=');
+        url.endsWith('stream=')) {
+      return true;
+    }
+    final lower = url.toLowerCase();
+    if (lower.contains('/play/live.php') || lower.contains('/play/movie.php')) {
+      if (!lower.contains('stream=')) {
+        return true;
+      }
+    }
+    return false;
   }
 
   static String _normalizeMac(String mac) {

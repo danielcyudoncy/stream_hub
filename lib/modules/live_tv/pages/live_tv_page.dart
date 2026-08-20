@@ -45,6 +45,7 @@ class LiveTVPage extends GetView<LiveTVController> {
           () => PopupMenuButton<String>(
             icon: const Icon(Icons.sort_rounded),
             tooltip: 'Sort Channels',
+            padding: EdgeInsets.zero,
             initialValue: controller.selectedSort.value,
             onSelected: (value) => controller.setSort(value),
             itemBuilder: (context) => [
@@ -100,6 +101,8 @@ class LiveTVPage extends GetView<LiveTVController> {
                   ? Icons.view_list_rounded
                   : Icons.grid_view_rounded,
             ),
+            padding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
             tooltip: controller.selectedView.value == 'grid'
                 ? 'Switch to List View'
                 : 'Switch to Grid View',
@@ -114,6 +117,8 @@ class LiveTVPage extends GetView<LiveTVController> {
         // Refresh action
         IconButton(
           icon: const Icon(Icons.refresh_rounded),
+          padding: EdgeInsets.zero,
+          visualDensity: VisualDensity.compact,
           tooltip: 'Refresh Channels',
           onPressed: controller.refresh,
         ),

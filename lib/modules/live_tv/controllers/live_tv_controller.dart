@@ -28,6 +28,9 @@ class LiveTVController extends GetxController {
     StreamResolver? streamResolver,
   }) : streamResolver = streamResolver ?? M3UStreamResolver();
 
+  final List<MediaItem> _allChannels = <MediaItem>[];
+  final List<MediaItem> _allCategories = <MediaItem>[];
+
   final RxList<MediaItem> channels = <MediaItem>[].obs;
   final RxList<MediaItem> filteredChannels = <MediaItem>[].obs;
   final RxList<MediaItem> favorites = <MediaItem>[].obs;
@@ -66,17 +69,15 @@ class LiveTVController extends GetxController {
     final favList = await favoriteRepository?.getAll() ?? [];
     final favIds = favList.map((f) => f.id).toSet();
 
-    final mappedChannels = channels.map((item) {
+    for (var i = 0; i < _allChannels.length; i++) {
+      final item = _allChannels[i];
       final isFav = favIds.contains(item.id);
       if (item.favorite != isFav) {
-        return item.copyWith(favorite: isFav);
+        _allChannels[i] = item.copyWith(favorite: isFav);
       }
-      return item;
-    }).toList();
+    }
 
-    channels.assignAll(mappedChannels);
-    favorites.assignAll(mappedChannels.where((item) => favIds.contains(item.id)).toList());
-    _applyFilters();
+    _updateCategoriesAndFilters(favIds);
   }
 
   @override
@@ -94,16 +95,6 @@ class LiveTVController extends GetxController {
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
 
-      if (liveChannels.isNotEmpty) {
-        final currentFeatured = featuredChannel.value;
-        if (currentFeatured == null || !liveChannels.any((c) => c.id == currentFeatured.id)) {
-          final liveCandidate = liveChannels.firstWhereOrNull((c) => c is Channel && c.isLive);
-          featuredChannel.value = liveCandidate ?? liveChannels.first;
-        }
-      } else {
-        featuredChannel.value = null;
-      }
-
       final favList = await favoriteRepository?.getAll() ?? [];
       final favIds = favList.map((f) => f.id).toSet();
 
@@ -114,53 +105,122 @@ class LiveTVController extends GetxController {
         return item;
       }).toList();
 
-      channels.assignAll(mappedChannels);
-      filteredChannels.assignAll(mappedChannels);
-      favorites.assignAll(
-        mappedChannels.where((item) => favIds.contains(item.id) || item.favorite).toList(),
-      );
-
-      final providerSet = <String>{};
-      final languageSet = <String>{};
-      final countrySet = <String>{};
-      final resolutionSet = <String>{};
-      final categorySet = <String>{};
-
-      for (final item in liveChannels) {
-        providerSet.add(item.providerType.displayName);
-        if (item.language != null && item.language!.isNotEmpty) {
-          languageSet.add(item.language!);
-        }
-        if (item.country != null && item.country!.isNotEmpty) {
-          countrySet.add(item.country!);
-        }
-        final res = item.metadata['resolution'] as String?;
-        if (res != null && res.isNotEmpty) {
-          resolutionSet.add(res);
-        }
-        for (final genre in item.genres) {
-          if (genre.isNotEmpty) categorySet.add(genre);
-        }
-      }
+      _allChannels
+        ..clear()
+        ..addAll(mappedChannels);
 
       final allCategories = await catalogRepository.getByType(MediaType.collection);
-      for (final cat in allCategories) {
-        if (cat.metadata['type'] == 'live' || cat.metadata['type'] == null) {
-          if (cat.title.isNotEmpty) categorySet.add(cat.title);
+      _allCategories
+        ..clear()
+        ..addAll(allCategories);
+
+      final providerSet = <String>{};
+      for (final item in _allChannels) {
+        if (item.providerId.isNotEmpty) {
+          providerSet.add(item.providerId);
+        }
+        if (item.providerType.displayName.isNotEmpty) {
+          providerSet.add(item.providerType.displayName);
         }
       }
-
-      final sortedCategories = categorySet.toList()..sort();
-      categories.assignAll(['All Channels', ...sortedCategories]);
       providers.assignAll(providerSet.toList()..sort());
-      languages.assignAll(languageSet.toList()..sort());
-      countries.assignAll(countrySet.toList()..sort());
-      resolutions.assignAll(resolutionSet.toList()..sort());
+
+      _updateCategoriesAndFilters(favIds);
     } catch (e) {
       // Log error
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void _updateCategoriesAndFilters([Set<String>? favIds]) {
+    final activeChannels = selectedProvider.value.isEmpty
+        ? List<MediaItem>.from(_allChannels)
+        : _allChannels.where((item) {
+            return item.providerId == selectedProvider.value ||
+                item.providerType.displayName == selectedProvider.value ||
+                item.providerType.name == selectedProvider.value;
+          }).toList();
+
+    channels.assignAll(activeChannels);
+
+    if (activeChannels.isNotEmpty) {
+      final currentFeatured = featuredChannel.value;
+      if (currentFeatured == null ||
+          !activeChannels.any((c) => c.id == currentFeatured.id)) {
+        final liveCandidate =
+            activeChannels.firstWhereOrNull((c) => c is Channel && c.isLive);
+        featuredChannel.value = liveCandidate ?? activeChannels.first;
+      }
+    } else {
+      featuredChannel.value = null;
+    }
+
+    final effectiveFavIds = favIds ??
+        (favoriteRepository != null
+            ? (favorites.map((f) => f.id).toSet())
+            : <String>{});
+
+    favorites.assignAll(
+      activeChannels
+          .where((item) =>
+              effectiveFavIds.contains(item.id) || item.favorite)
+          .toList(),
+    );
+
+    final languageSet = <String>{};
+    final countrySet = <String>{};
+    final resolutionSet = <String>{};
+    final categorySet = <String>{};
+
+    for (final item in activeChannels) {
+      if (item.language != null && item.language!.isNotEmpty) {
+        languageSet.add(item.language!);
+      }
+      if (item.country != null && item.country!.isNotEmpty) {
+        countrySet.add(item.country!);
+      }
+      final res = item.metadata['resolution'] as String?;
+      if (res != null && res.isNotEmpty) {
+        resolutionSet.add(res);
+      }
+      for (final genre in item.genres) {
+        if (genre.trim().isNotEmpty) categorySet.add(genre.trim());
+      }
+      final genreMeta = item.metadata['genre']?.toString();
+      if (genreMeta != null && genreMeta.trim().isNotEmpty) {
+        categorySet.add(genreMeta.trim());
+      }
+      final catMeta = item.metadata['category_name']?.toString();
+      if (catMeta != null && catMeta.trim().isNotEmpty) {
+        categorySet.add(catMeta.trim());
+      }
+    }
+
+    for (final cat in _allCategories) {
+      final isLive = cat.metadata['type'] == 'live' || cat.metadata['type'] == null;
+      final matchesProvider = selectedProvider.value.isEmpty ||
+          cat.providerId == selectedProvider.value ||
+          cat.providerType.displayName == selectedProvider.value ||
+          cat.providerType.name == selectedProvider.value;
+      if (isLive && matchesProvider && cat.title.trim().isNotEmpty) {
+        categorySet.add(cat.title.trim());
+      }
+    }
+
+    final sortedCategories = categorySet.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    categories.assignAll(['All Channels', ...sortedCategories]);
+
+    if (!categories.contains(selectedCategory.value)) {
+      selectedCategory.value = 'All Channels';
+    }
+
+    languages.assignAll(languageSet.toList()..sort());
+    countries.assignAll(countrySet.toList()..sort());
+    resolutions.assignAll(resolutionSet.toList()..sort());
+
+    _applyFilters();
   }
 
   void setView(String view) {
@@ -182,8 +242,10 @@ class LiveTVController extends GetxController {
   }
 
   void setProvider(String provider) {
+    if (selectedProvider.value == provider) return;
     selectedProvider.value = provider;
-    _applyFilters();
+    selectedCategory.value = 'All Channels';
+    _updateCategoriesAndFilters();
   }
 
   void setLanguage(String language) {

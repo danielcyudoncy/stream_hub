@@ -260,6 +260,20 @@ void main() {
     updatedAt: DateTime(2025, 1, 2),
   );
 
+  final testChannel3 = Channel(
+    id: 'ch-3',
+    providerId: 'prov-2',
+    providerType: MediaSourceType.stalker,
+    title: 'HBO Cinema',
+    mediaType: MediaType.channel,
+    number: '103',
+    isLive: true,
+    genres: const ['Movies', 'Cinema'],
+    metadata: const {'resolution': '4K'},
+    createdAt: DateTime(2025, 1, 3),
+    updatedAt: DateTime(2025, 1, 3),
+  );
+
   setUp(() {
     Get.reset();
     catalogRepo = _FakeCatalogRepository();
@@ -267,7 +281,7 @@ void main() {
     mediaLibrary = _FakeMediaLibrary();
     favoriteRepo = _FakeFavoriteRepository();
 
-    catalogRepo.items.addAll([testChannel1, testChannel2]);
+    catalogRepo.items.addAll([testChannel1, testChannel2, testChannel3]);
 
     controller = LiveTVController(
       mediaEngine: mediaEngine,
@@ -285,8 +299,8 @@ void main() {
     controller.onInit();
     await Future.delayed(const Duration(milliseconds: 50));
 
-    expect(controller.channels.length, 2);
-    expect(controller.filteredChannels.length, 2);
+    expect(controller.channels.length, 3);
+    expect(controller.filteredChannels.length, 3);
     expect(controller.featuredChannel.value, isNotNull);
     expect(controller.featuredChannel.value?.id, 'ch-1');
   });
@@ -300,7 +314,7 @@ void main() {
     expect(controller.filteredChannels.first.title, 'BBC News HD');
 
     controller.setCategory('All Channels');
-    expect(controller.filteredChannels.length, 2);
+    expect(controller.filteredChannels.length, 3);
   });
 
   test('filters channels by search query matching title or number', () async {
@@ -319,7 +333,7 @@ void main() {
     expect(controller.filteredChannels.length, 1);
 
     controller.setSearchQuery('');
-    expect(controller.filteredChannels.length, 2);
+    expect(controller.filteredChannels.length, 3);
   });
 
   test('toggles favorite and filters favorites only', () async {
@@ -334,7 +348,46 @@ void main() {
     expect(controller.filteredChannels.first.id, 'ch-1');
 
     controller.setFavoritesOnly(false);
+    expect(controller.filteredChannels.length, 3);
+  });
+
+  test('switching provider dynamically recomputes categories and filtered channels', () async {
+    controller.onInit();
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // Initially with All Providers: categories include All Channels, Cinema, Football, Movies, News, Sports
+    expect(controller.categories.contains('Cinema'), isTrue);
+    expect(controller.categories.contains('Sports'), isTrue);
+    expect(controller.filteredChannels.length, 3);
+
+    // Switch to prov-2 (Stalker)
+    controller.setProvider('prov-2');
+    expect(controller.selectedProvider.value, 'prov-2');
+    expect(controller.selectedCategory.value, 'All Channels');
+    expect(controller.channels.length, 1);
+    expect(controller.filteredChannels.length, 1);
+    expect(controller.filteredChannels.first.id, 'ch-3');
+    // Categories should now only contain prov-2 categories
+    expect(controller.categories.contains('Cinema'), isTrue);
+    expect(controller.categories.contains('Movies'), isTrue);
+    expect(controller.categories.contains('Sports'), isFalse);
+    expect(controller.categories.contains('News'), isFalse);
+
+    // Switch to prov-1 (M3U)
+    controller.setProvider('prov-1');
+    expect(controller.selectedProvider.value, 'prov-1');
+    expect(controller.channels.length, 2);
     expect(controller.filteredChannels.length, 2);
+    expect(controller.categories.contains('Sports'), isTrue);
+    expect(controller.categories.contains('News'), isTrue);
+    expect(controller.categories.contains('Cinema'), isFalse);
+
+    // Switch back to All Providers
+    controller.setProvider('');
+    expect(controller.channels.length, 3);
+    expect(controller.filteredChannels.length, 3);
+    expect(controller.categories.contains('Cinema'), isTrue);
+    expect(controller.categories.contains('Sports'), isTrue);
   });
 
   test('switches view mode between grid and list', () {
