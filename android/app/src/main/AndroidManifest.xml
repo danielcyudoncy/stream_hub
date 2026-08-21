@@ -37,9 +37,10 @@
             </intent-filter>
         </activity>
         <!-- Fullscreen native ExoPlayer video Activity (NativeActivityPlayerAdapter).
-             Renders through a plain SurfaceView outside the Flutter view hierarchy so
-             SurfaceFlinger composites the video directly: the only render path that
-             displays video on Unisoc/Mali devices (docs/PLAYBACK_ENGINEERING.md §8.3). -->
+             Renders through a TextureView in a plain window outside the Flutter view
+             hierarchy, composited directly by Android's view system/SurfaceFlinger:
+             the render path proven to display video on Unisoc/Mali devices
+             (docs/PLAYBACK_ENGINEERING.md §8.3). -->
         <activity
             android:name=".NativePlayerActivity"
             android:exported="false"
