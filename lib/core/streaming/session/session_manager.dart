@@ -1,13 +1,12 @@
+// core/streaming/session/session_manager.dart
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/streaming/auth/authentication_engine.dart';
 import 'package:stream_hub/core/streaming/cache/session_cache.dart';
-import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
 import 'package:stream_hub/core/streaming/events/stream_event_bus.dart';
 import 'package:stream_hub/core/streaming/events/stream_events.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
-import 'package:stream_hub/core/streaming/session/provider_session_factory.dart';
 import 'package:stream_hub/core/streaming/session/provider_session_factory_registry.dart';
 
 /// Manages provider session lifecycle: creation via provider adapters, reuse,
@@ -48,17 +47,9 @@ class SessionManager {
     final resolvedProviderId = providerId ?? _resolveProviderId(itemMetadata);
     var session = await _sessionCache.getProviderSession(resolvedProviderId);
 
-    final hasCachedSession = session != null;
-    final credentialMismatch = _hasCredentialMismatch(session, providerConfig);
-    if (session == null || session.providerType != providerType || credentialMismatch) {
-      if (credentialMismatch) {
-        _logger.debug(
-          'SessionManager.getOrCreateSession: invalidating stale session for $resolvedProviderId due to credential mismatch',
-          tag: 'SessionManager',
-        );
-        await _sessionCache.deleteProviderSession(resolvedProviderId);
-        session = null;
-      }
+    if (session == null ||
+        session.providerType != providerType ||
+        _shouldRecreateSession(session, providerType, providerConfig)) {
       session = await _createSession(
         mediaItemId: mediaItemId,
         providerType: providerType,
@@ -67,15 +58,6 @@ class SessionManager {
         providerId: resolvedProviderId,
       );
     }
-
-    _logger.debug(
-      'SessionManager.getOrCreateSession: '
-      'providerId=$resolvedProviderId, '
-      'hasCachedSession=$hasCachedSession, '
-      'sessionUsername=${session.username != null && session.username!.isNotEmpty}, '
-      'sessionPassword=${session.password != null && session.password!.isNotEmpty}',
-      tag: 'SessionManager',
-    );
 
     session = await _authenticationEngine.ensureValidSession(session);
 
@@ -87,6 +69,59 @@ class SessionManager {
     return session;
   }
 
+  bool _shouldRecreateSession(
+    ProviderSession session,
+    MediaSourceType providerType,
+    Map<String, dynamic>? providerConfig,
+  ) {
+    if (providerConfig == null || providerConfig.isEmpty) {
+      return false;
+    }
+
+    final configuredUsername = providerConfig['username']?.toString();
+    final configuredPassword = providerConfig['password']?.toString();
+    final configuredServerUrl = (providerConfig['serverUrl'] ??
+            providerConfig['portalUrl'] ??
+            providerConfig['sourceUrl'])
+        ?.toString();
+    final configuredMac = providerConfig['macAddress']?.toString();
+
+    if (configuredServerUrl != null &&
+        configuredServerUrl.isNotEmpty &&
+        (session.baseUrl == null ||
+            session.baseUrl!.isEmpty ||
+            session.baseUrl != configuredServerUrl)) {
+      return true;
+    }
+
+    if (providerType == MediaSourceType.stalker) {
+      if (configuredMac != null &&
+          configuredMac.isNotEmpty &&
+          session.macAddress != configuredMac) {
+        return true;
+      }
+      return false;
+    }
+
+    if (providerType == MediaSourceType.xtream ||
+        providerType == MediaSourceType.m3u) {
+      final usernameMatches =
+          configuredUsername == null ||
+          configuredUsername.isEmpty ||
+          session.username == configuredUsername;
+      final passwordMatches =
+          configuredPassword == null ||
+          configuredPassword.isEmpty ||
+          session.password == configuredPassword;
+
+      if (!usernameMatches || !passwordMatches) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   Future<ProviderSession> _createSession({
     required String mediaItemId,
     required MediaSourceType providerType,
@@ -94,27 +129,7 @@ class SessionManager {
     required Map<String, dynamic>? providerConfig,
     required String providerId,
   }) async {
-    ProviderSessionFactory? factory = _registry.factoryFor(providerType);
-
-    if (factory == null) {
-      try {
-        return await _registry.createSession(
-          type: providerType,
-          mediaItemId: mediaItemId,
-          itemMetadata: itemMetadata,
-          providerConfig: providerConfig,
-          existing: await _sessionCache.getProviderSession(providerId),
-        );
-      } on StreamInvalidSessionException {
-        rethrow;
-      } catch (_) {
-        throw StreamInvalidSessionException(
-          message:
-              'No provider session factory registered for $providerType.',
-        );
-      }
-    }
-
+    final factory = _registry.require(providerType);
     final session = await factory.createSession(
       mediaItemId: mediaItemId,
       itemMetadata: itemMetadata,
@@ -185,24 +200,5 @@ class SessionManager {
       return Uri.tryParse(sourceUrl)?.host ?? sourceUrl;
     }
     return itemMetadata['streamUrl']?.toString() ?? 'unknown_provider';
-  }
-
-  bool _hasCredentialMismatch(
-    ProviderSession? session,
-    Map<String, dynamic>? providerConfig,
-  ) {
-    if (session == null || providerConfig == null) return false;
-    final configUsername = providerConfig['username']?.toString();
-    final configPassword = providerConfig['password']?.toString();
-    if ((configUsername == null || configUsername.isEmpty) &&
-        (configPassword == null || configPassword.isEmpty)) {
-      return false;
-    }
-    final sessionUsername = session.username;
-    final sessionPassword = session.password;
-    if (sessionUsername != configUsername || sessionPassword != configPassword) {
-      return true;
-    }
-    return false;
   }
 }

@@ -1,4 +1,3 @@
-import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/models/stream_capabilities.dart';
@@ -9,11 +8,6 @@ import 'package:stream_hub/core/streaming/session/provider_session_factory.dart'
 /// Xtream authenticates streams by appending the server URL, username, and
 /// password as query parameters to every stream request.
 class XtreamProviderSessionFactory implements ProviderSessionFactory {
-  final LoggingService _logger;
-
-  XtreamProviderSessionFactory({LoggingService? logger})
-    : _logger = logger ?? LoggingService();
-
   @override
   MediaSourceType get providerType => MediaSourceType.xtream;
 
@@ -26,14 +20,6 @@ class XtreamProviderSessionFactory implements ProviderSessionFactory {
   }) async {
     final config = providerConfig ?? const <String, dynamic>{};
     final serverUrl = (config['serverUrl'] ?? '').toString();
-
-    _logger.debug(
-      'XtreamProviderSessionFactory.createSession: '
-      'serverUrl=${serverUrl.isNotEmpty ? 'SET' : 'MISSING'}, '
-      'username=${config['username'] != null && (config['username'] as String).isNotEmpty ? 'SET' : 'MISSING'}, '
-      'password=${config['password'] != null && (config['password'] as String).isNotEmpty ? 'SET' : 'MISSING'}',
-      tag: 'XtreamProviderSessionFactory',
-    );
 
     return ProviderSession(
       providerId:

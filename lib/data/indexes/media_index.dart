@@ -10,7 +10,6 @@ class MediaIndex {
   final Map<String, List<MediaItem>> _byType = {};
 
   void index(MediaItem item) {
-    final existing = _byId[item.id];
     _byId[item.id] = item;
     _byTitle.putIfAbsent(item.title.toLowerCase(), () => []).add(item);
     _byProvider.putIfAbsent(item.providerId, () => []).add(item);
@@ -22,19 +21,6 @@ class MediaIndex {
       _byLanguage.putIfAbsent(language.toLowerCase(), () => []).add(item);
     }
     _byType.putIfAbsent(item.mediaType.toString(), () => []).add(item);
-
-    if (existing != null) {
-      _byTitle[existing.title.toLowerCase()]?.remove(existing);
-      _byProvider[existing.providerId]?.remove(existing);
-      for (final genre in existing.genres) {
-        _byGenre[genre.toLowerCase()]?.remove(existing);
-      }
-      final existingLanguage = existing.language;
-      if (existingLanguage != null && existingLanguage.isNotEmpty) {
-        _byLanguage[existingLanguage.toLowerCase()]?.remove(existing);
-      }
-      _byType[existing.mediaType.toString()]?.remove(existing);
-    }
   }
 
   MediaItem? getById(String id) => _byId[id];

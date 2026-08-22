@@ -24,16 +24,7 @@ class MediaCatalog {
   List<MediaItem> getByGenre(String genre) => _byGenre[genre] ?? [];
 
   void upsert(MediaItem item) {
-    final existing = _items[item.id];
     _items[item.id] = item;
-
-    if (existing != null) {
-      _byProvider[existing.providerId]?.remove(existing);
-      for (final genre in existing.genres) {
-        _byGenre[genre]?.remove(existing);
-      }
-    }
-
     _byProvider.putIfAbsent(item.providerId, () => []).add(item);
     for (final genre in item.genres) {
       _byGenre.putIfAbsent(genre, () => []).add(item);

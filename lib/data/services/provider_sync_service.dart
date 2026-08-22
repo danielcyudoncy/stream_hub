@@ -1,12 +1,9 @@
-import 'dart:async';
-
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/account_metadata_provider.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/media_source_factory.dart';
-import 'package:stream_hub/data/models/sync_progress.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/media_source_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
@@ -36,6 +33,11 @@ class ProviderSyncService extends GetxService {
   final CatalogRepository _catalogRepo;
   final LoggingService _logger;
 
+  final RxBool isSyncing = false.obs;
+  final RxString currentSyncMessage = ''.obs;
+  final RxDouble syncProgress = 0.0.obs;
+  final RxString activeProviderName = ''.obs;
+
   ProviderSyncService({
     required ProviderRepository repository,
     required MediaSourceFactory sourceFactory,
@@ -43,19 +45,10 @@ class ProviderSyncService extends GetxService {
     required CatalogRepository catalogRepo,
     required LoggingService logger,
   }) : _repository = repository,
-        _sourceFactory = sourceFactory,
-        _sourceRepo = sourceRepo,
-        _catalogRepo = catalogRepo,
-        _logger = logger;
-
-  final _progressController = StreamController<SyncProgress>.broadcast();
-  Stream<SyncProgress> get progressStream => _progressController.stream;
-
-  @override
-  void onClose() {
-    _progressController.close();
-    super.onClose();
-  }
+       _sourceFactory = sourceFactory,
+       _sourceRepo = sourceRepo,
+       _catalogRepo = catalogRepo,
+       _logger = logger;
 
   /// Syncs every enabled provider. Providers are synced sequentially so
   /// concurrent servers are never hammered at once.
@@ -69,28 +62,111 @@ class ProviderSyncService extends GetxService {
         tag: 'ProviderSyncService',
         error: e,
       );
-      _progressController.add(const SyncProgress(completed: 0, total: 0, message: 'Failed to load providers.'));
       return const [];
     }
 
-    final enabled = providers.where((p) => p.enabled).toList();
-    final results = <ProviderSyncResult>[];
-    for (var i = 0; i < enabled.length; i++) {
-      final provider = enabled[i];
-      _progressController.add(SyncProgress(
-        completed: i,
-        total: enabled.length,
-        currentProvider: provider.name,
-        message: 'Loading ${provider.name}...',
-      ));
-      results.add(await syncProvider(provider));
+    final enabledProviders = providers.where((p) => p.enabled).toList();
+    if (enabledProviders.isEmpty) return const [];
+
+    isSyncing.value = true;
+    syncProgress.value = 0.0;
+    try {
+      final results = <ProviderSyncResult>[];
+      for (var i = 0; i < enabledProviders.length; i++) {
+        final provider = enabledProviders[i];
+        activeProviderName.value = provider.name;
+        currentSyncMessage.value =
+            'Syncing playlist ${i + 1} of ${enabledProviders.length}: "${provider.name}"...';
+        syncProgress.value = i / enabledProviders.length;
+
+        results.add(await syncProvider(provider));
+      }
+      syncProgress.value = 1.0;
+      currentSyncMessage.value = 'All playlists up to date';
+      return results;
+    } finally {
+      Future.delayed(const Duration(seconds: 3), () {
+        isSyncing.value = false;
+        currentSyncMessage.value = '';
+        activeProviderName.value = '';
+      });
     }
-    _progressController.add(SyncProgress(
-      completed: enabled.length,
-      total: enabled.length,
-      message: 'Loading completed',
-    ));
-    return results;
+  }
+
+  /// Syncs the primary (first) enabled provider so the user can immediately
+  /// enter a populated Home screen, and queues all remaining providers to
+  /// sync in the background with the progress indicator.
+  Future<ProviderSyncResult?> syncPrimaryProviderAndQueueRemainder() async {
+    final List<ProviderModel> providers;
+    try {
+      providers = await _repository.getAllProviders();
+    } catch (e) {
+      _logger.warning(
+        'Failed to load providers for primary sync',
+        tag: 'ProviderSyncService',
+        error: e,
+      );
+      return null;
+    }
+
+    final enabledProviders = providers.where((p) => p.enabled).toList();
+    if (enabledProviders.isEmpty) return null;
+
+    final primary = enabledProviders.first;
+    isSyncing.value = true;
+    activeProviderName.value = primary.name;
+    currentSyncMessage.value = 'Syncing "${primary.name}" for initial view...';
+    syncProgress.value = 1 / enabledProviders.length;
+
+    final result = await syncProvider(primary);
+
+    if (enabledProviders.length > 1) {
+      // Run remaining providers in background without blocking
+      _syncRemainingProviders(
+        enabledProviders.sublist(1),
+        totalCount: enabledProviders.length,
+      );
+    } else {
+      Future.delayed(const Duration(seconds: 3), () {
+        isSyncing.value = false;
+        currentSyncMessage.value = '';
+        activeProviderName.value = '';
+      });
+    }
+
+    return result;
+  }
+
+  Future<void> _syncRemainingProviders(
+    List<ProviderModel> remaining, {
+    required int totalCount,
+  }) async {
+    try {
+      for (var i = 0; i < remaining.length; i++) {
+        final provider = remaining[i];
+        final currentNumber = i + 2; // e.g. 2 of 3
+        activeProviderName.value = provider.name;
+        currentSyncMessage.value =
+            'Syncing playlist $currentNumber of $totalCount: "${provider.name}"...';
+        syncProgress.value = currentNumber / totalCount;
+
+        await syncProvider(provider);
+      }
+      syncProgress.value = 1.0;
+      currentSyncMessage.value = 'All playlists up to date';
+    } catch (e) {
+      _logger.warning(
+        'Background remaining provider sync failed',
+        tag: 'ProviderSyncService',
+        error: e,
+      );
+    } finally {
+      Future.delayed(const Duration(seconds: 3), () {
+        isSyncing.value = false;
+        currentSyncMessage.value = '';
+        activeProviderName.value = '';
+      });
+    }
   }
 
   Future<ProviderSyncResult> syncProvider(ProviderModel provider) async {

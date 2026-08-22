@@ -147,17 +147,10 @@ class CanonicalMediaItem {
   }
 
   MediaItem toMediaItem() {
-    final primaryProviderType = providerOwnership.keys.isNotEmpty
-        ? MediaSourceType.values.firstWhere(
-            (e) => e.name == providerOwnership.keys.first,
-            orElse: () => MediaSourceType.custom,
-          )
-        : MediaSourceType.custom;
-
     return MediaItem(
       id: id,
       providerId: providerOwnership.values.firstOrNull ?? 'unknown',
-      providerType: primaryProviderType,
+      providerType: MediaSourceType.custom,
       mediaType: mediaType,
       title: title,
       subtitle: tagline,
@@ -169,6 +162,8 @@ class CanonicalMediaItem {
       language: language,
       country: country,
       rating: rating,
+      favorite: favorite,
+      hidden: hidden,
       metadata: {
         'canonicalId': canonicalId,
         'originalTitle': originalTitle ?? '',

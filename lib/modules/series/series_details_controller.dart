@@ -553,15 +553,6 @@ class SeriesDetailsController extends GetxController {
           }
         : null;
 
-    logger.debug(
-      'SeriesDetailsController._sessionFor: '
-      'providerId=${series.providerId}, '
-      'providerFound=${provider != null}, '
-      'usernameInProvider=${provider?.username != null && provider!.username!.isNotEmpty}, '
-      'passwordInProvider=${provider?.password != null && provider!.password!.isNotEmpty}',
-      tag: 'SeriesDetailsController',
-    );
-
     return sessionManager.getOrCreateSession(
       mediaItemId: series.id,
       providerType: series.providerType,
