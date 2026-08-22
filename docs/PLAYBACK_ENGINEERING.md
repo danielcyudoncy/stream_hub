@@ -152,7 +152,10 @@ PlayerAdapterFactory.create(kind)
     subscriptions so no stale adapter feeds the engine.
   - `_tryEngineFallback` swaps to the alternate backend once per session,
     only in Auto mode, only when the user preference is `auto`, and only when
-    the alternative backend is available on the platform.
+    the alternative backend is available on the platform. Since Phase 2 it is
+    additionally gated by the structured error category (§9.4): auth /
+    not-found / rate-limited failures surface directly instead of triggering
+    a futile backend swap.
 - `PlayerSettings.preferredPlayer` (`auto | mediaKit | vlc`) is persisted in
   Hive (`PlayerSettingsModel`, `@HiveField(18)`) and drives the policy.
   - Persistence is registered at startup in `MediaBinding`
@@ -280,6 +283,8 @@ the primary mechanism.
     disabled).
   - `test/xtream/xtream_media_source_test.dart` (invalid-credentials and
     empty-panel sync now fail with actionable messages).
+  - `test/player/error_classification_test.dart` (wire-name round-trip and
+    the engine-fallback policy of §9.4).
 - Build runner note: `hive_generator` (analyzer 2.19) cannot parse Dart 3.11
   sources (e.g. records in `url_normalizer.dart`), so committed `.g.dart`
   stubs are the source of truth. Do not run `build_runner build
@@ -482,3 +487,77 @@ it through `PlaybackEngineKind.nativeActivity`
 
 The Activity path renders video with ExoPlayer + TextureView (live proven on
 the itel C671L). VOD verification is in progress (§8.4).
+
+---
+
+## 9. Structured playback-error classification and fallback policy
+
+Phase 2 of the playback-hardening work: every Android ExoPlayer failure is
+classified once, at the source, and the classification drives recovery — no
+string sniffing, no blind retries.
+
+### 9.1 Classification (native side)
+
+`NativePlaybackDiagnostics` (Kotlin) owns an `ErrorCategory` enum and a pure
+`classifyPlaybackException()` mapper from Media3 `PlaybackException`
+(`errorCode`) plus the optional `httpStatusCode` to:
+
+| Category | Typical cause |
+|---|---|
+| `NETWORK` | DNS, timeout, connection reset/refused |
+| `SERVER` | HTTP 5xx from the stream server |
+| `AUTH` | HTTP 401/403 — expired credentials, IP lock, UA block |
+| `NOT_FOUND` | HTTP 404/410 |
+| `RATE_LIMITED` | HTTP 429 — provider throttling |
+| `MEDIA` | Malformed container / manifest parsing |
+| `DECODER` | MediaCodec init or runtime decode failure |
+| `RENDERER` | Output pipeline failure (surface, no frames rendered) |
+| `UNKNOWN` | Anything else |
+
+Both native backends (`NativePlayerActivity`, `ExoPlayerSurfaceView`)
+attach `category` and `httpCode` to every error they emit across the
+method/event channels, alongside the human-readable message. Errors are never
+logged with full authenticated URLs; diagnostics use `sanitizeUrl()`
+(query-string stripped).
+
+### 9.2 Render watchdog
+
+Both native backends arm a watchdog when playback reaches `STATE_READY` with
+`playWhenReady` and a video track: if no frame has rendered after 10 s
+(8 s on the Unisoc/Mali Activity path), the backend emits a structured
+`RENDERER` error instead of leaving the screen black forever. The watchdog is
+cancelled by the first rendered frame or any state/pause change.
+
+### 9.3 Dart contract (`error_classification.dart`)
+
+`NativeErrorCategory` mirrors the Kotlin enum;
+`StructuredErrorReporter` is implemented by both native adapters and exposes
+`lastErrorCategory`, `lastErrorHttpCode`, and `clearLastError()`. Adapters
+clear the stored classification on every new load so a past failure can never
+influence a later decision.
+
+### 9.4 Engine-fallback policy
+
+`shouldAttemptEngineFallback(category)` gates `PlaybackEngine._tryEngineFallback`:
+
+- `null` (backend without classification) → fall back (legacy behavior).
+- `AUTH`, `NOT_FOUND`, `RATE_LIMITED` → **never** fall back: these are
+  properties of the stream/provider. Every engine receives the same HTTP
+  answer, so swapping backends cannot help — it only delays the visible error
+  and hammers throttling providers further.
+- everything else (`NETWORK` exhausted after native retries, `SERVER`,
+  `MEDIA`, `DECODER`, `RENDERER`, `UNKNOWN`) → fall back; a different demuxer,
+  decoder set, or HTTP stack may genuinely succeed.
+
+### 9.5 Stale-recovery guard (`PlayerController`)
+
+Error recovery runs asynchronously; without a guard, a recovered session for
+channel A can replay *after* the user already switched to channel B or pressed
+stop ("zombie channel"). Two mechanisms prevent this:
+
+- `_playGeneration` — a monotonic token bumped on every `playMediaItem` load
+  and on `stop()`. Recovery captures the token at failure time and discards
+  its replay when it has moved on.
+- `_recoveryInFlightForItemId` — prevents two concurrent recoveries for the
+  same item; the first to finish owns the replay.
+

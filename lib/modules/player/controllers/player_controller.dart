@@ -58,6 +58,16 @@ class PlayerController extends GetxController {
   late final Worker _sessionWorker;
   Timer? _progressSaveTimer;
 
+  /// Monotonic token bumped on every user-initiated playback load. Error
+  /// recovery captures the value at failure time and discards itself when it
+  /// has moved on, so a stale recovery can never resurrect a channel the
+  /// user already switched away from or stopped.
+  int _playGeneration = 0;
+
+  /// Item id with an error recovery currently in flight; prevents duplicate
+  /// concurrent recovery runs for the same content.
+  String? _recoveryInFlightForItemId;
+
   // Series & Episode Autoplay / Skip Intro support
   final RxBool isEpisodeRx = false.obs;
   final Rx<MediaItem?> nextEpisodeRx = Rx<MediaItem?>(null);
@@ -411,6 +421,10 @@ class PlayerController extends GetxController {
     final startedAt = DateTime.now();
     PlayableSession? session;
     _pendingItem = item;
+    // Generation token for this user-initiated load. Any recovery spawned by a
+    // failure of THIS load is invalidated as soon as another load (or a stop)
+    // starts.
+    final generation = ++_playGeneration;
     try {
       if (!playbackController.engine.adapter.isInitialized) {
         await playbackController.engine.initialize();
@@ -445,18 +459,52 @@ class PlayerController extends GetxController {
       session = resolved;
       await playWithSession(item, resolved, resumePosition: resume);
     } catch (e, st) {
-      await _handlePlaybackFailure(item, session, e, st, startedAt);
+      await _handlePlaybackFailure(item, session, e, st, startedAt, generation);
     }
   }
 
   /// Attempts IPTV Core error recovery and records diagnostics, then surfaces
   /// the failure through the engine so the player never hangs silently.
+  ///
+  /// [generation] is the playback-generation token captured when the failed
+  /// load started. A recovered session is only replayed while that generation
+  /// is still current, so a channel switch or stop invalidates in-flight
+  /// recoveries and a failed channel can never resurrect itself after the
+  /// user has moved on.
   Future<void> _handlePlaybackFailure(
     MediaItem item,
     PlayableSession? session,
     Object error,
     StackTrace stackTrace,
     DateTime startedAt,
+    int generation,
+  ) async {
+    // Never run two recoveries for the same item concurrently; the first one
+    // to finish owns the replay and later duplicates are dropped.
+    if (_recoveryInFlightForItemId == item.id) {
+      playbackController.engine.logger.debug(
+        'Recovery already in flight for ${item.id}; dropping duplicate',
+        tag: 'PlayerController',
+      );
+      return;
+    }
+    _recoveryInFlightForItemId = item.id;
+    try {
+      await _runRecovery(item, session, error, stackTrace, startedAt, generation);
+    } finally {
+      if (_recoveryInFlightForItemId == item.id) {
+        _recoveryInFlightForItemId = null;
+      }
+    }
+  }
+
+  Future<void> _runRecovery(
+    MediaItem item,
+    PlayableSession? session,
+    Object error,
+    StackTrace stackTrace,
+    DateTime startedAt,
+    int generation,
   ) async {
     final core = iptvCore;
     if (core != null && session != null) {
@@ -467,6 +515,14 @@ class PlayerController extends GetxController {
           itemMetadata: item.metadata,
         );
         if (recovery.recovered && recovery.finalSession != null) {
+          if (generation != _playGeneration) {
+            playbackController.engine.logger.debug(
+              'Discarding recovered session for ${item.id}: playback moved on '
+              '(generation $generation != $_playGeneration)',
+              tag: 'PlayerController',
+            );
+            return;
+          }
           try {
             await playWithSession(item, recovery.finalSession!);
             return;
@@ -635,8 +691,12 @@ class PlayerController extends GetxController {
   Future<void> resume() => playbackController.resume();
 
   Future<void> stop() async {
+    // Stopping is an explicit user action: invalidate any in-flight recovery
+    // so a recovered session cannot restart playback afterwards.
+    _playGeneration++;
     await _persistCurrentProgress();
     await playbackController.stop();
+    _pendingItem = null;
   }
 
   Future<void> seek(Duration position) async {

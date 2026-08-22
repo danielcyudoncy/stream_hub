@@ -128,6 +128,12 @@ class NativePlayerActivity : Activity() {
         private const val RECONNECT_BASE_DELAY_MS = 2000L
         private const val RECONNECT_MAX_DELAY_MS = 8000L
 
+        // Grace period between STATE_READY and the first rendered video frame.
+        // Uses the actual first-frame signal, not an arbitrary startup delay;
+        // only armed when the stream actually contains a video track, so
+        // audio-only channels never trip it.
+        private const val RENDER_WATCHDOG_MS = 10000L
+
         // Explicit LoadControl tuned for IPTV: identical startup/rebuffer
         // thresholds to ExoPlayer defaults, slightly tighter steady-state
         // buffer for low-memory devices and a small back buffer that lets a
@@ -236,10 +242,40 @@ class NativePlayerActivity : Activity() {
     // every explicit channel switch / loadStream call.
     private var reconnectAttempts = 0
 
+    // Stream URL the pending reconnect belongs to. If the user switches
+    // channels, loadStream changes streamUrl and any stale scheduled reconnect
+    // for the previous channel becomes a no-op (belt-and-braces on top of
+    // cancelPendingReconnect).
+    private var reconnectTargetUrl: String? = null
+
+    // Distinguishes "player READY" from "video actually rendering" so a READY
+    // state with no frames (the black-screen class) is detected via the real
+    // first-frame signal instead of being reported as success.
+    private var renderedFirstFrame = false
+
     private lateinit var audioManager: AudioManager
     private lateinit var gestureDetector: GestureDetector
 
     private val reconnectRunnable = Runnable { attemptReconnect() }
+
+    private val renderWatchdogRunnable = Runnable {
+        val exo = player ?: return@Runnable
+        if (isFinishing || isDestroyed) return@Runnable
+        if (renderedFirstFrame || !exo.playWhenReady || !hasVideoTrack()) return@Runnable
+        android.util.Log.e(
+            TAG,
+            "render watchdog: READY+playing but no video frame rendered within ${RENDER_WATCHDOG_MS}ms " +
+                "url=${NativePlaybackDiagnostics.sanitizeUrl(streamUrl)}",
+        )
+        emit(
+            "onError",
+            mapOf(
+                "message" to "No video output: player is ready but no frames are rendering.",
+                "category" to NativePlaybackDiagnostics.ErrorCategory.RENDERER.wireName,
+                "httpCode" to null,
+            ),
+        )
+    }
 
     val isLiveStream: Boolean
         get() = isLiveIntent || (player?.isCurrentMediaItemLive == true) || (player?.duration == C.TIME_UNSET) || ((player?.duration ?: 0L) <= 0L)
@@ -291,13 +327,16 @@ class NativePlayerActivity : Activity() {
                     loadingSpinner?.visibility = View.GONE
                     emit("onState", mapOf("state" to if (player?.playWhenReady == true) "playing" else "paused"))
                     emitPosition()
+                    armRenderWatchdogIfNeeded()
                 }
                 Player.STATE_ENDED -> {
                     loadingSpinner?.visibility = View.GONE
+                    mainHandler.removeCallbacks(renderWatchdogRunnable)
                     emit("onState", mapOf("state" to "completed"))
                 }
                 Player.STATE_IDLE -> {
                     loadingSpinner?.visibility = View.GONE
+                    mainHandler.removeCallbacks(renderWatchdogRunnable)
                 }
             }
         }
@@ -307,6 +346,16 @@ class NativePlayerActivity : Activity() {
                 emit("onState", mapOf("state" to if (isPlaying) "playing" else "paused"))
             }
             updatePlayPauseIcon()
+            if (isPlaying) {
+                armRenderWatchdogIfNeeded()
+            }
+        }
+
+        override fun onRenderedFirstFrame() {
+            // Real "video is actually rendering" signal; cancels the watchdog.
+            mainHandler.removeCallbacks(renderWatchdogRunnable)
+            renderedFirstFrame = true
+            android.util.Log.i(TAG, "first video frame rendered")
         }
 
         override fun onVideoSizeChanged(videoSize: VideoSize) {
@@ -322,11 +371,12 @@ class NativePlayerActivity : Activity() {
         override fun onPlayerError(error: PlaybackException) {
             loadingSpinner?.visibility = View.GONE
             mainHandler.removeCallbacks(reconnectRunnable)
+            mainHandler.removeCallbacks(renderWatchdogRunnable)
 
             val classification = NativePlaybackDiagnostics.classify(error)
             android.util.Log.e(
                 TAG,
-                "playback error category=${classification.category} " +
+                "playback error category=${classification.category.wireName} " +
                     "httpCode=${classification.httpCode} code=${error.errorCode} " +
                     "url=${NativePlaybackDiagnostics.sanitizeUrl(streamUrl)}: ${classification.friendlyMessage}",
                 error,
@@ -345,7 +395,14 @@ class NativePlayerActivity : Activity() {
                     scheduleReconnect(classification)
                 else -> {
                     showError(classification.friendlyMessage)
-                    emit("onError", mapOf("message" to classification.friendlyMessage))
+                    emit(
+                        "onError",
+                        mapOf(
+                            "message" to classification.friendlyMessage,
+                            "category" to classification.category.wireName,
+                            "httpCode" to classification.httpCode,
+                        ),
+                    )
                 }
             }
         }
@@ -1937,6 +1994,24 @@ class NativePlayerActivity : Activity() {
     // ---- Controlled recovery -------------------------------------------------
 
     /**
+     * Arms the first-frame watchdog when the player reports READY+playing but
+     * no frame has rendered yet and the stream actually contains a video
+     * track. Audio-only streams never arm it.
+     */
+    private fun armRenderWatchdogIfNeeded() {
+        val exo = player ?: return
+        mainHandler.removeCallbacks(renderWatchdogRunnable)
+        if (renderedFirstFrame || !exo.playWhenReady || !hasVideoTrack()) return
+        if (exo.playbackState != Player.STATE_READY) return
+        mainHandler.postDelayed(renderWatchdogRunnable, RENDER_WATCHDOG_MS)
+    }
+
+    private fun hasVideoTrack(): Boolean {
+        val tracks = player?.currentTracks ?: return false
+        return tracks.groups.any { it.type == C.TRACK_TYPE_VIDEO && it.length > 0 }
+    }
+
+    /**
      * Schedules a bounded, backoff-based reconnect for transient network
      * failures. Permanent failures (auth, missing resource, media/decoder
      * errors) never reach this method. The budget resets on STATE_READY and on
@@ -1947,10 +2022,18 @@ class NativePlayerActivity : Activity() {
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
             android.util.Log.e(TAG, "reconnect budget exhausted ($reconnectAttempts attempts); surfacing error")
             showError(classification.friendlyMessage)
-            emit("onError", mapOf("message" to classification.friendlyMessage))
+            emit(
+                "onError",
+                mapOf(
+                    "message" to classification.friendlyMessage,
+                    "category" to classification.category.wireName,
+                    "httpCode" to classification.httpCode,
+                ),
+            )
             return
         }
         reconnectAttempts++
+        reconnectTargetUrl = streamUrl
         val delay = (RECONNECT_BASE_DELAY_MS shl (reconnectAttempts - 1)).coerceAtMost(RECONNECT_MAX_DELAY_MS)
         android.util.Log.w(
             TAG,
@@ -1966,13 +2049,26 @@ class NativePlayerActivity : Activity() {
     private fun attemptReconnect() {
         val exo = player ?: return
         if (isFinishing || isDestroyed) return
+        // The user switched channels since this reconnect was scheduled: never
+        // resurrect the previous channel's stream.
+        if (streamUrl != reconnectTargetUrl) {
+            android.util.Log.i(TAG, "skipping stale reconnect for a different stream")
+            return
+        }
         try {
             exo.prepare()
             exo.playWhenReady = true
         } catch (e: Exception) {
             android.util.Log.e(TAG, "reconnect prepare failed", e)
             showError("Network error: Unable to connect to stream server.")
-            emit("onError", mapOf("message" to "Network error: Unable to connect to stream server."))
+            emit(
+                "onError",
+                mapOf(
+                    "message" to "Network error: Unable to connect to stream server.",
+                    "category" to NativePlaybackDiagnostics.ErrorCategory.NETWORK.wireName,
+                    "httpCode" to null,
+                ),
+            )
         }
     }
 
@@ -2021,7 +2117,10 @@ class NativePlayerActivity : Activity() {
             // A new load is an explicit user action: drop any pending reconnect
             // and restore the full retry budget for the new stream.
             cancelPendingReconnect()
+            mainHandler.removeCallbacks(renderWatchdogRunnable)
             reconnectAttempts = 0
+            reconnectTargetUrl = null
+            renderedFirstFrame = false
 
             // Stop and clear previous stream immediately to release socket / connection slots on server
             exo.stop()
@@ -2070,7 +2169,14 @@ class NativePlayerActivity : Activity() {
             exo.playWhenReady = true
         } catch (e: Exception) {
             showError("Failed to load stream: ${e.message}")
-            emit("onError", mapOf("message" to "Failed to load stream: ${e.message}"))
+            emit(
+                "onError",
+                mapOf(
+                    "message" to "Failed to load stream: ${e.message}",
+                    "category" to NativePlaybackDiagnostics.ErrorCategory.UNKNOWN.wireName,
+                    "httpCode" to null,
+                ),
+            )
         }
     }
 

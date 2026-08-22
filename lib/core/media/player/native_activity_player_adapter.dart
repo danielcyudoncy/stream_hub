@@ -10,6 +10,7 @@ import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
+import 'package:stream_hub/core/media/player/error_classification.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
@@ -36,7 +37,7 @@ import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart'
 /// where this adapter registers the receiving handler.
 ///
 /// Platform support: Android only ([isSupported]).
-class NativeActivityPlayerAdapter implements PlayerAdapter {
+class NativeActivityPlayerAdapter implements PlayerAdapter, StructuredErrorReporter {
   static const MethodChannel _launchChannel =
       MethodChannel('stream_hub/native_player_launch');
   static const MethodChannel _eventsChannel =
@@ -52,6 +53,21 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
 
   int _videoWidth = 0;
   int _videoHeight = 0;
+
+  NativeErrorCategory? _lastErrorCategory;
+  int? _lastErrorHttpCode;
+
+  @override
+  NativeErrorCategory? get lastErrorCategory => _lastErrorCategory;
+
+  @override
+  int? get lastErrorHttpCode => _lastErrorHttpCode;
+
+  @override
+  void clearLastError() {
+    _lastErrorCategory = null;
+    _lastErrorHttpCode = null;
+  }
 
   final _stateController = StreamController<PlaybackState>.broadcast();
   final _positionController = StreamController<Duration>.broadcast();
@@ -114,6 +130,7 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
       throw Exception('Invalid stream URL: $url');
     }
     _registerEventListener();
+    clearLastError();
     final isLive = session.metadata.isLive;
     await _launch(
       url,
@@ -149,6 +166,7 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
       headers['Cookie'] = CookieManager.serializeCookies(session.cookies);
     }
     _registerEventListener();
+    clearLastError();
     final isLive =
         !session.supportsSeeking || (session.metadata['isLive'] == true);
     await _launch(
@@ -278,9 +296,16 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
       case 'onError':
         final args = call.arguments as Map? ?? const <String, dynamic>{};
         final message = args['message']?.toString() ?? 'Native player error.';
+        _lastErrorCategory = parseNativeErrorCategory(args['category']?.toString());
+        _lastErrorHttpCode = (args['httpCode'] as num?)?.toInt();
         _setPlaybackState(PlaybackState.error);
         _errorController.add(message);
-        _logger.error('Native player error: $message', tag: 'Player');
+        _logger.error(
+          'Native player error '
+          '(category: ${_lastErrorCategory?.name ?? 'unclassified'}, '
+          'http: ${_lastErrorHttpCode ?? '-'}): $message',
+          tag: 'Player',
+        );
       case 'onFinished':
         _setPlaybackState(PlaybackState.stopped);
     }

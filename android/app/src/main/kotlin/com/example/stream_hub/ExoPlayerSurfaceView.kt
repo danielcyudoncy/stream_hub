@@ -27,6 +27,8 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.rtsp.RtspMediaSource
 import androidx.media3.exoplayer.source.MediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import io.flutter.plugin.common.BinaryMessenger
@@ -73,6 +75,10 @@ class ExoPlayerSurfaceView(
         private const val BUFFER_FOR_PLAYBACK_MS = 2_500
         private const val BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 5_000
         private const val BACK_BUFFER_DURATION_MS = 10_000
+
+        // Grace period between STATE_READY and the first rendered video frame;
+        // mirrors NativePlayerActivity. Only armed when a video track exists.
+        private const val RENDER_WATCHDOG_MS = 10_000L
     }
 
     private val player: ExoPlayer = ExoPlayer.Builder(
@@ -118,7 +124,29 @@ class ExoPlayerSurfaceView(
     private var muted = false
     private var lastLoadUrl: String = ""
     private var reconnectAttempts = 0
+
+    // URL the pending reconnect belongs to; a new load invalidates it.
+    private var reconnectTargetUrl: String? = null
+
+    // Distinguishes "player READY" from "video actually rendering".
+    private var renderedFirstFrame = false
+
     private val reconnectRunnable = Runnable { attemptReconnect() }
+
+    private val renderWatchdogRunnable = Runnable {
+        if (disposed || player.isReleased()) return@Runnable
+        if (renderedFirstFrame || !player.playWhenReady || !hasVideoTrack()) return@Runnable
+        if (player.playbackState != Player.STATE_READY) return@Runnable
+        android.util.Log.e(
+            NativePlaybackDiagnostics.TAG_SURFACE_VIEW,
+            "render watchdog: READY+playing but no video frame rendered within ${RENDER_WATCHDOG_MS}ms " +
+                "url=${NativePlaybackDiagnostics.sanitizeUrl(lastLoadUrl)}",
+        )
+        emitError(
+            "No video output: player is ready but no frames are rendering.",
+            NativePlaybackDiagnostics.ErrorCategory.RENDERER,
+        )
+    }
 
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
@@ -128,9 +156,16 @@ class ExoPlayerSurfaceView(
                     if (reconnectAttempts > 0) reconnectAttempts = 0
                     emitState(if (player.playWhenReady) "playing" else "paused")
                     emitPosition()
+                    armRenderWatchdogIfNeeded()
                 }
-                Player.STATE_ENDED -> emitState("completed")
-                Player.STATE_IDLE -> emitState("idle")
+                Player.STATE_ENDED -> {
+                    mainHandler.removeCallbacks(renderWatchdogRunnable)
+                    emitState("completed")
+                }
+                Player.STATE_IDLE -> {
+                    mainHandler.removeCallbacks(renderWatchdogRunnable)
+                    emitState("idle")
+                }
             }
         }
 
@@ -138,14 +173,22 @@ class ExoPlayerSurfaceView(
             if (player.playbackState == Player.STATE_READY) {
                 emitState(if (isPlaying) "playing" else "paused")
             }
+            if (isPlaying) armRenderWatchdogIfNeeded()
+        }
+
+        override fun onRenderedFirstFrame() {
+            mainHandler.removeCallbacks(renderWatchdogRunnable)
+            renderedFirstFrame = true
+            android.util.Log.i(NativePlaybackDiagnostics.TAG_SURFACE_VIEW, "first video frame rendered")
         }
 
         override fun onPlayerError(error: PlaybackException) {
             mainHandler.removeCallbacks(reconnectRunnable)
+            mainHandler.removeCallbacks(renderWatchdogRunnable)
             val classification = NativePlaybackDiagnostics.classify(error)
             android.util.Log.e(
                 NativePlaybackDiagnostics.TAG_SURFACE_VIEW,
-                "playback error category=${classification.category} " +
+                "playback error category=${classification.category.wireName} " +
                     "httpCode=${classification.httpCode} code=${error.errorCode} " +
                     "url=${NativePlaybackDiagnostics.sanitizeUrl(lastLoadUrl)}: ${classification.friendlyMessage}",
                 error,
@@ -160,7 +203,11 @@ class ExoPlayerSurfaceView(
             if (classification.category != NativePlaybackDiagnostics.ErrorCategory.NETWORK ||
                 !scheduleReconnect(classification.friendlyMessage)
             ) {
-                emitError(classification.friendlyMessage)
+                emitError(
+                    classification.friendlyMessage,
+                    classification.category,
+                    classification.httpCode,
+                )
             }
         }
 
@@ -190,13 +237,28 @@ class ExoPlayerSurfaceView(
 
     private fun attemptReconnect() {
         if (disposed || player.isReleased()) return
+        // Never resurrect a stream the user has already replaced.
+        if (lastLoadUrl != reconnectTargetUrl) return
         try {
             player.prepare()
         } catch (e: Throwable) {
             android.util.Log.e(NativePlaybackDiagnostics.TAG_SURFACE_VIEW, "reconnect prepare failed", e)
-            emitError("Network error: Unable to connect to stream server.")
+            emitError(
+                "Network error: Unable to connect to stream server.",
+                NativePlaybackDiagnostics.ErrorCategory.NETWORK,
+            )
         }
     }
+
+    private fun armRenderWatchdogIfNeeded() {
+        mainHandler.removeCallbacks(renderWatchdogRunnable)
+        if (renderedFirstFrame || !player.playWhenReady || !hasVideoTrack()) return
+        if (player.playbackState != Player.STATE_READY) return
+        mainHandler.postDelayed(renderWatchdogRunnable, RENDER_WATCHDOG_MS)
+    }
+
+    private fun hasVideoTrack(): Boolean =
+        player.currentTracks.groups.any { it.type == C.TRACK_TYPE_VIDEO && it.length > 0 }
 
     private fun ExoPlayer.isReleased(): Boolean = try {
         currentPosition >= 0
@@ -258,8 +320,19 @@ class ExoPlayerSurfaceView(
         )
     }
 
-    private fun emitError(message: String) {
-        eventSink?.success(mapOf("type" to "error", "message" to message))
+    private fun emitError(
+        message: String,
+        category: NativePlaybackDiagnostics.ErrorCategory = NativePlaybackDiagnostics.ErrorCategory.UNKNOWN,
+        httpCode: Int? = null,
+    ) {
+        eventSink?.success(
+            mapOf(
+                "type" to "error",
+                "message" to message,
+                "category" to category.wireName,
+                "httpCode" to httpCode,
+            )
+        )
     }
 
     private fun emitVideo(width: Int, height: Int) {
@@ -357,20 +430,38 @@ class ExoPlayerSurfaceView(
         val mimeType = call.argument<String>("mimeType")
 
         try {
-            // New load is an explicit action: reset any pending reconnect budget.
+            // New load is an explicit action: reset any pending reconnect budget
+            // and the first-frame watchdog state.
             mainHandler.removeCallbacks(reconnectRunnable)
+            mainHandler.removeCallbacks(renderWatchdogRunnable)
             reconnectAttempts = 0
+            reconnectTargetUrl = url
+            renderedFirstFrame = false
             lastLoadUrl = url
 
             val httpDataSourceFactory = buildHttpDataSourceFactory(headers)
             val mediaItem = MediaItem.Builder().setUri(uri).build()
+
+            // IPTV MPEG-TS robustness flags (mirrors NativePlayerActivity):
+            // tolerate non-IDR keyframes, detect access units, enable DTS audio
+            // and ignore splice info so difficult TS relays demux cleanly.
+            val extractorsFactory = DefaultExtractorsFactory().apply {
+                setTsExtractorFlags(
+                    DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES or
+                    DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS or
+                    DefaultTsPayloadReaderFactory.FLAG_ENABLE_HDMV_DTS_AUDIO_STREAMS or
+                    DefaultTsPayloadReaderFactory.FLAG_IGNORE_SPLICE_INFO_STREAM,
+                )
+                setConstantBitrateSeekingEnabled(true)
+            }
+
             val mediaSource: MediaSource = when (Util.inferContentType(uri, mimeType ?: "")) {
                 C.CONTENT_TYPE_HLS -> HlsMediaSource.Factory(httpDataSourceFactory)
                     .createMediaSource(mediaItem)
                 C.CONTENT_TYPE_DASH -> DashMediaSource.Factory(httpDataSourceFactory)
                     .createMediaSource(mediaItem)
                 C.CONTENT_TYPE_RTSP -> RtspMediaSource.Factory().createMediaSource(mediaItem)
-                else -> ProgressiveMediaSource.Factory(httpDataSourceFactory)
+                else -> ProgressiveMediaSource.Factory(httpDataSourceFactory, extractorsFactory)
                     .createMediaSource(mediaItem)
             }
             player.setMediaSource(mediaSource)
@@ -393,12 +484,38 @@ class ExoPlayerSurfaceView(
                 requestProperties[key] = value
             }
         }
+
+        // Route explicit Cookie headers through the shared java.net CookieHandler
+        // so they are attached to playlist, segment and key requests alike
+        // (mirrors NativePlayerActivity).
+        try {
+            val cookieManager = (java.net.CookieHandler.getDefault() as? java.net.CookieManager)
+                ?: java.net.CookieManager(null, java.net.CookiePolicy.ACCEPT_ALL).also {
+                    java.net.CookieHandler.setDefault(it)
+                }
+            val cookieVal = headers["Cookie"] ?: headers["cookie"]
+            if (!cookieVal.isNullOrBlank() && lastLoadUrl.isNotBlank()) {
+                val uriObj = java.net.URI(lastLoadUrl)
+                for (part in cookieVal.split(";")) {
+                    val trimmed = part.trim()
+                    if (trimmed.isNotBlank()) {
+                        try {
+                            for (c in java.net.HttpCookie.parse(trimmed)) {
+                                cookieManager.cookieStore.add(uriObj, c)
+                            }
+                        } catch (_: Exception) {}
+                    }
+                }
+            }
+        } catch (_: Exception) {}
+
         return DefaultHttpDataSource.Factory()
             .setUserAgent(userAgent)
             .setDefaultRequestProperties(requestProperties)
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(CONNECT_TIMEOUT_MS)
             .setReadTimeoutMs(READ_TIMEOUT_MS)
+            .setKeepPostFor302Redirects(true)
     }
 
     private fun applyAspectRatio(mode: String?) {
