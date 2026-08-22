@@ -22,9 +22,9 @@ class MainActivity : FlutterActivity() {
 
         // Lets the NativeActivityPlayerAdapter launch the fullscreen native
         // video Activity (NativePlayerActivity). That Activity renders ExoPlayer
-        // through a plain SurfaceView outside the Flutter view hierarchy, which
-        // is the only render path that displays video on Unisoc/Mali devices
-        // (see docs/PLAYBACK_ENGINEERING.md §8.3).
+        // through a plain window-owned TextureView outside the Flutter view
+        // hierarchy, which is the render path proven to display video on
+        // Unisoc/Mali devices (see docs/PLAYBACK_ENGINEERING.md §8.3).
         NativePlayerActivity.messenger = flutterEngine.dartExecutor.binaryMessenger
         MethodChannel(
             flutterEngine.dartExecutor.binaryMessenger,

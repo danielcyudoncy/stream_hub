@@ -18,6 +18,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.DashMediaSource
@@ -60,6 +61,18 @@ class ExoPlayerSurfaceView(
         private const val CONNECT_TIMEOUT_MS = 15_000
         private const val READ_TIMEOUT_MS = 15_000
         private const val POSITION_INTERVAL_MS = 250L
+
+        // Controlled reconnect budget for transient network failures only
+        // (mirrors NativePlayerActivity). Permanent errors surface immediately.
+        private const val MAX_RECONNECT_ATTEMPTS = 3
+        private const val RECONNECT_BASE_DELAY_MS = 2_000L
+        private const val RECONNECT_MAX_DELAY_MS = 8_000L
+
+        private const val MIN_BUFFER_MS = 45_000
+        private const val MAX_BUFFER_MS = 60_000
+        private const val BUFFER_FOR_PLAYBACK_MS = 2_500
+        private const val BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 5_000
+        private const val BACK_BUFFER_DURATION_MS = 10_000
     }
 
     private val player: ExoPlayer = ExoPlayer.Builder(
@@ -69,7 +82,20 @@ class ExoPlayerSurfaceView(
             .setMediaCodecSelector(
                 if (hardwareDecode) MediaCodecSelector.DEFAULT else MediaCodecSelector.PREFER_SOFTWARE
             ),
-    ).build()
+    )
+        .setLoadControl(
+            DefaultLoadControl.Builder()
+                .setBufferDurationsMs(
+                    MIN_BUFFER_MS,
+                    MAX_BUFFER_MS,
+                    BUFFER_FOR_PLAYBACK_MS,
+                    BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
+                )
+                .setBackBuffer(BACK_BUFFER_DURATION_MS, false)
+                .setPrioritizeTimeOverSizeThresholds(true)
+                .build(),
+        )
+        .build()
 
     private val playerView = PlayerView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
@@ -90,12 +116,16 @@ class ExoPlayerSurfaceView(
     private var disposed = false
     private var currentVolume = 1.0f
     private var muted = false
+    private var lastLoadUrl: String = ""
+    private var reconnectAttempts = 0
+    private val reconnectRunnable = Runnable { attemptReconnect() }
 
     private val playerListener = object : Player.Listener {
         override fun onPlaybackStateChanged(playbackState: Int) {
             when (playbackState) {
                 Player.STATE_BUFFERING -> emitState("buffering")
                 Player.STATE_READY -> {
+                    if (reconnectAttempts > 0) reconnectAttempts = 0
                     emitState(if (player.playWhenReady) "playing" else "paused")
                     emitPosition()
                 }
@@ -111,12 +141,67 @@ class ExoPlayerSurfaceView(
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            emitError("${error.errorCodeName}: ${error.message}")
+            mainHandler.removeCallbacks(reconnectRunnable)
+            val classification = NativePlaybackDiagnostics.classify(error)
+            android.util.Log.e(
+                NativePlaybackDiagnostics.TAG_SURFACE_VIEW,
+                "playback error category=${classification.category} " +
+                    "httpCode=${classification.httpCode} code=${error.errorCode} " +
+                    "url=${NativePlaybackDiagnostics.sanitizeUrl(lastLoadUrl)}: ${classification.friendlyMessage}",
+                error,
+            )
+            if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                try {
+                    player.seekToDefaultPosition()
+                    player.prepare()
+                } catch (_: Throwable) {}
+                return
+            }
+            if (classification.category != NativePlaybackDiagnostics.ErrorCategory.NETWORK ||
+                !scheduleReconnect(classification.friendlyMessage)
+            ) {
+                emitError(classification.friendlyMessage)
+            }
         }
 
         override fun onVideoSizeChanged(videoSize: VideoSize) {
             emitVideo(videoSize.width, videoSize.height)
         }
+    }
+
+    /**
+     * Schedules a bounded backoff reconnect for transient network failures.
+     * Returns false when the budget is exhausted and the error must surface.
+     * playWhenReady is preserved so a paused stream stays paused after recovery.
+     */
+    private fun scheduleReconnect(friendlyMessage: String): Boolean {
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return false
+        reconnectAttempts++
+        val delay =
+            (RECONNECT_BASE_DELAY_MS shl (reconnectAttempts - 1)).coerceAtMost(RECONNECT_MAX_DELAY_MS)
+        android.util.Log.w(
+            NativePlaybackDiagnostics.TAG_SURFACE_VIEW,
+            "transient network failure; reconnect attempt $reconnectAttempts/$MAX_RECONNECT_ATTEMPTS in ${delay}ms",
+        )
+        emitState("buffering")
+        mainHandler.postDelayed(reconnectRunnable, delay)
+        return true
+    }
+
+    private fun attemptReconnect() {
+        if (disposed || player.isReleased()) return
+        try {
+            player.prepare()
+        } catch (e: Throwable) {
+            android.util.Log.e(NativePlaybackDiagnostics.TAG_SURFACE_VIEW, "reconnect prepare failed", e)
+            emitError("Network error: Unable to connect to stream server.")
+        }
+    }
+
+    private fun ExoPlayer.isReleased(): Boolean = try {
+        currentPosition >= 0
+    } catch (_: IllegalStateException) {
+        true
     }
 
     private val streamHandler = object : EventChannel.StreamHandler {
@@ -272,6 +357,11 @@ class ExoPlayerSurfaceView(
         val mimeType = call.argument<String>("mimeType")
 
         try {
+            // New load is an explicit action: reset any pending reconnect budget.
+            mainHandler.removeCallbacks(reconnectRunnable)
+            reconnectAttempts = 0
+            lastLoadUrl = url
+
             val httpDataSourceFactory = buildHttpDataSourceFactory(headers)
             val mediaItem = MediaItem.Builder().setUri(uri).build()
             val mediaSource: MediaSource = when (Util.inferContentType(uri, mimeType ?: "")) {
@@ -439,7 +529,7 @@ class ExoPlayerSurfaceView(
     private fun disposeInternal() {
         if (disposed) return
         disposed = true
-        mainHandler.removeCallbacks(positionReporter)
+        mainHandler.removeCallbacksAndMessages(null)
         channel.setMethodCallHandler(null)
         events.setStreamHandler(null)
         eventSink = null

@@ -54,6 +54,7 @@ import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.util.Util
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.dash.DashMediaSource
@@ -112,12 +113,30 @@ class NativePlayerActivity : Activity() {
         const val CHANNEL_LAUNCH = "stream_hub/native_player_launch"
         const val CHANNEL_EVENTS = "stream_hub/native_player_events"
 
+        private const val TAG = NativePlaybackDiagnostics.TAG_ACTIVITY
+
         private const val DEFAULT_USER_AGENT = "IPTVSmarters/1.0 (Linux; Android)"
         private const val CONNECT_TIMEOUT_MS = 15000
         private const val READ_TIMEOUT_MS = 20000
         private const val POSITION_INTERVAL_MS = 500L
         private const val CONTROLS_AUTO_HIDE_MS = 4000L
         private const val SEEK_STEP_MS = 10000L
+
+        // Controlled reconnect budget for transient playback failures.
+        // Only network-classified errors are retried, with exponential backoff.
+        private const val MAX_RECONNECT_ATTEMPTS = 3
+        private const val RECONNECT_BASE_DELAY_MS = 2000L
+        private const val RECONNECT_MAX_DELAY_MS = 8000L
+
+        // Explicit LoadControl tuned for IPTV: identical startup/rebuffer
+        // thresholds to ExoPlayer defaults, slightly tighter steady-state
+        // buffer for low-memory devices and a small back buffer that lets a
+        // live stream resume without refetching after short interruptions.
+        private const val MIN_BUFFER_MS = 45_000
+        private const val MAX_BUFFER_MS = 60_000
+        private const val BUFFER_FOR_PLAYBACK_MS = 2_500
+        private const val BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS = 5_000
+        private const val BACK_BUFFER_DURATION_MS = 10_000
 
         var messenger: BinaryMessenger? = null
         var instance: NativePlayerActivity? = null
@@ -213,6 +232,15 @@ class NativePlayerActivity : Activity() {
     private var channelTitle: String? = null
     private var isLiveIntent = false
 
+    // Controlled reconnect state. Reset on every successful STATE_READY and on
+    // every explicit channel switch / loadStream call.
+    private var reconnectAttempts = 0
+
+    private lateinit var audioManager: AudioManager
+    private lateinit var gestureDetector: GestureDetector
+
+    private val reconnectRunnable = Runnable { attemptReconnect() }
+
     val isLiveStream: Boolean
         get() = isLiveIntent || (player?.isCurrentMediaItemLive == true) || (player?.duration == C.TIME_UNSET) || ((player?.duration ?: 0L) <= 0L)
 
@@ -222,9 +250,6 @@ class NativePlayerActivity : Activity() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val hideControlsRunnable = Runnable { setControlsVisible(false) }
     private val hideHudRunnable = Runnable { hideAllHuds() }
-
-    private lateinit var audioManager: AudioManager
-    private lateinit var gestureDetector: GestureDetector
 
     // Touch gesture tracking state
     private var touchStartX = 0f
@@ -248,10 +273,21 @@ class NativePlayerActivity : Activity() {
         override fun onPlaybackStateChanged(playbackState: Int) {
             when (playbackState) {
                 Player.STATE_BUFFERING -> {
+                    android.util.Log.d(TAG, "state=BUFFERING url=${NativePlaybackDiagnostics.sanitizeUrl(streamUrl)}")
                     emit("onState", mapOf("state" to "buffering"))
                     loadingSpinner?.visibility = View.VISIBLE
                 }
                 Player.STATE_READY -> {
+                    // A successful (re)connection restores the full retry budget.
+                    if (reconnectAttempts > 0) {
+                        android.util.Log.i(TAG, "recovery succeeded after $reconnectAttempts attempt(s)")
+                        reconnectAttempts = 0
+                    }
+                    android.util.Log.i(
+                        TAG,
+                        "state=READY url=${NativePlaybackDiagnostics.sanitizeUrl(streamUrl)} " +
+                            "video=${videoWidth}x$videoHeight live=$isLiveStream",
+                    )
                     loadingSpinner?.visibility = View.GONE
                     emit("onState", mapOf("state" to if (player?.playWhenReady == true) "playing" else "paused"))
                     emitPosition()
@@ -278,37 +314,40 @@ class NativePlayerActivity : Activity() {
                 videoWidth = videoSize.width
                 videoHeight = videoSize.height
                 applyAspectRatioTransform()
+                android.util.Log.d(TAG, "video size ${videoWidth}x$videoHeight")
                 emit("onVideo", mapOf("width" to videoSize.width, "height" to videoSize.height))
             }
         }
 
         override fun onPlayerError(error: PlaybackException) {
             loadingSpinner?.visibility = View.GONE
-            val cause = error.cause
-            val httpCode = if (cause is androidx.media3.datasource.HttpDataSource.InvalidResponseCodeException) {
-                cause.responseCode
-            } else null
+            mainHandler.removeCallbacks(reconnectRunnable)
 
-            val friendlyMsg = when {
-                httpCode == 401 || httpCode == 403 ->
-                    "Access denied (HTTP $httpCode): Stream link expired or invalid credentials."
-                httpCode == 404 ->
-                    "Stream not found (HTTP 404): Channel stream may be offline."
-                httpCode != null && httpCode >= 500 ->
-                    "Server error (HTTP $httpCode): Stream unavailable or connection limit exceeded."
-                error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ||
-                error.errorCode == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
-                    "Network error: Unable to connect to stream server."
-                error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS ->
-                    "Server error: Stream unavailable or connection limit exceeded."
-                error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ||
-                error.errorCode == PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ->
-                    "Stream format or codec unsupported."
-                else -> "${error.errorCodeName}: ${error.message}"
+            val classification = NativePlaybackDiagnostics.classify(error)
+            android.util.Log.e(
+                TAG,
+                "playback error category=${classification.category} " +
+                    "httpCode=${classification.httpCode} code=${error.errorCode} " +
+                    "url=${NativePlaybackDiagnostics.sanitizeUrl(streamUrl)}: ${classification.friendlyMessage}",
+                error,
+            )
+
+            // Behind-live-window is a normal consequence of pausing/backgrounding a
+            // live stream; ExoPlayer's documented recovery is a default-position
+            // seek + re-prepare. It does not consume the reconnect budget.
+            if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                resynchronizeLiveWindow()
+                return
             }
-            android.util.Log.e("NativePlayerActivity", "ExoPlayer playback error on $streamUrl (code=${error.errorCode}, httpCode=$httpCode): $friendlyMsg", error)
-            showError(friendlyMsg)
-            emit("onError", mapOf("message" to friendlyMsg))
+
+            when (classification.category) {
+                NativePlaybackDiagnostics.ErrorCategory.NETWORK ->
+                    scheduleReconnect(classification)
+                else -> {
+                    showError(classification.friendlyMessage)
+                    emit("onError", mapOf("message" to classification.friendlyMessage))
+                }
+            }
         }
     }
 
@@ -1855,7 +1894,10 @@ class NativePlayerActivity : Activity() {
     private fun buildPlayer(): ExoPlayer {
         val renderersFactory = DefaultRenderersFactory(this)
             .setEnableDecoderFallback(true)
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
+            // EXTENSION_RENDERER_MODE_ON keeps MediaCodec (hardware) as the
+            // preferred decoder path; bundled extension decoders are used only
+            // when MediaCodec cannot play the stream. PREFER would invert this.
+            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setMediaCodecSelector(MediaCodecSelector.DEFAULT)
 
         val trackSelector = DefaultTrackSelector(this).apply {
@@ -1865,17 +1907,95 @@ class NativePlayerActivity : Activity() {
                 .build()
         }
 
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                MIN_BUFFER_MS,
+                MAX_BUFFER_MS,
+                BUFFER_FOR_PLAYBACK_MS,
+                BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
+            )
+            .setBackBuffer(BACK_BUFFER_DURATION_MS, /* retainBackBufferFromKeyframe = */ false)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
         val audioAttributes = androidx.media3.common.AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
             .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
             .build()
 
+        android.util.Log.i(TAG, "creating ExoPlayer: decoderFallback=true rendererMode=ON loadControl=${MIN_BUFFER_MS}/${MAX_BUFFER_MS}ms")
+
         return ExoPlayer.Builder(this, renderersFactory)
             .setTrackSelector(trackSelector)
+            .setLoadControl(loadControl)
             .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .build()
+    }
+
+    // ---- Controlled recovery -------------------------------------------------
+
+    /**
+     * Schedules a bounded, backoff-based reconnect for transient network
+     * failures. Permanent failures (auth, missing resource, media/decoder
+     * errors) never reach this method. The budget resets on STATE_READY and on
+     * every explicit channel switch so a healthy user is never throttled by
+     * past incidents.
+     */
+    private fun scheduleReconnect(classification: NativePlaybackDiagnostics.Classification) {
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+            android.util.Log.e(TAG, "reconnect budget exhausted ($reconnectAttempts attempts); surfacing error")
+            showError(classification.friendlyMessage)
+            emit("onError", mapOf("message" to classification.friendlyMessage))
+            return
+        }
+        reconnectAttempts++
+        val delay = (RECONNECT_BASE_DELAY_MS shl (reconnectAttempts - 1)).coerceAtMost(RECONNECT_MAX_DELAY_MS)
+        android.util.Log.w(
+            TAG,
+            "transient network failure; reconnect attempt $reconnectAttempts/$MAX_RECONNECT_ATTEMPTS in ${delay}ms " +
+                "url=${NativePlaybackDiagnostics.sanitizeUrl(streamUrl)}",
+        )
+        loadingSpinner?.visibility = View.VISIBLE
+        errorView?.visibility = View.GONE
+        emit("onState", mapOf("state" to "buffering"))
+        mainHandler.postDelayed(reconnectRunnable, delay)
+    }
+
+    private fun attemptReconnect() {
+        val exo = player ?: return
+        if (isFinishing || isDestroyed) return
+        try {
+            exo.prepare()
+            exo.playWhenReady = true
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "reconnect prepare failed", e)
+            showError("Network error: Unable to connect to stream server.")
+            emit("onError", mapOf("message" to "Network error: Unable to connect to stream server."))
+        }
+    }
+
+    private fun cancelPendingReconnect() {
+        mainHandler.removeCallbacks(reconnectRunnable)
+    }
+
+    /**
+     * Recovers from ERROR_CODE_BEHIND_LIVE_WINDOW: the live playlist moved past
+     * the buffered window (typical after backgrounding). Seeks to the default
+     * (live-edge) position and re-prepares without touching the retry budget.
+     */
+    private fun resynchronizeLiveWindow() {
+        val exo = player ?: return
+        try {
+            android.util.Log.i(TAG, "behind-live-window; resynchronizing to live edge")
+            exo.seekToDefaultPosition()
+            exo.prepare()
+            loadingSpinner?.visibility = View.VISIBLE
+            emit("onState", mapOf("state" to "buffering"))
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "live-window resync failed", e)
+        }
     }
 
     fun loadStream(url: String, headers: Map<String, String>, title: String?, epgTitle: String? = null) {
@@ -1898,6 +2018,11 @@ class NativePlayerActivity : Activity() {
 
         try {
             val exo = player ?: return
+            // A new load is an explicit user action: drop any pending reconnect
+            // and restore the full retry budget for the new stream.
+            cancelPendingReconnect()
+            reconnectAttempts = 0
+
             // Stop and clear previous stream immediately to release socket / connection slots on server
             exo.stop()
             exo.clearMediaItems()
@@ -1925,12 +2050,19 @@ class NativePlayerActivity : Activity() {
                 urlString.contains("/hls/") ||
                 Util.inferContentType(uri, "") == C.CONTENT_TYPE_HLS
 
+            val contentType = Util.inferContentType(uri, "")
             val mediaSource: MediaSource = when {
                 isHls -> HlsMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
-                Util.inferContentType(uri, "") == C.CONTENT_TYPE_DASH -> DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
-                Util.inferContentType(uri, "") == C.CONTENT_TYPE_RTSP -> RtspMediaSource.Factory().createMediaSource(mediaItem)
+                contentType == C.CONTENT_TYPE_DASH -> DashMediaSource.Factory(httpDataSourceFactory).createMediaSource(mediaItem)
+                contentType == C.CONTENT_TYPE_RTSP -> RtspMediaSource.Factory().createMediaSource(mediaItem)
                 else -> ProgressiveMediaSource.Factory(httpDataSourceFactory, extractorsFactory).createMediaSource(mediaItem)
             }
+            android.util.Log.i(
+                TAG,
+                "loading stream type=${when { isHls -> "HLS"; contentType == C.CONTENT_TYPE_DASH -> "DASH"; contentType == C.CONTENT_TYPE_RTSP -> "RTSP"; else -> "progressive" }} " +
+                    "headers=[${NativePlaybackDiagnostics.describeHeaders(headers)}] " +
+                    "live=$isLiveIntent title=$channelTitle url=${NativePlaybackDiagnostics.sanitizeUrl(url)}",
+            )
             loadingSpinner?.visibility = View.VISIBLE
             errorView?.visibility = View.GONE
             exo.setMediaSource(mediaSource)
@@ -2131,6 +2263,7 @@ class NativePlayerActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        android.util.Log.i(TAG, "releasing player and finishing native playback")
         if (instance === this) instance = null
         mainHandler.removeCallbacksAndMessages(null)
         player?.removeListener(playerListener)
@@ -2148,22 +2281,13 @@ class NativePlayerActivity : Activity() {
         super.onBackPressed()
     }
 
-    private fun requestAudioFocus() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
-            .build()
-        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-            .setAudioAttributes(attributes)
-            .setOnAudioFocusChangeListener { }
-            .build()
-        audioManager.requestAudioFocus(request)
-    }
+    // Single AudioFocusRequest reused for both request and abandon. Creating a
+    // new request per call (with a new listener lambda) made abandon a no-op
+    // because AudioManager matches abandonment by listener identity.
+    private var audioFocusRequest: AudioFocusRequest? = null
 
-    private fun abandonAudioFocus() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
-        val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
+    private fun obtainAudioFocusRequest(): AudioFocusRequest =
+        audioFocusRequest ?: AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -2172,6 +2296,24 @@ class NativePlayerActivity : Activity() {
             )
             .setOnAudioFocusChangeListener { }
             .build()
-        audioManager.abandonAudioFocusRequest(request)
+            .also { audioFocusRequest = it }
+
+    private fun requestAudioFocus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            audioManager.requestAudioFocus(obtainAudioFocusRequest())
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "audio focus request failed", e)
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        val request = audioFocusRequest ?: return
+        try {
+            audioManager.abandonAudioFocusRequest(request)
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "audio focus abandon failed", e)
+        }
     }
 }

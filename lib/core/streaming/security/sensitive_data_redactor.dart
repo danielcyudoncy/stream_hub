@@ -31,6 +31,9 @@ class SensitiveDataRedactor {
     'apikey',
     'signature',
     'mac',
+    'user',
+    'username',
+    'login',
   };
 
   /// Redacts the value of sensitive HTTP headers.
@@ -44,22 +47,55 @@ class SensitiveDataRedactor {
   }
 
   /// Redacts sensitive query parameters from a URL.
+  ///
+  /// Also masks credential-bearing components outside the query string:
+  /// - userinfo (`user:password@host`)
+  /// - Xtream-style path credentials (`/live/<user>/<pass>/<id>.ts`,
+  ///   `/movie/<user>/<pass>/...`, `/series/<user>/<pass>/...`)
   static String redactUrl(String url) {
+    var result = url;
     try {
       final uri = Uri.tryParse(url);
-      if (uri == null) return url;
-      if (uri.queryParameters.isEmpty) return url;
-
-      final safeQuery = uri.queryParameters.map((key, value) {
-        final lower = key.toLowerCase();
-        final isSensitive = sensitiveQueryKeys.any((k) => lower.contains(k));
-        return MapEntry(key, isSensitive ? _placeholder : value);
-      });
-
-      return uri.replace(queryParameters: safeQuery).toString();
+      if (uri != null && uri.queryParameters.isNotEmpty) {
+        final safeQuery = uri.queryParameters.map((key, value) {
+          final lower = key.toLowerCase();
+          final isSensitive =
+              sensitiveQueryKeys.any((k) => lower.contains(k));
+          return MapEntry(key, isSensitive ? _placeholder : value);
+        });
+        result = uri.replace(queryParameters: safeQuery).toString();
+      }
     } on FormatException {
-      return url;
+      // Fall through to component masking below.
     }
+    // Uri rejects '[' / ']' inside the authority component, so userinfo is
+    // masked textually after composition.
+    return _maskPathCredentials(
+      _maskUserInfo(result.replaceAll(_encodedPlaceholder, _placeholder)),
+    );
+  }
+
+  static const _encodedPlaceholder = '%5BREDACTED%5D';
+
+  static final RegExp _userInfoPattern = RegExp(r'(://)([^@/?#]+)@');
+
+  /// Masks the userinfo component (`user:password@host`) of any URI.
+  static String _maskUserInfo(String url) {
+    return url.replaceAllMapped(_userInfoPattern, (m) => '${m[1]}$_placeholder@');
+  }
+
+  static final RegExp _pathCredentialPattern = RegExp(
+    r'/(?:live|movie|series)/([^/?#]+)/([^/?#]+)',
+    caseSensitive: false,
+  );
+
+  /// Masks both username and password segments of Xtream-style stream paths.
+  /// The trailing resource identifier (e.g. `/2539.ts`) stays readable so logs
+  /// remain useful for debugging channel issues.
+  static String _maskPathCredentials(String url) {
+    return url.replaceAllMapped(_pathCredentialPattern, (_) {
+      return '/$_placeholder/$_placeholder';
+    });
   }
 
   /// Redacts known sensitive values that appear in [message].

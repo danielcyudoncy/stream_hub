@@ -14,6 +14,7 @@ import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
+import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart';
 
 /// [PlayerAdapter] backed by a fullscreen native Android ExoPlayer Activity.
 ///
@@ -201,7 +202,11 @@ class NativeActivityPlayerAdapter implements PlayerAdapter {
         if (idx >= 0) 'channelIndex': idx,
         'isLive': isLive,
       });
-      _logger.info('Native player launched: $url', tag: 'Player');
+      _logger.info(
+        'Native player launched: '
+        '${SensitiveDataRedactor.redactUrl(url)}',
+        tag: 'Player',
+      );
     } on PlatformException catch (e) {
       throw Exception('Failed to launch native player: ${e.message}');
     }
