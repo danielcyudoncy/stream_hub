@@ -103,7 +103,7 @@ class StreamEngineBinding extends Bindings {
     registry.register(const BearerServerProviderSessionFactory(
       MediaSourceType.emby,
     ));
-    registry.register(XtreamProviderSessionFactory());
+    registry.register(XtreamProviderSessionFactory(logger: Get.find<LoggingService>()));
     registry.register(StalkerProviderSessionFactory());
     Get.put<ProviderSessionFactoryRegistry>(registry, permanent: true);
 

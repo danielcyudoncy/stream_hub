@@ -2,18 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../core/media/enums/media_type.dart';
 import '../../core/logging/logging_service.dart';
 import '../../core/routes/app_routes.dart';
-import '../../data/repositories/catalog_repository.dart';
 import '../../data/services/database_service.dart';
 import '../../data/services/firebase_service.dart';
 import '../../data/services/provider_sync_service.dart';
-import '../authentication/auth_controller.dart';
 import '../authentication/repositories/auth_repository.dart';
 
 class SplashController extends GetxController {
   final RxString statusMessage = 'Starting up...'.obs;
+  final RxInt syncCompleted = 0.obs;
+  final RxInt syncTotal = 0.obs;
+  final RxString syncCurrentProvider = ''.obs;
 
   @override
   void onInit() {
@@ -38,38 +38,9 @@ class SplashController extends GetxController {
           final user = await authRepository.tryAutoLogin();
           if (user != null) {
             statusMessage.value = 'Welcome back!';
-            if (Get.isRegistered<AuthController>()) {
-              final authController = Get.find<AuthController>();
-              authController.currentUser.value = user;
-              authController.isAuthenticated.value = true;
-            }
-
-            var hasCachedChannels = false;
-            if (Get.isRegistered<CatalogRepository>()) {
-              try {
-                final catalogRepo = Get.find<CatalogRepository>();
-                final channels = await catalogRepo.getByType(MediaType.channel);
-                hasCachedChannels = channels.isNotEmpty;
-              } catch (_) {}
-            }
-
-            if (hasCachedChannels) {
-              // Channels are already cached: navigate directly & sync rest in background
-              unawaited(_syncProvidersOnStartup());
-              statusMessage.value = 'Ready!';
-              _navigateAway(AppRoutes.home);
-              return;
-            } else {
-              // Local database is empty: sync the primary provider first so Home is never empty
-              statusMessage.value = 'Loading Live TV...';
-              if (Get.isRegistered<ProviderSyncService>()) {
-                final syncService = Get.find<ProviderSyncService>();
-                await syncService.syncPrimaryProviderAndQueueRemainder();
-              }
-              statusMessage.value = 'Ready!';
-              _navigateAway(AppRoutes.home);
-              return;
-            }
+            await _syncProvidersOnStartup();
+            _navigateAway(AppRoutes.home);
+            return;
           }
         } catch (e) {
           statusMessage.value = 'Authentication check failed.';
@@ -90,7 +61,18 @@ class SplashController extends GetxController {
   Future<void> _syncProvidersOnStartup() async {
     try {
       final syncService = Get.find<ProviderSyncService>();
+      final subscription = syncService.progressStream.listen(
+        (progress) {
+          syncCompleted.value = progress.completed;
+          syncTotal.value = progress.total;
+          syncCurrentProvider.value = progress.currentProvider ?? '';
+          if (progress.message != null) {
+            statusMessage.value = progress.message!;
+          }
+        },
+      );
       await syncService.syncAll();
+      await subscription.cancel();
     } catch (e) {
       Get.find<LoggingService>().warning(
         'Startup provider sync failed',

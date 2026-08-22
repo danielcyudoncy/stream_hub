@@ -12,7 +12,6 @@ import 'package:stream_hub/core/media/events/media_event_bus.dart';
 import 'package:stream_hub/core/media/media_source.dart';
 import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart';
-import 'package:stream_hub/core/utils/image_url_formatter.dart';
 import 'package:stream_hub/data/models/account_metadata.dart';
 import 'package:stream_hub/data/models/media_health.dart';
 import 'package:stream_hub/data/models/media_item.dart';
@@ -187,24 +186,14 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       final results = await Future.wait<dynamic>([
         _fetchLiveChannels(syncStartedAt),
         _fetchLiveCategories(syncStartedAt),
-        _fetchMovieCategories(syncStartedAt),
-        _fetchSeriesCategories(syncStartedAt),
         _fetchMovies(syncStartedAt),
         _fetchSeries(syncStartedAt),
       ], eagerError: false);
 
-      final liveCategories = results[1] as List<MediaItem>;
-      final movieCategories = results[2] as List<MediaItem>;
-      final seriesCategories = results[3] as List<MediaItem>;
-
       _cachedChannels = results[0] as List<MediaItem>;
-      _cachedCategories = [
-        ...liveCategories,
-        ...movieCategories,
-        ...seriesCategories,
-      ];
-      _cachedMovies = results[4] as List<MediaItem>;
-      _cachedSeries = results[5] as List<MediaItem>;
+      _cachedCategories = results[1] as List<MediaItem>;
+      _cachedMovies = results[2] as List<MediaItem>;
+      _cachedSeries = results[3] as List<MediaItem>;
       _lastSync = DateTime.now();
 
       _cachedChannels = _resolveCategoryNames(
@@ -325,7 +314,6 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       final categoryId = item['category_id']?.toString() ?? '';
 
       final streamUrl = _liveStreamUrl(streamId, ext);
-      final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: _serverUrl);
 
       channels.add(
         MediaItem(
@@ -335,10 +323,11 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           mediaType: MediaType.channel,
           title: name,
           subtitle: _asString(item['epg_channel_id']),
-          poster: poster,
-          thumbnail: poster,
+          poster: (_asString(item['stream_icon']) ?? '').isNotEmpty
+              ? _asString(item['stream_icon'])
+              : null,
           genres: categoryId.isNotEmpty ? [categoryId] : [],
-          metadata: _liveMetadata(item, streamId, streamUrl, categoryId, poster),
+          metadata: _liveMetadata(item, streamId, streamUrl, categoryId),
           createdAt: createdAt,
           updatedAt: createdAt,
         ),
@@ -353,18 +342,16 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     String streamId,
     String streamUrl,
     String categoryId,
-    String? poster,
   ) {
     return {
       'streamUrl': streamUrl,
       'streamId': streamId,
       'categoryId': categoryId,
       'epgChannelId': _asString(item['epg_channel_id']) ?? '',
-      'streamIcon': poster ?? _asString(item['stream_icon']) ?? '',
+      'streamIcon': _asString(item['stream_icon']) ?? '',
       'tvArchive': item['tv_archive'],
       'tvArchiveDuration': item['tv_archive_duration'],
       'resolution': _asString(item['stream_type']) ?? '',
-      'serverUrl': _serverUrl,
       'isLive': true,
     };
   }
@@ -384,22 +371,9 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       final categoryId = item['category_id']?.toString() ?? '';
 
       final streamUrl = _movieStreamUrl(streamId, ext);
-      final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: _serverUrl);
-      final backdrop = ImageUrlFormatter.format(item['backdrop_path'], serverUrl: _serverUrl);
-      final rawGenre = _asString(item['genre']) ?? '';
-
-      final genres = <String>[];
-      if (categoryId.isNotEmpty) {
-        genres.add(categoryId);
-      }
-      if (rawGenre.isNotEmpty) {
-        for (final g in rawGenre.split(RegExp(r'[,/|]'))) {
-          final clean = g.trim();
-          if (clean.isNotEmpty && !genres.contains(clean)) {
-            genres.add(clean);
-          }
-        }
-      }
+      final poster = (_asString(item['stream_icon']) ?? '').isNotEmpty
+          ? _asString(item['stream_icon'])
+          : null;
 
       movies.add(
         MediaItem(
@@ -409,12 +383,13 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           mediaType: MediaType.movie,
           title: name,
           poster: poster,
-          thumbnail: poster,
-          backdrop: backdrop,
-          genres: genres,
+          backdrop: (_asString(item['backdrop_path']) ?? '').isNotEmpty
+              ? _asString(item['backdrop_path'])
+              : null,
+          genres: categoryId.isNotEmpty ? [categoryId] : [],
           rating: _parseRating(item['rating']),
           description: _asString(item['plot']),
-          metadata: _vodMetadata(item, streamId, streamUrl, categoryId, poster),
+          metadata: _vodMetadata(item, streamId, streamUrl, categoryId),
           createdAt: createdAt,
           updatedAt: createdAt,
         ),
@@ -429,7 +404,6 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     String streamId,
     String streamUrl,
     String categoryId,
-    String? poster,
   ) {
     return {
       'streamUrl': streamUrl,
@@ -444,10 +418,6 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       'added': _asString(item['added']) ?? '',
       'directSource': _asString(item['direct_source']) ?? '',
       'backdropPath': _asString(item['backdrop_path']) ?? '',
-      'streamIcon': poster ?? _asString(item['stream_icon']) ?? '',
-      'movieImage': _asString(item['movie_image']) ?? '',
-      'cover': _asString(item['cover']) ?? _asString(item['cover_big']) ?? '',
-      'serverUrl': _serverUrl,
       'isVod': true,
     };
   }
@@ -464,22 +434,6 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
 
       final name = _asString(item['name']) ?? 'Unknown';
       final categoryId = item['category_id']?.toString() ?? '';
-      final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: _serverUrl);
-      final backdrop = ImageUrlFormatter.format(item['backdrop_path'], serverUrl: _serverUrl);
-      final rawGenre = _asString(item['genre']) ?? '';
-
-      final genres = <String>[];
-      if (categoryId.isNotEmpty) {
-        genres.add(categoryId);
-      }
-      if (rawGenre.isNotEmpty) {
-        for (final g in rawGenre.split(RegExp(r'[,/|]'))) {
-          final clean = g.trim();
-          if (clean.isNotEmpty && !genres.contains(clean)) {
-            genres.add(clean);
-          }
-        }
-      }
 
       series.add(
         MediaItem(
@@ -488,13 +442,16 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
           providerType: MediaSourceType.xtream,
           mediaType: MediaType.series,
           title: name,
-          poster: poster,
-          thumbnail: poster,
-          backdrop: backdrop,
-          genres: genres,
+          poster: (_asString(item['cover']) ?? '').isNotEmpty
+              ? _asString(item['cover'])
+              : null,
+          backdrop: (_asString(item['backdrop_path']) ?? '').isNotEmpty
+              ? _asString(item['backdrop_path'])
+              : null,
+          genres: categoryId.isNotEmpty ? [categoryId] : [],
           rating: _parseRating(item['rating']),
           description: _asString(item['plot']),
-          metadata: _seriesMetadata(item, seriesId, categoryId, poster),
+          metadata: _seriesMetadata(item, seriesId, categoryId),
           createdAt: createdAt,
           updatedAt: createdAt,
         ),
@@ -508,7 +465,6 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     Map item,
     String seriesId,
     String categoryId,
-    String? poster,
   ) {
     final seasons = _parseSeasons(item['seasons']);
     return {
@@ -521,9 +477,6 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       'rating': _asString(item['rating']) ?? '',
       'added': _asString(item['added']) ?? '',
       'backdropPath': _asString(item['backdrop_path']) ?? '',
-      'cover': poster ?? _asString(item['cover']) ?? _asString(item['cover_big']) ?? '',
-      'streamIcon': _asString(item['stream_icon']) ?? '',
-      'serverUrl': _serverUrl,
       'seasonCount': seasons,
       'isSeries': true,
     };
@@ -650,7 +603,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       queryParameters: {
         'username': _username,
         'password': _password,
-        ...Uri.parse('?$action').queryParameters,
+        ..._splitAction(action),
       },
     );
 
@@ -667,6 +620,19 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       );
       return null;
     }
+  }
+
+  static Map<String, String> _splitAction(String action) {
+    final params = <String, String>{};
+    for (final pair in action.split('&')) {
+      final idx = pair.indexOf('=');
+      if (idx > 0) {
+        params[pair.substring(0, idx)] = pair.substring(idx + 1);
+      } else if (pair.isNotEmpty) {
+        params[pair] = '';
+      }
+    }
+    return params;
   }
 
   /// Extracts the item list from a panel payload.
@@ -823,8 +789,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
 
   @override
   Future<List<MediaItem>> getCategories() async {
-    if (_cachedCategories.isNotEmpty) return _cachedCategories;
-    final live = await _fetchLiveCategories(DateTime.now());
+    final live = _cachedCategories;
     final movies = await _fetchMovieCategories(DateTime.now());
     final series = await _fetchSeriesCategories(DateTime.now());
     return [...live, ...movies, ...series];
