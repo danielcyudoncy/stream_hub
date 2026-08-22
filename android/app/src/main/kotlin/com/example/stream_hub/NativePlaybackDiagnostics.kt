@@ -36,6 +36,9 @@ object NativePlaybackDiagnostics {
         /** Missing resource (404/410); never auto-retried. */
         NOT_FOUND,
 
+        /** Provider rate limiting (429); never auto-retried — retrying would worsen it. */
+        RATE_LIMITED,
+
         /** Container / manifest parsing problem; never auto-retried. */
         MEDIA,
 
@@ -47,6 +50,21 @@ object NativePlaybackDiagnostics {
 
         /** Anything else. */
         UNKNOWN,
+        ;
+
+        /** Stable identifier sent across the Flutter method channel. */
+        val wireName: String
+            get() = when (this) {
+                NETWORK -> "network"
+                SERVER -> "server"
+                AUTH -> "auth"
+                NOT_FOUND -> "notFound"
+                RATE_LIMITED -> "rateLimited"
+                MEDIA -> "media"
+                DECODER -> "decoder"
+                RENDERER -> "renderer"
+                UNKNOWN -> "unknown"
+            }
     }
 
     data class Classification(
@@ -68,6 +86,16 @@ object NativePlaybackDiagnostics {
                 ErrorCategory.AUTH,
                 httpCode,
                 "Access denied (HTTP $httpCode): Stream link expired or invalid credentials.",
+            )
+            httpCode == 429 -> Classification(
+                ErrorCategory.RATE_LIMITED,
+                httpCode,
+                "Rate limited (HTTP 429): Provider is limiting connections; try again later.",
+            )
+            httpCode == 408 -> Classification(
+                ErrorCategory.NETWORK,
+                httpCode,
+                "Request timeout (HTTP 408): Server was too slow to respond.",
             )
             httpCode == 404 || httpCode == 410 -> Classification(
                 ErrorCategory.NOT_FOUND,

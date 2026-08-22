@@ -10,6 +10,7 @@ import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/events/playback_event.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
+import 'package:stream_hub/core/media/player/error_classification.dart';
 import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter_factory.dart';
@@ -28,7 +29,7 @@ class PlaybackEngine {
   final LoggingService logger;
 
   PlayerAdapter _adapter;
-  PlaybackEngineKind _engineKind;
+ PlaybackEngineKind _engineKind;
   final PlayerSelectionStrategy _selectionStrategy;
 
   /// Whether the engine may select and hot-swap the backend per session.
@@ -122,6 +123,19 @@ class PlaybackEngine {
 
   /// The currently active playback backend.
   PlayerAdapter get adapter => _adapter;
+
+  /// The active backend's structured-error interface, or `null` when the
+  /// backend does not classify playback errors.
+  ///
+  /// Note: [StructuredErrorReporter] is unrelated to [PlayerAdapter], so a
+  /// plain `is` check cannot promote the field type — an explicit cast is
+  /// required.
+  StructuredErrorReporter? get _structuredErrorReporter {
+    final adapter = _adapter;
+    return adapter is StructuredErrorReporter
+        ? adapter as StructuredErrorReporter
+        : null;
+  }
 
   /// The kind of the currently active playback backend.
   PlaybackEngineKind get engineKind => _engineKind;
@@ -671,9 +685,28 @@ class PlaybackEngine {
   ///
   /// Only runs in Auto mode, respects an explicit user preference, and iterates
   /// through candidates until all supported options have been exhausted.
+  ///
+  /// When the active backend reported a structured error category, the policy
+  /// in [shouldAttemptEngineFallback] gates the swap: auth failures, missing
+  /// resources and provider rate limiting are properties of the stream, not
+  /// the player, so no alternate engine is tried and the error surfaces
+  /// directly.
   Future<bool> _tryEngineFallback() async {
     if (!allowEngineFallback) return false;
     if (settings.preferredPlayer != PlaybackEnginePreference.auto) return false;
+
+    final reporter = _structuredErrorReporter;
+    if (reporter != null) {
+      final category = reporter.lastErrorCategory;
+      if (!shouldAttemptEngineFallback(category)) {
+        logger.warning(
+          'Skipping engine fallback: failure classified as '
+          '${category?.name} — switching backends cannot resolve it',
+          tag: 'PlaybackEngine',
+        );
+        return false;
+      }
+    }
 
     _attemptedEngines.add(_engineKind);
     final url = _currentSession?.stream.url ?? '';
@@ -722,6 +755,9 @@ class PlaybackEngine {
     required String loadId,
   }) async {
     _setState(PlaybackState.loading);
+    // A new load invalidates any classification from the previous session so
+    // a past failure can never suppress or steer a later fallback decision.
+    _structuredErrorReporter?.clearLastError();
     try {
       await loadAction();
       _setState(PlaybackState.buffering);

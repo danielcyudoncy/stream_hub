@@ -11,10 +11,12 @@ import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
+import 'package:stream_hub/core/media/player/error_classification.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
+import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart';
 
 /// [PlayerAdapter] backed by ExoPlayer (AndroidX Media3) rendered through a
 /// real Android `TextureView` hosted in a Hybrid-Composition platform view.
@@ -37,7 +39,7 @@ import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
 /// Channels
 /// - Control: `stream_hub/exo_surface_<viewId>` (MethodChannel).
 /// - Events: `stream_hub/exo_surface_events_<viewId>` (EventChannel).
-class ExoPlayerSurfaceViewAdapter implements PlayerAdapter {
+class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorReporter {
   static const String _viewType = 'com.example.stream_hub/exo_surface';
   static const Duration _viewMountTimeout = Duration(seconds: 10);
 
@@ -56,6 +58,21 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter {
 
   int _videoWidth = 0;
   int _videoHeight = 0;
+
+  NativeErrorCategory? _lastErrorCategory;
+  int? _lastErrorHttpCode;
+
+  @override
+  NativeErrorCategory? get lastErrorCategory => _lastErrorCategory;
+
+  @override
+  int? get lastErrorHttpCode => _lastErrorHttpCode;
+
+  @override
+  void clearLastError() {
+    _lastErrorCategory = null;
+    _lastErrorHttpCode = null;
+  }
 
   final _stateController = StreamController<PlaybackState>.broadcast();
   final _positionController = StreamController<Duration>.broadcast();
@@ -167,9 +184,16 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter {
       case 'error':
         final message =
             data['message']?.toString() ?? 'ExoPlayer playback error.';
+        _lastErrorCategory = parseNativeErrorCategory(data['category']?.toString());
+        _lastErrorHttpCode = (data['httpCode'] as num?)?.toInt();
         _setPlaybackState(PlaybackState.error);
         _errorController.add(message);
-        _logger.error('ExoPlayer playback error: $message', tag: 'Player');
+        _logger.error(
+          'ExoPlayer playback error '
+          '(category: ${_lastErrorCategory?.name ?? 'unclassified'}, '
+          'http: ${_lastErrorHttpCode ?? '-'}): $message',
+          tag: 'Player',
+        );
     }
   }
 
@@ -228,6 +252,7 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter {
     if (uri == null || !uri.isAbsolute) {
       throw Exception('Invalid stream URL: $url');
     }
+    clearLastError();
     final viewId = await _waitForPlatformView();
     final channel = _channel;
     if (channel == null) {
@@ -237,7 +262,10 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter {
       'url': url,
       'headers': headers ?? const <String, String>{},
     });
-    _logger.info('ExoPlayer loading source: $url', tag: 'Player');
+    _logger.info(
+      'ExoPlayer loading source: ${SensitiveDataRedactor.redactUrl(url)}',
+      tag: 'Player',
+    );
   }
 
   /// Waits for the [PlatformViewLink] to mount and create the native view.
