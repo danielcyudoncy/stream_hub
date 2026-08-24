@@ -8,6 +8,7 @@ enum PlaybackEngineKind {
   exoPlayer,
   nativeActivity,
   vlc,
+  ijk,
   fallback,
   none;
 
@@ -23,6 +24,8 @@ enum PlaybackEngineKind {
         return 'Native Player';
       case PlaybackEngineKind.vlc:
         return 'VLC';
+      case PlaybackEngineKind.ijk:
+        return 'IJK';
       case PlaybackEngineKind.fallback:
         return 'Fallback Player';
       case PlaybackEngineKind.none:

@@ -2,6 +2,7 @@ import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/iptv/models/stream_protocol.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
 import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
+import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
 import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
@@ -65,6 +66,12 @@ class PlayerSelectionStrategy {
         return PlaybackEngineKind.mediaKit;
       case PlaybackEnginePreference.vlc:
         if (VlcPlayerAdapter.isSupported) return PlaybackEngineKind.vlc;
+        return PlaybackEngineKind.mediaKit;
+      case PlaybackEnginePreference.ijk:
+        // Experimental opt-in only (Phase 3): never selected by `auto`, and
+        // deliberately absent from [fallbackOrderFor] until the A/B
+        // evaluation produces evidence.
+        if (IjkPlayerAdapter.isSupported) return PlaybackEngineKind.ijk;
         return PlaybackEngineKind.mediaKit;
       case PlaybackEnginePreference.auto:
         break;
