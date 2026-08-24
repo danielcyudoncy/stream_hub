@@ -561,3 +561,23 @@ stop ("zombie channel"). Two mechanisms prevent this:
 - `_recoveryInFlightForItemId` — prevents two concurrent recoveries for the
   same item; the first to finish owns the replay.
 
+
+## 10. IJK evaluation backend (experimental)
+
+Phase 3 introduces a fifth engine under active evaluation: IJKPlayer, an
+FFmpeg-based Android player. It exists to answer whether FFmpeg's
+demuxer/decoder stack and its independent render path can rescue streams on
+devices where every shipping engine fails.
+
+Isolation policy (enforced in code and tests):
+
+- `PlaybackEngineKind.ijk` is never selected by `auto` mode and never appears
+  in automatic fallback chains; it runs only when pinned explicitly in
+  Settings → Preferred Player.
+- All IJK specifics (options, JNI error codes, reconnect policy) stay inside
+  `IjkPlayerAdapter` and the window-owned-TextureView `IjkPlayerActivity`.
+- The engine reuses the §9 structured error categories over its own wire
+  protocol (`stream_hub/ijk_player_*` channels).
+
+Build pipeline (self-hosted artifacts, no remote dependency), vendoring, A/B
+methodology, and removal criteria are documented in docs/IJK_EVALUATION.md.

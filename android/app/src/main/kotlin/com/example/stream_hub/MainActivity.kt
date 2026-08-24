@@ -170,5 +170,21 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // Phase 3 evaluation engine (docs/PLAYBACK_ENGINEERING.md §10): the
+        // IJK launch channel is registered by IjkPlayerLaunch, which lives in
+        // the optional `src/ijk/kotlin` source set. We register it via
+        // reflection so this Activity has no static dependency on IJK when the
+        // vendored ijkplayer AAR is absent (the engine is then compiled out and
+        // the call silently no-ops).
+        try {
+            val launchClass =
+                Class.forName("com.example.stream_hub.IjkPlayerLaunch")
+            launchClass
+                .getMethod("register", android.content.Context::class.java, FlutterEngine::class.java)
+                .invoke(null, this, flutterEngine)
+        } catch (_: Throwable) {
+            // IJK not compiled into this build; ignore.
+        }
     }
 }

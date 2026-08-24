@@ -50,6 +50,19 @@
             android:hardwareAccelerated="true"
             android:supportsPictureInPicture="true"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+
+        <!-- IJK evaluation engine Activity. Compiled only when the vendored AAR is present.
+             Safe to declare here even if compiled out, as it is not exported. -->
+        <activity
+            android:name=".IjkPlayerActivity"
+            android:exported="false"
+            android:theme="@style/NativePlayerTheme"
+            android:taskAffinity=""
+            android:screenOrientation="sensor"
+            android:hardwareAccelerated="true"
+            android:supportsPictureInPicture="false"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -1,6 +1,7 @@
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
+import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
 import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
@@ -37,6 +38,9 @@ class PlayerAdapterFactory {
         hardwareDecode: hardwareDecode,
       );
     }
+    if (kind == PlaybackEngineKind.ijk && IjkPlayerAdapter.isSupported) {
+      return IjkPlayerAdapter(logger: logger);
+    }
     return MediaKitPlayerAdapter(
       logger: logger,
       hardwareDecode: hardwareDecode,
@@ -52,6 +56,8 @@ class PlayerAdapterFactory {
         return NativeActivityPlayerAdapter.isSupported;
       case PlaybackEngineKind.vlc:
         return VlcPlayerAdapter.isSupported;
+      case PlaybackEngineKind.ijk:
+        return IjkPlayerAdapter.isSupported;
       case PlaybackEngineKind.mediaKit:
         return true;
       case PlaybackEngineKind.avPlayer:

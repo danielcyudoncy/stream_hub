@@ -498,6 +498,8 @@ class SettingsPage extends GetView<SettingsController> {
         return 'Native Player';
       case PlaybackEnginePreference.vlc:
         return 'VLC';
+      case PlaybackEnginePreference.ijk:
+        return 'IJK (Experimental)';
       case PlaybackEnginePreference.auto:
         return 'Auto (Recommended)';
     }
@@ -515,6 +517,10 @@ class SettingsPage extends GetView<SettingsController> {
             'outside Flutter, the most reliable option on low-end devices.';
       case PlaybackEnginePreference.vlc:
         return 'Always use VLC. Best for problematic live streams.';
+      case PlaybackEnginePreference.ijk:
+        return 'Experimental FFmpeg-based engine under evaluation. Use only '
+            'for A/B testing against the other engines; not recommended for '
+            'daily viewing yet.';
       case PlaybackEnginePreference.auto:
         return 'Pick the best engine per stream. Uses the native player for '
             'problematic live streams.';

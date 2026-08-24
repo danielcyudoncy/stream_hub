@@ -1,0 +1,18 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- IJK evaluation engine Activity. This manifest lives in the optional
+         src/ijk source set and is merged into the app only when the vendored
+         ijkplayer AAR is present (see android/app/build.gradle.kts). When the
+         AAR is absent the activity is not declared and the class is not
+         compiled, so the rest of the app builds and runs without IJK. -->
+    <application>
+        <activity
+            android:name=".IjkPlayerActivity"
+            android:exported="false"
+            android:theme="@style/NativePlayerTheme"
+            android:taskAffinity=""
+            android:screenOrientation="sensor"
+            android:hardwareAccelerated="true"
+            android:supportsPictureInPicture="false"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" />
+    </application>
+</manifest>

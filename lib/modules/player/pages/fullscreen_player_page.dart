@@ -8,6 +8,7 @@ import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
+import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
 import 'package:stream_hub/modules/player/widgets/player_controls.dart';
 import 'package:stream_hub/modules/player/widgets/next_episode_overlay.dart';
 import 'package:stream_hub/modules/player/widgets/skip_intro_button.dart';
@@ -38,8 +39,10 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       if (state == PlaybackState.playing) {
         _autoHideControls();
       } else if (state == PlaybackState.stopped &&
-          _controller.playbackController.engine.adapter
-              is NativeActivityPlayerAdapter) {
+          (_controller.playbackController.engine.adapter
+                  is NativeActivityPlayerAdapter ||
+              _controller.playbackController.engine.adapter
+                  is IjkPlayerAdapter)) {
         // The native Activity finished (e.g. user pressed back on the TV remote
         // inside the native player UI). Pop the fullscreen page so the app
         // returns to the previous screen.
@@ -78,17 +81,36 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: true,
-      onPopInvokedWithResult: (didPop, _) {
-        _stateSub?.cancel();
-        _stateSub = null;
-        _controlsTimer?.cancel();
-      },
-      child: Scaffold(
-        backgroundColor: Colors.black,
-        body: GestureDetector(
-          onTap: _toggleControls,
+    final isExternal = _controller.playbackController.engine.adapter
+              is NativeActivityPlayerAdapter ||
+          _controller.playbackController.engine.adapter is IjkPlayerAdapter;
+
+      if (isExternal) {
+        return PopScope(
+          canPop: true,
+          onPopInvokedWithResult: (didPop, _) {
+            _stateSub?.cancel();
+            _stateSub = null;
+            _controlsTimer?.cancel();
+          },
+          child: const Scaffold(
+            backgroundColor: Colors.black,
+            body: SizedBox.shrink(),
+          ),
+        );
+      }
+
+      return PopScope(
+        canPop: true,
+        onPopInvokedWithResult: (didPop, _) {
+          _stateSub?.cancel();
+          _stateSub = null;
+          _controlsTimer?.cancel();
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: GestureDetector(
+            onTap: _toggleControls,
           behavior: HitTestBehavior.opaque,
           child: Stack(
             children: [
