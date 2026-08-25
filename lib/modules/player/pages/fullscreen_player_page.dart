@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:floating/floating.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
@@ -22,20 +24,30 @@ class FullscreenPlayerPage extends StatefulWidget {
 
 class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   final PlayerController _controller = Get.find<PlayerController>();
+  Floating? _floating;
   StreamSubscription<PlaybackState>? _stateSub;
   bool _controlsVisible = true;
   Timer? _controlsTimer;
 
+  /// PiP is only supported on Android via the `floating` package.
+  static bool get _isPiPSupported => Platform.isAndroid;
+
   @override
   void initState() {
     super.initState();
+    if (_isPiPSupported) {
+      _floating = Floating();
+    }
+    _setupPlayer();
+  }
+
+  void _setupPlayer() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _stateSub = _controller.playbackController.engine.stateRx.listen((state) {
-      if (mounted) {
-        // Rebuild so the video layer reflects the engine's active backend
-        // (MediaKit or VLC) and the state overlays stay in sync.
-        setState(() {});
-      }
+      // NOTE: Do NOT call setState() here. The Obx widgets in the tree
+      // already reactively rebuild for state/engine changes. A full
+      // StatefulWidget rebuild can destabilize the MediaKit Video surface
+      // causing the video to vanish while audio continues.
       if (state == PlaybackState.playing) {
         _autoHideControls();
       } else if (state == PlaybackState.stopped &&
@@ -66,10 +78,12 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   @override
   void dispose() {
     _stateSub?.cancel();
-    _stateSub = null;
     _controlsTimer?.cancel();
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: SystemUiOverlay.values,
+    );
     _controller.stop();
-    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -100,6 +114,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         );
       }
 
+    if (!_isPiPSupported) {
       return PopScope(
         canPop: true,
         onPopInvokedWithResult: (didPop, _) {
@@ -111,143 +126,58 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
           backgroundColor: Colors.black,
           body: GestureDetector(
             onTap: _toggleControls,
-          behavior: HitTestBehavior.opaque,
-          child: Stack(
-            children: [
-              _buildVideoLayer(),
-              _buildSubtitleOverlay(),
-              _buildStateOverlay(),
-              _buildSkipIntroOverlay(),
-              _buildNextEpisodeOverlay(),
-              if (_controlsVisible) ...[
-                _buildCenterControlsOverlay(),
-                _buildControlsOverlay(context),
-                _buildTopBar(context),
+            behavior: HitTestBehavior.opaque,
+            child: Stack(
+              children: [
+                _buildVideoLayer(),
+                _buildStateOverlay(),
+                _buildSkipIntroOverlay(),
+                _buildNextEpisodeOverlay(),
+                if (_controlsVisible) ...[
+                  _buildControlsOverlay(context),
+                  _buildTopBar(context),
+                ],
               ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCenterControlsOverlay() {
-    return Obx(() {
-      final state = _controller.stateRx.value;
-      if (state == PlaybackState.buffering || state == PlaybackState.loading) {
-        return const SizedBox.shrink();
-      }
-      final isPlaying = state == PlaybackState.playing;
-
-      return Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildCircularActionButton(
-              icon: Icons.replay_10_rounded,
-              size: 28,
-              onTap: () {
-                _controller.seek(_controller.position - const Duration(seconds: 10));
-                _autoHideControls();
-              },
-            ),
-            const SizedBox(width: 32),
-            _buildCircularActionButton(
-              icon: isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-              size: 44,
-              isPrimary: true,
-              onTap: () {
-                if (isPlaying) {
-                  _controller.pause();
-                } else {
-                  _controller.play();
-                }
-                _autoHideControls();
-              },
-            ),
-            const SizedBox(width: 32),
-            _buildCircularActionButton(
-              icon: Icons.forward_10_rounded,
-              size: 28,
-              onTap: () {
-                _controller.seek(_controller.position + const Duration(seconds: 10));
-                _autoHideControls();
-              },
-            ),
-          ],
-        ),
-      );
-    });
-  }
-
-  Widget _buildCircularActionButton({
-    required IconData icon,
-    required double size,
-    required VoidCallback onTap,
-    bool isPrimary = false,
-  }) {
-    return Material(
-      color: isPrimary ? Colors.white : Colors.black45,
-      shape: const CircleBorder(),
-      elevation: 4,
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: Padding(
-          padding: EdgeInsets.all(isPrimary ? 16 : 12),
-          child: Icon(
-            icon,
-            size: size,
-            color: isPrimary ? Colors.black : Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSubtitleOverlay() {
-    return Obx(() {
-      final sub = _controller.playbackController.engine.subtitleTextRx.value;
-      if (sub.isEmpty) return const SizedBox.shrink();
-      return Positioned(
-        left: 32,
-        right: 32,
-        bottom: _controlsVisible ? 115 : 42,
-        child: IgnorePointer(
-          child: Align(
-            alignment: Alignment.bottomCenter,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.85),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  width: 0.5,
-                ),
-              ),
-              child: Text(
-                sub,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  height: 1.35,
-                  shadows: [
-                    Shadow(
-                      offset: Offset(0, 1.5),
-                      blurRadius: 3,
-                      color: Colors.black,
-                    ),
-                  ],
-                ),
-              ),
             ),
           ),
         ),
       );
-    });
+    }
+
+    return PiPSwitcher(
+      floating: _floating!,
+      childWhenEnabled: Scaffold(
+        backgroundColor: Colors.black,
+        body: _buildVideoLayer(),
+      ),
+      childWhenDisabled: PopScope(
+        canPop: true,
+        onPopInvokedWithResult: (didPop, _) {
+          _stateSub?.cancel();
+          _stateSub = null;
+          _controlsTimer?.cancel();
+        },
+        child: Scaffold(
+          backgroundColor: Colors.black,
+          body: GestureDetector(
+            onTap: _toggleControls,
+            behavior: HitTestBehavior.opaque,
+            child: Stack(
+              children: [
+                _buildVideoLayer(),
+                _buildStateOverlay(),
+                _buildSkipIntroOverlay(),
+                _buildNextEpisodeOverlay(),
+                if (_controlsVisible) ...[
+                  _buildControlsOverlay(context),
+                  _buildTopBar(context),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildSkipIntroOverlay() {
@@ -379,6 +309,9 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
             PlayerControls(
               controller: _controller,
               isFullscreen: true,
+              onPiPPressed: _isPiPSupported && _floating != null
+                  ? () => _floating!.enable(ImmediatePiP())
+                  : null,
             ),
           ],
         ),

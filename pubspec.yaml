@@ -74,6 +74,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   media_kit_native_event_loop: ^1.0.9
+  floating: ^6.0.0
 
 dev_dependencies:
   flutter_test:

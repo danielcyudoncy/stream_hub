@@ -19,14 +19,12 @@ import 'package:stream_hub/core/streaming/models/playable_session.dart';
 ///   disables fallback.
 /// - RTSP/RTMP/RTMPS/UDP/RTP always prefer VLC (bundled librtmp + robust
 ///   multicast/RTSP demuxing; ExoPlayer has no RTMP/UDP/RTP support).
-/// - Live MPEG-TS, HLS and raw HTTP(S) relays prefer the Native Player on
-///   Android. The native Activity renders ExoPlayer through a plain SurfaceView
-///   outside the Flutter view hierarchy, which is the only render path proven to
-///   display video on Unisoc/Mali devices. Flutter's own video paths are all
-///   broken there: external textures are never sampled and hybrid-composition
-///   platform views (SurfaceView composited or not) black-screen
-///   (docs/PLAYBACK_ENGINEERING.md §1.1 and §8.3).
-/// - On-demand VOD (MP4, MKV, DASH, progressive HTTP) stays on MediaKit.
+/// - All MPEG-TS, HLS, MP4, MKV, and raw HTTP(S) streams prefer the Native
+///   Player on Android when available. The native Activity renders ExoPlayer
+///   through a plain SurfaceView outside the Flutter view hierarchy, which
+///   avoids MediaKit's Flutter texture-based rendering failures on many Android
+///   chipsets (MTK, Unisoc/Mali) where the decoder produces frames but
+///   Flutter's external-texture consumer never renders them.
 /// - When the preferred backend is unavailable (desktop platforms, missing
 ///   native player), MediaKit is always used.
 class PlayerSelectionStrategy {
@@ -91,11 +89,19 @@ class PlayerSelectionStrategy {
         break;
     }
 
-    if (isLive &&
-        (protocol == StreamProtocol.hls ||
-            protocol == StreamProtocol.mpegTs ||
-            protocol == StreamProtocol.http ||
-            protocol == StreamProtocol.https)) {
+    if (protocol == StreamProtocol.hls ||
+        protocol == StreamProtocol.mpegTs ||
+        protocol == StreamProtocol.mp4 ||
+        protocol == StreamProtocol.mkv ||
+        protocol == StreamProtocol.http ||
+        protocol == StreamProtocol.https) {
+      // On Android, prefer a native renderer for ALL content types (live,
+      // movies, series).  MediaKit's Flutter texture-based rendering is
+      // unreliable on many Android chipsets (MTK, Unisoc/Mali) where the
+      // decoder produces frames but Flutter's external-texture consumer never
+      // renders them.  The Native Activity renders through a plain SurfaceView
+      // composited by SurfaceFlinger, bypassing Flutter's texture sampler
+      // entirely.
       if (NativeActivityPlayerAdapter.isSupported) {
         return PlaybackEngineKind.nativeActivity;
       }
@@ -130,11 +136,12 @@ class PlayerSelectionStrategy {
       ];
     }
 
-    if (isLive &&
-        (protocol == StreamProtocol.hls ||
-            protocol == StreamProtocol.mpegTs ||
-            protocol == StreamProtocol.http ||
-            protocol == StreamProtocol.https)) {
+    if (protocol == StreamProtocol.hls ||
+        protocol == StreamProtocol.mpegTs ||
+        protocol == StreamProtocol.mp4 ||
+        protocol == StreamProtocol.mkv ||
+        protocol == StreamProtocol.http ||
+        protocol == StreamProtocol.https) {
       return const [
         PlaybackEngineKind.nativeActivity,
         PlaybackEngineKind.exoPlayer,

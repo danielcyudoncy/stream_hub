@@ -13,11 +13,13 @@ import 'subtitle_selector.dart';
 class PlayerControls extends StatelessWidget {
   final PlayerController controller;
   final bool isFullscreen;
+  final VoidCallback? onPiPPressed;
 
   const PlayerControls({
     super.key,
     required this.controller,
     this.isFullscreen = true,
+    this.onPiPPressed,
   });
 
   @override
@@ -147,6 +149,13 @@ class PlayerControls extends StatelessWidget {
                                 color: Colors.white),
                             tooltip: 'Audio Tracks',
                           ),
+                          if (onPiPPressed != null)
+                            IconButton(
+                              onPressed: onPiPPressed,
+                              icon: const Icon(Icons.picture_in_picture_alt,
+                                  color: Colors.white),
+                              tooltip: 'Picture-in-Picture',
+                            ),
                           IconButton(
                             onPressed: () => _toggleFullscreen(context),
                             icon: const Icon(AppIcons.fullscreenExit,

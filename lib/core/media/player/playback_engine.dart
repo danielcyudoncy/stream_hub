@@ -630,10 +630,9 @@ class PlaybackEngine {
       isLive: isLive,
     );
     if (settings.preferredPlayer == PlaybackEnginePreference.auto &&
-        isLive &&
         await HardwareDetector.isUnisocOrMali()) {
       logger.warning(
-        'Unisoc/Mali chipset detected, forcing Native Activity Player for Live TV to avoid black screen',
+        'Unisoc/Mali chipset detected, forcing Native Activity Player to avoid black screen',
         tag: 'PlaybackEngine',
       );
       selected = PlaybackEngineKind.nativeActivity;
