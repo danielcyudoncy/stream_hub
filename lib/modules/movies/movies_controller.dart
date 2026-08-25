@@ -411,7 +411,7 @@ class MoviesController extends GetxController {
       arguments: {
         'items': [item],
         'currentId': item.id,
-        'resumePosition': ?resumePosition,
+        'resumePosition': resumePosition,
       },
     );
   }

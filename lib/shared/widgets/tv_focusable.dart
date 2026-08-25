@@ -47,6 +47,16 @@ class _TvFocusableState extends State<TvFocusable> {
           setState(() => _hasFocus = show);
         }
       },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<Intent>(
+          onInvoke: (Intent intent) {
+            if (widget.onTap != null) {
+              widget.onTap!();
+            }
+            return null;
+          },
+        ),
+      },
       mouseCursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,

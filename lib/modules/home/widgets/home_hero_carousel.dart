@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
@@ -260,17 +261,39 @@ class _HeroSlideState extends State<_HeroSlide> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Backdrop Image
-        if (image != null && image.isNotEmpty)
+        // Backdrop Image & Fitted Image to prevent over-scaling
+        if (image != null && image.isNotEmpty) ...[
+          // Blurred background
           Positioned.fill(
             child: Image.network(
               image,
               fit: BoxFit.cover,
+              color: Colors.black.withValues(alpha: 0.6),
+              colorBlendMode: BlendMode.darken,
               errorBuilder: (context, error, stackTrace) =>
                   ColoredBox(color: colorScheme.surfaceContainerHighest),
             ),
-          )
-        else
+          ),
+          // Blur effect
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: const SizedBox(),
+            ),
+          ),
+          // Main fitted image
+          Positioned.fill(
+            child: Align(
+              alignment: widget.isTv ? Alignment.centerRight : Alignment.topCenter,
+              child: Image.network(
+                image,
+                fit: BoxFit.contain,
+                alignment: widget.isTv ? Alignment.centerRight : Alignment.topCenter,
+                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+              ),
+            ),
+          ),
+        ] else
           Positioned.fill(child: ColoredBox(color: colorScheme.surfaceContainerHighest)),
 
         // Deep Cinematic Multi-Stop Gradient Overlays

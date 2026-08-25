@@ -26,6 +26,7 @@ import android.util.Rational
 import android.view.GestureDetector
 import android.view.Gravity
 import android.view.MotionEvent
+import android.view.SurfaceView
 import android.view.TextureView
 import android.view.View
 import android.view.ViewGroup
@@ -48,6 +49,8 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.ui.PlayerView
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.VideoSize
@@ -66,6 +69,8 @@ import androidx.media3.exoplayer.source.ProgressiveMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.extractor.DefaultExtractorsFactory
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory
+import androidx.media3.common.text.CueGroup
+import androidx.media3.ui.SubtitleView
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodChannel
 import java.io.Serializable
@@ -180,7 +185,7 @@ class NativePlayerActivity : Activity() {
     private var muted = false
 
     private lateinit var root: FrameLayout
-    private var videoSurface: TextureView? = null
+    private var playerView: PlayerView? = null
     private var titleView: TextView? = null
     private var subtitleEpgView: TextView? = null
     private var playPauseButton: TextView? = null
@@ -369,41 +374,46 @@ class NativePlayerActivity : Activity() {
         }
 
         override fun onPlayerError(error: PlaybackException) {
-            loadingSpinner?.visibility = View.GONE
-            mainHandler.removeCallbacks(reconnectRunnable)
-            mainHandler.removeCallbacks(renderWatchdogRunnable)
+            try {
+                loadingSpinner?.visibility = View.GONE
+                mainHandler.removeCallbacks(reconnectRunnable)
+                mainHandler.removeCallbacks(renderWatchdogRunnable)
 
-            val classification = NativePlaybackDiagnostics.classify(error)
-            android.util.Log.e(
-                TAG,
-                "playback error category=${classification.category.wireName} " +
-                    "httpCode=${classification.httpCode} code=${error.errorCode} " +
-                    "url=${NativePlaybackDiagnostics.sanitizeUrl(streamUrl)}: ${classification.friendlyMessage}",
-                error,
-            )
+                val classification = NativePlaybackDiagnostics.classify(error)
+                android.util.Log.e(
+                    TAG,
+                    "playback error category=${classification.category.wireName} " +
+                        "httpCode=${classification.httpCode} code=${error.errorCode} " +
+                        "url=${NativePlaybackDiagnostics.sanitizeUrl(streamUrl)}: ${classification.friendlyMessage}",
+                    error,
+                )
 
-            // Behind-live-window is a normal consequence of pausing/backgrounding a
-            // live stream; ExoPlayer's documented recovery is a default-position
-            // seek + re-prepare. It does not consume the reconnect budget.
-            if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
-                resynchronizeLiveWindow()
-                return
-            }
-
-            when (classification.category) {
-                NativePlaybackDiagnostics.ErrorCategory.NETWORK ->
-                    scheduleReconnect(classification)
-                else -> {
-                    showError(classification.friendlyMessage)
-                    emit(
-                        "onError",
-                        mapOf(
-                            "message" to classification.friendlyMessage,
-                            "category" to classification.category.wireName,
-                            "httpCode" to classification.httpCode,
-                        ),
-                    )
+                // Behind-live-window is a normal consequence of pausing/backgrounding a
+                // live stream; ExoPlayer's documented recovery is a default-position
+                // seek + re-prepare. It does not consume the reconnect budget.
+                if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) {
+                    resynchronizeLiveWindow()
+                    return
                 }
+
+                when (classification.category) {
+                    NativePlaybackDiagnostics.ErrorCategory.NETWORK ->
+                        scheduleReconnect(classification)
+                    else -> {
+                        showError(classification.friendlyMessage)
+                        emit(
+                            "onError",
+                            mapOf(
+                                "message" to classification.friendlyMessage,
+                                "category" to classification.category.wireName,
+                                "httpCode" to classification.httpCode,
+                            ),
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e(TAG, "Exception in onPlayerError: ${e.message}", e)
+                showError("Fatal error during playback.")
             }
         }
     }
@@ -420,7 +430,7 @@ class NativePlayerActivity : Activity() {
 
         setupWindow()
         root = FrameLayout(this).apply {
-            setBackgroundColor(Color.BLACK)
+            setBackgroundColor(Color.TRANSPARENT)
         }
 
         val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -428,29 +438,41 @@ class NativePlayerActivity : Activity() {
 
         val exo = buildPlayer()
         player = exo
-        val textureView = TextureView(this).apply {
-            surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-                    applyAspectRatioTransform()
-                }
-                override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {
-                    applyAspectRatioTransform()
-                }
-                override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
-            }
+        val pv = PlayerView(this).apply {
+            useController = false
+            resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            player = exo
         }
-        videoSurface = textureView
-        exo.setVideoTextureView(textureView)
+        playerView = pv
 
         root.addView(
-            textureView,
+            pv,
             FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 Gravity.CENTER,
             ),
         )
+
+        val subtitleView = SubtitleView(this).apply {
+            setUserDefaultStyle()
+            setUserDefaultTextSize()
+        }
+        
+        root.addView(
+            subtitleView,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.CENTER,
+            ),
+        )
+
+        exo.addListener(object : Player.Listener {
+            override fun onCues(cueGroup: CueGroup) {
+                subtitleView.setCues(cueGroup.cues)
+            }
+        })
 
         parseIntent()
         setupGestures()
@@ -526,7 +548,7 @@ class NativePlayerActivity : Activity() {
                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN,
             )
-            window.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            window.setBackgroundDrawable(ColorDrawable(Color.BLACK))
         } catch (_: Throwable) {}
     }
 
@@ -1062,6 +1084,7 @@ class NativePlayerActivity : Activity() {
 
         qualityButton = actionPillButton("Auto") { showQualityDialog() }
         val audioButton = actionPillButton("Audio") { showAudioTracksDialog() }
+        val subtitleButton = actionPillButton("Subtitles") { showSubtitlesDialog() }
 
         // Left section
         val leftActions = LinearLayout(this).apply {
@@ -1089,6 +1112,7 @@ class NativePlayerActivity : Activity() {
         }
         rightActions.addView(qualityButton, pillLayoutParams())
         rightActions.addView(audioButton, pillLayoutParams())
+        rightActions.addView(subtitleButton, pillLayoutParams())
 
         controlsRow.addView(leftActions, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         controlsRow.addView(centerTransport, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -1820,51 +1844,13 @@ class NativePlayerActivity : Activity() {
     }
 
     private fun applyAspectRatioTransform() {
-        val surface = videoSurface ?: return
-        val viewWidth = surface.width.toFloat()
-        val viewHeight = surface.height.toFloat()
-        if (viewWidth <= 0 || viewHeight <= 0 || videoWidth <= 0 || videoHeight <= 0) return
-
-        val matrix = Matrix()
-        val viewAspect = viewWidth / viewHeight
-        val videoAspect = videoWidth.toFloat() / videoHeight.toFloat()
-
+        val pv = playerView ?: return
         when (currentAspectRatio) {
-            AspectRatioMode.FIT -> {
-                val scaleX = if (viewAspect > videoAspect) videoAspect / viewAspect else 1.0f
-                val scaleY = if (viewAspect > videoAspect) 1.0f else viewAspect / videoAspect
-                matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f)
-                surface.setTransform(matrix)
-            }
-            AspectRatioMode.ZOOM -> {
-                val scale = if (viewAspect > videoAspect) {
-                    viewWidth / (viewHeight * videoAspect)
-                } else {
-                    viewHeight / (viewWidth / videoAspect)
-                }
-                matrix.setScale(scale, scale, viewWidth / 2f, viewHeight / 2f)
-                surface.setTransform(matrix)
-            }
-            AspectRatioMode.STRETCH -> {
-                val scaleX = 1.0f
-                val scaleY = 1.0f
-                matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f)
-                surface.setTransform(matrix)
-            }
-            AspectRatioMode.SIXTEEN_NINE -> {
-                val targetAspect = 16f / 9f
-                val scaleX = if (viewAspect > targetAspect) targetAspect / viewAspect else 1.0f
-                val scaleY = if (viewAspect > targetAspect) 1.0f else viewAspect / targetAspect
-                matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f)
-                surface.setTransform(matrix)
-            }
-            AspectRatioMode.FOUR_THREE -> {
-                val targetAspect = 4f / 3f
-                val scaleX = if (viewAspect > targetAspect) targetAspect / viewAspect else 1.0f
-                val scaleY = if (viewAspect > targetAspect) 1.0f else viewAspect / targetAspect
-                matrix.setScale(scaleX, scaleY, viewWidth / 2f, viewHeight / 2f)
-                surface.setTransform(matrix)
-            }
+            AspectRatioMode.FIT -> pv.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
+            AspectRatioMode.ZOOM -> pv.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+            AspectRatioMode.STRETCH -> pv.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FILL
+            AspectRatioMode.SIXTEEN_NINE -> pv.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT // Fallback for stability
+            AspectRatioMode.FOUR_THREE -> pv.resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT // Fallback for stability
         }
     }
 
@@ -2311,7 +2297,11 @@ class NativePlayerActivity : Activity() {
     }
 
     private fun emit(method: String, arguments: Map<String, Any?>) {
-        events?.invokeMethod(method, arguments)
+        try {
+            events?.invokeMethod(method, arguments)
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to emit event $method: ${e.message}")
+        }
     }
 
     private fun notifyFinished() {

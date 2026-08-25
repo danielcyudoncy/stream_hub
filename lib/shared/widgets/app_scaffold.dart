@@ -108,25 +108,32 @@ class AppScaffold extends StatelessWidget {
 
           // Desktop / TV — persistent sidebar
           if (width >= 1024 && showNavigation) {
-            return Row(
-              children: [
-                _buildSidebar(context, isDark, colorScheme),
-                Expanded(
-                  child: Column(
-                    children: [
-                      if (showAppBar) AppAppBar(title: title, actions: actions),
-                      const SyncProgressBar(),
-                      Expanded(child: body),
-                    ],
+            return FocusTraversalGroup(
+              policy: WidgetOrderTraversalPolicy(),
+              child: Row(
+                children: [
+                  _buildSidebar(context, isDark, colorScheme),
+                  Expanded(
+                    child: FocusTraversalGroup(
+                      child: Column(
+                        children: [
+                          if (showAppBar) AppAppBar(title: title, actions: actions),
+                          const SyncProgressBar(),
+                          Expanded(child: body),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             );
           }
 
           // Tablet — Navigation Rail
           if (width >= 600 && showNavigation) {
-            return Row(
+            return FocusTraversalGroup(
+              policy: WidgetOrderTraversalPolicy(),
+              child: Row(
               children: [
                 NavigationRail(
                   selectedIndex: _getSelectedIndex(),
@@ -161,8 +168,9 @@ class AppScaffold extends StatelessWidget {
                   ),
                 ),
               ],
-            );
-          }
+            ),
+          );
+        }
 
           // Mobile — full-screen with bottom nav
           return Column(

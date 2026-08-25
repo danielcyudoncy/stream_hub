@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -36,6 +37,15 @@ void main() async {
   runApp(const StreamHubApp());
 }
 
+class AppScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+      };
+}
+
 class StreamHubApp extends StatelessWidget {
   const StreamHubApp({super.key});
 
@@ -55,6 +65,7 @@ class StreamHubApp extends StatelessWidget {
       locale: const Locale('en', 'US'),
       fallbackLocale: const Locale('en', 'US'),
       supportedLocales: const [Locale('en', 'US')],
+      scrollBehavior: AppScrollBehavior(),
     );
   }
 }
