@@ -1,5 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
@@ -24,7 +27,6 @@ import 'package:stream_hub/data/providers/xtream/xtream_url_detector.dart';
 import 'package:stream_hub/data/services/m3u_download_service.dart';
 import 'package:stream_hub/data/services/playlist_cache_service.dart';
 import 'package:stream_hub/data/services/playlist_statistics_service.dart';
-import 'package:stream_hub/data/services/playlist_validation_service.dart';
 
 const _kCacheTtl = Duration(hours: 12);
 
@@ -51,9 +53,7 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
 
   final LoggingService _logger;
   final M3UDownloadService _downloadService;
-  final M3UParser _parser;
   final PlaylistCacheService _cacheService;
-  final PlaylistValidationService _validationService;
   final PlaylistStatisticsService _statisticsService;
 
   final StreamController<List<MediaItem>> _categoriesController =
@@ -84,20 +84,17 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
     required String id,
     required this.config,
     MediaEventBus? eventBus,
-    M3UDownloadService? downloadService,
-    M3UParser? parser,
-    PlaylistCacheService? cacheService,
-    PlaylistValidationService? validationService,
-    PlaylistStatisticsService? statisticsService,
     LoggingService? logger,
+    M3UDownloadService? downloadService,
+    PlaylistCacheService? cacheService,
+    PlaylistStatisticsService? statisticsService,
   })  : _id = id,
         _eventBus = eventBus,
         _logger = logger ?? Get.find<LoggingService>(),
-        _downloadService = downloadService ?? M3UDownloadService(Get.find<LoggingService>()),
-        _parser = parser ?? M3UParser(),
+        _downloadService = downloadService ?? Get.find<M3UDownloadService>(),
         _cacheService = cacheService ?? Get.find<PlaylistCacheService>(),
-        _validationService = validationService ?? Get.find<PlaylistValidationService>(),
-        _statisticsService = statisticsService ?? Get.find<PlaylistStatisticsService>();
+        _statisticsService =
+            statisticsService ?? Get.find<PlaylistStatisticsService>();
 
   @override
   Future<void> initialize() async {
@@ -231,12 +228,12 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
         await progressController.close();
       }
 
-      final validation = _validationService.validate(rawContent);
-      final playlist = _parser.parse(rawContent);
+      final validation = await compute(_validatePlaylistIsolated, rawContent);
+      final playlist = await compute(_parsePlaylistIsolated, rawContent);
 
       final stats = _statisticsService.calculateStatistics(playlist, stopwatch.elapsed);
 
-      final hash = _cacheService.computeContentHash(rawContent);
+      final hash = await compute(_computeHashIsolated, rawContent);
       final now = DateTime.now();
       final cache = M3UPlaylistCache(
         sourceId: _id,
@@ -591,4 +588,23 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
       );
     }).toList(growable: false);
   }
+}
+
+M3UPlaylistResult _parsePlaylistIsolated(String content) {
+  return M3UParser().parse(content);
+}
+
+M3UValidationResult _validatePlaylistIsolated(String content) {
+  return M3UParser().validate(content);
+}
+
+String _computeHashIsolated(String content) {
+  // Simple hash copied from PlaylistCacheService to run in isolate
+  final bytes = utf8.encode(content);
+  var hash = 0;
+  for (final byte in bytes) {
+    hash = ((hash << 5) - hash) + byte;
+    hash = hash & hash;
+  }
+  return hash.toRadixString(16);
 }

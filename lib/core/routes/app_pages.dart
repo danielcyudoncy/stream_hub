@@ -196,7 +196,7 @@ class AppPages {
     GetPage(
       name: AppRoutes.liveTV,
       page: () => const LiveTVPage(),
-      binding: LiveTVBinding(),
+      bindings: [LiveTVBinding(), EPGBinding()],
     ),
     GetPage(
       name: AppRoutes.library,

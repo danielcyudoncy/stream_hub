@@ -33,9 +33,9 @@ class AppShadows {
   );
 
   static BoxShadow get neonFocusGlow => BoxShadow(
-        color: AppColors.primary.withValues(alpha: 0.6),
+        color: AppColors.primaryContainer.withValues(alpha: 0.4),
         blurRadius: 20.0,
-        spreadRadius: 2.0,
+        spreadRadius: 0.0,
       );
 
   static List<BoxShadow> get smallList => [small];

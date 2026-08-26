@@ -9,14 +9,16 @@ import 'package:stream_hub/modules/epg/repositories/timeline_repository.dart';
 import 'package:stream_hub/modules/epg/repositories/timeline_repository_impl.dart';
 import 'package:stream_hub/modules/epg/repositories/program_repository.dart';
 import 'package:stream_hub/modules/epg/repositories/program_repository_impl.dart';
+import 'package:stream_hub/data/repositories/catalog_repository.dart';
 
 class EPGBinding extends Bindings {
   @override
   void dependencies() {
-    Get.lazyPut<GuideRepository>(() => GuideRepositoryImpl());
+    Get.lazyPut<GuideRepository>(() => GuideRepositoryImpl(
+          catalogRepository: Get.find<CatalogRepository>(),
+        ));
     Get.lazyPut<TimelineRepository>(() => TimelineRepositoryImpl());
     Get.lazyPut<ProgramRepository>(() => ProgramRepositoryImpl());
-
     Get.lazyPut<GuideController>(() => GuideController(
           guideRepository: Get.find<GuideRepository>(),
         ));

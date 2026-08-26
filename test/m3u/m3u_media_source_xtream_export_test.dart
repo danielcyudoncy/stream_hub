@@ -6,8 +6,6 @@ import 'package:stream_hub/data/providers/m3u/m3u_media_source.dart';
 import 'package:stream_hub/data/services/m3u_download_service.dart';
 import 'package:stream_hub/data/services/playlist_cache_service.dart';
 import 'package:stream_hub/data/services/playlist_statistics_service.dart';
-import 'package:stream_hub/data/services/playlist_validation_service.dart';
-
 import '../xtream/xtream_test_server.dart';
 
 void main() {
@@ -18,7 +16,6 @@ void main() {
       config: M3UConfig(sourceUrl: url),
       downloadService: M3UDownloadService(logger),
       cacheService: PlaylistCacheService(logger),
-      validationService: PlaylistValidationService(logger),
       statisticsService: PlaylistStatisticsService(logger),
       logger: logger,
     );
@@ -74,7 +71,6 @@ void main() {
         ),
         downloadService: M3UDownloadService(logger),
         cacheService: PlaylistCacheService(logger),
-        validationService: PlaylistValidationService(logger),
         statisticsService: PlaylistStatisticsService(logger),
         logger: logger,
       );

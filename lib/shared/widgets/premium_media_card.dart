@@ -15,6 +15,8 @@ class PremiumMediaCard extends StatelessWidget {
   final double aspectRatio;
   final String? overridePosterUrl;
   final ValueChanged<bool>? onFocusChange;
+  final double? progress;
+  final bool useGlassLabel;
 
   const PremiumMediaCard({
     super.key,
@@ -24,6 +26,8 @@ class PremiumMediaCard extends StatelessWidget {
     this.aspectRatio = 2 / 3,
     this.overridePosterUrl,
     this.onFocusChange,
+    this.progress,
+    this.useGlassLabel = false,
   });
 
   @override
@@ -60,7 +64,7 @@ class PremiumMediaCard extends StatelessWidget {
                       const Center(child: Icon(Icons.movie, size: 40, color: AppColors.textSecondary)),
                     
                     // Glass overlay for rating
-                    if (item.rating != null && item.rating! > 0)
+                    if (item.rating != null && item.rating! > 0 && !useGlassLabel)
                       Positioned(
                         top: 8,
                         right: 8,
@@ -83,31 +87,105 @@ class PremiumMediaCard extends StatelessWidget {
                           ),
                         ),
                       ),
+
+                    // Glass panel label for landscape mode
+                    if (useGlassLabel)
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: GlassPanel(
+                          borderRadius: BorderRadius.zero,
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                item.title,
+                                style: AppTypography.getLabel(
+                                  color: AppColors.textPrimary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.subtitle!,
+                                  style: AppTypography.getCaption(
+                                    color: AppColors.textSecondary,
+                                    scale: 0.9,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              if (progress != null) ...[
+                                const SizedBox(height: 8),
+                                Container(
+                                  height: 4,
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      return Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Container(
+                                          width: constraints.maxWidth * progress!,
+                                          height: 4,
+                                          decoration: BoxDecoration(
+                                            color: AppColors.primary,
+                                            borderRadius: BorderRadius.circular(2),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: AppColors.primary.withValues(alpha: 0.8),
+                                                blurRadius: 8,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
-            AppSpacing.heightXS,
-            Text(
-              item.title,
-              style: AppTypography.getCaption(
-                color: AppColors.textPrimary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
-              AppSpacing.heightXXS,
+            
+            // Standard label (if not using glass overlay)
+            if (!useGlassLabel) ...[
+              AppSpacing.heightXS,
               Text(
-                item.subtitle!,
+                item.title,
                 style: AppTypography.getCaption(
-                  color: AppColors.textSecondary,
-                  scale: 0.8,
+                  color: AppColors.textPrimary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-            ],
+              if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
+                AppSpacing.heightXXS,
+                Text(
+                  item.subtitle!,
+                  style: AppTypography.getCaption(
+                    color: AppColors.textSecondary,
+                    scale: 0.8,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ]
           ],
         ),
       ),

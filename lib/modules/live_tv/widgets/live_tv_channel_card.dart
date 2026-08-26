@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
@@ -7,6 +9,8 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/live_badge.dart';
+import '../../epg/controllers/guide_controller.dart';
+import '../../epg/models/epg_program.dart';
 
 class LiveTvChannelCard extends StatefulWidget {
   final MediaItem channel;
@@ -273,8 +277,14 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final isLive = isChannel ? (widget.channel as Channel).isLive : true;
     final posterUrl = widget.channel.poster ?? widget.channel.thumbnail;
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
-    final resolution = widget.channel.metadata['resolution'] as String?;
     final isTV = PlatformHelper.isTV;
+
+    final GuideController? guideController = Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
+    final EPGProgram? currentProgram = guideController?.programs.firstWhereOrNull((p) => p.channelId == widget.channel.id && p.isCurrentlyPlaying);
+
+    final String titleStr = currentProgram?.title ?? (widget.channel.subtitle?.isNotEmpty == true ? widget.channel.subtitle! : widget.channel.title);
+    final String timeStr = currentProgram != null ? '${DateFormat('HH:mm').format(currentProgram.startTime)} - ${DateFormat('HH:mm').format(currentProgram.endTime)}' : '';
+    final double progress = currentProgram?.progressPercent ?? 0.0;
 
     return FocusableActionDetector(
       onShowFocusHighlight: (show) {
@@ -290,18 +300,16 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
           duration: const Duration(milliseconds: 150),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            margin: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: AppSpacing.xxs,
-            ),
-            padding: const EdgeInsets.all(AppSpacing.sm),
+            margin: const EdgeInsets.only(bottom: AppSpacing.md),
+            padding: const EdgeInsets.all(12.0),
             decoration: BoxDecoration(
-              color: colorScheme.surface,
-              borderRadius: AppRadius.medium,
+              // Glassmorphism Card
+              color: const Color(0xCC121214),
+              borderRadius: BorderRadius.circular(12.0),
               border: Border.all(
                 color: _isFocused
                     ? colorScheme.primary
-                    : colorScheme.outline.withValues(alpha: 0.08),
+                    : Colors.white.withValues(alpha: 0.1),
                 width: _isFocused ? 2.0 : 1.0,
               ),
               boxShadow: _isFocused
@@ -315,28 +323,56 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                   : null,
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Thumbnail container
+                // Thumbnail container (w-24 h-16)
                 Container(
-                  width: 52.0,
-                  height: 52.0,
-                  padding: const EdgeInsets.all(4.0),
+                  width: 96.0,
+                  height: 64.0,
                   decoration: BoxDecoration(
-                    color: colorScheme.surfaceContainerHighest,
-                    borderRadius: AppRadius.small,
+                    color: colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(8.0),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: hasPoster
-                      ? Image.network(
-                          posterUrl,
-                          fit: BoxFit.contain,
-                          alignment: Alignment.center,
-                          errorBuilder: (context, error, stackTrace) =>
-                              _buildFallbackLogo(colorScheme),
-                        )
-                      : _buildFallbackLogo(colorScheme),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      hasPoster
+                          ? Image.network(
+                              posterUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildFallbackLogo(colorScheme),
+                            )
+                          : _buildFallbackLogo(colorScheme),
+                      if (isLive)
+                        Positioned(
+                          top: 4.0,
+                          right: 4.0,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6.0,
+                              vertical: 2.0,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.darkError,
+                              borderRadius: BorderRadius.circular(2.0),
+                            ),
+                            child: const Text(
+                              'LIVE',
+                              style: TextStyle(
+                                fontSize: 10.0,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.0,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
-                const SizedBox(width: AppSpacing.sm),
+                const SizedBox(width: 16.0),
 
                 // Channel Info
                 Expanded(
@@ -344,105 +380,86 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      // Top Row: Number • Name and Time
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          if (channelNum != null && channelNum.isNotEmpty) ...[
-                            Text(
-                              channelNum,
-                              style: TextStyle(
-                                fontSize: 11.0,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.primary,
-                              ),
-                            ),
-                            const SizedBox(width: 6.0),
-                          ],
                           Expanded(
                             child: Text(
-                              widget.channel.title,
-                              style: AppTypography.getBody(
-                                color: _isFocused ? Colors.white : colorScheme.onSurface,
-                              ).copyWith(fontWeight: FontWeight.w600),
+                              channelNum != null && channelNum.isNotEmpty
+                                  ? '$channelNum • ${widget.channel.title}'
+                                  : widget.channel.title,
+                              style: TextStyle(
+                                fontSize: 12.0,
+                                fontWeight: FontWeight.w600,
+                                color: _isFocused
+                                    ? colorScheme.primary
+                                    : AppColors.darkTextSecondary,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 2.0),
-                      Row(
-                        children: [
-                          if (widget.channel.genres.isNotEmpty)
-                            Flexible(
-                              child: Text(
-                                widget.channel.genres.take(2).join(' • '),
-                                style: AppTypography.getCaption(
-                                  color: AppColors.darkTextMuted,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            )
-                          else if (widget.channel.subtitle != null)
-                            Flexible(
-                              child: Text(
-                                widget.channel.subtitle!,
-                                style: AppTypography.getCaption(
-                                  color: AppColors.darkTextMuted,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          if (resolution != null && resolution.isNotEmpty) ...[
-                            const SizedBox(width: 6.0),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 4.0,
-                                vertical: 1.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colorScheme.surfaceContainerHighest,
-                                borderRadius: AppRadius.small,
-                              ),
-                              child: Text(
-                                resolution.toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 8.0,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white70,
-                                ),
+                          if (timeStr.isNotEmpty) ...[
+                            const SizedBox(width: 8.0),
+                            Text(
+                              timeStr,
+                              style: const TextStyle(
+                                fontSize: 10.0,
+                                color: AppColors.darkTextSecondary,
                               ),
                             ),
                           ],
                         ],
                       ),
+                      const SizedBox(height: 4.0),
+                      
+                      // Program Title (H3)
+                      Text(
+                        titleStr,
+                        style: const TextStyle(
+                          fontSize: 16.0,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8.0),
+                      
+                      // Progress Bar
+                      if (currentProgram != null)
+                        Container(
+                          width: double.infinity,
+                          height: 4.0,
+                          decoration: BoxDecoration(
+                            color: colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(2.0),
+                          ),
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: progress,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(2.0),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    colorScheme.primaryContainer,
+                                    colorScheme.secondary,
+                                  ],
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: colorScheme.primary.withValues(alpha: 0.6),
+                                    blurRadius: 8.0,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
-                ),
-
-                // Trailing actions (Live badge + Favorite icon)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (isLive) ...[
-                      const LiveBadge(isLive: true),
-                      const SizedBox(width: AppSpacing.xs),
-                    ],
-                    if (widget.showFavoriteButton)
-                      IconButton(
-                        icon: Icon(
-                          widget.channel.favorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          color: widget.channel.favorite
-                              ? AppColors.darkError
-                              : AppColors.darkTextSecondary,
-                          size: 20.0,
-                        ),
-                        onPressed: widget.onFavorite,
-                      ),
-                  ],
                 ),
               ],
             ),

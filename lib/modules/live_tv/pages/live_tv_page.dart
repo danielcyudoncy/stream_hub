@@ -1,19 +1,18 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
-import '../../../shared/widgets/provider_selector_button.dart';
 import '../controllers/live_tv_controller.dart';
 import '../widgets/live_tv_category_bar.dart';
 import '../widgets/live_tv_channel_card.dart';
-import '../widgets/live_tv_favorites_row.dart';
-import '../widgets/live_tv_hero_card.dart';
-import '../widgets/live_tv_search_bar.dart';
 import '../widgets/live_tv_skeleton.dart';
+import '../../epg/pages/tv_guide_page.dart';
 
 class LiveTVPage extends GetView<LiveTVController> {
   const LiveTVPage({super.key});
@@ -28,101 +27,13 @@ class LiveTVPage extends GetView<LiveTVController> {
         ? 5
         : (isDesktop ? 4 : (isTablet ? 3 : 2));
 
+    if (isTV) {
+      return const TVGuidePage();
+    }
+
     return AppScaffold(
       title: 'Live TV',
-      actions: [
-        // Provider Selector
-        Obx(
-          () => ProviderSelectorButton(
-            selectedProviderId: controller.selectedProvider.value,
-            onSelectProvider: (providerId) => controller.setProvider(providerId),
-            sheetTitle: 'Live TV Provider',
-          ),
-        ),
-
-        // Sort Filter Dropdown
-        Obx(
-          () => PopupMenuButton<String>(
-            icon: const Icon(Icons.sort_rounded),
-            tooltip: 'Sort Channels',
-            padding: EdgeInsets.zero,
-            initialValue: controller.selectedSort.value,
-            onSelected: (value) => controller.setSort(value),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'alphabetical',
-                child: Row(
-                  children: [
-                    Icon(Icons.sort_by_alpha_rounded, size: 18),
-                    SizedBox(width: 8),
-                    Text('Alphabetical'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'recentlyAdded',
-                child: Row(
-                  children: [
-                    Icon(Icons.access_time_rounded, size: 18),
-                    SizedBox(width: 8),
-                    Text('Recently Added'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'provider',
-                child: Row(
-                  children: [
-                    Icon(Icons.hub_rounded, size: 18),
-                    SizedBox(width: 8),
-                    Text('By Provider'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'country',
-                child: Row(
-                  children: [
-                    Icon(Icons.public_rounded, size: 18),
-                    SizedBox(width: 8),
-                    Text('By Country'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Grid vs List view toggle
-        Obx(
-          () => IconButton(
-            icon: Icon(
-              controller.selectedView.value == 'grid'
-                  ? Icons.view_list_rounded
-                  : Icons.grid_view_rounded,
-            ),
-            padding: EdgeInsets.zero,
-            visualDensity: VisualDensity.compact,
-            tooltip: controller.selectedView.value == 'grid'
-                ? 'Switch to List View'
-                : 'Switch to Grid View',
-            onPressed: () {
-              final nextView =
-                  controller.selectedView.value == 'grid' ? 'list' : 'grid';
-              controller.setView(nextView);
-            },
-          ),
-        ),
-
-        // Refresh action
-        IconButton(
-          icon: const Icon(Icons.refresh_rounded),
-          padding: EdgeInsets.zero,
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Refresh Channels',
-          onPressed: controller.refresh,
-        ),
-      ],
+      showAppBar: false,
       body: Obx(() {
         if (controller.isLoading.value) {
           return const LiveTvSkeleton();
@@ -131,7 +42,6 @@ class LiveTVPage extends GetView<LiveTVController> {
         final filtered = controller.filteredChannels;
         final isList = controller.selectedView.value == 'list';
         final query = controller.searchQuery.value;
-        final selectedCat = controller.selectedCategory.value;
         final favoritesOnly = controller.showFavoritesOnly.value;
 
         return RefreshIndicator(
@@ -139,103 +49,82 @@ class LiveTVPage extends GetView<LiveTVController> {
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
-              // 1. Featured "Live Now" Hero Section (shown when not searching)
-              if (query.isEmpty && !favoritesOnly && selectedCat == 'All Channels')
-                SliverToBoxAdapter(
-                  child: LiveTvHeroCard(
-                    channel: controller.featuredChannel.value,
-                    onWatch: () {
-                      final featured = controller.featuredChannel.value;
-                      if (featured != null) {
-                        controller.openChannel(featured);
-                      }
-                    },
-                    onFavorite: () {
-                      final featured = controller.featuredChannel.value;
-                      if (featured != null) {
-                        controller.toggleFavorite(featured);
-                      }
-                    },
+              // 1. Sticky Header
+              SliverAppBar(
+                pinned: true,
+                floating: true,
+                elevation: 0,
+                backgroundColor: AppColors.background.withValues(alpha: 0.8),
+                flexibleSpace: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                    child: Container(
+                      color: Colors.transparent,
+                    ),
                   ),
                 ),
-
-              // 2. Channel Search Bar
-              SliverToBoxAdapter(
-                child: LiveTvSearchBar(
-                  query: controller.searchQuery.value,
-                  totalCount: filtered.length,
-                  onChanged: (q) => controller.setSearchQuery(q),
-                  onClear: () => controller.setSearchQuery(''),
-                ),
-              ),
-
-              // 3. Category Navigation Bar
-              SliverToBoxAdapter(
-                child: LiveTvCategoryBar(
-                  categories: controller.categories,
-                  selectedCategory: controller.selectedCategory.value,
-                  showFavoritesOnly: controller.showFavoritesOnly.value,
-                  favoritesCount: controller.favorites.length,
-                  onCategorySelected: (cat) {
-                    controller.setCategory(cat);
-                  },
-                  onFavoritesToggle: (fav) {
-                    controller.setFavoritesOnly(fav);
-                  },
-                ),
-              ),
-
-              // 4. Favorites Quick Row (when favorites exist and not filtering)
-              if (query.isEmpty &&
-                  !favoritesOnly &&
-                  controller.favorites.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: LiveTvFavoritesRow(
-                    favorites: controller.favorites,
-                    onChannelTap: (channel) => controller.openChannel(channel),
-                    onSeeAll: () => controller.setFavoritesOnly(true),
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(1.0),
+                  child: Container(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    height: 1.0,
                   ),
                 ),
-
-              // 5. Section Header / Active Filter Info
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.md,
-                    AppSpacing.sm,
-                    AppSpacing.md,
-                    AppSpacing.xs,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          favoritesOnly
-                              ? 'Favorite Channels'
-                              : (query.isNotEmpty
-                                  ? 'Search Results'
-                                  : (selectedCat == 'All Channels'
-                                      ? 'All Channels'
-                                      : selectedCat)),
-                          style: AppTypography.getTitle(color: Colors.white),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(
-                        '${filtered.length} channels',
-                        style: AppTypography.getCaption(
-                          color: AppColors.darkTextSecondary,
-                        ),
-                      ),
+                title: Text(
+                  'Live TV',
+                  style: AppTypography.getDisplay(
+                    color: AppColors.primary,
+                  ).copyWith(
+                    fontWeight: FontWeight.bold,
+                    shadows: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 8.0,
+                      )
                     ],
                   ),
                 ),
+                actions: [
+                  Container(
+                    margin: const EdgeInsets.only(right: AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: const Icon(Icons.search_rounded),
+                      color: Colors.white,
+                      onPressed: () {
+                        Get.toNamed(AppRoutes.guideSearch);
+                      },
+                    ),
+                  ),
+                ],
               ),
 
-              // 6. Main Channel List or Grid
+              // 2. Category Navigation Bar
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(
+                    top: AppSpacing.sm,
+                    bottom: AppSpacing.sm,
+                  ),
+                  child: LiveTvCategoryBar(
+                    categories: controller.categories,
+                    selectedCategory: controller.selectedCategory.value,
+                    showFavoritesOnly: controller.showFavoritesOnly.value,
+                    favoritesCount: controller.favorites.length,
+                    onCategorySelected: (cat) {
+                      controller.setCategory(cat);
+                    },
+                    onFavoritesToggle: (fav) {
+                      controller.setFavoritesOnly(fav);
+                    },
+                  ),
+                ),
+              ),
+
+              // 3. Main Channel List or Grid
               if (filtered.isEmpty)
                 SliverFillRemaining(
                   hasScrollBody: false,

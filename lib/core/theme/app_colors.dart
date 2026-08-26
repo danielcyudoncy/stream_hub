@@ -3,16 +3,18 @@ import 'package:flutter/material.dart';
 class AppColors {
   // Cinematic Neon Theme Colors
   static const Color background = Color(0xFF101415);
-  static const Color surface = Color(0xFF121214);
+  static const Color surface = Color(0xFF1D2022); // surface-container
   static const Color surfaceVariant = Color(0xFF323537);
   
-  static const Color primary = Color(0xFF7C3AED); // Neon Purple
+  static const Color primary = Color(0xFFD2BBFF);
   static const Color onPrimary = Color(0xFF3F008E);
-  static const Color primaryContainer = Color(0xFF7C3AED);
+  static const Color primaryContainer = Color(0xFF7C3AED); // Neon Purple
   static const Color onPrimaryContainer = Color(0xFFEDE0FF);
   
-  static const Color secondary = Color(0xFF00F1FE); // Electric Blue
+  static const Color secondary = Color(0xFFDDFCFF); 
   static const Color onSecondary = Color(0xFF00363A);
+  static const Color secondaryContainer = Color(0xFF00F1FE); // Electric Blue
+  static const Color onSecondaryContainer = Color(0xFF006A70);
   
   static const Color error = Color(0xFFFFB4AB);
   static const Color onError = Color(0xFF690005);
@@ -25,8 +27,8 @@ class AppColors {
   static const Color darkBackground = background;
   static const Color darkSurface = surface;
   static const Color darkSurfaceVariant = surfaceVariant;
-  static const Color darkPrimary = primary;
-  static const Color darkSecondary = secondary;
+  static const Color darkPrimary = primaryContainer;
+  static const Color darkSecondary = secondaryContainer;
   static const Color darkTextPrimary = textPrimary;
   static const Color darkTextSecondary = textSecondary;
   static const Color darkTextMuted = textMuted;
@@ -49,7 +51,7 @@ class AppColors {
   // Gradients
   static const List<Color> darkBackgroundGradient = [
     Color(0xFF101415),
-    Color(0xFF09090B),
+    Color(0xFF0B0F10),
   ];
   
   static const List<Color> primaryGradient = [
