@@ -8,6 +8,7 @@ import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/image_url_formatter.dart';
 import '../../data/models/media_item.dart';
+import 'cached_home_image.dart';
 import 'tv_focusable.dart';
 
 class MediaPosterCard extends StatefulWidget {
@@ -150,51 +151,21 @@ class _MediaPosterCardState extends State<MediaPosterCard> {
     if (isChannel) {
       return Padding(
         padding: const EdgeInsets.all(AppSpacing.sm),
-        child: Image.network(
-          imageUrl,
+        child: CachedHomeImage(
+          imageUrl: imageUrl,
           fit: BoxFit.contain,
-          errorBuilder: (context, error, stackTrace) =>
+          errorBuilder: (context, url) =>
               _buildPlaceholder(context, colorScheme),
-          loadingBuilder: (context, child, progress) {
-            if (progress == null) return child;
-            return Center(
-              child: SizedBox(
-                width: 24.0,
-                height: 24.0,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.0,
-                  value: progress.expectedTotalBytes != null
-                      ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                      : null,
-                ),
-              ),
-            );
-          },
         ),
       );
     }
 
-    return Image.network(
-      imageUrl,
+    return CachedHomeImage(
+      imageUrl: imageUrl,
       fit: BoxFit.cover,
       alignment: Alignment.center,
-      errorBuilder: (context, error, stackTrace) =>
+      errorBuilder: (context, url) =>
           _buildPlaceholder(context, colorScheme),
-      loadingBuilder: (context, child, progress) {
-        if (progress == null) return child;
-        return Center(
-          child: SizedBox(
-            width: 24.0,
-            height: 24.0,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.0,
-              value: progress.expectedTotalBytes != null
-                  ? progress.cumulativeBytesLoaded / progress.expectedTotalBytes!
-                  : null,
-            ),
-          ),
-        );
-      },
     );
   }
 

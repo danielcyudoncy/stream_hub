@@ -7,6 +7,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/cached_home_image.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
 class HomeContinueWatchingCard extends StatelessWidget {
@@ -95,28 +96,12 @@ class HomeContinueWatchingCard extends StatelessWidget {
                   children: [
                     // Artwork
                     if (poster != null && poster.isNotEmpty)
-                      Image.network(
-                        poster,
+                      CachedHomeImage(
+                        imageUrl: poster,
                         fit: BoxFit.contain,
                         alignment: Alignment.center,
-                        errorBuilder: (context, error, stackTrace) =>
+                        errorBuilder: (context, url) =>
                             _buildPlaceholder(colorScheme),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.0,
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            ),
-                          );
-                        },
                       )
                     else
                       _buildPlaceholder(colorScheme),
