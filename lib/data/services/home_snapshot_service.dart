@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/models/home_snapshot.dart';
@@ -42,7 +43,8 @@ class HomeSnapshotService {
         _logger.info('[HOME] Persistent cache miss', tag: 'HomeSnapshot');
         return null;
       }
-      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final decoded = await compute(jsonDecode, raw);
+      final json = decoded as Map<String, dynamic>;
       final snapshot = HomeSnapshot.fromJson(json);
       _logger.info('[HOME] Persistent cache hit', tag: 'HomeSnapshot');
       return snapshot;
@@ -62,7 +64,8 @@ class HomeSnapshotService {
       if (box == null || !box.isOpen) {
         await init();
       }
-      final json = jsonEncode(snapshot.toJson());
+      final jsonMap = snapshot.toJson();
+      final json = await compute(jsonEncode, jsonMap);
       await _box?.put(_snapshotKey, json);
       _logger.info('[HOME] Snapshot persisted', tag: 'HomeSnapshot');
     } catch (e) {

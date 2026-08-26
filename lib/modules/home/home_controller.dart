@@ -230,7 +230,7 @@ class HomeController extends GetxController {
           .toList();
       final sorted = movieItems.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      movies.assignAll(sorted);
+      movies.assignAll(sorted.take(20));
       moviesState.value = SectionLoadState.loaded;
     } catch (e) {
       moviesState.value = SectionLoadState.error;
@@ -245,7 +245,7 @@ class HomeController extends GetxController {
           .toList();
       final sorted = seriesItems.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      series.assignAll(sorted);
+      series.assignAll(sorted.take(20));
       seriesState.value = SectionLoadState.loaded;
     } catch (e) {
       seriesState.value = SectionLoadState.error;
@@ -258,7 +258,7 @@ class HomeController extends GetxController {
       final channelItems = allItems
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
-      liveChannels.assignAll(channelItems);
+      liveChannels.assignAll(channelItems.take(20));
       channelsState.value = SectionLoadState.loaded;
     } catch (e) {
       channelsState.value = SectionLoadState.error;
