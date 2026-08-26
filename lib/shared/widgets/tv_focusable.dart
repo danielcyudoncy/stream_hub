@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/helpers/platform_helper.dart';
 import '../../core/theme/app_radius.dart';
+import '../../core/theme/app_shadows.dart';
 
 class TvFocusable extends StatefulWidget {
   final Widget child;
@@ -9,15 +10,17 @@ class TvFocusable extends StatefulWidget {
   final Duration duration;
   final BorderRadius? borderRadius;
   final Color? focusColor;
+  final ValueChanged<bool>? onFocusChange;
 
   const TvFocusable({
     super.key,
     required this.child,
     this.onTap,
-    this.scale = 1.05,
+    this.scale = 1.1,
     this.duration = const Duration(milliseconds: 200),
     this.borderRadius,
     this.focusColor,
+    this.onFocusChange,
   });
 
   @override
@@ -45,6 +48,9 @@ class _TvFocusableState extends State<TvFocusable> {
       onShowFocusHighlight: (show) {
         if (mounted && _hasFocus != show) {
           setState(() => _hasFocus = show);
+          if (widget.onFocusChange != null) {
+            widget.onFocusChange!(show);
+          }
         }
       },
       actions: <Type, Action<Intent>>{
@@ -61,24 +67,21 @@ class _TvFocusableState extends State<TvFocusable> {
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
+        child: AnimatedScale(
+          scale: _hasFocus ? widget.scale : 1.0,
           duration: widget.duration,
-          decoration: BoxDecoration(
-            borderRadius: borderRadius,
-            border: _hasFocus
-                ? Border.all(color: focusColor, width: 3.0)
-                : null,
-            boxShadow: _hasFocus
-                ? [
-                    BoxShadow(
-                      color: focusColor.withValues(alpha: 0.35),
-                      blurRadius: 20.0,
-                      offset: const Offset(0, 6),
-                    ),
-                  ]
-                : null,
+          curve: Curves.easeOut,
+          child: AnimatedContainer(
+            duration: widget.duration,
+            decoration: BoxDecoration(
+              borderRadius: borderRadius,
+              border: _hasFocus
+                  ? Border.all(color: focusColor, width: 2.0)
+                  : Border.all(color: Colors.transparent, width: 2.0),
+              boxShadow: _hasFocus ? [AppShadows.neonFocusGlow] : null,
+            ),
+            child: widget.child,
           ),
-          child: widget.child,
         ),
       ),
     );

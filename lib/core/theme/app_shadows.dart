@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_colors.dart';
 
 class AppShadows {
   static const BoxShadow small = BoxShadow(
@@ -30,6 +31,12 @@ class AppShadows {
     blurRadius: 12.0,
     offset: Offset(0, 4),
   );
+
+  static BoxShadow get neonFocusGlow => BoxShadow(
+        color: AppColors.primary.withValues(alpha: 0.6),
+        blurRadius: 20.0,
+        spreadRadius: 2.0,
+      );
 
   static List<BoxShadow> get smallList => [small];
   static List<BoxShadow> get mediumList => [medium];

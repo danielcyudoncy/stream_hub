@@ -8,7 +8,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
-import '../../../shared/widgets/media_poster_card.dart';
+import '../../shared/widgets/premium_media_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import 'search_hub_controller.dart';
@@ -78,8 +78,7 @@ class SearchHubPage extends GetView<SearchHubController> {
                   itemCount: results.length,
                   itemBuilder: (context, index) {
                     final item = results[index];
-                    return MediaPosterCard(
-                      key: ValueKey(item.id),
+                    return PremiumMediaCard(
                       item: item,
                       onTap: () => controller.openItem(item),
                     );

@@ -1,19 +1,14 @@
 import 'dart:async';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/streaming/vod/xtream_vod_info_service.dart';
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
-import '../../../shared/widgets/cached_home_image.dart';
-import '../../../shared/widgets/tv_focusable.dart';
+import '../../../shared/widgets/hero_banner.dart';
 
 class HomeHeroCarousel extends StatefulWidget {
   final List<MediaItem> items;
@@ -255,336 +250,22 @@ class _HeroSlideState extends State<_HeroSlide> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final image = _resolvedImage ?? _computeDirectImage(widget.item);
     final description = _resolvedPlot ?? widget.item.description;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Backdrop Image & Fitted Image to prevent over-scaling
-        if (image != null && image.isNotEmpty) ...[
-          // Blurred background
-          Positioned.fill(
-            child: CachedHomeImage(
-              imageUrl: image,
-              fit: BoxFit.cover,
-              color: Colors.black.withValues(alpha: 0.6),
-              colorBlendMode: BlendMode.darken,
-              errorBuilder: (context, url) =>
-                  ColoredBox(color: colorScheme.surfaceContainerHighest),
-            ),
-          ),
-          // Blur effect
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: const SizedBox(),
-            ),
-          ),
-          // Main fitted image
-          Positioned.fill(
-            child: Align(
-              alignment: widget.isTv ? Alignment.centerRight : Alignment.topCenter,
-              child: CachedHomeImage(
-                imageUrl: image,
-                fit: BoxFit.contain,
-                alignment: widget.isTv ? Alignment.centerRight : Alignment.topCenter,
-                errorBuilder: (context, url) => const SizedBox.shrink(),
-              ),
-            ),
-          ),
-        ] else
-          Positioned.fill(child: ColoredBox(color: colorScheme.surfaceContainerHighest)),
-
-        // Deep Cinematic Multi-Stop Gradient Overlays
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.15),
-                  Colors.black.withValues(alpha: 0.5),
-                  Colors.black.withValues(alpha: 0.95),
-                ],
-                stops: const [0.0, 0.45, 1.0],
-              ),
-            ),
-          ),
-        ),
-
-        // Left subtle vignette for readability
-        Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [
-                  Colors.black.withValues(alpha: 0.7),
-                  Colors.transparent,
-                ],
-                stops: const [0.0, 0.65],
-              ),
-            ),
-          ),
-        ),
-
-        // Content details
-        Positioned(
-          left: AppSpacing.lg,
-          right: AppSpacing.lg,
-          bottom: AppSpacing.lg,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Title
-              Text(
-                widget.item.title,
-                style: AppTypography.getHeadline(
-                  color: Colors.white,
-                  scale: widget.isTv ? 1.4 : 1.1,
-                ).copyWith(fontWeight: FontWeight.w800),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              AppSpacing.heightXS,
-
-              // Metadata row (Rating, Type, Duration, Genres)
-              _buildMetaRow(widget.item, colorScheme),
-
-              // Description if available
-              if (description != null && description.trim().isNotEmpty) ...[
-                AppSpacing.heightSM,
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 680),
-                  child: Text(
-                    description.trim(),
-                    style: AppTypography.getBody(
-                      color: Colors.white.withValues(alpha: 0.82),
-                      scale: widget.isTv ? 0.95 : 0.85,
-                    ),
-                    maxLines: widget.isTv ? 3 : 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-              AppSpacing.heightMD,
-
-              // Actions Row (Watch Now & My List)
-              Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.xs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  if (widget.onWatch != null)
-                    TvFocusable(
-                      onTap: widget.onWatch,
-                      borderRadius: AppRadius.pill,
-                      scale: 1.05,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: 9.0,
-                        ),
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: AppColors.primaryGradient,
-                          ),
-                          borderRadius: AppRadius.pill,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black45,
-                              blurRadius: 12.0,
-                              offset: Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              AppIcons.play,
-                              color: Colors.white,
-                              size: 18.0,
-                            ),
-                            AppSpacing.widthXS,
-                            Text(
-                              'WATCH NOW',
-                              style: AppTypography.getButton(
-                                color: Colors.white,
-                              ).copyWith(fontWeight: FontWeight.w700),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  if (widget.onToggleFavorite != null)
-                    TvFocusable(
-                      onTap: widget.onToggleFavorite,
-                      borderRadius: AppRadius.pill,
-                      scale: 1.05,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.sm + 2,
-                          vertical: 9.0,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          borderRadius: AppRadius.pill,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.22),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              widget.isFavorite
-                                  ? Icons.favorite_rounded
-                                  : Icons.add_rounded,
-                              color: widget.isFavorite ? AppColors.darkError : Colors.white,
-                              size: 18.0,
-                            ),
-                            AppSpacing.widthXS,
-                            Text(
-                              widget.isFavorite ? 'IN MY LIST' : 'MY LIST',
-                              style: AppTypography.getButton(
-                                color: Colors.white,
-                              ).copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
+    
+    // We import HeroBanner from shared/widgets
+    // Since we don't have it explicitly imported in this file yet, I should make sure it is imported.
+    // Wait, the replace block needs to be exact. Let's just use HeroBanner.
+    return HeroBanner(
+      title: widget.item.title,
+      subtitle: description,
+      imageUrl: image ?? '',
+      onPlayPressed: widget.onWatch,
+      onInfoPressed: widget.onToggleFavorite, // or an info route, but using toggle for now
     );
   }
 
-  Widget _buildMetaRow(MediaItem item, ColorScheme colorScheme) {
-    final chips = <Widget>[];
 
-    // Rating
-    if (item.rating != null && item.rating! > 0) {
-      chips.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-          decoration: BoxDecoration(
-            color: Colors.amber.shade700,
-            borderRadius: AppRadius.small,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.star_rounded, size: 13.0, color: Colors.white),
-              const SizedBox(width: 2.0),
-              Text(
-                item.rating!.toStringAsFixed(1),
-                style: const TextStyle(
-                  fontSize: 11.0,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Media Type Tag
-    final typeLabel = item.mediaType == MediaType.movie
-        ? 'Movie'
-        : item.mediaType == MediaType.series
-            ? 'Series'
-            : (item.mediaType == MediaType.channel ? 'Live TV' : null);
-
-    if (typeLabel != null) {
-      chips.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.16),
-            borderRadius: AppRadius.small,
-          ),
-          child: Text(
-            typeLabel,
-            style: const TextStyle(
-              fontSize: 11.0,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Release Year
-    final year = item.metadata['year']?.toString();
-    if (year != null && year.isNotEmpty) {
-      chips.add(
-        Text(
-          year,
-          style: const TextStyle(
-            fontSize: 12.0,
-            color: Colors.white70,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }
-
-    // Duration if available
-    final duration = item.metadata['duration']?.toString() ??
-        item.metadata['runtime']?.toString();
-    if (duration != null && duration.isNotEmpty) {
-      chips.add(
-        Text(
-          duration.contains('m') || duration.contains('h')
-              ? duration
-              : '${duration}m',
-          style: const TextStyle(
-            fontSize: 12.0,
-            color: Colors.white70,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }
-
-    // Top genres
-    if (item.genres.isNotEmpty) {
-      final genreText = item.genres.take(2).join(' · ');
-      chips.add(
-        Text(
-          genreText,
-          style: const TextStyle(
-            fontSize: 12.0,
-            color: Colors.white70,
-            fontWeight: FontWeight.w500,
-          ),
-          overflow: TextOverflow.ellipsis,
-        ),
-      );
-    }
-
-    if (chips.isEmpty) return const SizedBox.shrink();
-
-    return Wrap(
-      spacing: AppSpacing.sm,
-      runSpacing: AppSpacing.xs,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: chips,
-    );
-  }
 }
 
 class _PageIndicator extends StatelessWidget {

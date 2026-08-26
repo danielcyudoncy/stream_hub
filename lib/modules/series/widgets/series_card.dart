@@ -7,6 +7,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/models/series.dart';
+import '../../../shared/widgets/glass_panel.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
 class SeriesCard extends StatelessWidget {
@@ -45,7 +46,7 @@ class SeriesCard extends StatelessWidget {
       child: TvFocusable(
         onTap: onTap,
         borderRadius: AppRadius.medium,
-        scale: 1.04,
+        scale: 1.1,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -85,15 +86,12 @@ class SeriesCard extends StatelessWidget {
                       Positioned(
                         top: AppSpacing.xs,
                         left: AppSpacing.xs,
-                        child: Container(
+                        child: GlassPanel(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.xs,
                             vertical: 2.0,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.black87,
-                            borderRadius: AppRadius.small,
-                          ),
+                          borderRadius: AppRadius.small,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [

@@ -1,53 +1,59 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Dark Theme Colors (Primary style for StreamHub Pro - premium dark look)
-  static const Color darkPrimary = Color(0xFF6366F1); // Indigo
-  static const Color darkPrimaryContainer = Color(0xFF312E81);
-  static const Color darkSecondary = Color(0xFF14B8A6); // Teal
-  static const Color darkSecondaryContainer = Color(0xFF115E59);
-  static const Color darkBackground = Color(0xFF0F172A); // Slate 900
-  static const Color darkSurface = Color(0xFF1E293B); // Slate 800
-  static const Color darkSurfaceVariant = Color(0xFF334155); // Slate 700
-  static const Color darkError = Color(0xFFEF4444); // Red
-  static const Color darkSuccess = Color(0xFF10B981); // Green
-  static const Color darkWarning = Color(0xFFF59E0B); // Amber
+  // Cinematic Neon Theme Colors
+  static const Color background = Color(0xFF101415);
+  static const Color surface = Color(0xFF121214);
+  static const Color surfaceVariant = Color(0xFF323537);
+  
+  static const Color primary = Color(0xFF7C3AED); // Neon Purple
+  static const Color onPrimary = Color(0xFF3F008E);
+  static const Color primaryContainer = Color(0xFF7C3AED);
+  static const Color onPrimaryContainer = Color(0xFFEDE0FF);
+  
+  static const Color secondary = Color(0xFF00F1FE); // Electric Blue
+  static const Color onSecondary = Color(0xFF00363A);
+  
+  static const Color error = Color(0xFFFFB4AB);
+  static const Color onError = Color(0xFF690005);
+  
+  static const Color textPrimary = Color(0xFFE0E3E5); // On-surface
+  static const Color textSecondary = Color(0xFFCCC3D8); // On-surface-variant
+  static const Color textMuted = Color(0xFF958DA1); // Outline
 
-  static const Color darkTextPrimary = Color(0xFFF8FAFC); // Slate 50
-  static const Color darkTextSecondary = Color(0xFF94A3B8); // Slate 400
-  static const Color darkTextMuted = Color(0xFF64748B); // Slate 500
+  // For backward compatibility while refactoring, mapping old names to new ones:
+  static const Color darkBackground = background;
+  static const Color darkSurface = surface;
+  static const Color darkSurfaceVariant = surfaceVariant;
+  static const Color darkPrimary = primary;
+  static const Color darkSecondary = secondary;
+  static const Color darkTextPrimary = textPrimary;
+  static const Color darkTextSecondary = textSecondary;
+  static const Color darkTextMuted = textMuted;
+  static const Color darkError = error;
+  static const Color darkSuccess = Color(0xFF4CAF50);
+  static const Color darkWarning = Color(0xFFFFC107);
 
-  // Light Theme Colors
-  static const Color lightPrimary = Color(0xFF4F46E5); // Indigo Darker
-  static const Color lightPrimaryContainer = Color(0xFFEEF2FF);
-  static const Color lightSecondary = Color(0xFF0D9488); // Teal Darker
-  static const Color lightSecondaryContainer = Color(0xFFCCFBF1);
-  static const Color lightBackground = Color(0xFFF8FAFC); // Slate 50
+  // Light theme stubs
+  static const Color lightPrimary = Color(0xFF6200EE);
+  static const Color lightPrimaryContainer = Color(0xFFBB86FC);
+  static const Color lightSecondary = Color(0xFF03DAC6);
+  static const Color lightSecondaryContainer = Color(0xFF018786);
+  static const Color lightBackground = Color(0xFFFFFFFF);
   static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightSurfaceVariant = Color(0xFFF1F5F9); // Slate 100
-  static const Color lightError = Color(0xFFDC2626);
-  static const Color lightSuccess = Color(0xFF16A34A);
-  static const Color lightWarning = Color(0xFFD97706);
-
-  static const Color lightTextPrimary = Color(0xFF0F172A); // Slate 900
-  static const Color lightTextSecondary = Color(0xFF475569); // Slate 600
-  static const Color lightTextMuted = Color(0xFF94A3B8); // Slate 400
+  static const Color lightSurfaceVariant = Color(0xFFF5F5F5);
+  static const Color lightError = Color(0xFFB00020);
+  static const Color lightTextPrimary = Color(0xFF000000);
+  static const Color lightTextSecondary = Color(0xFF757575);
 
   // Gradients
   static const List<Color> darkBackgroundGradient = [
-    Color(0xFF0F172A),
-    Color(0xFF020617),
+    Color(0xFF101415),
+    Color(0xFF09090B),
   ];
-  static const List<Color> lightBackgroundGradient = [
-    Color(0xFFF8FAFC),
-    Color(0xFFE2E8F0),
-  ];
+  
   static const List<Color> primaryGradient = [
-    Color(0xFF6366F1),
-    Color(0xFF4F46E5),
-  ];
-  static const List<Color> secondaryGradient = [
-    Color(0xFF14B8A6),
-    Color(0xFF0D9488),
+    Color(0xFF7C3AED),
+    Color(0xFF00F1FE),
   ];
 }
