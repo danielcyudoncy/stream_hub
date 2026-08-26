@@ -19,6 +19,8 @@ import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/media_source_repository.dart';
+import 'package:stream_hub/data/models/home_snapshot.dart';
+import 'package:stream_hub/data/services/home_snapshot_service.dart';
 import 'package:stream_hub/modules/home/home_controller.dart';
 import 'package:stream_hub/modules/home/home_page.dart';
 import 'package:stream_hub/modules/home/widgets/home_header.dart';
@@ -407,6 +409,20 @@ class _FakeMediaLibrary implements MediaLibrary {
   List<MediaItem> search(String query) => [];
 }
 
+class _FakeHomeSnapshotService implements HomeSnapshotService {
+  @override
+  Future<void> init() async {}
+
+  @override
+  Future<HomeSnapshot?> load() async => null;
+
+  @override
+  Future<void> save(HomeSnapshot snapshot) async {}
+
+  @override
+  Future<void> clear() async {}
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -493,6 +509,7 @@ void main() {
         historyRepository: historyRepo,
         favoriteRepository: favoriteRepo,
         mediaSourceRepository: sourceRepo,
+        snapshotService: _FakeHomeSnapshotService(),
       );
     });
 
@@ -549,6 +566,7 @@ void main() {
         historyRepository: _FakeHistoryRepository([]),
         favoriteRepository: _FakeFavoriteRepository([]),
         mediaSourceRepository: _FakeMediaSourceRepository([]),
+        snapshotService: _FakeHomeSnapshotService(),
       );
 
       Get.put<HomeController>(controller);
@@ -572,6 +590,7 @@ void main() {
         historyRepository: _FakeHistoryRepository([sampleHistoryItem]),
         favoriteRepository: _FakeFavoriteRepository([sampleMovie]),
         mediaSourceRepository: _FakeMediaSourceRepository([sampleSource]),
+        snapshotService: _FakeHomeSnapshotService(),
       );
 
       Get.put<HomeController>(controller);
@@ -615,6 +634,7 @@ void main() {
         historyRepository: _FakeHistoryRepository([]),
         favoriteRepository: _FakeFavoriteRepository([]),
         mediaSourceRepository: delayedSourceRepo,
+        snapshotService: _FakeHomeSnapshotService(),
       );
 
       controller.hasProviders.value = true;

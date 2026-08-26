@@ -5,20 +5,32 @@ import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/data/repositories/media_source_repository.dart';
+import 'package:stream_hub/data/services/home_snapshot_service.dart';
 import 'home_controller.dart';
 
 class HomeBinding extends Bindings {
   @override
   void dependencies() {
+    if (!Get.isRegistered<HomeSnapshotService>()) {
+      Get.lazyPut<HomeSnapshotService>(
+        () => HomeSnapshotService(),
+        fenix: true,
+      );
+    }
+
     if (!Get.isRegistered<HomeController>()) {
-      Get.lazyPut<HomeController>(() => HomeController(
-            mediaEngine: Get.find<MediaEngine>(),
-            mediaLibrary: Get.find<MediaLibrary>(),
-            catalogRepository: Get.find<CatalogRepository>(),
-            historyRepository: Get.find<HistoryRepository>(),
-            favoriteRepository: Get.find<FavoriteRepository>(),
-            mediaSourceRepository: Get.find<MediaSourceRepository>(),
-          ));
+      Get.lazyPut<HomeController>(
+        () => HomeController(
+          mediaEngine: Get.find<MediaEngine>(),
+          mediaLibrary: Get.find<MediaLibrary>(),
+          catalogRepository: Get.find<CatalogRepository>(),
+          historyRepository: Get.find<HistoryRepository>(),
+          favoriteRepository: Get.find<FavoriteRepository>(),
+          mediaSourceRepository: Get.find<MediaSourceRepository>(),
+          snapshotService: Get.find<HomeSnapshotService>(),
+        ),
+        fenix: true,
+      );
     }
   }
 }

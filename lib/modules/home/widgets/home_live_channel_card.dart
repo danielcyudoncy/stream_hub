@@ -4,6 +4,7 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/cached_home_image.dart';
 import '../../../shared/widgets/live_badge.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
@@ -52,10 +53,10 @@ class HomeLiveChannelCard extends StatelessWidget {
                       Center(
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.md),
-                          child: Image.network(
-                            logo,
+                          child: CachedHomeImage(
+                            imageUrl: logo,
                             fit: BoxFit.contain,
-                            errorBuilder: (context, error, stackTrace) =>
+                            errorBuilder: (context, url) =>
                                 _buildPlaceholder(colorScheme),
                           ),
                         ),

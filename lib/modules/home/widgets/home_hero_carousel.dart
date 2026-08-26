@@ -12,6 +12,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/cached_home_image.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
 class HomeHeroCarousel extends StatefulWidget {
@@ -265,12 +266,12 @@ class _HeroSlideState extends State<_HeroSlide> {
         if (image != null && image.isNotEmpty) ...[
           // Blurred background
           Positioned.fill(
-            child: Image.network(
-              image,
+            child: CachedHomeImage(
+              imageUrl: image,
               fit: BoxFit.cover,
               color: Colors.black.withValues(alpha: 0.6),
               colorBlendMode: BlendMode.darken,
-              errorBuilder: (context, error, stackTrace) =>
+              errorBuilder: (context, url) =>
                   ColoredBox(color: colorScheme.surfaceContainerHighest),
             ),
           ),
@@ -285,11 +286,11 @@ class _HeroSlideState extends State<_HeroSlide> {
           Positioned.fill(
             child: Align(
               alignment: widget.isTv ? Alignment.centerRight : Alignment.topCenter,
-              child: Image.network(
-                image,
+              child: CachedHomeImage(
+                imageUrl: image,
                 fit: BoxFit.contain,
                 alignment: widget.isTv ? Alignment.centerRight : Alignment.topCenter,
-                errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                errorBuilder: (context, url) => const SizedBox.shrink(),
               ),
             ),
           ),
