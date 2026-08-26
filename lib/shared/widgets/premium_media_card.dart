@@ -43,6 +43,7 @@ class PremiumMediaCard extends StatelessWidget {
         width: width,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             AspectRatio(
               aspectRatio: aspectRatio,
@@ -56,9 +57,14 @@ class PremiumMediaCard extends StatelessWidget {
                     
                     // Image
                     if (posterUrl != null && posterUrl.isNotEmpty)
-                      CachedHomeImage(
-                        imageUrl: posterUrl,
-                        fit: BoxFit.cover,
+                      Positioned.fill(
+                        child: CachedHomeImage(
+                          imageUrl: posterUrl,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.center,
+                          width: double.infinity,
+                          height: double.infinity,
+                        ),
                       )
                     else
                       const Center(child: Icon(Icons.movie, size: 40, color: AppColors.textSecondary)),
@@ -163,29 +169,38 @@ class PremiumMediaCard extends StatelessWidget {
             ),
             
             // Standard label (if not using glass overlay)
-            if (!useGlassLabel) ...[
-              AppSpacing.heightXS,
-              Text(
-                item.title,
-                style: AppTypography.getCaption(
-                  color: AppColors.textPrimary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
-                AppSpacing.heightXXS,
-                Text(
-                  item.subtitle!,
-                  style: AppTypography.getCaption(
-                    color: AppColors.textSecondary,
-                    scale: 0.8,
+            if (!useGlassLabel)
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        item.title,
+                        style: AppTypography.getCaption(
+                          color: AppColors.textPrimary,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (item.subtitle != null && item.subtitle!.isNotEmpty) ...[
+                        AppSpacing.heightXXS,
+                        Text(
+                          item.subtitle!,
+                          style: AppTypography.getCaption(
+                            color: AppColors.textSecondary,
+                            scale: 0.8,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ],
-            ]
+              ),
           ],
         ),
       ),

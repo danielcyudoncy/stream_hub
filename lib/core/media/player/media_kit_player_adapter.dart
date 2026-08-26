@@ -108,12 +108,41 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
         bufferSize: 32 * 1024 * 1024,
       ),
     );
-    if (Platform.isAndroid && _player is mk.NativePlayer) {
+
+    // Apply libmpv properties required for live IPTV streams (MPEG-TS, HLS).
+    // These must be set before any media is opened.
+    if (_player is mk.NativePlayer) {
+      final native = _player as mk.NativePlayer;
       try {
-        await (_player as dynamic).setProperty('hwdec', 'mediacodec-copy');
-        await (_player as dynamic).setProperty('vd-lavc-dr', 'no');
-      } catch (_) {}
+        // Increase probe buffer so libmpv can recognise MPEG-TS/HLS formats
+        await native.setProperty('demuxer-lavf-probesize', '5000000');
+        await native.setProperty('demuxer-lavf-analyzeduration', '5000000');
+        // Network timeout (µs) — prevents hanging on slow/dead streams
+        await native.setProperty('network-timeout', '10');
+        // User-agent expected by many IPTV panels
+        await native.setProperty(
+            'user-agent',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
+            'AppleWebKit/537.36 (KHTML, like Gecko) '
+            'Chrome/120.0.0.0 Safari/537.36');
+        // Disable youtube-dl; not needed for direct IPTV URLs
+        await native.setProperty('ytdl', 'no');
+        // Increase read-ahead buffer for live streams
+        await native.setProperty('demuxer-readahead-secs', '20');
+        // Allow connecting to http sources from https context
+        await native.setProperty('tls-verify', 'no');
+        if (Platform.isAndroid) {
+          await native.setProperty('hwdec', 'mediacodec-copy');
+          await native.setProperty('vd-lavc-dr', 'no');
+        }
+      } catch (e) {
+        _logger.warning(
+          'Failed to set libmpv properties: $e',
+          tag: 'Player',
+        );
+      }
     }
+
     _videoController = VideoController(
       _player!,
       configuration: VideoControllerConfiguration(

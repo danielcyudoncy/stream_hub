@@ -42,7 +42,8 @@ class HomeContentRail extends StatelessWidget {
             : (width >= 600 ? 130.0 : 120.0));
 
     final effectiveCardWidth = cardWidth ?? defaultWidth;
-    final effectiveHeight = cardHeight ?? (effectiveCardWidth * 1.48 + 44.0);
+    // image height (aspect 2:3 = width × 1.5) + title + subtitle + spacing
+    final effectiveHeight = cardHeight ?? (effectiveCardWidth * 1.5 + 54.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -111,10 +112,12 @@ class HomeContentRail extends StatelessWidget {
             itemCount: items.length,
             itemBuilder: (context, index) {
               final item = items[index];
-              return Container(
+              return SizedBox(
                 width: effectiveCardWidth,
-                margin: const EdgeInsets.only(right: AppSpacing.md),
-                child: itemBuilder(context, item, index),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: AppSpacing.md),
+                  child: itemBuilder(context, item, index),
+                ),
               );
             },
           ),
