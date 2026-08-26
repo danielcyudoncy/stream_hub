@@ -9,9 +9,11 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_scaffold.dart';
-import '../../../shared/widgets/media_poster_card.dart';
+import '../../../shared/widgets/premium_media_card.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../../../core/helpers/platform_helper.dart';
 import 'home_controller.dart';
+import 'tv_home_page.dart';
 import 'widgets/home_content_rail.dart';
 import 'widgets/home_continue_watching_card.dart';
 import 'widgets/home_header.dart';
@@ -27,6 +29,10 @@ class HomePage extends GetView<HomeController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    if (PlatformHelper.isTV) {
+      return const TvHomePage();
+    }
 
     return AppScaffold(
       title: 'Home',
@@ -139,7 +145,7 @@ class HomePage extends GetView<HomeController> {
                         items: controller.movies,
                         onSeeAll: () => Get.toNamed(AppRoutes.movies),
                         itemBuilder: (context, item, index) {
-                          return MediaPosterCard(
+                          return PremiumMediaCard(
                             item: item,
                             onTap: () => _openMovie(item),
                           );
@@ -160,7 +166,7 @@ class HomePage extends GetView<HomeController> {
                         items: controller.series,
                         onSeeAll: () => Get.toNamed(AppRoutes.series),
                         itemBuilder: (context, item, index) {
-                          return MediaPosterCard(
+                          return PremiumMediaCard(
                             item: item,
                             onTap: () => _openSeries(item),
                           );
@@ -186,7 +192,7 @@ class HomePage extends GetView<HomeController> {
                               onTap: () => _playChannel(item),
                             );
                           }
-                          return MediaPosterCard(
+                          return PremiumMediaCard(
                             item: item,
                             onTap: () => _openItem(item),
                           );
@@ -207,7 +213,7 @@ class HomePage extends GetView<HomeController> {
                         items: controller.favorites,
                         onSeeAll: () => Get.toNamed(AppRoutes.favorites),
                         itemBuilder: (context, item, index) {
-                          return MediaPosterCard(
+                          return PremiumMediaCard(
                             item: item,
                             onTap: () => _openItem(item),
                           );

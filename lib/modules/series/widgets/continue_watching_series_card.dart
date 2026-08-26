@@ -43,7 +43,7 @@ class ContinueWatchingSeriesCard extends StatelessWidget {
       child: TvFocusable(
         onTap: onResume,
         borderRadius: AppRadius.medium,
-        scale: 1.04,
+        scale: 1.1,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,

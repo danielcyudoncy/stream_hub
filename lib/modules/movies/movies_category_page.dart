@@ -7,7 +7,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
-import '../../../shared/widgets/media_poster_card.dart';
+import '../../../shared/widgets/premium_media_card.dart';
 
 class MoviesCategoryPage extends StatelessWidget {
   const MoviesCategoryPage({super.key});
@@ -55,9 +55,11 @@ class MoviesCategoryPage extends StatelessWidget {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = items[index];
-                        return MediaPosterCard(
+                        return PremiumMediaCard(
                           item: item,
-                          onTap: () => _openItem(context, item),
+                          onTap: () {
+                            Get.toNamed(AppRoutes.movieDetails, arguments: item);
+                          },
                         );
                       },
                       childCount: items.length,
@@ -69,10 +71,5 @@ class MoviesCategoryPage extends StatelessWidget {
     );
   }
 
-  void _openItem(BuildContext context, MediaItem item) {
-    Get.toNamed(
-      AppRoutes.movieDetails,
-      arguments: item,
-    );
-  }
+
 }

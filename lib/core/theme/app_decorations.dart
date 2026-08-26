@@ -10,6 +10,10 @@ class AppDecorations {
     return BoxDecoration(
       color: surfaceColor,
       borderRadius: AppRadius.medium,
+      border: Border.all(
+        color: Colors.white.withValues(alpha: 0.1),
+        width: 1.0,
+      ),
       boxShadow: [AppShadows.card],
     );
   }
@@ -24,7 +28,7 @@ class AppDecorations {
 
   static BoxDecoration get gradientBackgroundLight => const BoxDecoration(
         gradient: LinearGradient(
-          colors: AppColors.lightBackgroundGradient,
+          colors: [Color(0xFFF8FAFC), Color(0xFFE2E8F0)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -36,12 +40,17 @@ class AppDecorations {
     required Color textMutedColor,
   }) {
     return BoxDecoration(
-      color: surfaceColor.withValues(alpha: 0.7),
+      color: surfaceColor.withValues(alpha: 0.8),
       borderRadius: AppRadius.medium,
       border: Border.all(
-        color: textMutedColor.withValues(alpha: 0.15),
+        color: Colors.white.withValues(alpha: 0.1),
         width: 1.0,
       ),
     );
   }
+
+  static final Border glassBorder = Border.all(
+    color: Colors.white.withValues(alpha: 0.1),
+    width: 1.0,
+  );
 }

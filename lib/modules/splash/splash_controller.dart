@@ -60,11 +60,11 @@ class SplashController extends GetxController {
               _navigateAway(AppRoutes.home);
               return;
             } else {
-              // Local database is empty: sync the primary provider first so Home is never empty
-              statusMessage.value = 'Loading Live TV...';
+              // Local database is empty: trigger sync but do not block splash screen
+              // so the user can reach Home and see the loading state/empty state.
               if (Get.isRegistered<ProviderSyncService>()) {
                 final syncService = Get.find<ProviderSyncService>();
-                await syncService.syncPrimaryProviderAndQueueRemainder();
+                unawaited(syncService.syncPrimaryProviderAndQueueRemainder());
               }
               statusMessage.value = 'Ready!';
               _navigateAway(AppRoutes.home);

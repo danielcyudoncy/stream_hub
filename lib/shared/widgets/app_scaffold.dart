@@ -1,13 +1,12 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../core/routes/app_routes.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
-import '../../core/theme/app_radius.dart';
-import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import 'app_app_bar.dart';
 import 'sync_progress_bar.dart';
+import 'tv_scaffold.dart';
 
 class AppScaffold extends StatelessWidget {
   final String title;
@@ -31,8 +30,8 @@ class AppScaffold extends StatelessWidget {
     final route = Get.currentRoute;
     if (route == AppRoutes.home) return 0;
     if (route == AppRoutes.liveTV) return 1;
-    if (route == AppRoutes.library || route == AppRoutes.libraryOverview) return 2;
-    if (route == AppRoutes.search) return 3;
+    if (route == AppRoutes.movies || route == AppRoutes.movieDetails) return 2;
+    if (route == AppRoutes.series || route == AppRoutes.seriesDetails) return 3;
     if (route == AppRoutes.settings ||
         route == AppRoutes.providerManager ||
         route == AppRoutes.providerForm ||
@@ -54,10 +53,10 @@ class AppScaffold extends StatelessWidget {
         Get.offAllNamed(AppRoutes.liveTV);
         break;
       case 2:
-        Get.offAllNamed(AppRoutes.library);
+        Get.offAllNamed(AppRoutes.movies);
         break;
       case 3:
-        Get.offAllNamed(AppRoutes.search);
+        Get.offAllNamed(AppRoutes.series);
         break;
       case 4:
         Get.offAllNamed(AppRoutes.settings);
@@ -69,7 +68,6 @@ class AppScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
 
     final List<NavigationDestination> destinations = [
       const NavigationDestination(
@@ -83,14 +81,14 @@ class AppScaffold extends StatelessWidget {
         label: 'Live TV',
       ),
       const NavigationDestination(
-        icon: Icon(AppIcons.library),
-        selectedIcon: Icon(AppIcons.library),
-        label: 'Library',
+        icon: Icon(Icons.movie_creation_outlined),
+        selectedIcon: Icon(Icons.movie),
+        label: 'VOD',
       ),
       const NavigationDestination(
-        icon: Icon(AppIcons.search),
-        selectedIcon: Icon(AppIcons.search),
-        label: 'Search',
+        icon: Icon(Icons.video_library_outlined),
+        selectedIcon: Icon(Icons.video_library),
+        label: 'Series',
       ),
       const NavigationDestination(
         icon: Icon(AppIcons.settings),
@@ -108,25 +106,7 @@ class AppScaffold extends StatelessWidget {
 
           // Desktop / TV — persistent sidebar
           if (width >= 1024 && showNavigation) {
-            return FocusTraversalGroup(
-              policy: WidgetOrderTraversalPolicy(),
-              child: Row(
-                children: [
-                  _buildSidebar(context, isDark, colorScheme),
-                  Expanded(
-                    child: FocusTraversalGroup(
-                      child: Column(
-                        children: [
-                          if (showAppBar) AppAppBar(title: title, actions: actions),
-                          const SyncProgressBar(),
-                          Expanded(child: body),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
+            return TvScaffold(body: body);
           }
 
           // Tablet — Navigation Rail
@@ -187,198 +167,41 @@ class AppScaffold extends StatelessWidget {
           : LayoutBuilder(
               builder: (context, constraints) {
                 if (constraints.maxWidth >= 600) return const SizedBox.shrink();
-                return NavigationBar(
-                  selectedIndex: _getSelectedIndex(),
-                  onDestinationSelected: _onItemTapped,
-                  backgroundColor: colorScheme.surface,
-                  indicatorColor:
-                      colorScheme.primary.withValues(alpha: 0.12),
-                  destinations: destinations,
+                return ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+                    child: NavigationBarTheme(
+                      data: NavigationBarThemeData(
+                        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return AppTypography.getCaption(color: colorScheme.primary);
+                          }
+                          return AppTypography.getCaption(
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          );
+                        }),
+                        iconTheme: WidgetStateProperty.resolveWith((states) {
+                          if (states.contains(WidgetState.selected)) {
+                            return IconThemeData(color: colorScheme.primary);
+                          }
+                          return IconThemeData(
+                            color: colorScheme.onSurface.withValues(alpha: 0.6),
+                          );
+                        }),
+                      ),
+                      child: NavigationBar(
+                        selectedIndex: _getSelectedIndex(),
+                        onDestinationSelected: _onItemTapped,
+                        backgroundColor: colorScheme.surface.withValues(alpha: 0.8),
+                        surfaceTintColor: Colors.transparent,
+                        indicatorColor: colorScheme.primaryContainer.withValues(alpha: 0.2),
+                        destinations: destinations,
+                      ),
+                    ),
+                  ),
                 );
               },
             ),
-    );
-  }
-
-  Widget _buildSidebar(
-      BuildContext context, bool isDark, ColorScheme colorScheme) {
-    final selectedIndex = _getSelectedIndex();
-
-    return Container(
-      width: 260.0,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          right: BorderSide(
-            color: colorScheme.outline.withValues(alpha: 0.1),
-            width: 1.0,
-          ),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Brand header
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-              vertical: AppSpacing.xl,
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(AppSpacing.xs),
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient:
-                        LinearGradient(colors: AppColors.primaryGradient),
-                  ),
-                  child: const Icon(AppIcons.play,
-                      color: Colors.white, size: 20.0),
-                ),
-                AppSpacing.widthSM,
-                Flexible(
-                  child: Text(
-                    'StreamHub Pro',
-                    style: AppTypography.getTitle(color: colorScheme.onSurface),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Divider(height: 1, thickness: 1),
-          AppSpacing.heightMD,
-
-          // Navigation items
-          Expanded(
-            child: ListView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-              children: [
-                _buildSidebarItem(
-                  icon: AppIcons.home,
-                  label: 'Home',
-                  isSelected: selectedIndex == 0,
-                  onTap: () => _onItemTapped(0),
-                  colorScheme: colorScheme,
-                ),
-                AppSpacing.heightXXS,
-                _buildSidebarItem(
-                  icon: AppIcons.liveTv,
-                  label: 'Live TV',
-                  isSelected: selectedIndex == 1,
-                  onTap: () => _onItemTapped(1),
-                  colorScheme: colorScheme,
-                ),
-                AppSpacing.heightXXS,
-                _buildSidebarItem(
-                  icon: AppIcons.library,
-                  label: 'Library',
-                  isSelected: selectedIndex == 2,
-                  onTap: () => _onItemTapped(2),
-                  colorScheme: colorScheme,
-                ),
-                AppSpacing.heightXXS,
-                _buildSidebarItem(
-                  icon: AppIcons.search,
-                  label: 'Search',
-                  isSelected: selectedIndex == 3,
-                  onTap: () => _onItemTapped(3),
-                  colorScheme: colorScheme,
-                ),
-                AppSpacing.heightXXS,
-                _buildSidebarItem(
-                  icon: AppIcons.settings,
-                  label: 'Settings',
-                  isSelected: selectedIndex == 4,
-                  onTap: () => _onItemTapped(4),
-                  colorScheme: colorScheme,
-                ),
-              ],
-            ),
-          ),
-
-          // Footer / profile placeholder
-          const Divider(height: 1, thickness: 1),
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Row(
-              children: [
-                Icon(
-                  AppIcons.profile,
-                  size: 36.0,
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
-                AppSpacing.widthSM,
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Local User',
-                        style:
-                            AppTypography.getLabel(color: colorScheme.onSurface),
-                      ),
-                      Text(
-                        'Offline Mode',
-                        style: AppTypography.getCaption(
-                          color: colorScheme.onSurface.withValues(alpha: 0.5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSidebarItem({
-    required IconData icon,
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required ColorScheme colorScheme,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: AppRadius.medium,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm,
-        ),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? colorScheme.primary.withValues(alpha: 0.12)
-              : Colors.transparent,
-          borderRadius: AppRadius.medium,
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? colorScheme.primary
-                  : colorScheme.onSurface.withValues(alpha: 0.7),
-              size: 22.0,
-            ),
-            AppSpacing.widthMD,
-            Text(
-              label,
-              style: AppTypography.getLabel(
-                color: isSelected
-                    ? colorScheme.primary
-                    : colorScheme.onSurface.withValues(alpha: 0.7),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

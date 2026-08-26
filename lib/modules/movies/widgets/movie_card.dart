@@ -9,6 +9,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/glass_panel.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
 class MovieCard extends StatefulWidget {
@@ -116,7 +117,7 @@ class _MovieCardState extends State<MovieCard> {
       child: TvFocusable(
         onTap: widget.onTap,
         borderRadius: AppRadius.medium,
-        scale: 1.04,
+        scale: 1.1,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -154,15 +155,12 @@ class _MovieCardState extends State<MovieCard> {
                       Positioned(
                         top: AppSpacing.xs,
                         left: AppSpacing.xs,
-                        child: Container(
+                        child: GlassPanel(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6.0,
                             vertical: 2.0,
                           ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.75),
-                            borderRadius: AppRadius.small,
-                          ),
+                          borderRadius: AppRadius.small,
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [

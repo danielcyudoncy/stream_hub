@@ -7,7 +7,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
-import './widgets/series_content_rail.dart';
+import '../../../shared/widgets/premium_media_card.dart';
 
 class SeriesCategoryPage extends StatelessWidget {
   const SeriesCategoryPage({super.key});
@@ -55,7 +55,7 @@ class SeriesCategoryPage extends StatelessWidget {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = items[index];
-                        return SeriesPosterCard(
+                        return PremiumMediaCard(
                           item: item,
                           onTap: () {
                             Get.toNamed(
