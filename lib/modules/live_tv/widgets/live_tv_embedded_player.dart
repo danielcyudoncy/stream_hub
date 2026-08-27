@@ -66,13 +66,13 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   @override
   void didUpdateWidget(LiveTvEmbeddedPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If orientation changed between fullscreen and inline, ensure playback continues!
+    // If orientation or mode changed between fullscreen and inline, ensure playback continues!
     if (oldWidget.isFullscreen != widget.isFullscreen) {
       final playerCtrl = widget.controller.inlinePlayerController;
       if (playerCtrl != null) {
         final state = playerCtrl.playbackController.engine.stateRx.value;
-        if (state == PlaybackState.paused || state == PlaybackState.completed) {
-          playerCtrl.resume();
+        if (!state.isStoppedLike && state != PlaybackState.error) {
+          playerCtrl.play();
         }
       }
     }

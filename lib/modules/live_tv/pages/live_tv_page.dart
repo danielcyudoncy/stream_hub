@@ -62,12 +62,19 @@ class LiveTVPage extends GetView<LiveTVController> {
             if (didPop) return;
             controller.exitFullscreen();
           },
-          child: Scaffold(
-            backgroundColor: Colors.black,
-            body: LiveTvEmbeddedPlayer(
-              key: controller.embeddedPlayerKey,
-              controller: controller,
-              isFullscreen: true,
+          child: AppScaffold(
+            title: 'Live TV',
+            showAppBar: false,
+            showNavigation: false,
+            body: Container(
+              color: Colors.black,
+              width: double.infinity,
+              height: double.infinity,
+              child: LiveTvEmbeddedPlayer(
+                key: controller.embeddedPlayerKey,
+                controller: controller,
+                isFullscreen: true,
+              ),
             ),
           ),
         );

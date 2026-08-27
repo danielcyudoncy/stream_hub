@@ -58,6 +58,8 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
 
   int _videoWidth = 0;
   int _videoHeight = 0;
+  String? _lastLoadedUrl;
+  Map<String, String>? _lastLoadedHeaders;
 
   NativeErrorCategory? _lastErrorCategory;
   int? _lastErrorHttpCode;
@@ -152,12 +154,35 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
 
   void _onPlatformViewCreated(int viewId) {
     if (_disposed) return;
+    final isRemount = _channel != null;
     _channel = MethodChannel('stream_hub/exo_surface_$viewId');
     _events = EventChannel('stream_hub/exo_surface_events_$viewId');
     _eventSub?.cancel();
     _eventSub = _events!.receiveBroadcastStream().listen(_onNativeEvent);
     if (!_viewReady.isCompleted) _viewReady.complete(viewId);
     _logger.info('ExoPlayer platform view created (id: $viewId)', tag: 'Player');
+
+    if (isRemount &&
+        _lastLoadedUrl != null &&
+        !_currentState.isStoppedLike &&
+        _currentState != PlaybackState.error) {
+      _logger.info(
+        'Restoring ExoPlayer stream playback on remounted view (id: $viewId)',
+        tag: 'Player',
+      );
+      _channel?.invokeMethod<void>('load', <String, dynamic>{
+        'url': _lastLoadedUrl,
+        'headers': _lastLoadedHeaders ?? const <String, String>{},
+      }).then((_) async {
+        if (_currentPosition > Duration.zero) {
+          await _channel?.invokeMethod<void>('seekTo', {'positionMs': _currentPosition.inMilliseconds});
+        }
+        await _channel?.invokeMethod<void>('setVolume', {'volume': _currentVolume});
+        await _channel?.invokeMethod<void>('play');
+      }).catchError((e) {
+        _logger.warning('Failed to restore stream on remount: $e', tag: 'Player');
+      });
+    }
   }
 
   void _onNativeEvent(dynamic data) {
@@ -252,6 +277,8 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
     if (uri == null || !uri.isAbsolute) {
       throw Exception('Invalid stream URL: $url');
     }
+    _lastLoadedUrl = url;
+    _lastLoadedHeaders = headers;
     clearLastError();
     final viewId = await _waitForPlatformView();
     final channel = _channel;
@@ -322,7 +349,11 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
   Future<void> resume() => _invoke('play');
 
   @override
-  Future<void> stop() => _invoke('stop');
+  Future<void> stop() async {
+    _lastLoadedUrl = null;
+    _lastLoadedHeaders = null;
+    await _invoke('stop');
+  }
 
   @override
   Future<void> seek(Duration position) =>
