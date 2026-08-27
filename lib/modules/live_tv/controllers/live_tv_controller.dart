@@ -155,6 +155,35 @@ class LiveTVController extends GetxController {
     super.onClose();
   }
 
+  @override
+  void onReady() {
+    super.onReady();
+    handleNavigationArguments();
+  }
+
+  void handleNavigationArguments() {
+    final args = Get.arguments;
+    MediaItem? targetChannel;
+    if (args is Map) {
+      if (args['channel'] is MediaItem) {
+        targetChannel = args['channel'] as MediaItem;
+      } else if (args['item'] is MediaItem) {
+        targetChannel = args['item'] as MediaItem;
+      }
+    } else if (args is MediaItem) {
+      targetChannel = args;
+    }
+
+    if (targetChannel != null) {
+      final matched = _allChannels
+              .firstWhereOrNull((c) => c.id == targetChannel!.id) ??
+          targetChannel;
+      if (activePlayingChannel.value?.id != matched.id) {
+        openChannel(matched);
+      }
+    }
+  }
+
   Future<void> _loadLiveTVData() async {
     isLoading.value = true;
     try {
@@ -195,24 +224,43 @@ class LiveTVController extends GetxController {
 
       _updateCategoriesAndFilters(favIds);
 
-      // Restore last-watched channel from history if available
-      final historyRepo = historyRepository ??
-          (Get.isRegistered<HistoryRepository>()
-              ? Get.find<HistoryRepository>()
-              : null);
-      if (historyRepo != null) {
-        final recentItems = await historyRepo.getRecent(limit: 20);
-        final lastWatched = recentItems.firstWhereOrNull(
-            (item) => item.mediaType == MediaType.channel);
-        if (lastWatched != null) {
-          final matched = _allChannels
-              .firstWhereOrNull((c) => c.id == lastWatched.id);
-          featuredChannel.value = matched ?? lastWatched;
+      final args = Get.arguments;
+      MediaItem? targetChannel;
+      if (args is Map) {
+        if (args['channel'] is MediaItem) {
+          targetChannel = args['channel'] as MediaItem;
+        } else if (args['item'] is MediaItem) {
+          targetChannel = args['item'] as MediaItem;
+        }
+      } else if (args is MediaItem) {
+        targetChannel = args;
+      }
+
+      if (targetChannel != null) {
+        final matched = _allChannels
+                .firstWhereOrNull((c) => c.id == targetChannel!.id) ??
+            targetChannel;
+        openChannel(matched);
+      } else {
+        // Restore last-watched channel from history if available
+        final historyRepo = historyRepository ??
+            (Get.isRegistered<HistoryRepository>()
+                ? Get.find<HistoryRepository>()
+                : null);
+        if (historyRepo != null) {
+          final recentItems = await historyRepo.getRecent(limit: 20);
+          final lastWatched = recentItems.firstWhereOrNull(
+              (item) => item.mediaType == MediaType.channel);
+          if (lastWatched != null) {
+            final matched = _allChannels
+                .firstWhereOrNull((c) => c.id == lastWatched.id);
+            featuredChannel.value = matched ?? lastWatched;
+          } else if (_allChannels.isNotEmpty) {
+            featuredChannel.value = _allChannels.first;
+          }
         } else if (_allChannels.isNotEmpty) {
           featuredChannel.value = _allChannels.first;
         }
-      } else if (_allChannels.isNotEmpty) {
-        featuredChannel.value = _allChannels.first;
       }
     } catch (e) {
       // Log error

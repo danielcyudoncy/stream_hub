@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/account_metadata_provider.dart';
@@ -227,17 +228,49 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
         _logger.warning('Failed to fetch Stalker TV series: $e', tag: 'StalkerMediaSource');
       }
 
-      final channelItems = _buildChannels(channels, liveCategories, syncStartedAt);
-      final movieItems = _buildMovies(movies, vodCategories, syncStartedAt);
-      final seriesItems = _buildSeries(series, seriesCategories, syncStartedAt);
-      final categories = _buildCategories(
-        liveCategories,
-        vodCategories,
-        seriesCategories,
-        syncStartedAt,
-        channels: channelItems,
-        movies: movieItems,
-        seriesList: seriesItems,
+      final channelItems = await compute(
+        _buildStalkerChannelsIsolated,
+        _StalkerBuildChannelsParams(
+          raw: channels,
+          categories: liveCategories,
+          providerId: _id,
+          portalUrl: _portalUrl,
+          createdAt: syncStartedAt,
+        ),
+      );
+      final movieItems = await compute(
+        _buildStalkerMoviesIsolated,
+        _StalkerBuildMoviesParams(
+          raw: movies,
+          categories: vodCategories,
+          providerId: _id,
+          portalUrl: _portalUrl,
+          createdAt: syncStartedAt,
+        ),
+      );
+      final seriesItems = await compute(
+        _buildStalkerSeriesIsolated,
+        _StalkerBuildSeriesParams(
+          raw: series,
+          categories: seriesCategories,
+          providerId: _id,
+          portalUrl: _portalUrl,
+          createdAt: syncStartedAt,
+        ),
+      );
+      final categories = await compute(
+        _buildStalkerCategoriesIsolated,
+        _StalkerBuildCategoriesParams(
+          live: liveCategories,
+          vod: vodCategories,
+          series: seriesCategories,
+          channels: channelItems,
+          movies: movieItems,
+          seriesList: seriesItems,
+          providerId: _id,
+          portalUrl: _portalUrl,
+          createdAt: syncStartedAt,
+        ),
       );
 
       // A portal that throttles may answer with empty bodies across the board.
@@ -314,447 +347,7 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
     }
   }
 
-  List<MediaItem> _buildCategories(
-    List<Map<String, dynamic>> live,
-    List<Map<String, dynamic>> vod,
-    List<Map<String, dynamic>> series,
-    DateTime createdAt, {
-    List<MediaItem> channels = const [],
-    List<MediaItem> movies = const [],
-    List<MediaItem> seriesList = const [],
-  }) {
-    final categories = <MediaItem>[];
-    final seenCategoryKeys = <String>{};
 
-    void addCategoryItem(String type, String genreId, String title) {
-      if (genreId.isEmpty || title.isEmpty) return;
-      final key = '$type-$genreId';
-      if (seenCategoryKeys.contains(key)) return;
-      seenCategoryKeys.add(key);
-
-      categories.add(MediaItem(
-        id: 'stalker-$_id-cat-$type-$genreId',
-        providerId: _id,
-        providerType: MediaSourceType.stalker,
-        mediaType: MediaType.collection,
-        title: title,
-        metadata: {
-          'genreId': genreId,
-          'genre': title,
-          'type': type,
-          'portalUrl': _portalUrl,
-        },
-        createdAt: createdAt,
-        updatedAt: createdAt,
-      ));
-    }
-
-    void addFromRaw(List<Map<String, dynamic>> raw, String type) {
-      for (final c in raw) {
-        final genreId = c['id']?.toString() ??
-            c['genre_id']?.toString() ??
-            c['category_id']?.toString() ??
-            '';
-        final title = c['title']?.toString() ??
-            c['name']?.toString() ??
-            c['category_name']?.toString() ??
-            c['genre_title']?.toString() ??
-            c['alias']?.toString() ??
-            '';
-        addCategoryItem(type, genreId, title);
-      }
-    }
-
-    addFromRaw(live, 'live');
-    addFromRaw(vod, 'vod');
-    addFromRaw(series, 'series');
-
-    // Dynamic category synthesis from items
-    void synthesizeFromItems(List<MediaItem> items, String type) {
-      for (final item in items) {
-        for (final g in item.genres) {
-          if (g.trim().isEmpty) continue;
-          final genreId = item.metadata['genreId']?.toString() ?? g.toLowerCase().replaceAll(' ', '_');
-          addCategoryItem(type, genreId, g.trim());
-        }
-      }
-    }
-
-    synthesizeFromItems(channels, 'live');
-    synthesizeFromItems(movies, 'vod');
-    synthesizeFromItems(seriesList, 'series');
-
-    return categories;
-  }
-
-  List<MediaItem> _buildChannels(
-    List<Map<String, dynamic>> raw,
-    List<Map<String, dynamic>> categories,
-    DateTime createdAt,
-  ) {
-    final genreNames = _genreNameMap(categories);
-    final items = <MediaItem>[];
-
-    for (final c in raw) {
-      final streamId = c['id']?.toString() ?? '';
-      final name = c['name']?.toString() ?? '';
-      if (streamId.isEmpty || name.isEmpty) continue;
-
-      final genreId = c['genre_id']?.toString() ??
-          c['tv_genre_id']?.toString() ??
-          c['category_id']?.toString() ??
-          '';
-      var genreName = genreNames[genreId];
-      if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
-        final directCategory = c['category_name']?.toString() ??
-            c['genre_name']?.toString() ??
-            c['genre']?.toString() ??
-            c['category']?.toString() ??
-            c['group']?.toString();
-        if (directCategory != null && directCategory.isNotEmpty) {
-          genreName = directCategory;
-        } else if (genreName == null || genreName.isEmpty) {
-          genreName = genreId.isNotEmpty ? genreId : 'General';
-        }
-      }
-
-      final cmd = c['cmd']?.toString() ?? '';
-      final logo = ImageUrlFormatter.extractFromMap(c, serverUrl: _portalUrl);
-      final number = c['number']?.toString() ?? '';
-      final directSource = c['direct_source']?.toString() ?? '';
-
-      items.add(MediaItem(
-        id: 'stalker-$_id-live-$streamId',
-        providerId: _id,
-        providerType: MediaSourceType.stalker,
-        mediaType: MediaType.channel,
-        title: name,
-        subtitle: number.isNotEmpty ? 'CH $number' : null,
-        poster: logo,
-        genres: genreName.isNotEmpty ? [genreName] : [],
-        metadata: {
-          'type': 'live',
-          'cmd': cmd,
-          'genreId': genreId,
-          'genre': genreName,
-          'streamId': streamId,
-          'number': number,
-          'directSource': directSource,
-          if (directSource.isNotEmpty) 'streamUrl': directSource,
-          'tvArchive': c['tv_archive'],
-          'epgChannelId': c['epg']?.toString() ?? c['epg_name']?.toString() ?? '',
-          'portalUrl': _portalUrl,
-        },
-        createdAt: createdAt,
-        updatedAt: createdAt,
-      ));
-    }
-
-    return items;
-  }
-
-  List<MediaItem> _buildMovies(
-    List<Map<String, dynamic>> raw,
-    List<Map<String, dynamic>> categories,
-    DateTime createdAt,
-  ) {
-    final genreNames = _genreNameMap(categories);
-    final items = <MediaItem>[];
-
-    for (final m in raw) {
-      final streamId = m['id']?.toString() ?? '';
-      final name = m['name']?.toString() ?? '';
-      if (streamId.isEmpty || name.isEmpty) continue;
-
-      final genreId = m['genre_id']?.toString() ??
-          m['category_id']?.toString() ??
-          '';
-      var genreName = genreNames[genreId];
-      if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
-        final directCategory = m['category_name']?.toString() ??
-            m['genre_name']?.toString() ??
-            m['genre']?.toString() ??
-            m['category']?.toString();
-        if (directCategory != null && directCategory.isNotEmpty) {
-          genreName = directCategory;
-        } else if (genreName == null || genreName.isEmpty) {
-          genreName = genreId.isNotEmpty ? genreId : 'General';
-        }
-      }
-
-      final cmd = m['cmd']?.toString() ?? '';
-      final directSource = m['direct_source']?.toString() ?? '';
-      final cover = ImageUrlFormatter.extractFromMap(m, serverUrl: _portalUrl);
-      final rating = double.tryParse(m['rating_imdb']?.toString() ?? '');
-
-      items.add(MediaItem(
-        id: 'stalker-$_id-vod-$streamId',
-        providerId: _id,
-        providerType: MediaSourceType.stalker,
-        mediaType: MediaType.movie,
-        title: name,
-        description: m['description']?.toString(),
-        poster: cover,
-        backdrop: cover,
-        genres: genreName.isNotEmpty ? [genreName] : [],
-        rating: rating,
-        metadata: {
-          'type': 'vod',
-          'cmd': cmd,
-          'genreId': genreId,
-          'genre': genreName,
-          'streamId': streamId,
-          'directSource': directSource,
-          if (directSource.isNotEmpty) 'streamUrl': directSource,
-          'hd': m['hd'],
-          'added': m['added'],
-          'portalUrl': _portalUrl,
-        },
-        createdAt: createdAt,
-        updatedAt: createdAt,
-      ));
-    }
-
-    return items;
-  }
-
-  List<MediaItem> _buildSeries(
-    List<Map<String, dynamic>> raw,
-    List<Map<String, dynamic>> categories,
-    DateTime createdAt,
-  ) {
-    final genreNames = _genreNameMap(categories);
-    final items = <MediaItem>[];
-
-    for (final s in raw) {
-      final streamId = s['id']?.toString() ?? '';
-      final name = s['name']?.toString() ?? '';
-      if (streamId.isEmpty || name.isEmpty) continue;
-
-      final genreId = s['genre_id']?.toString() ??
-          s['category_id']?.toString() ??
-          '';
-      var genreName = genreNames[genreId];
-      if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
-        final directCategory = s['category_name']?.toString() ??
-            s['genre_name']?.toString() ??
-            s['genre']?.toString() ??
-            s['category']?.toString();
-        if (directCategory != null && directCategory.isNotEmpty) {
-          genreName = directCategory;
-        } else if (genreName == null || genreName.isEmpty) {
-          genreName = genreId.isNotEmpty ? genreId : 'General';
-        }
-      }
-
-      final cmd = s['cmd']?.toString() ?? '';
-      final cover = ImageUrlFormatter.extractFromMap(s, serverUrl: _portalUrl);
-      final seasons = s['seasons'];
-      final seasonsList = seasons is List ? seasons.whereType<Map>().toList() : <Map>[];
-
-      items.add(MediaItem(
-        id: 'stalker-$_id-series-$streamId',
-        providerId: _id,
-        providerType: MediaSourceType.stalker,
-        mediaType: MediaType.series,
-        title: name,
-        poster: cover,
-        backdrop: cover,
-        genres: genreName.isNotEmpty ? [genreName] : [],
-        metadata: {
-          'type': 'series',
-          'cmd': cmd,
-          'genreId': genreId,
-          'genre': genreName,
-          'streamId': streamId,
-          'seasonCount': seasonsList.length,
-          'portalUrl': _portalUrl,
-        },
-        createdAt: createdAt,
-        updatedAt: createdAt,
-      ));
-
-      var addedEpisodes = 0;
-      for (final season in seasonsList) {
-        final seasonId = season['id']?.toString() ?? '';
-        final seasonName = season['name']?.toString() ?? '';
-        final episodes = season['episodes'];
-        if (episodes is! List) continue;
-
-        for (final e in episodes) {
-          if (e is! Map) continue;
-          final episodeId = e['id']?.toString() ?? '';
-          if (episodeId.isEmpty) continue;
-
-          final episodeName = e['name']?.toString() ?? '';
-          final episodeCmd = e['cmd']?.toString() ?? cmd;
-          final episodeCover = ImageUrlFormatter.extractFromMap(e, serverUrl: _portalUrl) ?? cover;
-
-          items.add(MediaItem(
-            id: 'stalker-$_id-series-$streamId-ep-$episodeId',
-            providerId: _id,
-            providerType: MediaSourceType.stalker,
-            mediaType: MediaType.episode,
-            title: episodeName.isNotEmpty ? episodeName : '$name $seasonName',
-            subtitle: seasonName.isNotEmpty ? seasonName : null,
-            poster: episodeCover,
-            genres: genreName.isNotEmpty ? [genreName] : [],
-            metadata: {
-              'type': 'series',
-              'cmd': episodeCmd,
-              'genreId': genreId,
-              'genre': genreName,
-              'streamId': episodeId,
-              'seriesId': streamId,
-              'seriesName': name,
-              'seasonId': seasonId,
-              'seasonName': seasonName,
-              'portalUrl': _portalUrl,
-            },
-            createdAt: createdAt,
-            updatedAt: createdAt,
-          ));
-          addedEpisodes++;
-        }
-      }
-
-      // If no nested seasons but 'series' array or 'episodes' list exists on the series item
-      if (addedEpisodes == 0) {
-        final seriesRaw = s['series'] ?? s['episodes'];
-        final epNumbers = <int>[];
-        if (seriesRaw is List) {
-          for (final el in seriesRaw) {
-            if (el is Map) {
-              final epId = el['id']?.toString() ?? '';
-              final epName = el['name']?.toString() ?? '';
-              final epCmd = el['cmd']?.toString() ?? cmd;
-              if (epId.isNotEmpty) {
-                items.add(MediaItem(
-                  id: 'stalker-$_id-series-$streamId-ep-$epId',
-                  providerId: _id,
-                  providerType: MediaSourceType.stalker,
-                  mediaType: MediaType.episode,
-                  title: epName.isNotEmpty ? epName : '$name Episode $epId',
-                  subtitle: 'Season 1',
-                  poster: cover,
-                  genres: genreName.isNotEmpty ? [genreName] : [],
-                  metadata: {
-                    'type': 'series',
-                    'cmd': epCmd,
-                    'genreId': genreId,
-                    'genre': genreName,
-                    'streamId': epId,
-                    'seriesId': streamId,
-                    'seriesName': name,
-                    'seasonNumber': 1,
-                    'portalUrl': _portalUrl,
-                  },
-                  createdAt: createdAt,
-                  updatedAt: createdAt,
-                ));
-                addedEpisodes++;
-              }
-            } else {
-              final n = int.tryParse(el.toString());
-              if (n != null) epNumbers.add(n);
-            }
-          }
-        } else if (seriesRaw is String && seriesRaw.isNotEmpty) {
-          for (final part in seriesRaw.split(RegExp(r'[,;]'))) {
-            final n = int.tryParse(part.trim());
-            if (n != null) epNumbers.add(n);
-          }
-        } else if (seriesRaw is num && seriesRaw > 0) {
-          for (var i = 1; i <= seriesRaw.toInt(); i++) {
-            epNumbers.add(i);
-          }
-        }
-
-        for (final num in epNumbers) {
-          items.add(MediaItem(
-            id: 'stalker-$_id-series-$streamId-ep-$num',
-            providerId: _id,
-            providerType: MediaSourceType.stalker,
-            mediaType: MediaType.episode,
-            title: epNumbers.length == 1 ? name : 'Episode $num',
-            subtitle: 'Season 1',
-            poster: cover,
-            genres: genreName.isNotEmpty ? [genreName] : [],
-            metadata: {
-              'type': 'series',
-              'cmd': cmd,
-              'genreId': genreId,
-              'genre': genreName,
-              'streamId': streamId,
-              'seriesId': streamId,
-              'seriesName': name,
-              'episodeNumber': num,
-              'seasonNumber': 1,
-              'seriesIndex': num,
-              'portalUrl': _portalUrl,
-            },
-            createdAt: createdAt,
-            updatedAt: createdAt,
-          ));
-          addedEpisodes++;
-        }
-
-        // Fallback: If still 0 episodes but cmd is non-empty, create default Episode 1
-        if (addedEpisodes == 0 && cmd.isNotEmpty) {
-          items.add(MediaItem(
-            id: 'stalker-$_id-series-$streamId-ep-1',
-            providerId: _id,
-            providerType: MediaSourceType.stalker,
-            mediaType: MediaType.episode,
-            title: name,
-            subtitle: 'Season 1',
-            poster: cover,
-            genres: genreName.isNotEmpty ? [genreName] : [],
-            metadata: {
-              'type': 'series',
-              'cmd': cmd,
-              'genreId': genreId,
-              'genre': genreName,
-              'streamId': streamId,
-              'seriesId': streamId,
-              'seriesName': name,
-              'episodeNumber': 1,
-              'seasonNumber': 1,
-              'portalUrl': _portalUrl,
-            },
-            createdAt: createdAt,
-            updatedAt: createdAt,
-          ));
-        }
-      }
-    }
-
-    return items;
-  }
-
-  Map<String, String> _genreNameMap(List<Map<String, dynamic>> categories) {
-    final map = <String, String>{};
-    for (final c in categories) {
-      final id = c['id']?.toString() ??
-          c['genre_id']?.toString() ??
-          c['category_id']?.toString() ??
-          '';
-      final title = c['title']?.toString() ??
-          c['name']?.toString() ??
-          c['category_name']?.toString() ??
-          c['genre_title']?.toString() ??
-          c['alias']?.toString() ??
-          '';
-      if (id.isNotEmpty && title.isNotEmpty) {
-        map[id] = title;
-        final alias = c['alias']?.toString();
-        if (alias != null && alias.isNotEmpty) {
-          map[alias] = title;
-        }
-      }
-    }
-    return map;
-  }
 
   @override
   Future<bool> validate() async {
@@ -897,4 +490,506 @@ class StalkerMediaSource implements MediaSource, AccountMetadataProvider {
 
   @override
   Future<List<MediaItem>> getPrograms() async => [];
+}
+
+class _StalkerBuildChannelsParams {
+  final List<Map<String, dynamic>> raw;
+  final List<Map<String, dynamic>> categories;
+  final String providerId;
+  final String portalUrl;
+  final DateTime createdAt;
+
+  const _StalkerBuildChannelsParams({
+    required this.raw,
+    required this.categories,
+    required this.providerId,
+    required this.portalUrl,
+    required this.createdAt,
+  });
+}
+
+class _StalkerBuildMoviesParams {
+  final List<Map<String, dynamic>> raw;
+  final List<Map<String, dynamic>> categories;
+  final String providerId;
+  final String portalUrl;
+  final DateTime createdAt;
+
+  const _StalkerBuildMoviesParams({
+    required this.raw,
+    required this.categories,
+    required this.providerId,
+    required this.portalUrl,
+    required this.createdAt,
+  });
+}
+
+class _StalkerBuildSeriesParams {
+  final List<Map<String, dynamic>> raw;
+  final List<Map<String, dynamic>> categories;
+  final String providerId;
+  final String portalUrl;
+  final DateTime createdAt;
+
+  const _StalkerBuildSeriesParams({
+    required this.raw,
+    required this.categories,
+    required this.providerId,
+    required this.portalUrl,
+    required this.createdAt,
+  });
+}
+
+class _StalkerBuildCategoriesParams {
+  final List<Map<String, dynamic>> live;
+  final List<Map<String, dynamic>> vod;
+  final List<Map<String, dynamic>> series;
+  final List<MediaItem> channels;
+  final List<MediaItem> movies;
+  final List<MediaItem> seriesList;
+  final String providerId;
+  final String portalUrl;
+  final DateTime createdAt;
+
+  const _StalkerBuildCategoriesParams({
+    required this.live,
+    required this.vod,
+    required this.series,
+    required this.channels,
+    required this.movies,
+    required this.seriesList,
+    required this.providerId,
+    required this.portalUrl,
+    required this.createdAt,
+  });
+}
+
+Map<String, String> _stalkerGenreNameMap(List<Map<String, dynamic>> categories) {
+  final map = <String, String>{};
+  for (final c in categories) {
+    final id = c['id']?.toString() ??
+        c['genre_id']?.toString() ??
+        c['category_id']?.toString() ??
+        '';
+    final title = c['title']?.toString() ??
+        c['name']?.toString() ??
+        c['category_name']?.toString() ??
+        c['genre_title']?.toString() ??
+        c['alias']?.toString() ??
+        '';
+    if (id.isNotEmpty && title.isNotEmpty) {
+      map[id] = title;
+      final alias = c['alias']?.toString();
+      if (alias != null && alias.isNotEmpty) {
+        map[alias] = title;
+      }
+    }
+  }
+  return map;
+}
+
+List<MediaItem> _buildStalkerChannelsIsolated(_StalkerBuildChannelsParams params) {
+  final genreNames = _stalkerGenreNameMap(params.categories);
+  final items = <MediaItem>[];
+
+  for (final c in params.raw) {
+    final streamId = c['id']?.toString() ?? '';
+    final name = c['name']?.toString() ?? '';
+    if (streamId.isEmpty || name.isEmpty) continue;
+
+    final genreId = c['genre_id']?.toString() ??
+        c['tv_genre_id']?.toString() ??
+        c['category_id']?.toString() ??
+        '';
+    var genreName = genreNames[genreId];
+    if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
+      final directCategory = c['category_name']?.toString() ??
+          c['genre_name']?.toString() ??
+          c['genre']?.toString() ??
+          c['category']?.toString() ??
+          c['group']?.toString();
+      if (directCategory != null && directCategory.isNotEmpty) {
+        genreName = directCategory;
+      } else if (genreName == null || genreName.isEmpty) {
+        genreName = genreId.isNotEmpty ? genreId : 'General';
+      }
+    }
+
+    final cmd = c['cmd']?.toString() ?? '';
+    final logo = ImageUrlFormatter.extractFromMap(c, serverUrl: params.portalUrl);
+    final number = c['number']?.toString() ?? '';
+    final directSource = c['direct_source']?.toString() ?? '';
+
+    items.add(MediaItem(
+      id: 'stalker-${params.providerId}-live-$streamId',
+      providerId: params.providerId,
+      providerType: MediaSourceType.stalker,
+      mediaType: MediaType.channel,
+      title: name,
+      subtitle: number.isNotEmpty ? 'CH $number' : null,
+      poster: logo,
+      genres: genreName.isNotEmpty ? [genreName] : [],
+      metadata: {
+        'type': 'live',
+        'cmd': cmd,
+        'genreId': genreId,
+        'genre': genreName,
+        'streamId': streamId,
+        'number': number,
+        'directSource': directSource,
+        if (directSource.isNotEmpty) 'streamUrl': directSource,
+        'tvArchive': c['tv_archive'],
+        'epgChannelId': c['epg']?.toString() ?? c['epg_name']?.toString() ?? '',
+        'portalUrl': params.portalUrl,
+      },
+      createdAt: params.createdAt,
+      updatedAt: params.createdAt,
+    ));
+  }
+
+  return items;
+}
+
+List<MediaItem> _buildStalkerMoviesIsolated(_StalkerBuildMoviesParams params) {
+  final genreNames = _stalkerGenreNameMap(params.categories);
+  final items = <MediaItem>[];
+
+  for (final m in params.raw) {
+    final streamId = m['id']?.toString() ?? '';
+    final name = m['name']?.toString() ?? '';
+    if (streamId.isEmpty || name.isEmpty) continue;
+
+    final genreId = m['genre_id']?.toString() ??
+        m['category_id']?.toString() ??
+        '';
+    var genreName = genreNames[genreId];
+    if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
+      final directCategory = m['category_name']?.toString() ??
+          m['genre_name']?.toString() ??
+          m['genre']?.toString() ??
+          m['category']?.toString();
+      if (directCategory != null && directCategory.isNotEmpty) {
+        genreName = directCategory;
+      } else if (genreName == null || genreName.isEmpty) {
+        genreName = genreId.isNotEmpty ? genreId : 'General';
+      }
+    }
+
+    final cmd = m['cmd']?.toString() ?? '';
+    final directSource = m['direct_source']?.toString() ?? '';
+    final cover = ImageUrlFormatter.extractFromMap(m, serverUrl: params.portalUrl);
+    final rating = double.tryParse(m['rating_imdb']?.toString() ?? '');
+
+    items.add(MediaItem(
+      id: 'stalker-${params.providerId}-vod-$streamId',
+      providerId: params.providerId,
+      providerType: MediaSourceType.stalker,
+      mediaType: MediaType.movie,
+      title: name,
+      description: m['description']?.toString(),
+      poster: cover,
+      backdrop: cover,
+      genres: genreName.isNotEmpty ? [genreName] : [],
+      rating: rating,
+      metadata: {
+        'type': 'vod',
+        'cmd': cmd,
+        'genreId': genreId,
+        'genre': genreName,
+        'streamId': streamId,
+        'directSource': directSource,
+        if (directSource.isNotEmpty) 'streamUrl': directSource,
+        'hd': m['hd'],
+        'added': m['added'],
+        'portalUrl': params.portalUrl,
+      },
+      createdAt: params.createdAt,
+      updatedAt: params.createdAt,
+    ));
+  }
+
+  return items;
+}
+
+List<MediaItem> _buildStalkerSeriesIsolated(_StalkerBuildSeriesParams params) {
+  final genreNames = _stalkerGenreNameMap(params.categories);
+  final items = <MediaItem>[];
+
+  for (final s in params.raw) {
+    final streamId = s['id']?.toString() ?? '';
+    final name = s['name']?.toString() ?? '';
+    if (streamId.isEmpty || name.isEmpty) continue;
+
+    final genreId = s['genre_id']?.toString() ??
+        s['category_id']?.toString() ??
+        '';
+    var genreName = genreNames[genreId];
+    if (genreName == null || genreName.isEmpty || RegExp(r'^\d+$').hasMatch(genreName)) {
+      final directCategory = s['category_name']?.toString() ??
+          s['genre_name']?.toString() ??
+          s['genre']?.toString() ??
+          s['category']?.toString();
+      if (directCategory != null && directCategory.isNotEmpty) {
+        genreName = directCategory;
+      } else if (genreName == null || genreName.isEmpty) {
+        genreName = genreId.isNotEmpty ? genreId : 'General';
+      }
+    }
+
+    final cmd = s['cmd']?.toString() ?? '';
+    final cover = ImageUrlFormatter.extractFromMap(s, serverUrl: params.portalUrl);
+    final seasons = s['seasons'];
+    final seasonsList = seasons is List ? seasons.whereType<Map>().toList() : <Map>[];
+
+    items.add(MediaItem(
+      id: 'stalker-${params.providerId}-series-$streamId',
+      providerId: params.providerId,
+      providerType: MediaSourceType.stalker,
+      mediaType: MediaType.series,
+      title: name,
+      poster: cover,
+      backdrop: cover,
+      genres: genreName.isNotEmpty ? [genreName] : [],
+      metadata: {
+        'type': 'series',
+        'cmd': cmd,
+        'genreId': genreId,
+        'genre': genreName,
+        'streamId': streamId,
+        'seasonCount': seasonsList.length,
+        'portalUrl': params.portalUrl,
+      },
+      createdAt: params.createdAt,
+      updatedAt: params.createdAt,
+    ));
+
+    var addedEpisodes = 0;
+    for (final season in seasonsList) {
+      final seasonId = season['id']?.toString() ?? '';
+      final seasonName = season['name']?.toString() ?? '';
+      final episodes = season['episodes'];
+      if (episodes is! List) continue;
+
+      for (final e in episodes) {
+        if (e is! Map) continue;
+        final episodeId = e['id']?.toString() ?? '';
+        if (episodeId.isEmpty) continue;
+
+        final episodeName = e['name']?.toString() ?? '';
+        final episodeCmd = e['cmd']?.toString() ?? cmd;
+        final episodeCover = ImageUrlFormatter.extractFromMap(e, serverUrl: params.portalUrl) ?? cover;
+
+        items.add(MediaItem(
+          id: 'stalker-${params.providerId}-series-$streamId-ep-$episodeId',
+          providerId: params.providerId,
+          providerType: MediaSourceType.stalker,
+          mediaType: MediaType.episode,
+          title: episodeName.isNotEmpty ? episodeName : '$name $seasonName',
+          subtitle: seasonName.isNotEmpty ? seasonName : null,
+          poster: episodeCover,
+          genres: genreName.isNotEmpty ? [genreName] : [],
+          metadata: {
+            'type': 'series',
+            'cmd': episodeCmd,
+            'genreId': genreId,
+            'genre': genreName,
+            'streamId': episodeId,
+            'seriesId': streamId,
+            'seriesName': name,
+            'seasonId': seasonId,
+            'seasonName': seasonName,
+            'portalUrl': params.portalUrl,
+          },
+          createdAt: params.createdAt,
+          updatedAt: params.createdAt,
+        ));
+        addedEpisodes++;
+      }
+    }
+
+    // If no nested seasons but 'series' array or 'episodes' list exists on the series item
+    if (addedEpisodes == 0) {
+      final seriesRaw = s['series'] ?? s['episodes'];
+      final epNumbers = <int>[];
+      if (seriesRaw is List) {
+        for (final el in seriesRaw) {
+          if (el is Map) {
+            final epId = el['id']?.toString() ?? '';
+            final epName = el['name']?.toString() ?? '';
+            final epCmd = el['cmd']?.toString() ?? cmd;
+            if (epId.isNotEmpty) {
+              items.add(MediaItem(
+                id: 'stalker-${params.providerId}-series-$streamId-ep-$epId',
+                providerId: params.providerId,
+                providerType: MediaSourceType.stalker,
+                mediaType: MediaType.episode,
+                title: epName.isNotEmpty ? epName : '$name Episode $epId',
+                subtitle: 'Season 1',
+                poster: cover,
+                genres: genreName.isNotEmpty ? [genreName] : [],
+                metadata: {
+                  'type': 'series',
+                  'cmd': epCmd,
+                  'genreId': genreId,
+                  'genre': genreName,
+                  'streamId': epId,
+                  'seriesId': streamId,
+                  'seriesName': name,
+                  'seasonNumber': 1,
+                  'portalUrl': params.portalUrl,
+                },
+                createdAt: params.createdAt,
+                updatedAt: params.createdAt,
+              ));
+              addedEpisodes++;
+            }
+          } else {
+            final n = int.tryParse(el.toString());
+            if (n != null) epNumbers.add(n);
+          }
+        }
+      } else if (seriesRaw is String && seriesRaw.isNotEmpty) {
+        for (final part in seriesRaw.split(RegExp(r'[,;]'))) {
+          final n = int.tryParse(part.trim());
+          if (n != null) epNumbers.add(n);
+        }
+      } else if (seriesRaw is num && seriesRaw > 0) {
+        for (var i = 1; i <= seriesRaw.toInt(); i++) {
+          epNumbers.add(i);
+        }
+      }
+
+      for (final num in epNumbers) {
+        items.add(MediaItem(
+          id: 'stalker-${params.providerId}-series-$streamId-ep-$num',
+          providerId: params.providerId,
+          providerType: MediaSourceType.stalker,
+          mediaType: MediaType.episode,
+          title: epNumbers.length == 1 ? name : 'Episode $num',
+          subtitle: 'Season 1',
+          poster: cover,
+          genres: genreName.isNotEmpty ? [genreName] : [],
+          metadata: {
+            'type': 'series',
+            'cmd': cmd,
+            'genreId': genreId,
+            'genre': genreName,
+            'streamId': streamId,
+            'seriesId': streamId,
+            'seriesName': name,
+            'episodeNumber': num,
+            'seasonNumber': 1,
+            'seriesIndex': num,
+            'portalUrl': params.portalUrl,
+          },
+          createdAt: params.createdAt,
+          updatedAt: params.createdAt,
+        ));
+        addedEpisodes++;
+      }
+
+      // Fallback: If still 0 episodes but cmd is non-empty, create default Episode 1
+      if (addedEpisodes == 0 && cmd.isNotEmpty) {
+        items.add(MediaItem(
+          id: 'stalker-${params.providerId}-series-$streamId-ep-1',
+          providerId: params.providerId,
+          providerType: MediaSourceType.stalker,
+          mediaType: MediaType.episode,
+          title: name,
+          subtitle: 'Season 1',
+          poster: cover,
+          genres: genreName.isNotEmpty ? [genreName] : [],
+          metadata: {
+            'type': 'series',
+            'cmd': cmd,
+            'genreId': genreId,
+            'genre': genreName,
+            'streamId': streamId,
+            'seriesId': streamId,
+            'seriesName': name,
+            'episodeNumber': 1,
+            'seasonNumber': 1,
+            'portalUrl': params.portalUrl,
+          },
+          createdAt: params.createdAt,
+          updatedAt: params.createdAt,
+        ));
+      }
+    }
+  }
+
+  return items;
+}
+
+List<MediaItem> _buildStalkerCategoriesIsolated(_StalkerBuildCategoriesParams params) {
+  final categories = <MediaItem>[];
+  final seenCategoryKeys = <String>{};
+
+  void addCategoryItem(String type, String genreId, String title) {
+    if (genreId.isEmpty || title.isEmpty) return;
+    final key = '$type-$genreId';
+    if (seenCategoryKeys.contains(key)) return;
+    seenCategoryKeys.add(key);
+
+    categories.add(MediaItem(
+      id: 'stalker-${params.providerId}-cat-$type-$genreId',
+      providerId: params.providerId,
+      providerType: MediaSourceType.stalker,
+      mediaType: MediaType.collection,
+      title: title,
+      metadata: {
+        'genreId': genreId,
+        'genre': title,
+        'type': type,
+        'portalUrl': params.portalUrl,
+      },
+      createdAt: params.createdAt,
+      updatedAt: params.createdAt,
+    ));
+  }
+
+  void addFromRaw(List<Map<String, dynamic>> raw, String type) {
+    for (final c in raw) {
+      final genreId = c['id']?.toString() ??
+          c['genre_id']?.toString() ??
+          c['category_id']?.toString() ??
+          '';
+      final title = c['title']?.toString() ??
+          c['name']?.toString() ??
+          c['category_name']?.toString() ??
+          c['genre_title']?.toString() ??
+          c['alias']?.toString() ??
+          '';
+      addCategoryItem(type, genreId, title);
+    }
+  }
+
+  addFromRaw(params.live, 'live');
+  addFromRaw(params.vod, 'vod');
+  addFromRaw(params.series, 'series');
+
+  // Dynamic category synthesis from items
+  for (final item in params.channels) {
+    for (final g in item.genres) {
+      if (g.trim().isEmpty) continue;
+      final genreId = item.metadata['genreId']?.toString() ?? g.toLowerCase().replaceAll(' ', '_');
+      addCategoryItem('live', genreId, g.trim());
+    }
+  }
+  for (final item in params.movies) {
+    for (final g in item.genres) {
+      if (g.trim().isEmpty) continue;
+      final genreId = item.metadata['genreId']?.toString() ?? g.toLowerCase().replaceAll(' ', '_');
+      addCategoryItem('vod', genreId, g.trim());
+    }
+  }
+  for (final item in params.seriesList) {
+    for (final g in item.genres) {
+      if (g.trim().isEmpty) continue;
+      final genreId = item.metadata['genreId']?.toString() ?? g.toLowerCase().replaceAll(' ', '_');
+      addCategoryItem('series', genreId, g.trim());
+    }
+  }
+
+  return categories;
 }

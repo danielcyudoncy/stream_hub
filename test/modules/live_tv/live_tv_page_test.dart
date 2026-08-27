@@ -17,8 +17,7 @@ import 'package:stream_hub/modules/live_tv/controllers/live_tv_controller.dart';
 import 'package:stream_hub/modules/live_tv/pages/live_tv_page.dart';
 import 'package:stream_hub/modules/live_tv/widgets/live_tv_category_bar.dart';
 import 'package:stream_hub/modules/live_tv/widgets/live_tv_channel_card.dart';
-import 'package:stream_hub/modules/live_tv/widgets/live_tv_hero_card.dart';
-import 'package:stream_hub/modules/live_tv/widgets/live_tv_search_bar.dart';
+import 'package:stream_hub/modules/live_tv/widgets/live_tv_embedded_player.dart';
 
 class _FakeCatalogRepository implements CatalogRepository {
   final List<MediaItem> items;
@@ -286,32 +285,46 @@ void main() {
     Get.reset();
   });
 
-  testWidgets('renders redesigned LiveTVPage with hero card, search, categories, and channels', (tester) async {
+  testWidgets('renders redesigned LiveTVPage with embedded player, category bar, and channels', (tester) async {
+    tester.view.physicalSize = const Size(500, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(createSubject());
     await tester.pumpAndSettle();
 
     expect(find.text('Live TV'), findsWidgets);
-    expect(find.byType(LiveTvHeroCard), findsOneWidget);
-    expect(find.byType(LiveTvSearchBar), findsOneWidget);
+    expect(find.byType(LiveTvEmbeddedPlayer), findsOneWidget);
     expect(find.byType(LiveTvCategoryBar), findsOneWidget);
     expect(find.byType(LiveTvChannelCard), findsWidgets);
     expect(find.text('Sky Sports Premier League'), findsWidgets);
     expect(find.text('BBC One News'), findsWidgets);
   });
 
-  testWidgets('searches and filters channels via LiveTvSearchBar', (tester) async {
+  testWidgets('searches and filters channels via controller query', (tester) async {
+    tester.view.physicalSize = const Size(500, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(createSubject());
     await tester.pumpAndSettle();
 
-    // Enter search query
-    await tester.enterText(find.byType(TextField), 'BBC');
+    final controller = Get.find<LiveTVController>();
+    controller.setSearchQuery('BBC');
     await tester.pumpAndSettle();
 
     expect(find.text('BBC One News'), findsWidgets);
-    expect(find.text('1 channels'), findsOneWidget);
+    expect(controller.filteredChannels.length, equals(1));
   });
 
   testWidgets('toggles between grid and list views', (tester) async {
+    tester.view.physicalSize = const Size(500, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(createSubject());
     await tester.pumpAndSettle();
 
@@ -326,6 +339,11 @@ void main() {
   });
 
   testWidgets('displays empty state when no channels match filter', (tester) async {
+    tester.view.physicalSize = const Size(500, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     await tester.pumpWidget(createSubject(items: []));
     await tester.pumpAndSettle();
 

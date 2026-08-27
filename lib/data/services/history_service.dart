@@ -10,16 +10,17 @@ class HistoryService {
   HistoryService({LoggingService? logger}) : logger = logger ?? LoggingService();
 
   void recordOpened(MediaItem item) {
-    _history.add(item.copyWith());
+    _history.add(item.copyWith(updatedAt: DateTime.now()));
     logger.info('Recorded opened: ${item.title}', tag: 'HistoryService');
   }
 
   void recordPlayed(MediaItem item) {
     final existing = _history.indexWhere((h) => h.id == item.id);
+    final updated = item.copyWith(updatedAt: DateTime.now());
     if (existing >= 0) {
-      _history[existing] = item.copyWith();
+      _history[existing] = updated;
     } else {
-      _history.add(item.copyWith());
+      _history.add(updated);
     }
     logger.info('Recorded played: ${item.title}', tag: 'HistoryService');
   }

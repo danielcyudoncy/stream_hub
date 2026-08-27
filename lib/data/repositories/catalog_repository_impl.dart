@@ -16,8 +16,18 @@ class CatalogRepositoryImpl implements CatalogRepository {
   final LoggingService _logger;
   final StreamController<void> _updateController =
       StreamController<void>.broadcast();
+  Timer? _debounceTimer;
 
   CatalogRepositoryImpl(this._catalog, this._sourceManager, this._logger);
+
+  void _notifyUpdate() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 200), () {
+      if (!_updateController.isClosed) {
+        _updateController.add(null);
+      }
+    });
+  }
 
   @override
   Future<List<MediaItem>> getAllItems() async {
@@ -36,10 +46,8 @@ class CatalogRepositoryImpl implements CatalogRepository {
 
   @override
   Future<void> upsertItems(List<MediaItem> items) async {
-    for (final item in items) {
-      _catalog.upsert(item);
-    }
-    _updateController.add(null);
+    _catalog.upsertAll(items);
+    _notifyUpdate();
     _logger.info(
       'Upserted ${items.length} items into catalog',
       tag: 'CatalogRepository',
@@ -49,13 +57,13 @@ class CatalogRepositoryImpl implements CatalogRepository {
   @override
   Future<void> deleteItem(String id) async {
     _catalog.remove(id);
-    _updateController.add(null);
+    _notifyUpdate();
   }
 
   @override
   Future<void> clear() async {
     _catalog.clear();
-    _updateController.add(null);
+    _notifyUpdate();
   }
 
   @override
@@ -153,10 +161,8 @@ class CatalogRepositoryImpl implements CatalogRepository {
           error: e,
         );
       }
-      for (final item in items) {
-        _catalog.upsert(item);
-      }
-      _updateController.add(null);
+      _catalog.upsertAll(items);
+      _notifyUpdate();
       if (errors.isNotEmpty) {
         _logger.warning(
           'Source $sourceId ingested ${items.length} items with ${errors.length} partial failures: ${errors.join(', ')}',

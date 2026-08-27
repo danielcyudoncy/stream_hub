@@ -215,7 +215,9 @@ class HomeController extends GetxController {
           .where((item) => item.mediaType == MediaType.series)
           .toList();
       final result = _computeFeaturedHero(movieItems, seriesItems, allItems);
-      featuredHeroItems.assignAll(result);
+      if (!_areMediaListsEqual(featuredHeroItems, result)) {
+        featuredHeroItems.assignAll(result);
+      }
       heroState.value = SectionLoadState.loaded;
     } catch (e) {
       heroState.value = SectionLoadState.error;
@@ -230,7 +232,10 @@ class HomeController extends GetxController {
           .toList();
       final sorted = movieItems.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      movies.assignAll(sorted.take(20));
+      final newItems = sorted.take(20).toList();
+      if (!_areMediaListsEqual(movies, newItems)) {
+        movies.assignAll(newItems);
+      }
       moviesState.value = SectionLoadState.loaded;
     } catch (e) {
       moviesState.value = SectionLoadState.error;
@@ -245,7 +250,10 @@ class HomeController extends GetxController {
           .toList();
       final sorted = seriesItems.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      series.assignAll(sorted.take(20));
+      final newItems = sorted.take(20).toList();
+      if (!_areMediaListsEqual(series, newItems)) {
+        series.assignAll(newItems);
+      }
       seriesState.value = SectionLoadState.loaded;
     } catch (e) {
       seriesState.value = SectionLoadState.error;
@@ -258,11 +266,84 @@ class HomeController extends GetxController {
       final channelItems = allItems
           .where((item) => item.mediaType == MediaType.channel)
           .toList();
-      liveChannels.assignAll(channelItems.take(20));
+      if (channelItems.isEmpty) {
+        liveChannels.clear();
+        channelsState.value = SectionLoadState.loaded;
+        return;
+      }
+
+      // 1. Get favorite channel IDs
+      final favItems = await favoriteRepository.getAll();
+      final favIds = favItems.map((f) => f.id).toSet();
+
+      // 2. Get recently played channels
+      final recentHistory = await historyRepository.getRecent(limit: 20);
+      final recentIds = recentHistory
+          .where((i) => i.mediaType == MediaType.channel)
+          .map((i) => i.id)
+          .toSet();
+
+      // 3. Curate prioritized channels:
+      // Favorites -> Recent -> Categorized/Diversified Channels
+      final favoritesList = <MediaItem>[];
+      final recentsList = <MediaItem>[];
+      final othersList = <MediaItem>[];
+      final seenIds = <String>{};
+
+      for (final item in channelItems) {
+        if (favIds.contains(item.id) || item.favorite) {
+          if (seenIds.add(item.id)) favoritesList.add(item);
+        } else if (recentIds.contains(item.id)) {
+          if (seenIds.add(item.id)) recentsList.add(item);
+        } else {
+          othersList.add(item);
+        }
+      }
+
+      // Diversify the remaining channels across distinct categories
+      final diversified = <MediaItem>[];
+      final seenGenres = <String, int>{};
+      for (final item in othersList) {
+        final genre = item.genres.isNotEmpty ? item.genres.first : 'General';
+        final count = seenGenres[genre] ?? 0;
+        if (count < 3) {
+          seenGenres[genre] = count + 1;
+          if (seenIds.add(item.id)) {
+            diversified.add(item);
+          }
+        }
+        if (favoritesList.length + recentsList.length + diversified.length >= 30) {
+          break;
+        }
+      }
+
+      for (final item in othersList) {
+        if (favoritesList.length + recentsList.length + diversified.length >= 30) {
+          break;
+        }
+        if (seenIds.add(item.id)) {
+          diversified.add(item);
+        }
+      }
+
+      final curated = [...favoritesList, ...recentsList, ...diversified];
+      final newItems = curated.take(20).toList();
+
+      if (!_areMediaListsEqual(liveChannels, newItems)) {
+        liveChannels.assignAll(newItems);
+      }
       channelsState.value = SectionLoadState.loaded;
     } catch (e) {
       channelsState.value = SectionLoadState.error;
     }
+  }
+
+  static bool _areMediaListsEqual(List<MediaItem> a, List<MediaItem> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
   }
 
   Future<void> _refreshContinueWatching(List<MediaItem> allItems) async {
@@ -286,15 +367,23 @@ class HomeController extends GetxController {
               return sB.compareTo(sA);
             });
           if (inProgressItems.isNotEmpty) {
-            continueWatching.assignAll(inProgressItems);
+            if (!_areMediaListsEqual(continueWatching, inProgressItems)) {
+              continueWatching.assignAll(inProgressItems);
+            }
           } else {
-            continueWatching.assignAll(history);
+            if (!_areMediaListsEqual(continueWatching, history)) {
+              continueWatching.assignAll(history);
+            }
           }
         } catch (_) {
-          continueWatching.assignAll(history);
+          if (!_areMediaListsEqual(continueWatching, history)) {
+            continueWatching.assignAll(history);
+          }
         }
       } else {
-        continueWatching.assignAll(history);
+        if (!_areMediaListsEqual(continueWatching, history)) {
+          continueWatching.assignAll(history);
+        }
       }
       continueWatchingState.value = SectionLoadState.loaded;
     } catch (e) {
@@ -308,11 +397,12 @@ class HomeController extends GetxController {
       final favItems = await favoriteRepository.getAll();
       final favIds = favItems.map((f) => f.id).toSet();
       final allItems = await catalogRepository.getAllItems();
-      favorites.assignAll(
-        allItems
-            .where((item) => favIds.contains(item.id) || item.favorite)
-            .toList(),
-      );
+      final newFavs = allItems
+          .where((item) => favIds.contains(item.id) || item.favorite)
+          .toList();
+      if (!_areMediaListsEqual(favorites, newFavs)) {
+        favorites.assignAll(newFavs);
+      }
       favoritesState.value = SectionLoadState.loaded;
     } catch (e) {
       favoritesState.value = SectionLoadState.error;
@@ -333,7 +423,10 @@ class HomeController extends GetxController {
           ? (vodItems..sort((a, b) => b.createdAt.compareTo(a.createdAt)))
           : (allItems.toList()
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
-      recentlyAdded.assignAll(recentlyAddedList.take(20));
+      final newItems = recentlyAddedList.take(20).toList();
+      if (!_areMediaListsEqual(recentlyAdded, newItems)) {
+        recentlyAdded.assignAll(newItems);
+      }
       recentlyAddedState.value = SectionLoadState.loaded;
     } catch (e) {
       recentlyAddedState.value = SectionLoadState.error;
@@ -343,7 +436,9 @@ class HomeController extends GetxController {
   Future<void> _refreshRecentlyPlayed() async {
     try {
       final history = await historyRepository.getRecent(limit: 20);
-      recentlyPlayed.assignAll(history);
+      if (!_areMediaListsEqual(recentlyPlayed, history)) {
+        recentlyPlayed.assignAll(history);
+      }
     } catch (e) {
       // Keep existing data
     }
@@ -354,39 +449,75 @@ class HomeController extends GetxController {
     List<MediaItem> seriesItems,
     List<MediaItem> allItems,
   ) {
-    final candidates = <MediaItem>[...movieItems, ...seriesItems];
-    if (candidates.isEmpty) {
-      candidates.addAll(allItems);
+    final vodCandidates = <MediaItem>[...movieItems, ...seriesItems];
+    if (vodCandidates.isNotEmpty) {
+      final ratedWithArtwork = vodCandidates
+          .where((item) =>
+              item.rating != null &&
+              item.rating! > 0 &&
+              ((item.backdrop != null && item.backdrop!.isNotEmpty) ||
+                  (item.poster != null && item.poster!.isNotEmpty)))
+          .toList()
+        ..sort((a, b) {
+          final ratingCmp = (b.rating ?? 0).compareTo(a.rating ?? 0);
+          if (ratingCmp != 0) return ratingCmp;
+          return b.updatedAt.compareTo(a.updatedAt);
+        });
+
+      final fallbackWithArtwork = vodCandidates
+          .where((item) =>
+              (item.backdrop != null && item.backdrop!.isNotEmpty) ||
+              (item.poster != null && item.poster!.isNotEmpty))
+          .toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+      final result = <MediaItem>[];
+      final seen = <String>{};
+      for (final item in [...ratedWithArtwork, ...fallbackWithArtwork, ...vodCandidates]) {
+        if (result.length >= 5) break;
+        if (seen.add(item.id)) {
+          result.add(item);
+        }
+      }
+      if (result.isNotEmpty) return result;
     }
-    if (candidates.isEmpty) return [];
 
-    final ratedWithArtwork = candidates
-        .where((item) =>
-            item.rating != null &&
-            item.rating! > 0 &&
-            ((item.backdrop != null && item.backdrop!.isNotEmpty) ||
-                (item.poster != null && item.poster!.isNotEmpty)))
-        .toList()
-      ..sort((a, b) {
-        final ratingCmp = (b.rating ?? 0).compareTo(a.rating ?? 0);
-        if (ratingCmp != 0) return ratingCmp;
-        return b.updatedAt.compareTo(a.updatedAt);
-      });
+    final channelCandidates = allItems
+        .where((item) => item.mediaType == MediaType.channel)
+        .toList();
+    if (channelCandidates.isEmpty && allItems.isNotEmpty) {
+      channelCandidates.addAll(allItems);
+    }
+    if (channelCandidates.isEmpty) return [];
 
-    final fallbackWithArtwork = candidates
+    final withLogos = channelCandidates
         .where((item) =>
+            (item.poster != null && item.poster!.isNotEmpty) ||
             (item.backdrop != null && item.backdrop!.isNotEmpty) ||
-            (item.poster != null && item.poster!.isNotEmpty))
+            (item.thumbnail != null && item.thumbnail!.isNotEmpty))
         .toList();
 
     final result = <MediaItem>[];
-    final seen = <String>{};
-    for (final item in [...ratedWithArtwork, ...fallbackWithArtwork, ...candidates]) {
+    final seenIds = <String>{};
+    final seenGenres = <String, int>{};
+
+    for (final item in (withLogos.isNotEmpty ? withLogos : channelCandidates)) {
+      final genre = item.genres.isNotEmpty ? item.genres.first : 'General';
+      final count = seenGenres[genre] ?? 0;
+      if (count < 1 && seenIds.add(item.id)) {
+        seenGenres[genre] = count + 1;
+        result.add(item);
+      }
       if (result.length >= 5) break;
-      if (seen.add(item.id)) {
+    }
+
+    for (final item in (withLogos.isNotEmpty ? withLogos : channelCandidates)) {
+      if (result.length >= 5) break;
+      if (seenIds.add(item.id)) {
         result.add(item);
       }
     }
+
     return result;
   }
 

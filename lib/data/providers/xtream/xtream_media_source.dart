@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/account_metadata_provider.dart';
@@ -302,255 +303,72 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   }
 
   Future<List<MediaItem>> _fetchLiveChannels(DateTime createdAt) async {
-    var payload = await _fetchJson('action=live');
-    var data = _extractData(payload);
-
-    if (data == null) {
-      // Some panels do not implement action=live and only answer the
-      // action=get_live_streams endpoint. Fall back before giving up.
-      payload = await _fetchJson('action=get_live_streams');
-      data = _extractData(payload);
-    }
-
-    if (data == null) return [];
-
-    final channels = <MediaItem>[];
-    for (final item in data) {
-      if (item is! Map) continue;
-      final streamId = item['stream_id']?.toString();
-      if (streamId == null || streamId.isEmpty) continue;
-
-      final ext = _liveStreamExtension(item['container_extension']?.toString());
-      final name = _asString(item['name']) ?? 'Unknown';
-      final categoryId = item['category_id']?.toString() ?? '';
-
-      final streamUrl = _liveStreamUrl(streamId, ext);
-      final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: _serverUrl);
-
-      channels.add(
-        MediaItem(
-          id: 'xtream-live-$streamId',
+    var rawJson = await _getJsonAction('action=live');
+    var channels = <MediaItem>[];
+    if (rawJson != null && rawJson.isNotEmpty) {
+      channels = await compute(
+        _parseLiveChannelsIsolated,
+        _XtreamParseParams(
+          rawJson: rawJson,
+          serverUrl: _serverUrl,
           providerId: _id,
-          providerType: MediaSourceType.xtream,
-          mediaType: MediaType.channel,
-          title: name,
-          subtitle: _asString(item['epg_channel_id']),
-          poster: poster,
-          thumbnail: poster,
-          genres: categoryId.isNotEmpty ? [categoryId] : [],
-          metadata: _liveMetadata(item, streamId, streamUrl, categoryId, poster),
+          username: _username,
+          password: _password,
           createdAt: createdAt,
-          updatedAt: createdAt,
         ),
       );
     }
-
+    if (channels.isEmpty) {
+      final fallbackJson = await _getJsonAction('action=get_live_streams');
+      if (fallbackJson != null && fallbackJson.isNotEmpty) {
+        channels = await compute(
+          _parseLiveChannelsIsolated,
+          _XtreamParseParams(
+            rawJson: fallbackJson,
+            serverUrl: _serverUrl,
+            providerId: _id,
+            username: _username,
+            password: _password,
+            createdAt: createdAt,
+          ),
+        );
+      }
+    }
     return channels;
   }
 
-  Map<String, dynamic> _liveMetadata(
-    Map item,
-    String streamId,
-    String streamUrl,
-    String categoryId,
-    String? poster,
-  ) {
-    return {
-      'streamUrl': streamUrl,
-      'streamId': streamId,
-      'categoryId': categoryId,
-      'epgChannelId': _asString(item['epg_channel_id']) ?? '',
-      'streamIcon': poster ?? _asString(item['stream_icon']) ?? '',
-      'tvArchive': item['tv_archive'],
-      'tvArchiveDuration': item['tv_archive_duration'],
-      'resolution': _asString(item['stream_type']) ?? '',
-      'serverUrl': _serverUrl,
-      'isLive': true,
-    };
-  }
-
   Future<List<MediaItem>> _fetchMovies(DateTime createdAt) async {
-    final data = _extractData(await _fetchJson('action=get_vod_streams'));
-    if (data == null) return [];
+    final rawJson = await _getJsonAction('action=get_vod_streams');
+    if (rawJson == null || rawJson.isEmpty) return [];
 
-    final movies = <MediaItem>[];
-    for (final item in data) {
-      if (item is! Map) continue;
-      final streamId = item['stream_id']?.toString();
-      if (streamId == null || streamId.isEmpty) continue;
-
-      final ext = _extension(item['container_extension']?.toString());
-      final name = _asString(item['name']) ?? 'Unknown';
-      final categoryId = item['category_id']?.toString() ?? '';
-
-      final streamUrl = _movieStreamUrl(streamId, ext);
-      final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: _serverUrl);
-      final backdrop = ImageUrlFormatter.format(item['backdrop_path'], serverUrl: _serverUrl);
-      final rawGenre = _asString(item['genre']) ?? '';
-
-      final genres = <String>[];
-      if (categoryId.isNotEmpty) {
-        genres.add(categoryId);
-      }
-      if (rawGenre.isNotEmpty) {
-        for (final g in rawGenre.split(RegExp(r'[,/|]'))) {
-          final clean = g.trim();
-          if (clean.isNotEmpty && !genres.contains(clean)) {
-            genres.add(clean);
-          }
-        }
-      }
-
-      movies.add(
-        MediaItem(
-          id: 'xtream-movie-$streamId',
-          providerId: _id,
-          providerType: MediaSourceType.xtream,
-          mediaType: MediaType.movie,
-          title: name,
-          poster: poster,
-          thumbnail: poster,
-          backdrop: backdrop,
-          genres: genres,
-          rating: _parseRating(item['rating']),
-          description: _asString(item['plot']),
-          metadata: _vodMetadata(item, streamId, streamUrl, categoryId, poster),
-          createdAt: createdAt,
-          updatedAt: createdAt,
-        ),
-      );
-    }
-
-    return movies;
-  }
-
-  Map<String, dynamic> _vodMetadata(
-    Map item,
-    String streamId,
-    String streamUrl,
-    String categoryId,
-    String? poster,
-  ) {
-    return {
-      'streamUrl': streamUrl,
-      'streamId': streamId,
-      'categoryId': categoryId,
-      'containerExtension': _asString(item['container_extension']) ?? '',
-      'genre': _asString(item['genre']) ?? '',
-      'plot': _asString(item['plot']) ?? '',
-      'year': _asString(item['year']) ?? '',
-      'duration': _asString(item['duration']) ?? '',
-      'rating': _asString(item['rating']) ?? '',
-      'added': _asString(item['added']) ?? '',
-      'directSource': _asString(item['direct_source']) ?? '',
-      'backdropPath': _asString(item['backdrop_path']) ?? '',
-      'streamIcon': poster ?? _asString(item['stream_icon']) ?? '',
-      'movieImage': _asString(item['movie_image']) ?? '',
-      'cover': _asString(item['cover']) ?? _asString(item['cover_big']) ?? '',
-      'serverUrl': _serverUrl,
-      'isVod': true,
-    };
+    return await compute(
+      _parseMoviesIsolated,
+      _XtreamParseParams(
+        rawJson: rawJson,
+        serverUrl: _serverUrl,
+        providerId: _id,
+        username: _username,
+        password: _password,
+        createdAt: createdAt,
+      ),
+    );
   }
 
   Future<List<MediaItem>> _fetchSeries(DateTime createdAt) async {
-    final data = _extractData(await _fetchJson('action=get_series'));
-    if (data == null) return [];
+    final rawJson = await _getJsonAction('action=get_series');
+    if (rawJson == null || rawJson.isEmpty) return [];
 
-    final series = <MediaItem>[];
-    for (final item in data) {
-      if (item is! Map) continue;
-      final seriesId = item['series_id']?.toString();
-      if (seriesId == null || seriesId.isEmpty) continue;
-
-      final name = _asString(item['name']) ?? 'Unknown';
-      final categoryId = item['category_id']?.toString() ?? '';
-      final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: _serverUrl);
-      final backdrop = ImageUrlFormatter.format(item['backdrop_path'], serverUrl: _serverUrl);
-      final rawGenre = _asString(item['genre']) ?? '';
-
-      final genres = <String>[];
-      if (categoryId.isNotEmpty) {
-        genres.add(categoryId);
-      }
-      if (rawGenre.isNotEmpty) {
-        for (final g in rawGenre.split(RegExp(r'[,/|]'))) {
-          final clean = g.trim();
-          if (clean.isNotEmpty && !genres.contains(clean)) {
-            genres.add(clean);
-          }
-        }
-      }
-
-      series.add(
-        MediaItem(
-          id: 'xtream-series-$seriesId',
-          providerId: _id,
-          providerType: MediaSourceType.xtream,
-          mediaType: MediaType.series,
-          title: name,
-          poster: poster,
-          thumbnail: poster,
-          backdrop: backdrop,
-          genres: genres,
-          rating: _parseRating(item['rating']),
-          description: _asString(item['plot']),
-          metadata: _seriesMetadata(item, seriesId, categoryId, poster),
-          createdAt: createdAt,
-          updatedAt: createdAt,
-        ),
-      );
-    }
-
-    return series;
-  }
-
-  Map<String, dynamic> _seriesMetadata(
-    Map item,
-    String seriesId,
-    String categoryId,
-    String? poster,
-  ) {
-    final seasons = _parseSeasons(item['seasons']);
-    return {
-      'seriesId': seriesId,
-      'streamId': item['stream_id']?.toString() ?? '',
-      'categoryId': categoryId,
-      'genre': _asString(item['genre']) ?? '',
-      'plot': _asString(item['plot']) ?? '',
-      'year': _asString(item['year']) ?? '',
-      'rating': _asString(item['rating']) ?? '',
-      'added': _asString(item['added']) ?? '',
-      'backdropPath': _asString(item['backdrop_path']) ?? '',
-      'cover': poster ?? _asString(item['cover']) ?? _asString(item['cover_big']) ?? '',
-      'streamIcon': _asString(item['stream_icon']) ?? '',
-      'serverUrl': _serverUrl,
-      'seasonCount': seasons,
-      'isSeries': true,
-    };
-  }
-
-  int _parseSeasons(dynamic raw) {
-    if (raw is List) return raw.length;
-    if (raw is Map) return raw.length;
-    if (raw is String && raw.isNotEmpty) {
-      return int.tryParse(raw.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-    }
-    return 0;
-  }
-
-  /// Extracts a string from a JSON value. Some panels emit empty lists (or
-  /// other non-string values) for optional string fields such as
-  /// `backdrop_path`, so a plain `as String?` cast would abort the whole sync.
-  static String? _asString(dynamic value) {
-    if (value == null) return null;
-    if (value is String) return value;
-    if (value is List) {
-      if (value.isEmpty) return null;
-      final first = value.first;
-      return first is String ? first : first?.toString();
-    }
-    if (value is Map) return null;
-    return value.toString();
+    return await compute(
+      _parseSeriesIsolated,
+      _XtreamParseParams(
+        rawJson: rawJson,
+        serverUrl: _serverUrl,
+        providerId: _id,
+        username: _username,
+        password: _password,
+        createdAt: createdAt,
+      ),
+    );
   }
 
   Future<List<MediaItem>> _fetchLiveCategories(DateTime createdAt) async {
@@ -582,31 +400,18 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     String prefix,
     DateTime createdAt,
   ) async {
-    final data = _extractData(await _fetchJson(action));
-    if (data == null) return [];
+    final rawJson = await _getJsonAction(action);
+    if (rawJson == null || rawJson.isEmpty) return [];
 
-    final categories = <MediaItem>[];
-    for (final item in data) {
-      if (item is! Map) continue;
-      final categoryId = item['category_id']?.toString() ?? '';
-      final categoryName = _asString(item['category_name']) ?? '';
-      if (categoryId.isEmpty || categoryName.isEmpty) continue;
-
-      categories.add(
-        MediaItem(
-          id: '$prefix-$categoryId',
-          providerId: _id,
-          providerType: MediaSourceType.xtream,
-          mediaType: MediaType.collection,
-          title: categoryName,
-          metadata: {'categoryId': categoryId, 'parentId': item['parent_id']},
-          createdAt: createdAt,
-          updatedAt: createdAt,
-        ),
-      );
-    }
-
-    return categories;
+    return await compute(
+      _parseCategoriesIsolated,
+      _XtreamCategoryParams(
+        rawJson: rawJson,
+        providerId: _id,
+        prefix: prefix,
+        createdAt: createdAt,
+      ),
+    );
   }
 
   /// Builds a `category_id -> category_name` lookup for one category type.
@@ -646,18 +451,13 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   }
 
   Future<dynamic> _fetchJson(String action) async {
-    final uri = Uri.parse('$_serverUrl/player_api.php').replace(
-      queryParameters: {
-        'username': _username,
-        'password': _password,
-        ...Uri.parse('?$action').queryParameters,
-      },
-    );
-
-    final jsonStr = await _getJson(uri);
-    if (jsonStr == null) return null;
+    final jsonStr = await _getJsonAction(action);
+    if (jsonStr == null || jsonStr.isEmpty) return null;
 
     try {
+      if (jsonStr.length > 50000) {
+        return await compute(_decodeJsonIsolated, jsonStr);
+      }
       return json.decode(jsonStr);
     } catch (e) {
       _logger.warning(
@@ -667,6 +467,17 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       );
       return null;
     }
+  }
+
+  Future<String?> _getJsonAction(String action) async {
+    final uri = Uri.parse('$_serverUrl/player_api.php').replace(
+      queryParameters: {
+        'username': _username,
+        'password': _password,
+        ...Uri.parse('?$action').queryParameters,
+      },
+    );
+    return _getJson(uri);
   }
 
   /// Extracts the item list from a panel payload.
@@ -842,14 +653,6 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   @override
   Future<List<MediaItem>> getPrograms() async => [];
 
-  String _liveStreamUrl(String streamId, String ext) {
-    return '$_serverUrl/live/$_username/$_password/$streamId.$ext';
-  }
-
-  String _movieStreamUrl(String streamId, String ext) {
-    return '$_serverUrl/movie/$_username/$_password/$streamId.$ext';
-  }
-
   String _seriesStreamUrl(String episodeId, String ext) {
     return '$_serverUrl/series/$_username/$_password/$episodeId.$ext';
   }
@@ -879,13 +682,311 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     return ext;
   }
 
-  double? _parseRating(dynamic raw) {
-    if (raw == null) return null;
-    if (raw is num) return raw.toDouble();
-    if (raw is String) {
-      final rating = double.tryParse(raw.replaceAll(RegExp(r'[^0-9.]'), ''));
-      if (rating != null && rating > 0 && rating <= 10) return rating;
-    }
-    return null;
+  static dynamic _decodeJsonIsolated(String raw) => json.decode(raw);
+}
+
+class _XtreamParseParams {
+  final String rawJson;
+  final String serverUrl;
+  final String providerId;
+  final String username;
+  final String password;
+  final DateTime createdAt;
+
+  const _XtreamParseParams({
+    required this.rawJson,
+    required this.serverUrl,
+    required this.providerId,
+    required this.username,
+    required this.password,
+    required this.createdAt,
+  });
+}
+
+class _XtreamCategoryParams {
+  final String rawJson;
+  final String providerId;
+  final String prefix;
+  final DateTime createdAt;
+
+  const _XtreamCategoryParams({
+    required this.rawJson,
+    required this.providerId,
+    required this.prefix,
+    required this.createdAt,
+  });
+}
+
+List<MediaItem> _parseLiveChannelsIsolated(_XtreamParseParams params) {
+  final dynamic payload;
+  try {
+    payload = json.decode(params.rawJson);
+  } catch (_) {
+    return [];
   }
+  final data = XtreamMediaSource._extractData(payload);
+  if (data == null) return [];
+
+  final channels = <MediaItem>[];
+  for (final item in data) {
+    if (item is! Map) continue;
+    final streamId = item['stream_id']?.toString();
+    if (streamId == null || streamId.isEmpty) continue;
+
+    final ext = XtreamMediaSource._liveStreamExtension(item['container_extension']?.toString());
+    final name = _asStringIsolated(item['name']) ?? 'Unknown';
+    final categoryId = item['category_id']?.toString() ?? '';
+
+    final streamUrl = '${params.serverUrl}/live/${params.username}/${params.password}/$streamId.$ext';
+    final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: params.serverUrl);
+
+    channels.add(
+      MediaItem(
+        id: 'xtream-live-$streamId',
+        providerId: params.providerId,
+        providerType: MediaSourceType.xtream,
+        mediaType: MediaType.channel,
+        title: name,
+        subtitle: _asStringIsolated(item['epg_channel_id']),
+        poster: poster,
+        thumbnail: poster,
+        genres: categoryId.isNotEmpty ? [categoryId] : [],
+        metadata: {
+          'streamUrl': streamUrl,
+          'streamId': streamId,
+          'categoryId': categoryId,
+          'epgChannelId': _asStringIsolated(item['epg_channel_id']) ?? '',
+          'streamIcon': poster ?? _asStringIsolated(item['stream_icon']) ?? '',
+          'tvArchive': item['tv_archive'],
+          'tvArchiveDuration': item['tv_archive_duration'],
+          'resolution': _asStringIsolated(item['stream_type']) ?? '',
+          'serverUrl': params.serverUrl,
+          'isLive': true,
+        },
+        createdAt: params.createdAt,
+        updatedAt: params.createdAt,
+      ),
+    );
+  }
+
+  return channels;
+}
+
+List<MediaItem> _parseMoviesIsolated(_XtreamParseParams params) {
+  final dynamic payload;
+  try {
+    payload = json.decode(params.rawJson);
+  } catch (_) {
+    return [];
+  }
+  final data = XtreamMediaSource._extractData(payload);
+  if (data == null) return [];
+
+  final movies = <MediaItem>[];
+  for (final item in data) {
+    if (item is! Map) continue;
+    final streamId = item['stream_id']?.toString();
+    if (streamId == null || streamId.isEmpty) continue;
+
+    final ext = XtreamMediaSource._extension(item['container_extension']?.toString());
+    final name = _asStringIsolated(item['name']) ?? 'Unknown';
+    final categoryId = item['category_id']?.toString() ?? '';
+
+    final streamUrl = '${params.serverUrl}/movie/${params.username}/${params.password}/$streamId.$ext';
+    final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: params.serverUrl);
+    final backdrop = ImageUrlFormatter.format(item['backdrop_path'], serverUrl: params.serverUrl);
+    final rawGenre = _asStringIsolated(item['genre']) ?? '';
+
+    final genres = <String>[];
+    if (categoryId.isNotEmpty) {
+      genres.add(categoryId);
+    }
+    if (rawGenre.isNotEmpty) {
+      for (final g in rawGenre.split(RegExp(r'[,/|]'))) {
+        final clean = g.trim();
+        if (clean.isNotEmpty && !genres.contains(clean)) {
+          genres.add(clean);
+        }
+      }
+    }
+
+    movies.add(
+      MediaItem(
+        id: 'xtream-movie-$streamId',
+        providerId: params.providerId,
+        providerType: MediaSourceType.xtream,
+        mediaType: MediaType.movie,
+        title: name,
+        poster: poster,
+        thumbnail: poster,
+        backdrop: backdrop,
+        genres: genres,
+        rating: _parseRatingIsolated(item['rating']),
+        description: _asStringIsolated(item['plot']),
+        metadata: {
+          'streamUrl': streamUrl,
+          'streamId': streamId,
+          'categoryId': categoryId,
+          'containerExtension': _asStringIsolated(item['container_extension']) ?? '',
+          'genre': _asStringIsolated(item['genre']) ?? '',
+          'plot': _asStringIsolated(item['plot']) ?? '',
+          'year': _asStringIsolated(item['year']) ?? '',
+          'duration': _asStringIsolated(item['duration']) ?? '',
+          'rating': _asStringIsolated(item['rating']) ?? '',
+          'added': _asStringIsolated(item['added']) ?? '',
+          'directSource': _asStringIsolated(item['direct_source']) ?? '',
+          'backdropPath': _asStringIsolated(item['backdrop_path']) ?? '',
+          'streamIcon': poster ?? _asStringIsolated(item['stream_icon']) ?? '',
+          'movieImage': _asStringIsolated(item['movie_image']) ?? '',
+          'cover': _asStringIsolated(item['cover']) ?? _asStringIsolated(item['cover_big']) ?? '',
+          'serverUrl': params.serverUrl,
+          'isVod': true,
+        },
+        createdAt: params.createdAt,
+        updatedAt: params.createdAt,
+      ),
+    );
+  }
+
+  return movies;
+}
+
+List<MediaItem> _parseSeriesIsolated(_XtreamParseParams params) {
+  final dynamic payload;
+  try {
+    payload = json.decode(params.rawJson);
+  } catch (_) {
+    return [];
+  }
+  final data = XtreamMediaSource._extractData(payload);
+  if (data == null) return [];
+
+  final series = <MediaItem>[];
+  for (final item in data) {
+    if (item is! Map) continue;
+    final seriesId = item['series_id']?.toString();
+    if (seriesId == null || seriesId.isEmpty) continue;
+
+    final name = _asStringIsolated(item['name']) ?? 'Unknown';
+    final categoryId = item['category_id']?.toString() ?? '';
+    final poster = ImageUrlFormatter.extractFromMap(item, serverUrl: params.serverUrl);
+    final backdrop = ImageUrlFormatter.format(item['backdrop_path'], serverUrl: params.serverUrl);
+    final rawGenre = _asStringIsolated(item['genre']) ?? '';
+
+    final genres = <String>[];
+    if (categoryId.isNotEmpty) {
+      genres.add(categoryId);
+    }
+    if (rawGenre.isNotEmpty) {
+      for (final g in rawGenre.split(RegExp(r'[,/|]'))) {
+        final clean = g.trim();
+        if (clean.isNotEmpty && !genres.contains(clean)) {
+          genres.add(clean);
+        }
+      }
+    }
+
+    final seasons = _parseSeasonsIsolated(item['seasons']);
+
+    series.add(
+      MediaItem(
+        id: 'xtream-series-$seriesId',
+        providerId: params.providerId,
+        providerType: MediaSourceType.xtream,
+        mediaType: MediaType.series,
+        title: name,
+        poster: poster,
+        thumbnail: poster,
+        backdrop: backdrop,
+        genres: genres,
+        rating: _parseRatingIsolated(item['rating']),
+        description: _asStringIsolated(item['plot']),
+        metadata: {
+          'seriesId': seriesId,
+          'streamId': item['stream_id']?.toString() ?? '',
+          'categoryId': categoryId,
+          'genre': _asStringIsolated(item['genre']) ?? '',
+          'plot': _asStringIsolated(item['plot']) ?? '',
+          'year': _asStringIsolated(item['year']) ?? '',
+          'rating': _asStringIsolated(item['rating']) ?? '',
+          'added': _asStringIsolated(item['added']) ?? '',
+          'backdropPath': _asStringIsolated(item['backdrop_path']) ?? '',
+          'cover': poster ?? _asStringIsolated(item['cover']) ?? _asStringIsolated(item['cover_big']) ?? '',
+          'streamIcon': _asStringIsolated(item['stream_icon']) ?? '',
+          'serverUrl': params.serverUrl,
+          'seasonCount': seasons,
+          'isSeries': true,
+        },
+        createdAt: params.createdAt,
+        updatedAt: params.createdAt,
+      ),
+    );
+  }
+
+  return series;
+}
+
+List<MediaItem> _parseCategoriesIsolated(_XtreamCategoryParams params) {
+  final dynamic payload;
+  try {
+    payload = json.decode(params.rawJson);
+  } catch (_) {
+    return [];
+  }
+  final data = XtreamMediaSource._extractData(payload);
+  if (data == null) return [];
+
+  final categories = <MediaItem>[];
+  for (final item in data) {
+    if (item is! Map) continue;
+    final categoryId = item['category_id']?.toString() ?? '';
+    final categoryName = _asStringIsolated(item['category_name']) ?? '';
+    if (categoryId.isEmpty || categoryName.isEmpty) continue;
+
+    categories.add(
+      MediaItem(
+        id: '${params.prefix}$categoryId',
+        providerId: params.providerId,
+        providerType: MediaSourceType.xtream,
+        mediaType: MediaType.collection,
+        title: categoryName,
+        metadata: {'categoryId': categoryId, 'parentId': item['parent_id']},
+        createdAt: params.createdAt,
+        updatedAt: params.createdAt,
+      ),
+    );
+  }
+
+  return categories;
+}
+
+String? _asStringIsolated(dynamic value) {
+  if (value == null) return null;
+  if (value is String) return value;
+  if (value is List) {
+    if (value.isEmpty) return null;
+    final first = value.first;
+    return first is String ? first : first?.toString();
+  }
+  if (value is Map) return null;
+  return value.toString();
+}
+
+double? _parseRatingIsolated(dynamic raw) {
+  if (raw == null) return null;
+  if (raw is num) return raw.toDouble();
+  if (raw is String) {
+    final rating = double.tryParse(raw.replaceAll(RegExp(r'[^0-9.]'), ''));
+    if (rating != null && rating > 0 && rating <= 10) return rating;
+  }
+  return null;
+}
+
+int _parseSeasonsIsolated(dynamic raw) {
+  if (raw is List) return raw.length;
+  if (raw is Map) return raw.length;
+  if (raw is String && raw.isNotEmpty) {
+    return int.tryParse(raw.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
+  }
+  return 0;
 }

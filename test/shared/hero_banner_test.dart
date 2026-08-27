@@ -46,11 +46,11 @@ void main() {
       expect(find.text('4K'), findsOneWidget);
 
       // Verify action buttons
-      expect(find.text('Watch Now'), findsOneWidget);
+      expect(find.text('WATCH NOW'), findsOneWidget);
       expect(find.text('Details'), findsOneWidget);
 
       // Tap Watch Now
-      await tester.tap(find.text('Watch Now'));
+      await tester.tap(find.text('WATCH NOW'));
       await tester.pump();
       expect(playClicked, isTrue);
 
