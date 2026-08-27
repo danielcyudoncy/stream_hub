@@ -305,7 +305,7 @@ class ExoPlayerSurfaceView(
                 .setUsage(C.USAGE_MEDIA)
                 .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                 .build(),
-            true,
+            false,
         )
         player.addListener(playerListener)
         channel.setMethodCallHandler(this)

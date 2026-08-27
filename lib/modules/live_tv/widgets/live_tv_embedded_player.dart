@@ -1,15 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/media/enums/aspect_ratio_mode.dart';
 import '../../../core/media/enums/playback_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/image_url_formatter.dart';
 import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/channel_placeholder.dart';
 import '../../player/controllers/player_controller.dart';
+import '../../player/widgets/audio_track_selector.dart';
+import '../../player/widgets/subtitle_selector.dart' hide AudioTrackSelector;
+import '../../player/widgets/player_touch_gesture_overlay.dart';
 import '../controllers/live_tv_controller.dart';
 
 class LiveTvEmbeddedPlayer extends StatefulWidget {
@@ -29,6 +34,9 @@ class LiveTvEmbeddedPlayer extends StatefulWidget {
 class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   bool _controlsVisible = true;
   Timer? _controlsTimer;
+  bool _quickZapperOpen = false;
+  String? _hudToastText;
+  Timer? _hudToastTimer;
 
   @override
   void initState() {
@@ -63,6 +71,240 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     _startControlsTimer();
   }
 
+  void _showHudToast(String message) {
+    _hudToastTimer?.cancel();
+    setState(() => _hudToastText = message);
+    _hudToastTimer = Timer(const Duration(milliseconds: 1800), () {
+      if (mounted) {
+        setState(() => _hudToastText = null);
+      }
+    });
+  }
+
+  void _cycleAspectRatio(PlayerController playerCtrl) {
+    final current = playerCtrl.playbackController.engine.aspectRatioRx.value;
+    final modes = AspectRatioMode.values;
+    final nextIndex = (modes.indexOf(current) + 1) % modes.length;
+    final nextMode = modes[nextIndex];
+    playerCtrl.setAspectRatio(nextMode);
+    _showHudToast('Aspect Ratio: ${nextMode.displayName}');
+  }
+
+  void _openAudioTrackSheet(BuildContext context, PlayerController playerCtrl) async {
+    final tracks = await playerCtrl.getAvailableAudioTracks();
+    if (!context.mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E222A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Obx(() {
+          final selected = playerCtrl.selectedAudioTrackRx.value;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.audiotrack_rounded, color: AppColors.primary, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Audio Tracks',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 24),
+                  AudioTrackSelector(
+                    tracks: tracks,
+                    selectedTrackId: selected,
+                    onSelected: (trackId) {
+                      playerCtrl.setAudioTrack(trackId);
+                      _showHudToast('Audio: $trackId');
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  void _openSubtitleSheet(BuildContext context, PlayerController playerCtrl) async {
+    final tracks = await playerCtrl.getAvailableSubtitleTracks();
+    if (!context.mounted) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E222A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return Obx(() {
+          final selected = playerCtrl.selectedSubtitleTrackRx.value;
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.subtitles_rounded, color: AppColors.primary, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Subtitles',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 24),
+                  SubtitleSelector(
+                    tracks: tracks,
+                    selectedTrackId: selected,
+                    onSelected: (trackId) {
+                      playerCtrl.setSubtitleTrack(trackId);
+                      _showHudToast('Subtitles: $trackId');
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        });
+      },
+    );
+  }
+
+  Widget _buildQuickZapperDrawer() {
+    final channels = widget.controller.filteredChannels.isNotEmpty
+        ? widget.controller.filteredChannels
+        : widget.controller.channels;
+    final activeId = widget.controller.activePlayingChannel.value?.id;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        width: 320.0,
+        height: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 16.0),
+        decoration: BoxDecoration(
+          color: const Color(0xEE0D1117),
+          borderRadius: BorderRadius.circular(16.0),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black87,
+              blurRadius: 24.0,
+              offset: Offset(4, 0),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+              child: Row(
+                children: [
+                  const Icon(Icons.tv_rounded, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Quick Channel Zapper',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                    onPressed: () => setState(() => _quickZapperOpen = false),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(color: Colors.white12, height: 1),
+            Expanded(
+              child: ListView.separated(
+                itemCount: channels.length,
+                separatorBuilder: (context, index) => const Divider(color: Colors.white10, height: 1),
+                itemBuilder: (context, idx) {
+                  final ch = channels[idx];
+                  final isCurrent = ch.id == activeId;
+                  final rawLogo = ch.thumbnail ?? ch.poster ?? ch.backdrop;
+                  final logoUrl = ImageUrlFormatter.format(rawLogo, item: ch);
+                  return Material(
+                    color: isCurrent ? AppColors.primary.withValues(alpha: 0.25) : Colors.transparent,
+                    child: ListTile(
+                      dense: true,
+                      leading: logoUrl != null && logoUrl.isNotEmpty
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Image.network(
+                                logoUrl,
+                                width: 32,
+                                height: 32,
+                                fit: BoxFit.contain,
+                                errorBuilder: (context, error, stackTrace) => const Icon(Icons.live_tv, size: 20, color: Colors.white60),
+                              ),
+                            )
+                          : const Icon(Icons.live_tv, size: 20, color: Colors.white60),
+                      title: Text(
+                        ch.title,
+                        style: TextStyle(
+                          color: isCurrent ? AppColors.primary : Colors.white,
+                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: ch.subtitle != null
+                          ? Text(
+                              ch.subtitle!,
+                              style: const TextStyle(color: Colors.white54, fontSize: 11),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            )
+                          : null,
+                      trailing: isCurrent
+                          ? const Icon(Icons.play_circle_fill, color: AppColors.primary, size: 18)
+                          : null,
+                      onTap: () {
+                        widget.controller.openChannel(ch);
+                        _showHudToast('Channel: ${ch.title}');
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   void didUpdateWidget(LiveTvEmbeddedPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -80,6 +322,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
 
   @override
   void dispose() {
+    _hudToastTimer?.cancel();
     _controlsTimer?.cancel();
     super.dispose();
   }
@@ -153,32 +396,13 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
         ? channel.genres.first
         : (channel.metadata['category_name'] as String? ?? 'Live TV');
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 1. Video Surface Layer
-        Obx(() {
-          playerCtrl.playbackController.engine.engineKindRx.value;
-          final adapter = playerCtrl.playbackController.engine.adapter;
-          return IgnorePointer(
-            ignoring: true,
-            child: ColoredBox(
-              color: Colors.black,
-              child: adapter.buildPlayerWidget(),
-            ),
-          );
-        }),
-
-        // 2. Transparent Fullscreen Tap Interceptor
-        Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: _toggleControls,
-            child: const ColoredBox(color: Colors.transparent),
-          ),
-        ),
-
-        // 3. Buffering / Loading State Indicator
+    return PlayerTouchGestureOverlay(
+      onTap: _toggleControls,
+      onVolumeChanged: (vol) => playerCtrl.setVolume(vol),
+      controls: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Buffering / Loading State Indicator
         Obx(() {
           final state =
               playerCtrl.playbackController.engine.stateRx.value;
@@ -603,6 +827,90 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                       }),
                       const SizedBox(width: 2.0),
 
+                      if (isFullscreen) ...[
+                        // Aspect Ratio Cycle Button
+                        Tooltip(
+                          message: 'Cycle Aspect Ratio',
+                          child: IconButton(
+                            padding: const EdgeInsets.all(4.0),
+                            constraints: const BoxConstraints(),
+                            icon: const Icon(
+                              Icons.aspect_ratio_rounded,
+                              color: Colors.white,
+                              size: 22.0,
+                            ),
+                            onPressed: () {
+                              _showControlsTemporarily();
+                              _cycleAspectRatio(playerCtrl);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 2.0),
+
+                        // Audio Track Selector Button
+                        Tooltip(
+                          message: 'Audio Tracks',
+                          child: IconButton(
+                            padding: const EdgeInsets.all(4.0),
+                            constraints: const BoxConstraints(),
+                            icon: const Icon(
+                              Icons.audiotrack_rounded,
+                              color: Colors.white,
+                              size: 22.0,
+                            ),
+                            onPressed: () {
+                              _showControlsTemporarily();
+                              _openAudioTrackSheet(context, playerCtrl);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 2.0),
+
+                        // Subtitles Selector Button
+                        Tooltip(
+                          message: 'Subtitles',
+                          child: IconButton(
+                            padding: const EdgeInsets.all(4.0),
+                            constraints: const BoxConstraints(),
+                            icon: const Icon(
+                              Icons.subtitles_rounded,
+                              color: Colors.white,
+                              size: 22.0,
+                            ),
+                            onPressed: () {
+                              _showControlsTemporarily();
+                              _openSubtitleSheet(context, playerCtrl);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 2.0),
+
+                        // Quick Channel Zapper Drawer Toggle
+                        Tooltip(
+                          message: 'Quick Channel List',
+                          child: IconButton(
+                            padding: const EdgeInsets.all(4.0),
+                            constraints: const BoxConstraints(),
+                            icon: Icon(
+                              _quickZapperOpen
+                                  ? Icons.view_sidebar_rounded
+                                  : Icons.view_sidebar_outlined,
+                              color: _quickZapperOpen
+                                  ? AppColors.primary
+                                  : Colors.white,
+                              size: 22.0,
+                            ),
+                            onPressed: () {
+                              _showControlsTemporarily();
+                              setState(() {
+                                _quickZapperOpen = !_quickZapperOpen;
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 2.0),
+                      ],
+
                       // Fullscreen Expand Button (⛶)
                       Tooltip(
                         message: isFullscreen
@@ -635,7 +943,58 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
             ),
           ),
         ),
+
+        // 7. On-Screen HUD Toast Notification
+        if (_hudToastText != null)
+          Align(
+            alignment: Alignment.topCenter,
+            child: Padding(
+              padding: EdgeInsets.only(top: isFullscreen ? 60.0 : 20.0),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.85),
+                  borderRadius: BorderRadius.circular(20.0),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.6), width: 1.0),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black54, blurRadius: 10.0),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 18.0),
+                    const SizedBox(width: 8.0),
+                    Text(
+                      _hudToastText!,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+        // 8. Quick Channel Zapper Drawer (Fullscreen only)
+        if (isFullscreen && _quickZapperOpen)
+          _buildQuickZapperDrawer(),
       ],
+    ),
+    child: Obx(() {
+      playerCtrl.playbackController.engine.engineKindRx.value;
+      final adapter = playerCtrl.playbackController.engine.adapter;
+      return IgnorePointer(
+        ignoring: true,
+        child: ColoredBox(
+          color: Colors.black,
+          child: adapter.buildPlayerWidget(),
+        ),
+      );
+    }),
     );
   }
 

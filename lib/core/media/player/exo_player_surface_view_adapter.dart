@@ -41,7 +41,7 @@ import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart'
 /// - Events: `stream_hub/exo_surface_events_<viewId>` (EventChannel).
 class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorReporter {
   static const String _viewType = 'com.example.stream_hub/exo_surface';
-  static const Duration _viewMountTimeout = Duration(seconds: 10);
+  static const Duration _viewMountTimeout = Duration(seconds: 20);
 
   /// Whether ExoPlayer's native SurfaceView backend is available.
   static bool get isSupported => Platform.isAndroid;
@@ -154,7 +154,6 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
 
   void _onPlatformViewCreated(int viewId) {
     if (_disposed) return;
-    final isRemount = _channel != null;
     _channel = MethodChannel('stream_hub/exo_surface_$viewId');
     _events = EventChannel('stream_hub/exo_surface_events_$viewId');
     _eventSub?.cancel();
@@ -162,12 +161,11 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
     if (!_viewReady.isCompleted) _viewReady.complete(viewId);
     _logger.info('ExoPlayer platform view created (id: $viewId)', tag: 'Player');
 
-    if (isRemount &&
-        _lastLoadedUrl != null &&
+    if (_lastLoadedUrl != null &&
         !_currentState.isStoppedLike &&
         _currentState != PlaybackState.error) {
       _logger.info(
-        'Restoring ExoPlayer stream playback on remounted view (id: $viewId)',
+        'Loading ExoPlayer stream playback on platform view (id: $viewId)',
         tag: 'Player',
       );
       _channel?.invokeMethod<void>('load', <String, dynamic>{
@@ -180,7 +178,7 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
         await _channel?.invokeMethod<void>('setVolume', {'volume': _currentVolume});
         await _channel?.invokeMethod<void>('play');
       }).catchError((e) {
-        _logger.warning('Failed to restore stream on remount: $e', tag: 'Player');
+        _logger.warning('Failed to restore stream on view created: $e', tag: 'Player');
       });
     }
   }

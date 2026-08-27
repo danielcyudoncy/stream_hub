@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
+import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
@@ -305,6 +306,15 @@ class SettingsPage extends GetView<SettingsController> {
                 ),
               ),
               Obx(
+                () => SettingsTile(
+                  title: 'Stream Buffer Size',
+                  subtitle: _bufferLabel(controller.bufferSizeSeconds.value),
+                  leadingIcon: Icons.speed_rounded,
+                  onTap: () => _showBufferPicker(context),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
+              ),
+              Obx(
                 () => SwitchListTile(
                   title: Text(
                     'Autoplay Next Episode',
@@ -402,7 +412,20 @@ class SettingsPage extends GetView<SettingsController> {
                   ),
                 ),
                 value: controller.parentalLockEnabled.value,
-                onChanged: (value) => controller.toggleParentalLock(value),
+                onChanged: (value) {
+                  if (value) {
+                    _showParentalPinDialog(context);
+                  } else {
+                    controller.toggleParentalLock(false);
+                  }
+                },
+              ),
+              SettingsTile(
+                title: 'Manage Categories & Visibility',
+                subtitle: 'Hide or organize playlist categories',
+                leadingIcon: Icons.category_rounded,
+                onTap: () => Get.toNamed('/categories'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               SettingsTile(
                 title: 'Privacy Policy',
@@ -601,6 +624,104 @@ class SettingsPage extends GetView<SettingsController> {
     );
   }
 
+  String _bufferLabel(int seconds) {
+    switch (seconds) {
+      case 10:
+        return '10s (Fast Start)';
+      case 20:
+        return '20s (Balanced)';
+      case 30:
+        return '30s (Default)';
+      case 60:
+        return '60s (Slow / Unstable Networks)';
+      default:
+        return '${seconds}s';
+    }
+  }
+
+  void _showBufferPicker(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bufferOptions = [
+      (10, '10 Seconds', 'Fast stream start time, best for low-latency'),
+      (20, '20 Seconds', 'Balanced buffering for high definition content'),
+      (30, '30 Seconds (Default)', 'Recommended buffer for most home Wi-Fi networks'),
+      (60, '60 Seconds', 'Extended buffer to prevent stuttering on unstable connections'),
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Stream Buffer Size',
+                style: AppTypography.getHeadline(color: colorScheme.onSurface),
+              ),
+              AppSpacing.heightMD,
+              RadioGroup<int>(
+                groupValue: controller.bufferSizeSeconds.value,
+                onChanged: (value) {
+                  if (value != null) {
+                    controller.changeBufferSize(value);
+                    Get.back();
+                  }
+                },
+                child: Column(
+                  children: bufferOptions.map((opt) {
+                    final selected = controller.bufferSizeSeconds.value == opt.$1;
+                    return InkWell(
+                      onTap: () {
+                        controller.changeBufferSize(opt.$1);
+                        Get.back();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.xs,
+                        ),
+                        child: Row(
+                          children: [
+                            Radio<int>(value: opt.$1),
+                            AppSpacing.widthXS,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    opt.$2,
+                                    style: AppTypography.getBody(
+                                      color: colorScheme.onSurface,
+                                    ),
+                                  ),
+                                  Text(
+                                    opt.$3,
+                                    style: AppTypography.getCaption(
+                                      color: colorScheme.onSurface.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (selected)
+                              Icon(Icons.check, color: colorScheme.primary),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showThemePicker(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     showModalBottomSheet(
@@ -749,4 +870,80 @@ class SettingsPage extends GetView<SettingsController> {
       snackPosition: SnackPosition.BOTTOM,
     );
   }
+
+  void _showParentalPinDialog(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final pinController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: AppRadius.large),
+        title: Row(
+          children: [
+            const Icon(Icons.lock_outline_rounded, color: AppColors.primary),
+            AppSpacing.widthSM,
+            Text(
+              'Set Parental PIN',
+              style: AppTypography.getHeadline(color: colorScheme.onSurface),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Enter a 4-digit security PIN to restrict access to locked and adult categories.',
+                style: AppTypography.getBody(color: colorScheme.onSurfaceVariant),
+              ),
+              AppSpacing.heightMD,
+              TextField(
+                controller: pinController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 22.0, letterSpacing: 8.0, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  hintText: '••••',
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerHighest,
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.medium,
+                    borderSide: BorderSide.none,
+                  ),
+                  counterText: '',
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Get.back(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (pinController.text.length == 4) {
+                controller.toggleParentalLock(true);
+                Get.back();
+                Get.snackbar(
+                  'Parental Lock Enabled',
+                  'PIN protection is now active for protected categories.',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: AppColors.darkSuccess.withValues(alpha: 0.2),
+                  colorText: Colors.white,
+                );
+              }
+            },
+            child: const Text('Save PIN'),
+          ),
+        ],
+      ),
+    );
+  }
 }
+

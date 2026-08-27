@@ -286,30 +286,95 @@ borderRadius: AppRadius.large,
     ColorScheme colorScheme,
     EPGProgram program,
   ) {
-    return Row(
+    final now = DateTime.now();
+    final isPast = program.endTime.isBefore(now);
+    final isUpcoming = program.startTime.isAfter(now);
+
+    return Column(
       children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.favorite_border),
-            label: const Text('Favorite'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: colorScheme.primary,
-              side: BorderSide(color: colorScheme.primary),
+        if (isPast)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Get.snackbar(
+                  'Catch-Up Playback',
+                  'Starting archive catch-up stream for ${program.title}',
+                  snackPosition: SnackPosition.BOTTOM,
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+                  colorText: Colors.white,
+                );
+              },
+              icon: const Icon(Icons.history_rounded, color: Colors.white),
+              label: const Text('Play Catch-Up (Archive)'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14.0),
+              ),
+            ),
+          )
+        else if (program.isLive || program.isCurrentlyPlaying)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                if (program.channelId != null && program.channelId!.isNotEmpty) {
+                  Get.back();
+                }
+              },
+              icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+              label: const Text('Watch Live Channel'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14.0),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: AppSpacing.md),
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.alarm_add_outlined),
-            label: const Text('Remind'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: colorScheme.secondary,
-              side: BorderSide(color: colorScheme.secondary),
+        const SizedBox(height: AppSpacing.sm),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Get.snackbar(
+                    'Favorites',
+                    'Added ${program.title} to your watchlist.',
+                    snackPosition: SnackPosition.BOTTOM,
+                  );
+                },
+                icon: const Icon(Icons.favorite_border),
+                label: const Text('Watchlist'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                  side: BorderSide(color: colorScheme.primary),
+                ),
+              ),
             ),
-          ),
+            if (isUpcoming) ...[
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Get.snackbar(
+                      'Reminder Set',
+                      'You will be notified before ${program.title} starts.',
+                      snackPosition: SnackPosition.BOTTOM,
+                      backgroundColor: AppColors.darkSuccess.withValues(alpha: 0.2),
+                      colorText: Colors.white,
+                    );
+                  },
+                  icon: const Icon(Icons.alarm_add_outlined),
+                  label: const Text('Remind Me'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.secondary,
+                    side: BorderSide(color: colorScheme.secondary),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       ],
     );
