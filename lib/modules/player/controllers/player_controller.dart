@@ -690,6 +690,15 @@ class PlayerController extends GetxController {
 
   Future<void> resume() => playbackController.resume();
 
+  Future<void> togglePlayPause() async {
+    final state = playbackController.engine.stateRx.value;
+    if (state == PlaybackState.playing) {
+      await pause();
+    } else {
+      await resume();
+    }
+  }
+
   Future<void> stop() async {
     // Stopping is an explicit user action: invalidate any in-flight recovery
     // so a recovered session cannot restart playback afterwards.

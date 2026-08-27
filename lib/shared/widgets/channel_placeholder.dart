@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/theme/app_spacing.dart';
 
 class ChannelPlaceholder extends StatelessWidget {
   final double iconSize;
@@ -14,35 +13,45 @@ class ChannelPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.live_tv_rounded,
-              size: iconSize,
-              color: colorScheme.primary.withValues(alpha: 0.65),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxHeight = constraints.maxHeight;
+        final isCompact = maxHeight.isFinite && maxHeight < 50.0;
+        final effectiveIconSize = isCompact ? 15.0 : iconSize;
+        final effectiveFontSize = isCompact ? 8.0 : fontSize;
+        final effectiveSpacing = isCompact ? 1.5 : 4.0;
+
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.live_tv_rounded,
+                  size: effectiveIconSize,
+                  color: colorScheme.primary.withValues(alpha: 0.75),
+                ),
+                SizedBox(height: effectiveSpacing),
+                Text(
+                  'chamDTech',
+                  style: TextStyle(
+                    fontSize: effectiveFontSize,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.4,
+                    color: colorScheme.onSurface.withValues(alpha: 0.7),
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            const SizedBox(height: 5.0),
-            Text(
-              'chamDTech',
-              style: TextStyle(
-                fontSize: fontSize,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.6,
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

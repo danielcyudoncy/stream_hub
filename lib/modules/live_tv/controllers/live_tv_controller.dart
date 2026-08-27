@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
@@ -9,7 +10,6 @@ import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/media/stream_resolver.dart';
 import 'package:stream_hub/core/media/stream_resolvers/m3u_stream_resolver.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
-import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
@@ -64,6 +64,7 @@ class LiveTVController extends GetxController {
   final RxBool isLoading = true.obs;
   final Rxn<MediaItem> featuredChannel = Rxn<MediaItem>();
   final Rxn<MediaItem> activePlayingChannel = Rxn<MediaItem>();
+  final GlobalKey embeddedPlayerKey = GlobalKey(debugLabel: 'live_tv_embedded_player');
   PlayerController? inlinePlayerController;
 
   StreamSubscription? _favoriteSubscription;
@@ -462,34 +463,32 @@ class LiveTVController extends GetxController {
     inlinePlayerController?.setChannelList(itemsToPass, currentId: channel.id);
   }
 
+  final RxBool isFullscreenMode = false.obs;
+
   void stopInlinePlayer() {
     activePlayingChannel.value = null;
+    isFullscreenMode.value = false;
     inlinePlayerController?.stop();
   }
 
-  Future<void> expandToFullscreen() async {
-    final current = activePlayingChannel.value ??
-        featuredChannel.value ??
-        channels.firstOrNull;
-    if (current == null) return;
+  void expandToFullscreen() {
+    if (activePlayingChannel.value != null || featuredChannel.value != null) {
+      if (activePlayingChannel.value == null && featuredChannel.value != null) {
+        openChannel(featuredChannel.value!);
+      }
+      isFullscreenMode.value = true;
+    }
+  }
 
-    // Pause inline playback before navigating to fullscreen to prevent simultaneous streams
-    inlinePlayerController?.pause();
+  void exitFullscreen() {
+    isFullscreenMode.value = false;
+  }
 
-    final itemsToPass = filteredChannels.isNotEmpty
-        ? filteredChannels.toList()
-        : (channels.isNotEmpty ? channels.toList() : [current]);
-    await Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': itemsToPass,
-        'currentId': current.id,
-      },
-    );
-
-    // If activePlayingChannel is still active upon return, resume inline playback
-    if (activePlayingChannel.value != null && inlinePlayerController != null) {
-      inlinePlayerController?.resume();
+  void toggleFullscreen() {
+    if (isFullscreenMode.value) {
+      exitFullscreen();
+    } else {
+      expandToFullscreen();
     }
   }
 

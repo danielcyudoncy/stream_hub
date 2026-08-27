@@ -9,6 +9,7 @@ import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/channel_placeholder.dart';
+import '../../player/controllers/player_controller.dart';
 import '../controllers/live_tv_controller.dart';
 
 class LiveTvEmbeddedPlayer extends StatefulWidget {
@@ -63,6 +64,21 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   }
 
   @override
+  void didUpdateWidget(LiveTvEmbeddedPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If orientation changed between fullscreen and inline, ensure playback continues!
+    if (oldWidget.isFullscreen != widget.isFullscreen) {
+      final playerCtrl = widget.controller.inlinePlayerController;
+      if (playerCtrl != null) {
+        final state = playerCtrl.playbackController.engine.stateRx.value;
+        if (state == PlaybackState.paused || state == PlaybackState.completed) {
+          playerCtrl.resume();
+        }
+      }
+    }
+  }
+
+  @override
   void dispose() {
     _controlsTimer?.cancel();
     super.dispose();
@@ -90,7 +106,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
           AppSpacing.md,
           AppSpacing.xs,
           AppSpacing.md,
-          AppSpacing.md,
+          AppSpacing.xs,
         ),
         child: AspectRatio(
           aspectRatio: 16 / 9,
@@ -128,7 +144,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
 
   Widget _buildActivePlayer(
     MediaItem channel,
-    dynamic playerCtrl, {
+    PlayerController playerCtrl, {
     required bool isFullscreen,
   }) {
     final channelNum = channel is Channel ? channel.number : null;
@@ -140,7 +156,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1. Video Surface Layer (Ignored pointer so touches flow to Flutter gesture layer)
+        // 1. Video Surface Layer
         Obx(() {
           playerCtrl.playbackController.engine.engineKindRx.value;
           final adapter = playerCtrl.playbackController.engine.adapter;
@@ -165,7 +181,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
         // 3. Buffering / Loading State Indicator
         Obx(() {
           final state =
-              playerCtrl.playbackController.engine.stateRx.value as PlaybackState;
+              playerCtrl.playbackController.engine.stateRx.value;
           if (state == PlaybackState.loading ||
               state == PlaybackState.buffering) {
             return IgnorePointer(
@@ -261,7 +277,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
             child: Center(
               child: Obx(() {
                 final state = playerCtrl
-                    .playbackController.engine.stateRx.value as PlaybackState;
+                    .playbackController.engine.stateRx.value;
                 final isPlaying = state == PlaybackState.playing;
 
                 return GestureDetector(
@@ -272,15 +288,15 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                   child: Container(
                     padding: const EdgeInsets.all(14.0),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
+                      color: Colors.black.withValues(alpha: 0.7),
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.7),
+                        color: AppColors.primary.withValues(alpha: 0.8),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: AppColors.primary.withValues(alpha: 0.35),
+                          color: AppColors.primary.withValues(alpha: 0.4),
                           blurRadius: 18.0,
                         ),
                       ],
@@ -309,8 +325,8 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
               alignment: Alignment.topCenter,
               child: Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: isFullscreen ? AppSpacing.md : AppSpacing.sm,
+                  horizontal: AppSpacing.sm,
+                  vertical: isFullscreen ? AppSpacing.md : 2.0,
                 ),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -328,6 +344,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                   bottom: false,
                   child: Row(
                     children: [
+                      const SizedBox(width: AppSpacing.xs),
                       // Red Live Badge
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -406,47 +423,63 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                       ),
 
                       // Category Tag
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7.0,
-                          vertical: 2.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryContainer.withValues(alpha: 0.4),
-                          borderRadius: AppRadius.pill,
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.4),
-                            width: 0.8,
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 80.0),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6.0,
+                            vertical: 2.0,
                           ),
-                        ),
-                        child: Text(
-                          categoryName.toUpperCase(),
-                          style: const TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 9.5,
-                            fontWeight: FontWeight.w700,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryContainer.withValues(alpha: 0.4),
+                            borderRadius: AppRadius.pill,
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.4),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            categoryName.toUpperCase(),
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontSize: 9.0,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8.0),
+                      const SizedBox(width: 4.0),
 
-                      // Close / Minimize Button
-                      GestureDetector(
-                        onTap: () {
-                          widget.controller.stopInlinePlayer();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6.0),
+                      // Stop & Close Button
+                      IconButton(
+                        padding: const EdgeInsets.all(4.0),
+                        constraints: const BoxConstraints(),
+                        icon: Container(
+                          padding: const EdgeInsets.all(4.0),
                           decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
+                            color: Colors.black.withValues(alpha: 0.7),
                             shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.3),
+                              width: 1.0,
+                            ),
                           ),
                           child: const Icon(
                             Icons.close_rounded,
                             color: Colors.white,
-                            size: 18.0,
+                            size: 15.0,
                           ),
                         ),
+                        tooltip: isFullscreen ? 'Exit Fullscreen' : 'Stop and Close',
+                        onPressed: () {
+                          if (isFullscreen) {
+                            widget.controller.exitFullscreen();
+                          } else {
+                            widget.controller.stopInlinePlayer();
+                          }
+                        },
                       ),
                     ],
                   ),
@@ -466,8 +499,8 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
               alignment: Alignment.bottomCenter,
               child: Container(
                 padding: EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: isFullscreen ? AppSpacing.md : AppSpacing.xs,
+                  horizontal: AppSpacing.sm,
+                  vertical: isFullscreen ? AppSpacing.md : 2.0,
                 ),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -488,16 +521,18 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                       // Play/Pause Icon Button
                       Obx(() {
                         final state = playerCtrl
-                            .playbackController.engine.stateRx.value as PlaybackState;
+                            .playbackController.engine.stateRx.value;
                         final isPlaying = state == PlaybackState.playing;
 
                         return IconButton(
+                          padding: const EdgeInsets.all(4.0),
+                          constraints: const BoxConstraints(),
                           icon: Icon(
                             isPlaying
                                 ? Icons.pause_circle_filled_rounded
                                 : Icons.play_circle_filled_rounded,
                             color: AppColors.primary,
-                            size: 28.0,
+                            size: 26.0,
                           ),
                           onPressed: () {
                             _showControlsTemporarily();
@@ -505,6 +540,23 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                           },
                         );
                       }),
+                      const SizedBox(width: 4.0),
+
+                      // Stop Button
+                      IconButton(
+                        padding: const EdgeInsets.all(4.0),
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(
+                          Icons.stop_circle_outlined,
+                          color: Colors.white70,
+                          size: 24.0,
+                        ),
+                        tooltip: 'Stop Playback',
+                        onPressed: () {
+                          widget.controller.stopInlinePlayer();
+                        },
+                      ),
+                      const SizedBox(width: 6.0),
 
                       // Program Subtitle or Info
                       Expanded(
@@ -515,7 +567,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                   : 'Live Broadcast'),
                           style: const TextStyle(
                             color: Colors.white70,
-                            fontSize: 11.5,
+                            fontSize: 11.0,
                             fontWeight: FontWeight.w500,
                             shadows: [
                               Shadow(color: Colors.black87, blurRadius: 4.0),
@@ -525,6 +577,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 4.0),
 
                       // Favorite Toggle
                       Obx(() {
@@ -533,12 +586,14 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                             channel.favorite;
 
                         return IconButton(
+                          padding: const EdgeInsets.all(4.0),
+                          constraints: const BoxConstraints(),
                           icon: Icon(
                             isFav
                                 ? Icons.favorite_rounded
                                 : Icons.favorite_border_rounded,
                             color: isFav ? Colors.redAccent : Colors.white70,
-                            size: 22.0,
+                            size: 20.0,
                           ),
                           onPressed: () {
                             _showControlsTemporarily();
@@ -546,6 +601,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                           },
                         );
                       }),
+                      const SizedBox(width: 2.0),
 
                       // Fullscreen Expand Button (⛶)
                       Tooltip(
@@ -553,16 +609,22 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                             ? 'Exit Fullscreen'
                             : 'Expand to Fullscreen',
                         child: IconButton(
+                          padding: const EdgeInsets.all(4.0),
+                          constraints: const BoxConstraints(),
                           icon: Icon(
                             isFullscreen
                                 ? Icons.fullscreen_exit_rounded
                                 : Icons.fullscreen_rounded,
                             color: Colors.white,
-                            size: 28.0,
+                            size: 26.0,
                           ),
                           onPressed: () {
                             _showControlsTemporarily();
-                            widget.controller.expandToFullscreen();
+                            if (isFullscreen) {
+                              widget.controller.exitFullscreen();
+                            } else {
+                              widget.controller.expandToFullscreen();
+                            }
                           },
                         ),
                       ),

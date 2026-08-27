@@ -160,7 +160,14 @@ class ExoPlayerSurfaceView(
                 }
                 Player.STATE_ENDED -> {
                     mainHandler.removeCallbacks(renderWatchdogRunnable)
-                    emitState("completed")
+                    if (player.isCurrentMediaItemLive || player.duration == C.TIME_UNSET) {
+                        reconnectTargetUrl = lastLoadUrl
+                        if (!scheduleReconnect("Live stream socket ended")) {
+                            emitState("completed")
+                        }
+                    } else {
+                        emitState("completed")
+                    }
                 }
                 Player.STATE_IDLE -> {
                     mainHandler.removeCallbacks(renderWatchdogRunnable)
@@ -224,6 +231,7 @@ class ExoPlayerSurfaceView(
     private fun scheduleReconnect(friendlyMessage: String): Boolean {
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return false
         reconnectAttempts++
+        reconnectTargetUrl = lastLoadUrl
         val delay =
             (RECONNECT_BASE_DELAY_MS shl (reconnectAttempts - 1)).coerceAtMost(RECONNECT_MAX_DELAY_MS)
         android.util.Log.w(
@@ -240,7 +248,11 @@ class ExoPlayerSurfaceView(
         // Never resurrect a stream the user has already replaced.
         if (lastLoadUrl != reconnectTargetUrl) return
         try {
+            if (player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) {
+                player.seekToDefaultPosition()
+            }
             player.prepare()
+            player.play()
         } catch (e: Throwable) {
             android.util.Log.e(NativePlaybackDiagnostics.TAG_SURFACE_VIEW, "reconnect prepare failed", e)
             emitError(
@@ -355,6 +367,10 @@ class ExoPlayerSurfaceView(
             when (call.method) {
                 "load" -> load(call, result)
                 "play" -> {
+                    if (player.playbackState == Player.STATE_ENDED || player.playbackState == Player.STATE_IDLE) {
+                        player.seekToDefaultPosition()
+                        player.prepare()
+                    }
                     player.play()
                     result.success(null)
                 }
