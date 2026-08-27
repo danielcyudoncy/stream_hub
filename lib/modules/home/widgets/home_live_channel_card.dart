@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/cached_home_image.dart';
-import '../../../shared/widgets/live_badge.dart';
+import '../../../shared/widgets/channel_placeholder.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
 class HomeLiveChannelCard extends StatelessWidget {
@@ -64,13 +64,6 @@ class HomeLiveChannelCard extends StatelessWidget {
                     else
                       _buildPlaceholder(colorScheme),
 
-                    // Top Left LIVE Badge
-                    const Positioned(
-                      top: AppSpacing.xs,
-                      left: AppSpacing.xs,
-                      child: LiveBadge(isLive: true),
-                    ),
-
                     // Resolution badge if available
                     if (channel.metadata['resolution'] != null)
                       Positioned(
@@ -102,7 +95,7 @@ class HomeLiveChannelCard extends StatelessWidget {
           ),
           AppSpacing.heightXS,
           Text(
-            channel.title,
+            TitleFormatter.formatChannelTitle(channel.title),
             style: AppTypography.getCaption(
               color: colorScheme.onSurface,
             ).copyWith(fontWeight: FontWeight.w600),
@@ -127,12 +120,6 @@ class HomeLiveChannelCard extends StatelessWidget {
   }
 
   Widget _buildPlaceholder(ColorScheme colorScheme) {
-    return Center(
-      child: Icon(
-        AppIcons.liveTv,
-        size: 36.0,
-        color: colorScheme.primary.withValues(alpha: 0.4),
-      ),
-    );
+    return const ChannelPlaceholder();
   }
 }

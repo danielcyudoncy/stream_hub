@@ -4,9 +4,10 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
-import '../../../shared/widgets/live_badge.dart';
+import '../../../shared/widgets/channel_placeholder.dart';
 
 class LiveTvHeroCard extends StatefulWidget {
   final MediaItem? channel;
@@ -35,7 +36,6 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isChannel = channel is Channel;
-    final isLive = isChannel ? channel.isLive : true;
     final channelNumber = isChannel ? channel.number : null;
     final resolution = channel.metadata['resolution'] as String?;
     final posterUrl = channel.poster ?? channel.thumbnail;
@@ -57,7 +57,7 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
           curve: Curves.easeOutCubic,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
-            height: isTV ? 220.0 : 190.0,
+            height: isTV ? 220.0 : 180.0,
             margin: const EdgeInsets.symmetric(
               horizontal: AppSpacing.md,
               vertical: AppSpacing.xs,
@@ -107,9 +107,9 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
                           end: Alignment.centerRight,
                           colors: [
                             AppColors.darkBackground.withValues(alpha: 0.95),
-                            AppColors.darkBackground.withValues(alpha: 0.85),
-                            AppColors.darkBackground.withValues(alpha: 0.45),
-                            AppColors.darkBackground.withValues(alpha: 0.3),
+                            AppColors.darkBackground.withValues(alpha: 0.88),
+                            AppColors.darkBackground.withValues(alpha: 0.50),
+                            AppColors.darkBackground.withValues(alpha: 0.30),
                           ],
                           stops: const [0.0, 0.45, 0.75, 1.0],
                         ),
@@ -142,80 +142,78 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
                                 ? Image.network(
                                     posterUrl,
                                     fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) => _buildLogoFallback(colorScheme),
+                                    alignment: Alignment.center,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        _buildLogoFallback(colorScheme),
                                   )
                                 : _buildLogoFallback(colorScheme),
                           ),
                         ),
                         const SizedBox(width: AppSpacing.md),
 
-                        // Channel info & Live details
+                        // Channel info & details
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              // Top badges row (Live badge + Channel number + Resolution)
-                              SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                physics: const NeverScrollableScrollPhysics(),
-                                child: Row(
-                                  children: [
-                                    if (isLive) ...[
-                                      const LiveBadge(isLive: true),
-                                      const SizedBox(width: AppSpacing.xs),
+                              // Top badges row (Channel number + Resolution)
+                              if ((channelNumber != null && channelNumber.isNotEmpty) ||
+                                  (resolution != null && resolution.isNotEmpty))
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                                  child: Row(
+                                    children: [
+                                      if (channelNumber != null && channelNumber.isNotEmpty)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6.0,
+                                            vertical: 2.0,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: colorScheme.primary.withValues(alpha: 0.18),
+                                            borderRadius: AppRadius.small,
+                                            border: Border.all(
+                                              color: colorScheme.primary.withValues(alpha: 0.3),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'CH $channelNumber',
+                                            style: TextStyle(
+                                              color: colorScheme.primary,
+                                              fontSize: 10.0,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      if (resolution != null && resolution.isNotEmpty) ...[
+                                        const SizedBox(width: AppSpacing.xs),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5.0,
+                                            vertical: 2.0,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(alpha: 0.12),
+                                            borderRadius: AppRadius.small,
+                                          ),
+                                          child: Text(
+                                            resolution.toUpperCase(),
+                                            style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 9.0,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
-                                    if (channelNumber != null && channelNumber.isNotEmpty)
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 6.0,
-                                          vertical: 2.0,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colorScheme.primary.withValues(alpha: 0.18),
-                                          borderRadius: AppRadius.small,
-                                          border: Border.all(
-                                            color: colorScheme.primary.withValues(alpha: 0.3),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'CH $channelNumber',
-                                          style: TextStyle(
-                                            color: colorScheme.primary,
-                                            fontSize: 10.0,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                    if (resolution != null && resolution.isNotEmpty) ...[
-                                      const SizedBox(width: AppSpacing.xs),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 5.0,
-                                          vertical: 2.0,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.12),
-                                          borderRadius: AppRadius.small,
-                                        ),
-                                        child: Text(
-                                          resolution.toUpperCase(),
-                                          style: const TextStyle(
-                                            color: Colors.white70,
-                                            fontSize: 9.0,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: AppSpacing.xs),
 
                               // Channel Title
                               Text(
-                                channel.title,
+                                TitleFormatter.formatChannelTitle(channel.title),
                                 style: AppTypography.getHeadline(
                                   color: Colors.white,
                                 ),
@@ -223,7 +221,7 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
                                 overflow: TextOverflow.ellipsis,
                               ),
 
-                              // Channel Subtitle / Genre / Provider
+                              // Channel Subtitle / Genre
                               if (channel.genres.isNotEmpty ||
                                   (channel.subtitle != null && channel.subtitle!.isNotEmpty)) ...[
                                 const SizedBox(height: 2.0),
@@ -256,8 +254,8 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
                                           backgroundColor: colorScheme.primary,
                                           foregroundColor: Colors.white,
                                           padding: const EdgeInsets.symmetric(
-                                            horizontal: AppSpacing.sm + 2.0,
-                                            vertical: 4.0,
+                                            horizontal: AppSpacing.sm + 4.0,
+                                            vertical: 6.0,
                                           ),
                                           shape: const RoundedRectangleBorder(
                                             borderRadius: AppRadius.pill,
@@ -309,11 +307,11 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
   }
 
   Widget _buildLogoFallback(ColorScheme colorScheme) {
-    return Center(
-      child: Icon(
-        Icons.live_tv_rounded,
-        color: colorScheme.primary.withValues(alpha: 0.7),
-        size: 36.0,
+    return Container(
+      color: colorScheme.surfaceContainerHighest,
+      child: const ChannelPlaceholder(
+        iconSize: 28.0,
+        fontSize: 10.0,
       ),
     );
   }

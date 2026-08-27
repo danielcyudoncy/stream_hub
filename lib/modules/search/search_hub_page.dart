@@ -62,6 +62,8 @@ class SearchHubPage extends GetView<SearchHubController> {
                   );
                 }
 
+                final isLiveTvFilter = controller.selectedFilter.value == 'Live TV';
+
                 return GridView.builder(
                   padding: const EdgeInsets.fromLTRB(
                     AppSpacing.lg,
@@ -70,8 +72,10 @@ class SearchHubPage extends GetView<SearchHubController> {
                     AppSpacing.xxl,
                   ),
                   gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: isTv ? 200.0 : 170.0,
-                    childAspectRatio: 0.65,
+                    maxCrossAxisExtent: isTv
+                        ? (isLiveTvFilter ? 220.0 : 200.0)
+                        : (isLiveTvFilter ? 180.0 : 160.0),
+                    childAspectRatio: isLiveTvFilter ? 0.70 : 0.52,
                     crossAxisSpacing: AppSpacing.md,
                     mainAxisSpacing: AppSpacing.md,
                   ),
@@ -80,6 +84,7 @@ class SearchHubPage extends GetView<SearchHubController> {
                     final item = results[index];
                     return PremiumMediaCard(
                       item: item,
+                      aspectRatio: isLiveTvFilter ? 1.0 : 2 / 3,
                       onTap: () => controller.openItem(item),
                     );
                   },

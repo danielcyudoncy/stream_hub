@@ -3,8 +3,9 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/utils/image_url_formatter.dart';
-import '../../data/models/media_item.dart';
 import '../../data/models/channel.dart';
+import '../../data/models/media_item.dart';
+import 'channel_placeholder.dart';
 
 class ChannelLogo extends StatelessWidget {
   final MediaItem channel;
@@ -47,12 +48,9 @@ class ChannelLogo extends StatelessWidget {
                 : null,
           ),
           child: poster == null
-              ? Center(
-                  child: Icon(
-                    Icons.live_tv_outlined,
-                    color: colorScheme.primary.withValues(alpha: 0.6),
-                    size: size * 0.4,
-                  ),
+              ? ChannelPlaceholder(
+                  iconSize: size * 0.35,
+                  fontSize: (size * 0.16).clamp(8.0, 11.0),
                 )
               : null,
         ),

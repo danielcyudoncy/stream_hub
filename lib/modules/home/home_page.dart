@@ -78,6 +78,7 @@ class HomePage extends GetView<HomeController> {
                       HomeHeroCarousel(
                         items: controller.featuredHeroItems,
                         onWatch: (item) => _openItem(item),
+                        onDetails: (item) => _openItem(item),
                         onToggleFavorite: (item) => controller.toggleFavorite(item),
                         isFavorite: controller.isItemFavorite,
                       ),
@@ -186,12 +187,6 @@ class HomePage extends GetView<HomeController> {
                         ),
                         items: controller.recentlyAdded,
                         itemBuilder: (context, item, index) {
-                          if (item.mediaType == MediaType.channel) {
-                            return HomeLiveChannelCard(
-                              channel: item,
-                              onTap: () => _playChannel(item),
-                            );
-                          }
                           return PremiumMediaCard(
                             item: item,
                             onTap: () => _openItem(item),

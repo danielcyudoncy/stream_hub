@@ -65,9 +65,9 @@ class SplashPage extends GetView<SplashController> {
                   Text(
                     'StreamHub Pro',
                     style:
-                        AppTypography.getDisplay(
+                        AppTypography.getHeadline(
                           color: colorScheme.onSurface,
-                          scale: 1.0,
+                          scale: 1.1,
                         ).copyWith(
                           shadows: [
                             Shadow(

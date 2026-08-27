@@ -6,9 +6,10 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
-import '../../../shared/widgets/live_badge.dart';
+import '../../../shared/widgets/channel_placeholder.dart';
 import '../../epg/controllers/guide_controller.dart';
 import '../../epg/models/epg_program.dart';
 
@@ -52,7 +53,6 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final colorScheme = theme.colorScheme;
     final isChannel = widget.channel is Channel;
     final channelNum = isChannel ? (widget.channel as Channel).number : null;
-    final isLive = isChannel ? (widget.channel as Channel).isLive : true;
     final posterUrl = widget.channel.poster ?? widget.channel.thumbnail;
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
     final resolution = widget.channel.metadata['resolution'] as String?;
@@ -136,39 +136,30 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                         else
                           _buildFallbackLogo(colorScheme),
 
-                      // Top-Left: Channel number / Live badge
-                      Positioned(
-                        top: AppSpacing.xxs,
-                        left: AppSpacing.xxs,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (isLive) ...[
-                              const LiveBadge(isLive: true),
-                              const SizedBox(width: 4.0),
-                            ],
-                            if (widget.showChannelNumber && channelNum != null && channelNum.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5.0,
-                                  vertical: 1.5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.75),
-                                  borderRadius: AppRadius.small,
-                                ),
-                                child: Text(
-                                  channelNum,
-                                  style: TextStyle(
-                                    fontSize: 9.0,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
+                      // Top-Left: Channel number
+                      if (widget.showChannelNumber && channelNum != null && channelNum.isNotEmpty)
+                        Positioned(
+                          top: AppSpacing.xxs,
+                          left: AppSpacing.xxs,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5.0,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: AppRadius.small,
+                            ),
+                            child: Text(
+                              channelNum,
+                              style: TextStyle(
+                                fontSize: 9.0,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.primary,
                               ),
-                          ],
+                            ),
+                          ),
                         ),
-                      ),
 
                       // Bottom-Left: Resolution badge
                       if (widget.showHD && resolution != null && resolution.isNotEmpty)
@@ -234,7 +225,7 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        widget.channel.title,
+                        TitleFormatter.formatChannelTitle(widget.channel.title),
                         style: AppTypography.getBody(
                           color: _isFocused ? Colors.white : colorScheme.onSurface,
                           scale: 0.9,
@@ -274,7 +265,6 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final colorScheme = theme.colorScheme;
     final isChannel = widget.channel is Channel;
     final channelNum = isChannel ? (widget.channel as Channel).number : null;
-    final isLive = isChannel ? (widget.channel as Channel).isLive : true;
     final posterUrl = widget.channel.poster ?? widget.channel.thumbnail;
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
     final isTV = PlatformHelper.isTV;
@@ -334,43 +324,15 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                     borderRadius: BorderRadius.circular(8.0),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      hasPoster
-                          ? Image.network(
-                              posterUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _buildFallbackLogo(colorScheme),
-                            )
-                          : _buildFallbackLogo(colorScheme),
-                      if (isLive)
-                        Positioned(
-                          top: 4.0,
-                          right: 4.0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6.0,
-                              vertical: 2.0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.darkError,
-                              borderRadius: BorderRadius.circular(2.0),
-                            ),
-                            child: const Text(
-                              'LIVE',
-                              style: TextStyle(
-                                fontSize: 10.0,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  child: hasPoster
+                      ? Image.network(
+                          posterUrl,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildFallbackLogo(colorScheme),
+                        )
+                      : _buildFallbackLogo(colorScheme),
                 ),
                 const SizedBox(width: 16.0),
 
@@ -387,8 +349,8 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                           Expanded(
                             child: Text(
                               channelNum != null && channelNum.isNotEmpty
-                                  ? '$channelNum • ${widget.channel.title}'
-                                  : widget.channel.title,
+                                  ? '$channelNum • ${TitleFormatter.formatChannelTitle(widget.channel.title)}'
+                                  : TitleFormatter.formatChannelTitle(widget.channel.title),
                               style: TextStyle(
                                 fontSize: 12.0,
                                 fontWeight: FontWeight.w600,
@@ -472,12 +434,9 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
   Widget _buildFallbackLogo(ColorScheme colorScheme) {
     return Container(
       color: colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Icon(
-          Icons.live_tv_rounded,
-          color: colorScheme.primary.withValues(alpha: 0.6),
-          size: 28.0,
-        ),
+      child: const ChannelPlaceholder(
+        iconSize: 24.0,
+        fontSize: 10.0,
       ),
     );
   }

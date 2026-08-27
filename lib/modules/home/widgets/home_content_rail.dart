@@ -42,8 +42,9 @@ class HomeContentRail extends StatelessWidget {
             : (width >= 600 ? 130.0 : 120.0));
 
     final effectiveCardWidth = cardWidth ?? defaultWidth;
-    // image height (aspect 2:3 = width × 1.5) + title + subtitle + spacing
-    final effectiveHeight = cardHeight ?? (effectiveCardWidth * 1.5 + 54.0);
+    final itemContentWidth = effectiveCardWidth - AppSpacing.md;
+    // image height (aspect 2:3 = itemContentWidth × 1.5) + title + subtitle + spacing
+    final effectiveHeight = cardHeight ?? (itemContentWidth * 1.5 + 46.0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

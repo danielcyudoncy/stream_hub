@@ -4,9 +4,11 @@ import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/image_url_formatter.dart';
+import '../../core/utils/title_formatter.dart';
 import '../../data/models/media_item.dart';
 import '../../data/models/channel.dart';
-import 'live_badge.dart';
+import 'cached_home_image.dart';
+import 'channel_placeholder.dart';
 
 class ChannelCard extends StatelessWidget {
   final MediaItem channel;
@@ -32,7 +34,6 @@ class ChannelCard extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final isChannel = channel is Channel;
     final channelNum = isChannel ? (channel as Channel).number : null;
-    final isLive = isChannel ? (channel as Channel).isLive : false;
     final rawPoster = channel.poster ??
         channel.thumbnail ??
         channel.metadata['stream_icon'] ??
@@ -62,26 +63,19 @@ class ChannelCard extends StatelessWidget {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                     // Channel logo / poster image with cover fit
+                    // Channel logo / poster image with contain fit
                     if (hasPoster)
-                      Image.network(
-                        posterUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            _buildPlaceholder(colorScheme),
-                        loadingBuilder: (context, child, progress) {
-                          if (progress == null) return child;
-                          return Container(
-                            color: colorScheme.surfaceContainerHighest,
-                            child: const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            ),
-                          );
-                        },
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.sm),
+                          child: CachedHomeImage(
+                            imageUrl: posterUrl,
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                            errorBuilder: (context, error) =>
+                                _buildPlaceholder(colorScheme),
+                          ),
+                        ),
                       )
                     else
                       _buildPlaceholder(colorScheme),
@@ -104,13 +98,6 @@ class ChannelCard extends StatelessWidget {
                         ),
                       ),
                     ),
-
-                    if (isLive)
-                      Positioned(
-                        top: AppSpacing.xxs,
-                        left: AppSpacing.xxs,
-                        child: const LiveBadge(isLive: true),
-                      ),
 
                     if (showHD && channel.metadata['resolution'] != null)
                       Positioned(
@@ -164,7 +151,7 @@ class ChannelCard extends StatelessWidget {
                       const SizedBox(height: 2.0),
                     ],
                     Text(
-                      channel.title,
+                      TitleFormatter.formatChannelTitle(channel.title),
                       style: AppTypography.getBody(
                         color: colorScheme.onSurface,
                         scale: 0.9,
@@ -185,13 +172,7 @@ class ChannelCard extends StatelessWidget {
   Widget _buildPlaceholder(ColorScheme colorScheme) {
     return Container(
       color: colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Icon(
-          Icons.live_tv_rounded,
-          color: colorScheme.primary.withValues(alpha: 0.6),
-          size: 40.0,
-        ),
-      ),
+      child: const ChannelPlaceholder(),
     );
   }
 }
