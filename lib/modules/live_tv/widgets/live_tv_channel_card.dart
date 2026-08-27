@@ -21,6 +21,7 @@ class LiveTvChannelCard extends StatefulWidget {
   final bool showFavoriteButton;
   final bool showChannelNumber;
   final bool showHD;
+  final bool isPlaying;
 
   const LiveTvChannelCard({
     super.key,
@@ -31,6 +32,7 @@ class LiveTvChannelCard extends StatefulWidget {
     this.showFavoriteButton = true,
     this.showChannelNumber = true,
     this.showHD = true,
+    this.isPlaying = false,
   });
 
   @override
@@ -78,17 +80,17 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
               color: colorScheme.surface,
               borderRadius: AppRadius.medium,
               border: Border.all(
-                color: _isFocused
+                color: _isFocused || widget.isPlaying
                     ? colorScheme.primary
                     : colorScheme.outline.withValues(alpha: 0.1),
-                width: _isFocused ? 2.5 : 1.0,
+                width: _isFocused || widget.isPlaying ? 2.0 : 1.0,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _isFocused
-                      ? colorScheme.primary.withValues(alpha: 0.4)
+                  color: _isFocused || widget.isPlaying
+                      ? colorScheme.primary.withValues(alpha: 0.35)
                       : Colors.black.withValues(alpha: 0.2),
-                  blurRadius: _isFocused ? 16.0 : 8.0,
+                  blurRadius: _isFocused || widget.isPlaying ? 14.0 : 8.0,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -297,12 +299,12 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
               color: const Color(0xCC121214),
               borderRadius: BorderRadius.circular(12.0),
               border: Border.all(
-                color: _isFocused
+                color: _isFocused || widget.isPlaying
                     ? colorScheme.primary
                     : Colors.white.withValues(alpha: 0.1),
-                width: _isFocused ? 2.0 : 1.0,
+                width: _isFocused || widget.isPlaying ? 2.0 : 1.0,
               ),
-              boxShadow: _isFocused
+              boxShadow: _isFocused || widget.isPlaying
                   ? [
                       BoxShadow(
                         color: colorScheme.primary.withValues(alpha: 0.3),

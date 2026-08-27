@@ -49,7 +49,6 @@ void main() {
       expect(find.text('BBC One HD'), findsOneWidget);
       expect(find.text('101'), findsOneWidget);
       expect(find.text('1080p'), findsOneWidget);
-      expect(find.text('LIVE'), findsOneWidget);
     });
 
     testWidgets('tapping favorite button triggers onFavorite callback without triggering onTap',

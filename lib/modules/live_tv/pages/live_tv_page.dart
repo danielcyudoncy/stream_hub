@@ -13,7 +13,7 @@ import '../../../shared/widgets/provider_selector_button.dart';
 import '../controllers/live_tv_controller.dart';
 import '../widgets/live_tv_category_bar.dart';
 import '../widgets/live_tv_channel_card.dart';
-import '../widgets/live_tv_hero_card.dart';
+import '../widgets/live_tv_embedded_player.dart';
 import '../widgets/live_tv_skeleton.dart';
 import '../../epg/pages/tv_guide_page.dart';
 
@@ -47,7 +47,6 @@ class LiveTVPage extends GetView<LiveTVController> {
         final query = controller.searchQuery.value;
         final favoritesOnly = controller.showFavoritesOnly.value;
         final selectedCat = controller.selectedCategory.value;
-        final featured = controller.featuredChannel.value;
 
         return RefreshIndicator(
           onRefresh: () async => controller.refresh(),
@@ -202,21 +201,12 @@ class LiveTVPage extends GetView<LiveTVController> {
                 ],
               ),
 
-              // 2. Featured / Last-Watched Channel Hero Showcase
-              if (featured != null &&
-                  query.isEmpty &&
-                  !favoritesOnly &&
-                  selectedCat == 'All Channels')
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: AppSpacing.sm),
-                    child: LiveTvHeroCard(
-                      channel: featured,
-                      onWatch: () => controller.openChannel(featured),
-                      onFavorite: () => controller.toggleFavorite(featured),
-                    ),
-                  ),
+              // 2. Top 16:9 Featured Embedded Live Player (or Featured Hero when idle)
+              SliverToBoxAdapter(
+                child: LiveTvEmbeddedPlayer(
+                  controller: controller,
                 ),
+              ),
 
               // 3. Category Navigation Bar
               SliverToBoxAdapter(
@@ -318,9 +308,12 @@ class LiveTVPage extends GetView<LiveTVController> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = filtered[index];
+                        final isPlaying =
+                            controller.activePlayingChannel.value?.id == item.id;
                         return LiveTvChannelCard(
                           channel: item,
                           isList: true,
+                          isPlaying: isPlaying,
                           onTap: () => controller.openChannel(item),
                           onFavorite: () => controller.toggleFavorite(item),
                         );
@@ -342,9 +335,12 @@ class LiveTVPage extends GetView<LiveTVController> {
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
                         final item = filtered[index];
+                        final isPlaying =
+                            controller.activePlayingChannel.value?.id == item.id;
                         return LiveTvChannelCard(
                           channel: item,
                           isList: false,
+                          isPlaying: isPlaying,
                           onTap: () => controller.openChannel(item),
                           onFavorite: () => controller.toggleFavorite(item),
                         );
