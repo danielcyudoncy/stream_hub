@@ -35,7 +35,9 @@ import '../../modules/live_tv/pages/favorites_page.dart';
 import '../../modules/live_tv/pages/recent_page.dart';
 import '../../modules/live_tv/pages/provider_overview_page.dart';
 import '../../modules/live_tv/pages/library_overview_page.dart';
+import '../../modules/live_tv/pages/multi_view_page.dart';
 import '../../modules/live_tv/bindings/live_tv_binding.dart';
+import '../../modules/live_tv/bindings/multi_view_binding.dart';
 import '../../modules/library/library_page.dart';
 import '../../modules/library/library_binding.dart';
 import '../../modules/movies/movies_page.dart';
@@ -311,6 +313,11 @@ class AppPages {
       name: AppRoutes.miniPlayer,
       page: () => const MiniPlayerPage(),
       binding: PlayerBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.multiView,
+      page: () => const MultiViewPage(),
+      binding: MultiViewBinding(),
     ),
     GetPage(
       name: AppRoutes.developer,

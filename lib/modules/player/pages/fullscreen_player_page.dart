@@ -14,6 +14,7 @@ import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
 import 'package:stream_hub/modules/player/widgets/player_controls.dart';
 import 'package:stream_hub/modules/player/widgets/next_episode_overlay.dart';
 import 'package:stream_hub/modules/player/widgets/skip_intro_button.dart';
+import 'package:stream_hub/modules/player/widgets/player_touch_gesture_overlay.dart';
 
 class FullscreenPlayerPage extends StatefulWidget {
   const FullscreenPlayerPage({super.key});
@@ -124,12 +125,11 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         },
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: GestureDetector(
+          body: PlayerTouchGestureOverlay(
             onTap: _toggleControls,
-            behavior: HitTestBehavior.opaque,
-            child: Stack(
+            onVolumeChanged: (vol) => _controller.setVolume(vol),
+            controls: Stack(
               children: [
-                _buildVideoLayer(),
                 _buildStateOverlay(),
                 _buildSkipIntroOverlay(),
                 _buildNextEpisodeOverlay(),
@@ -139,6 +139,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                 ],
               ],
             ),
+            child: _buildVideoLayer(),
           ),
         ),
       );
@@ -159,12 +160,11 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         },
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: GestureDetector(
+          body: PlayerTouchGestureOverlay(
             onTap: _toggleControls,
-            behavior: HitTestBehavior.opaque,
-            child: Stack(
+            onVolumeChanged: (vol) => _controller.setVolume(vol),
+            controls: Stack(
               children: [
-                _buildVideoLayer(),
                 _buildStateOverlay(),
                 _buildSkipIntroOverlay(),
                 _buildNextEpisodeOverlay(),
@@ -174,6 +174,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                 ],
               ],
             ),
+            child: _buildVideoLayer(),
           ),
         ),
       ),

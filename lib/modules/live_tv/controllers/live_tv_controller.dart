@@ -18,6 +18,7 @@ import '../../../data/models/media_item.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
+import '../../../data/services/database_service.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
@@ -269,10 +270,111 @@ class LiveTVController extends GetxController {
     }
   }
 
+  Set<String> _loadHiddenCategories() {
+    try {
+      if (Get.isRegistered<DatabaseService>()) {
+        final db = Get.find<DatabaseService>();
+        final saved = db.settingsBox.get('hidden_categories');
+        if (saved is List) {
+          final set = saved.cast<String>().toSet();
+          final expanded = <String>{...set};
+          for (final raw in set) {
+            final trimmed = raw.trim();
+            expanded.add(trimmed);
+            expanded.add(trimmed.toLowerCase());
+            expanded.add(trimmed.toLowerCase().replaceAll(' ', '_'));
+            expanded.add(trimmed.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''));
+
+            for (final cat in _allCategories) {
+              if (cat.id == raw ||
+                  cat.title == raw ||
+                  cat.title.toLowerCase() == raw.toLowerCase() ||
+                  cat.title.toLowerCase().replaceAll(' ', '_') == raw.toLowerCase()) {
+                expanded.add(cat.id);
+                expanded.add(cat.title);
+                expanded.add(cat.title.trim());
+                expanded.add(cat.title.toLowerCase());
+                expanded.add(cat.title.toLowerCase().replaceAll(' ', '_'));
+                expanded.add(cat.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''));
+              }
+            }
+          }
+          return expanded;
+        }
+      }
+    } catch (_) {}
+    return <String>{};
+  }
+
+  Set<String> _loadHiddenChannels() {
+    try {
+      if (Get.isRegistered<DatabaseService>()) {
+        final db = Get.find<DatabaseService>();
+        final saved = db.settingsBox.get('hidden_channels');
+        if (saved is List) {
+          return saved.cast<String>().toSet();
+        }
+      }
+    } catch (_) {}
+    return <String>{};
+  }
+
+  bool _isCategoryHidden(String categoryName, Set<String> hiddenCategories) {
+    if (hiddenCategories.isEmpty) return false;
+    final trimmed = categoryName.trim();
+    if (hiddenCategories.contains(trimmed)) return true;
+    final lower = trimmed.toLowerCase();
+    if (hiddenCategories.contains(lower)) return true;
+    final underscore = lower.replaceAll(' ', '_');
+    if (hiddenCategories.contains(underscore)) return true;
+    final alphaNumeric = lower.replaceAll(RegExp(r'[^a-z0-9]'), '');
+    if (alphaNumeric.isNotEmpty && hiddenCategories.contains(alphaNumeric)) {
+      return true;
+    }
+    return false;
+  }
+
+  bool _isChannelHidden(MediaItem item, Set<String> hiddenChannels, Set<String> hiddenCategories) {
+    if (hiddenChannels.contains(item.id)) return true;
+    if (hiddenCategories.isEmpty) return false;
+
+    final genreId = item.metadata['genreId']?.toString();
+    if (genreId != null && _isCategoryHidden(genreId, hiddenCategories)) return true;
+
+    final catId = item.metadata['category_id']?.toString();
+    if (catId != null && _isCategoryHidden(catId, hiddenCategories)) return true;
+
+    for (final genre in item.genres) {
+      if (_isCategoryHidden(genre, hiddenCategories)) return true;
+    }
+    final genreMeta = item.metadata['genre']?.toString();
+    if (genreMeta != null && _isCategoryHidden(genreMeta, hiddenCategories)) {
+      return true;
+    }
+
+    final catMeta = item.metadata['category_name']?.toString();
+    if (catMeta != null && _isCategoryHidden(catMeta, hiddenCategories)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  void syncHiddenCategories() {
+    _updateCategoriesAndFilters();
+  }
+
   void _updateCategoriesAndFilters([Set<String>? favIds]) {
+    final hiddenCategories = _loadHiddenCategories();
+    final hiddenChannels = _loadHiddenChannels();
+
+    final unhiddenChannels = _allChannels
+        .where((item) => !_isChannelHidden(item, hiddenChannels, hiddenCategories))
+        .toList();
+
     final activeChannels = selectedProvider.value.isEmpty
-        ? List<MediaItem>.from(_allChannels)
-        : _allChannels.where((item) {
+        ? List<MediaItem>.from(unhiddenChannels)
+        : unhiddenChannels.where((item) {
             return item.providerId == selectedProvider.value ||
                 item.providerType.displayName == selectedProvider.value ||
                 item.providerType.name == selectedProvider.value;
@@ -321,14 +423,20 @@ class LiveTVController extends GetxController {
         resolutionSet.add(res);
       }
       for (final genre in item.genres) {
-        if (genre.trim().isNotEmpty) categorySet.add(genre.trim());
+        if (genre.trim().isNotEmpty && !_isCategoryHidden(genre, hiddenCategories)) {
+          categorySet.add(genre.trim());
+        }
       }
       final genreMeta = item.metadata['genre']?.toString();
-      if (genreMeta != null && genreMeta.trim().isNotEmpty) {
+      if (genreMeta != null &&
+          genreMeta.trim().isNotEmpty &&
+          !_isCategoryHidden(genreMeta, hiddenCategories)) {
         categorySet.add(genreMeta.trim());
       }
       final catMeta = item.metadata['category_name']?.toString();
-      if (catMeta != null && catMeta.trim().isNotEmpty) {
+      if (catMeta != null &&
+          catMeta.trim().isNotEmpty &&
+          !_isCategoryHidden(catMeta, hiddenCategories)) {
         categorySet.add(catMeta.trim());
       }
     }
@@ -339,7 +447,11 @@ class LiveTVController extends GetxController {
           cat.providerId == selectedProvider.value ||
           cat.providerType.displayName == selectedProvider.value ||
           cat.providerType.name == selectedProvider.value;
-      if (isLive && matchesProvider && cat.title.trim().isNotEmpty) {
+      if (isLive &&
+          matchesProvider &&
+          cat.title.trim().isNotEmpty &&
+          !_isCategoryHidden(cat.title, hiddenCategories) &&
+          !hiddenCategories.contains(cat.id)) {
         categorySet.add(cat.title.trim());
       }
     }

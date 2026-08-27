@@ -35,6 +35,7 @@ class SettingsController extends GetxController {
   final RxBool parentalLockEnabled = false.obs;
   final Rx<PlaybackEnginePreference> preferredPlayer =
       PlaybackEnginePreference.auto.obs;
+  final RxInt bufferSizeSeconds = 30.obs;
   final RxBool autoplayNextEpisode = true.obs;
   final RxBool autoSkipIntro = false.obs;
   final RxBool isLoading = false.obs;
@@ -90,6 +91,8 @@ class SettingsController extends GetxController {
       _playerSettings = await repository.getSettings();
       preferredPlayer.value =
           _playerSettings?.preferredPlayer ?? PlaybackEnginePreference.auto;
+      bufferSizeSeconds.value =
+          _playerSettings?.bufferSizeSeconds ?? 30;
       autoplayNextEpisode.value =
           _playerSettings?.autoplayNextEpisode ?? true;
       autoSkipIntro.value =
@@ -101,6 +104,18 @@ class SettingsController extends GetxController {
         error: e,
       );
     }
+  }
+
+  Future<void> changeBufferSize(int seconds) async {
+    final repository = _playbackRepository;
+    if (repository == null) return;
+    try {
+      bufferSizeSeconds.value = seconds;
+      final base = _playerSettings ?? const PlayerSettings();
+      final updated = base.copyWith(bufferSizeSeconds: seconds);
+      await repository.updateSettings(updated);
+      _playerSettings = updated;
+    } catch (_) {}
   }
 
   Future<void> toggleAutoplayNextEpisode(bool value) async {

@@ -37,6 +37,7 @@ class LiveTVPage extends GetView<LiveTVController> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!controller.isLoading.value) {
+        controller.syncHiddenCategories();
         controller.handleNavigationArguments();
       }
     });
@@ -493,6 +494,23 @@ class LiveTVPage extends GetView<LiveTVController> {
                 child: Text('By Country'),
               ),
             ],
+          ),
+
+          // Multi-View (2-4 Concurrent Screens)
+          IconButton(
+            padding: const EdgeInsets.all(6.0),
+            constraints: const BoxConstraints(),
+            icon: const Icon(
+              Icons.grid_view_rounded,
+              size: 18.0,
+              color: Colors.white,
+            ),
+            tooltip: 'Multi-View (Multi-Screen)',
+            onPressed: () {
+              final activeChannel = controller.activePlayingChannel.value ??
+                  controller.featuredChannel.value;
+              Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
+            },
           ),
 
           // Search Guide
