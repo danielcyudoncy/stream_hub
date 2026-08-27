@@ -18,7 +18,7 @@ import 'package:stream_hub/modules/movies/movies_category_page.dart';
 import 'package:stream_hub/modules/movies/movies_controller.dart';
 import 'package:stream_hub/modules/movies/movies_page.dart';
 import 'package:stream_hub/modules/movies/widgets/movies_hero_carousel.dart';
-import 'package:stream_hub/shared/widgets/media_poster_card.dart';
+import 'package:stream_hub/shared/widgets/premium_media_card.dart';
 
 class _FakeCatalogRepository implements CatalogRepository {
   final List<MediaItem> items;
@@ -380,7 +380,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Romantic Comedies'), findsOneWidget);
-      expect(find.byType(MediaPosterCard), findsNWidgets(2));
+      expect(find.byType(PremiumMediaCard), findsNWidgets(2));
       expect(find.text('Comedy 1'), findsOneWidget);
       expect(find.text('Comedy 2'), findsOneWidget);
     });

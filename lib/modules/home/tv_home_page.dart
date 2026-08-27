@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
+import '../../../core/media/repositories/playback_repository.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -35,17 +36,37 @@ class _TvHomePageState extends State<TvHomePage> {
     }
   }
 
-  void _openItem(MediaItem item) {
+  Future<void> _openItem(MediaItem item) async {
     if (item.mediaType == MediaType.series) {
       Get.toNamed(AppRoutes.seriesDetails, arguments: {'item': item});
     } else if (item.mediaType == MediaType.movie) {
       Get.toNamed(AppRoutes.movieDetails, arguments: item);
+    } else if (item.mediaType == MediaType.channel) {
+      Get.toNamed(AppRoutes.liveTV, arguments: {'channel': item});
     } else {
+      Duration? startPosition;
+      if (Get.isRegistered<PlaybackRepository>()) {
+        try {
+          final session =
+              await Get.find<PlaybackRepository>().getWatchSession(item.id);
+          if (session != null && session.resumePosition > Duration.zero) {
+            startPosition = session.resumePosition;
+          }
+        } catch (_) {}
+      }
+      if (startPosition == null) {
+        final posMs =
+            item.metadata['position'] ?? item.metadata['watchProgress'];
+        if (posMs is num && posMs > 1000) {
+          startPosition = Duration(milliseconds: posMs.toInt());
+        }
+      }
       Get.toNamed(
         AppRoutes.fullscreenPlayer,
         arguments: {
           'items': [item],
           'currentId': item.id,
+          'resumePosition': ?startPosition,
         },
       );
     }

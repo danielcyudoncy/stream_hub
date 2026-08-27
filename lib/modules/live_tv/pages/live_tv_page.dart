@@ -35,6 +35,12 @@ class LiveTVPage extends GetView<LiveTVController> {
       return const TVGuidePage();
     }
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!controller.isLoading.value) {
+        controller.handleNavigationArguments();
+      }
+    });
+
     return Obx(() {
       if (controller.isLoading.value) {
         return const Scaffold(

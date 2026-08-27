@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
+import '../../../core/media/repositories/playback_repository.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
@@ -104,7 +105,7 @@ class HomePage extends GetView<HomeController> {
                         itemBuilder: (context, item, index) {
                           return HomeContinueWatchingCard(
                             item: item,
-                            onTap: () => _openItem(item),
+                            onTap: () => _resumeContinueWatching(item),
                           );
                         },
                       ),
@@ -476,8 +477,10 @@ class HomePage extends GetView<HomeController> {
       _openSeries(item);
     } else if (item.mediaType == MediaType.movie) {
       _openMovie(item);
-    } else {
+    } else if (item.mediaType == MediaType.channel) {
       _playChannel(item);
+    } else {
+      _resumeContinueWatching(item);
     }
   }
 
@@ -497,10 +500,47 @@ class HomePage extends GetView<HomeController> {
 
   void _playChannel(MediaItem item) {
     Get.toNamed(
+      AppRoutes.liveTV,
+      arguments: {'channel': item},
+    );
+  }
+
+  Future<void> _resumeContinueWatching(MediaItem item) async {
+    if (item.mediaType == MediaType.channel) {
+      _playChannel(item);
+      return;
+    }
+
+    if (item.mediaType == MediaType.series) {
+      _openSeries(item);
+      return;
+    }
+
+    Duration? startPosition;
+    if (Get.isRegistered<PlaybackRepository>()) {
+      try {
+        final session =
+            await Get.find<PlaybackRepository>().getWatchSession(item.id);
+        if (session != null && session.resumePosition > Duration.zero) {
+          startPosition = session.resumePosition;
+        }
+      } catch (_) {}
+    }
+
+    if (startPosition == null) {
+      final posMs =
+          item.metadata['position'] ?? item.metadata['watchProgress'];
+      if (posMs is num && posMs > 1000) {
+        startPosition = Duration(milliseconds: posMs.toInt());
+      }
+    }
+
+    Get.toNamed(
       AppRoutes.fullscreenPlayer,
       arguments: {
         'items': [item],
         'currentId': item.id,
+        'resumePosition': ?startPosition,
       },
     );
   }

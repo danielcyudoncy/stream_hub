@@ -180,7 +180,7 @@ class HeroBanner extends StatelessWidget {
                               size: 20.0,
                             ),
                             label: const Text(
-                              'Watch Now',
+                              'WATCH NOW',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,
