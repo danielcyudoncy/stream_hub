@@ -13,6 +13,7 @@ import '../../../shared/widgets/hero_banner.dart';
 class HomeHeroCarousel extends StatefulWidget {
   final List<MediaItem> items;
   final void Function(MediaItem item)? onWatch;
+  final void Function(MediaItem item)? onDetails;
   final void Function(MediaItem item)? onToggleFavorite;
   final bool Function(String itemId)? isFavorite;
   final Duration autoPlayInterval;
@@ -21,6 +22,7 @@ class HomeHeroCarousel extends StatefulWidget {
     super.key,
     required this.items,
     this.onWatch,
+    this.onDetails,
     this.onToggleFavorite,
     this.isFavorite,
     this.autoPlayInterval = const Duration(seconds: 7),
@@ -58,7 +60,10 @@ class _HomeHeroCarouselState extends State<HomeHeroCarousel> {
     _stopTimer();
     if (widget.items.length > 1) {
       _timer = Timer.periodic(widget.autoPlayInterval, (_) {
-        if (!_isInteracting && mounted && _pageController.hasClients && widget.items.isNotEmpty) {
+        if (!_isInteracting &&
+            mounted &&
+            _pageController.hasClients &&
+            widget.items.isNotEmpty) {
           final nextPage = (_currentPage + 1) % widget.items.length;
           _pageController.animateToPage(
             nextPage,
@@ -96,65 +101,72 @@ class _HomeHeroCarouselState extends State<HomeHeroCarousel> {
         ? 440.0
         : (width >= 1024
             ? (screenHeight * 0.65).clamp(500.0, 900.0)
-            : (width >= 600 ? 360.0 : 320.0));
+            : (width >= 600 ? 380.0 : 330.0));
 
-    return SizedBox(
-      width: double.infinity,
-      height: heroHeight,
-      child: Stack(
-        children: [
-          NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollStartNotification) {
-                _isInteracting = true;
-              } else if (notification is ScrollEndNotification) {
-                _isInteracting = false;
-              }
-              return false;
-            },
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: widget.items.length,
-              onPageChanged: (index) {
-                setState(() {
-                  _currentPage = index;
-                });
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      child: SizedBox(
+        width: double.infinity,
+        height: heroHeight,
+        child: Stack(
+          children: [
+            NotificationListener<ScrollNotification>(
+              onNotification: (notification) {
+                if (notification is ScrollStartNotification) {
+                  _isInteracting = true;
+                } else if (notification is ScrollEndNotification) {
+                  _isInteracting = false;
+                }
+                return false;
               },
-              itemBuilder: (context, index) {
-                final item = widget.items[index];
-                final isFav = widget.isFavorite?.call(item.id) ?? item.favorite;
-                return _HeroSlide(
-                  key: ValueKey(item.id),
-                  item: item,
-                  isTv: isTv,
-                  isFavorite: isFav,
-                  onWatch: widget.onWatch != null
-                      ? () => widget.onWatch!(item)
-                      : null,
-                  onToggleFavorite: widget.onToggleFavorite != null
-                      ? () => widget.onToggleFavorite!(item)
-                      : null,
-                );
-              },
-            ),
-          ),
-          if (widget.items.length > 1)
-            Positioned(
-              bottom: AppSpacing.md,
-              right: AppSpacing.lg,
-              child: _PageIndicator(
-                count: widget.items.length,
-                currentIndex: _currentPage,
-                onTap: (index) {
-                  _pageController.animateToPage(
-                    index,
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeInOut,
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: widget.items.length,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                itemBuilder: (context, index) {
+                  final item = widget.items[index];
+                  final isFav =
+                      widget.isFavorite?.call(item.id) ?? item.favorite;
+                  return _HeroSlide(
+                    key: ValueKey(item.id),
+                    item: item,
+                    isTv: isTv,
+                    isFavorite: isFav,
+                    onWatch: widget.onWatch != null
+                        ? () => widget.onWatch!(item)
+                        : null,
+                    onDetails: widget.onDetails != null
+                        ? () => widget.onDetails!(item)
+                        : null,
+                    onToggleFavorite: widget.onToggleFavorite != null
+                        ? () => widget.onToggleFavorite!(item)
+                        : null,
                   );
                 },
               ),
             ),
-        ],
+            if (widget.items.length > 1)
+              Positioned(
+                bottom: AppSpacing.md,
+                right: AppSpacing.lg,
+                child: _PageIndicator(
+                  count: widget.items.length,
+                  currentIndex: _currentPage,
+                  onTap: (index) {
+                    _pageController.animateToPage(
+                      index,
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeInOut,
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -165,6 +177,7 @@ class _HeroSlide extends StatefulWidget {
   final bool isTv;
   final bool isFavorite;
   final VoidCallback? onWatch;
+  final VoidCallback? onDetails;
   final VoidCallback? onToggleFavorite;
 
   const _HeroSlide({
@@ -173,6 +186,7 @@ class _HeroSlide extends StatefulWidget {
     required this.isTv,
     required this.isFavorite,
     this.onWatch,
+    this.onDetails,
     this.onToggleFavorite,
   });
 
@@ -209,7 +223,8 @@ class _HeroSlideState extends State<_HeroSlide> {
       return;
     }
 
-    if (widget.item.mediaType == MediaType.movie && Get.isRegistered<XtreamVodInfoService>()) {
+    if (widget.item.mediaType == MediaType.movie &&
+        Get.isRegistered<XtreamVodInfoService>()) {
       final vodService = Get.find<XtreamVodInfoService>();
       final cached = vodService.getCachedBackdrop(widget.item);
       if (cached != null && cached.isNotEmpty) {
@@ -219,9 +234,10 @@ class _HeroSlideState extends State<_HeroSlide> {
 
       vodService.fetchForMediaItem(widget.item).then((info) {
         if (!mounted) return;
-        final backdrop = (info?.backdrop != null && info!.backdrop!.trim().isNotEmpty)
-            ? info.backdrop!.trim()
-            : null;
+        final backdrop =
+            (info?.backdrop != null && info!.backdrop!.trim().isNotEmpty)
+                ? info.backdrop!.trim()
+                : null;
         final poster = (info?.poster != null && info!.poster!.trim().isNotEmpty)
             ? info.poster!.trim()
             : null;
@@ -252,20 +268,38 @@ class _HeroSlideState extends State<_HeroSlide> {
   Widget build(BuildContext context) {
     final image = _resolvedImage ?? _computeDirectImage(widget.item);
     final description = _resolvedPlot ?? widget.item.description;
-    
-    // We import HeroBanner from shared/widgets
-    // Since we don't have it explicitly imported in this file yet, I should make sure it is imported.
-    // Wait, the replace block needs to be exact. Let's just use HeroBanner.
+
+    final yearStr = widget.item.metadata['year']?.toString() ??
+        widget.item.metadata['release_date']?.toString() ??
+        widget.item.metadata['releaseDate']?.toString();
+
+    final genreStr = widget.item.genres.isNotEmpty
+        ? widget.item.genres.take(2).join(' • ')
+        : (widget.item.metadata['genre']?.toString() ??
+            widget.item.metadata['category_name']?.toString());
+
+    final qualityStr = widget.item.metadata['quality']?.toString() ??
+        widget.item.metadata['resolution']?.toString();
+
+    final typeStr = widget.item.mediaType == MediaType.movie
+        ? 'Movie'
+        : (widget.item.mediaType == MediaType.series ? 'Series' : null);
+
     return HeroBanner(
       title: widget.item.title,
       subtitle: description,
       imageUrl: image ?? '',
+      rating: widget.item.rating,
+      year: yearStr,
+      genre: genreStr,
+      quality: qualityStr,
+      mediaType: typeStr,
+      isFavorite: widget.isFavorite,
       onPlayPressed: widget.onWatch,
-      onInfoPressed: widget.onToggleFavorite, // or an info route, but using toggle for now
+      onDetailsPressed: widget.onDetails,
+      onFavoritePressed: widget.onToggleFavorite,
     );
   }
-
-
 }
 
 class _PageIndicator extends StatelessWidget {
@@ -281,24 +315,32 @@ class _PageIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: List.generate(count, (index) {
-        final isActive = index == currentIndex;
-        return GestureDetector(
-          onTap: onTap != null ? () => onTap!(index) : null,
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 300),
-            margin: const EdgeInsets.symmetric(horizontal: 3.0),
-            height: 6.0,
-            width: isActive ? 22.0 : 6.0,
-            decoration: BoxDecoration(
-              color: isActive ? Colors.white : Colors.white38,
-              borderRadius: AppRadius.pill,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: AppRadius.pill,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: List.generate(count, (index) {
+          final isActive = index == currentIndex;
+          return GestureDetector(
+            onTap: onTap != null ? () => onTap!(index) : null,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 3.0),
+              height: 5.0,
+              width: isActive ? 20.0 : 5.0,
+              decoration: BoxDecoration(
+                color: isActive ? Colors.white : Colors.white38,
+                borderRadius: AppRadius.pill,
+              ),
             ),
-          ),
-        );
-      }),
+          );
+        }),
+      ),
     );
   }
 }

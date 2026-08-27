@@ -78,6 +78,7 @@ class HomePage extends GetView<HomeController> {
                       HomeHeroCarousel(
                         items: controller.featuredHeroItems,
                         onWatch: (item) => _openItem(item),
+                        onDetails: (item) => _openItem(item),
                         onToggleFavorite: (item) => controller.toggleFavorite(item),
                         isFavorite: controller.isItemFavorite,
                       ),

@@ -10,7 +10,6 @@ import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/channel_placeholder.dart';
-import '../../../shared/widgets/live_badge.dart';
 import '../../epg/controllers/guide_controller.dart';
 import '../../epg/models/epg_program.dart';
 
@@ -54,7 +53,6 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final colorScheme = theme.colorScheme;
     final isChannel = widget.channel is Channel;
     final channelNum = isChannel ? (widget.channel as Channel).number : null;
-    final isLive = isChannel ? (widget.channel as Channel).isLive : true;
     final posterUrl = widget.channel.poster ?? widget.channel.thumbnail;
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
     final resolution = widget.channel.metadata['resolution'] as String?;
@@ -138,39 +136,30 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                         else
                           _buildFallbackLogo(colorScheme),
 
-                      // Top-Left: Channel number / Live badge
-                      Positioned(
-                        top: AppSpacing.xxs,
-                        left: AppSpacing.xxs,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (isLive) ...[
-                              const LiveBadge(isLive: true),
-                              const SizedBox(width: 4.0),
-                            ],
-                            if (widget.showChannelNumber && channelNum != null && channelNum.isNotEmpty)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5.0,
-                                  vertical: 1.5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.75),
-                                  borderRadius: AppRadius.small,
-                                ),
-                                child: Text(
-                                  channelNum,
-                                  style: TextStyle(
-                                    fontSize: 9.0,
-                                    fontWeight: FontWeight.w700,
-                                    color: colorScheme.primary,
-                                  ),
-                                ),
+                      // Top-Left: Channel number
+                      if (widget.showChannelNumber && channelNum != null && channelNum.isNotEmpty)
+                        Positioned(
+                          top: AppSpacing.xxs,
+                          left: AppSpacing.xxs,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5.0,
+                              vertical: 1.5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.75),
+                              borderRadius: AppRadius.small,
+                            ),
+                            child: Text(
+                              channelNum,
+                              style: TextStyle(
+                                fontSize: 9.0,
+                                fontWeight: FontWeight.w700,
+                                color: colorScheme.primary,
                               ),
-                          ],
+                            ),
+                          ),
                         ),
-                      ),
 
                       // Bottom-Left: Resolution badge
                       if (widget.showHD && resolution != null && resolution.isNotEmpty)
@@ -276,7 +265,6 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final colorScheme = theme.colorScheme;
     final isChannel = widget.channel is Channel;
     final channelNum = isChannel ? (widget.channel as Channel).number : null;
-    final isLive = isChannel ? (widget.channel as Channel).isLive : true;
     final posterUrl = widget.channel.poster ?? widget.channel.thumbnail;
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
     final isTV = PlatformHelper.isTV;
@@ -336,43 +324,15 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                     borderRadius: BorderRadius.circular(8.0),
                   ),
                   clipBehavior: Clip.antiAlias,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      hasPoster
-                          ? Image.network(
-                              posterUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  _buildFallbackLogo(colorScheme),
-                            )
-                          : _buildFallbackLogo(colorScheme),
-                      if (isLive)
-                        Positioned(
-                          top: 4.0,
-                          right: 4.0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6.0,
-                              vertical: 2.0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.darkError,
-                              borderRadius: BorderRadius.circular(2.0),
-                            ),
-                            child: const Text(
-                              'LIVE',
-                              style: TextStyle(
-                                fontSize: 10.0,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.0,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  child: hasPoster
+                      ? Image.network(
+                          posterUrl,
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _buildFallbackLogo(colorScheme),
+                        )
+                      : _buildFallbackLogo(colorScheme),
                 ),
                 const SizedBox(width: 16.0),
 
