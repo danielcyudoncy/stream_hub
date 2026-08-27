@@ -258,10 +258,22 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
     if (channel == null) {
       throw Exception('ExoPlayer platform view is not ready (viewId: $viewId)');
     }
-    await channel.invokeMethod<void>('load', <String, dynamic>{
-      'url': url,
-      'headers': headers ?? const <String, String>{},
-    });
+    try {
+      await channel.invokeMethod<void>('load', <String, dynamic>{
+        'url': url,
+        'headers': headers ?? const <String, String>{},
+      });
+    } on MissingPluginException {
+      // If the platform view channel changed during recreation, wait briefly and retry with fresh channel
+      _logger.warning('MethodChannel for ExoPlayer surface $viewId disconnected, waiting for updated view...', tag: 'Player');
+      await Future.delayed(const Duration(milliseconds: 350));
+      if (_channel != null) {
+        await _channel!.invokeMethod<void>('load', <String, dynamic>{
+          'url': url,
+          'headers': headers ?? const <String, String>{},
+        });
+      }
+    }
     _logger.info(
       'ExoPlayer loading source: ${SensitiveDataRedactor.redactUrl(url)}',
       tag: 'Player',
@@ -504,7 +516,9 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
         error: e,
       );
     }
-    await _eventSub?.cancel();
+    try {
+      await _eventSub?.cancel();
+    } catch (_) {}
     _eventSub = null;
     await _stateController.close();
     await _positionController.close();

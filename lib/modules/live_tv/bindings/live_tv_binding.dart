@@ -3,6 +3,7 @@ import 'package:stream_hub/core/media/media_engine.dart';
 import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
+import 'package:stream_hub/data/repositories/history_repository.dart';
 import '../controllers/live_tv_home_controller.dart';
 import '../controllers/live_tv_controller.dart';
 import '../controllers/category_controller.dart';
@@ -30,6 +31,9 @@ class LiveTVBinding extends Bindings {
             catalogRepository: Get.find<CatalogRepository>(),
             favoriteRepository: Get.isRegistered<FavoriteRepository>()
                 ? Get.find<FavoriteRepository>()
+                : null,
+            historyRepository: Get.isRegistered<HistoryRepository>()
+                ? Get.find<HistoryRepository>()
                 : null,
           ));
     }

@@ -21,6 +21,7 @@ class LiveTvChannelCard extends StatefulWidget {
   final bool showFavoriteButton;
   final bool showChannelNumber;
   final bool showHD;
+  final bool isPlaying;
 
   const LiveTvChannelCard({
     super.key,
@@ -31,6 +32,7 @@ class LiveTvChannelCard extends StatefulWidget {
     this.showFavoriteButton = true,
     this.showChannelNumber = true,
     this.showHD = true,
+    this.isPlaying = false,
   });
 
   @override
@@ -78,17 +80,17 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
               color: colorScheme.surface,
               borderRadius: AppRadius.medium,
               border: Border.all(
-                color: _isFocused
+                color: _isFocused || widget.isPlaying
                     ? colorScheme.primary
                     : colorScheme.outline.withValues(alpha: 0.1),
-                width: _isFocused ? 2.5 : 1.0,
+                width: _isFocused || widget.isPlaying ? 2.0 : 1.0,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: _isFocused
-                      ? colorScheme.primary.withValues(alpha: 0.4)
+                  color: _isFocused || widget.isPlaying
+                      ? colorScheme.primary.withValues(alpha: 0.35)
                       : Colors.black.withValues(alpha: 0.2),
-                  blurRadius: _isFocused ? 16.0 : 8.0,
+                  blurRadius: _isFocused || widget.isPlaying ? 14.0 : 8.0,
                   offset: const Offset(0, 4),
                 ),
               ],
@@ -219,22 +221,25 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
 
               // Channel metadata section below image
               Padding(
-                  padding: const EdgeInsets.all(AppSpacing.xs + 2.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        TitleFormatter.formatChannelTitle(widget.channel.title),
-                        style: AppTypography.getBody(
-                          color: _isFocused ? Colors.white : colorScheme.onSurface,
-                          scale: 0.9,
-                        ).copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6.0,
+                  vertical: 4.0,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      TitleFormatter.formatChannelTitle(widget.channel.title),
+                      style: AppTypography.getBody(
+                        color: _isFocused ? Colors.white : colorScheme.onSurface,
+                        scale: 0.85,
+                      ).copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                       if (widget.channel.genres.isNotEmpty ||
                           (widget.channel.subtitle != null && widget.channel.subtitle!.isNotEmpty)) ...[
                         const SizedBox(height: 1.5),
@@ -269,11 +274,18 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
     final isTV = PlatformHelper.isTV;
 
-    final GuideController? guideController = Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
-    final EPGProgram? currentProgram = guideController?.programs.firstWhereOrNull((p) => p.channelId == widget.channel.id && p.isCurrentlyPlaying);
+    final GuideController? guideController =
+        Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
+    final EPGProgram? currentProgram = guideController?.programs
+        .firstWhereOrNull((p) => p.channelId == widget.channel.id && p.isCurrentlyPlaying);
 
-    final String titleStr = currentProgram?.title ?? (widget.channel.subtitle?.isNotEmpty == true ? widget.channel.subtitle! : widget.channel.title);
-    final String timeStr = currentProgram != null ? '${DateFormat('HH:mm').format(currentProgram.startTime)} - ${DateFormat('HH:mm').format(currentProgram.endTime)}' : '';
+    final String titleStr = currentProgram?.title ??
+        (widget.channel.subtitle?.isNotEmpty == true
+            ? widget.channel.subtitle!
+            : widget.channel.title);
+    final String timeStr = currentProgram != null
+        ? '${DateFormat('HH:mm').format(currentProgram.startTime)} - ${DateFormat('HH:mm').format(currentProgram.endTime)}'
+        : '';
     final double progress = currentProgram?.progressPercent ?? 0.0;
 
     return FocusableActionDetector(
@@ -290,23 +302,25 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
           duration: const Duration(milliseconds: 150),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            margin: const EdgeInsets.only(bottom: AppSpacing.md),
-            padding: const EdgeInsets.all(12.0),
+            margin: const EdgeInsets.only(bottom: 6.0),
+            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
             decoration: BoxDecoration(
               // Glassmorphism Card
-              color: const Color(0xCC121214),
-              borderRadius: BorderRadius.circular(12.0),
+              color: widget.isPlaying
+                  ? AppColors.primaryContainer.withValues(alpha: 0.2)
+                  : const Color(0xCC121214),
+              borderRadius: BorderRadius.circular(10.0),
               border: Border.all(
-                color: _isFocused
+                color: _isFocused || widget.isPlaying
                     ? colorScheme.primary
-                    : Colors.white.withValues(alpha: 0.1),
-                width: _isFocused ? 2.0 : 1.0,
+                    : Colors.white.withValues(alpha: 0.08),
+                width: _isFocused || widget.isPlaying ? 1.5 : 1.0,
               ),
-              boxShadow: _isFocused
+              boxShadow: _isFocused || widget.isPlaying
                   ? [
                       BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.3),
-                        blurRadius: 10.0,
+                        color: colorScheme.primary.withValues(alpha: 0.25),
+                        blurRadius: 8.0,
                         offset: const Offset(0, 2),
                       ),
                     ]
@@ -315,13 +329,13 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // Thumbnail container (w-24 h-16)
+                // Compact Thumbnail container (52x38)
                 Container(
-                  width: 96.0,
-                  height: 64.0,
+                  width: 52.0,
+                  height: 38.0,
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(8.0),
+                    borderRadius: BorderRadius.circular(6.0),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: hasPoster
@@ -334,7 +348,7 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                         )
                       : _buildFallbackLogo(colorScheme),
                 ),
-                const SizedBox(width: 16.0),
+                const SizedBox(width: 10.0),
 
                 // Channel Info
                 Expanded(
@@ -342,87 +356,114 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Top Row: Number • Name and Time
+                      // Top Row: Channel Number • Name and Playing Indicator
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
+                          if (widget.isPlaying) ...[
+                            Container(
+                              width: 6.0,
+                              height: 6.0,
+                              margin: const EdgeInsets.only(right: 5.0),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
                           Expanded(
                             child: Text(
                               channelNum != null && channelNum.isNotEmpty
                                   ? '$channelNum • ${TitleFormatter.formatChannelTitle(widget.channel.title)}'
                                   : TitleFormatter.formatChannelTitle(widget.channel.title),
                               style: TextStyle(
-                                fontSize: 12.0,
-                                fontWeight: FontWeight.w600,
-                                color: _isFocused
-                                    ? colorScheme.primary
-                                    : AppColors.darkTextSecondary,
+                                fontSize: 13.0,
+                                fontWeight: FontWeight.w700,
+                                color: widget.isPlaying
+                                    ? AppColors.primary
+                                    : (_isFocused ? colorScheme.primary : Colors.white),
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           if (timeStr.isNotEmpty) ...[
-                            const SizedBox(width: 8.0),
+                            const SizedBox(width: 6.0),
                             Text(
                               timeStr,
                               style: const TextStyle(
-                                fontSize: 10.0,
+                                fontSize: 9.5,
                                 color: AppColors.darkTextSecondary,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ],
                         ],
                       ),
-                      const SizedBox(height: 4.0),
-                      
-                      // Program Title (H3)
+                      const SizedBox(height: 2.0),
+
+                      // Program Title / Subtitle
                       Text(
                         titleStr,
                         style: const TextStyle(
-                          fontSize: 16.0,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.darkTextSecondary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 8.0),
-                      
+
                       // Progress Bar
-                      if (currentProgram != null)
+                      if (currentProgram != null) ...[
+                        const SizedBox(height: 4.0),
                         Container(
                           width: double.infinity,
-                          height: 4.0,
+                          height: 2.5,
                           decoration: BoxDecoration(
                             color: colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(2.0),
+                            borderRadius: BorderRadius.circular(1.5),
                           ),
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,
                             widthFactor: progress,
                             child: Container(
                               decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(2.0),
+                                borderRadius: BorderRadius.circular(1.5),
                                 gradient: LinearGradient(
                                   colors: [
                                     colorScheme.primaryContainer,
                                     colorScheme.secondary,
                                   ],
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: colorScheme.primary.withValues(alpha: 0.6),
-                                    blurRadius: 8.0,
-                                  ),
-                                ],
                               ),
                             ),
                           ),
                         ),
+                      ],
                     ],
                   ),
                 ),
+
+                // Favorite Toggle Button
+                if (widget.showFavoriteButton) ...[
+                  const SizedBox(width: 6.0),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: widget.onFavorite,
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        widget.channel.favorite
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: widget.channel.favorite
+                            ? AppColors.darkError
+                            : Colors.white38,
+                        size: 18.0,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -434,9 +475,9 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
   Widget _buildFallbackLogo(ColorScheme colorScheme) {
     return Container(
       color: colorScheme.surfaceContainerHighest,
-      child: const ChannelPlaceholder(
-        iconSize: 24.0,
-        fontSize: 10.0,
+      child: ChannelPlaceholder(
+        iconSize: widget.isList ? 18.0 : 26.0,
+        fontSize: 9.0,
       ),
     );
   }

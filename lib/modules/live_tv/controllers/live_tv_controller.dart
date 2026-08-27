@@ -1,10 +1,19 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
+import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
+import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
+import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
+import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/media/stream_resolver.dart';
 import 'package:stream_hub/core/media/stream_resolvers/m3u_stream_resolver.dart';
-import 'package:stream_hub/core/routes/app_routes.dart';
+import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
+import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
+import 'package:stream_hub/data/repositories/history_repository.dart';
+import 'package:stream_hub/modules/player/controllers/player_controller.dart';
+import 'package:stream_hub/modules/settings/settings_controller.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/repositories/catalog_repository.dart';
@@ -17,6 +26,7 @@ class LiveTVController extends GetxController {
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
   final FavoriteRepository? favoriteRepository;
+  final HistoryRepository? historyRepository;
   final StreamResolver streamResolver;
   StreamSubscription? _catalogSubscription;
 
@@ -25,6 +35,7 @@ class LiveTVController extends GetxController {
     required this.mediaLibrary,
     required this.catalogRepository,
     this.favoriteRepository,
+    this.historyRepository,
     StreamResolver? streamResolver,
   }) : streamResolver = streamResolver ?? M3UStreamResolver();
 
@@ -52,6 +63,9 @@ class LiveTVController extends GetxController {
   final RxBool showRecentlyAdded = false.obs;
   final RxBool isLoading = true.obs;
   final Rxn<MediaItem> featuredChannel = Rxn<MediaItem>();
+  final Rxn<MediaItem> activePlayingChannel = Rxn<MediaItem>();
+  final GlobalKey embeddedPlayerKey = GlobalKey(debugLabel: 'live_tv_embedded_player');
+  PlayerController? inlinePlayerController;
 
   StreamSubscription? _favoriteSubscription;
 
@@ -59,10 +73,62 @@ class LiveTVController extends GetxController {
   void onInit() {
     super.onInit();
     _loadLiveTVData();
-    _catalogSubscription = catalogRepository.watchUpdates().listen((_) => refresh());
+    _catalogSubscription =
+        catalogRepository.watchUpdates().listen((_) => refresh());
     if (favoriteRepository != null) {
-      _favoriteSubscription = favoriteRepository!.watchUpdates().listen((_) => _syncFavoritesFromRepo());
+      _favoriteSubscription = favoriteRepository!
+          .watchUpdates()
+          .listen((_) => _syncFavoritesFromRepo());
     }
+  }
+
+  void _initInlinePlayer() {
+    if (inlinePlayerController != null) return;
+
+    // Resolve optimal in-tree embedded player engine based on user preference and device capability.
+    // NativeActivity is an external Activity and cannot be embedded in a widget tree.
+    PlaybackEngineKind chosenEngine = PlaybackEngineKind.mediaKit;
+    final settingsCtrl = Get.isRegistered<SettingsController>()
+        ? Get.find<SettingsController>()
+        : null;
+    if (settingsCtrl != null) {
+      final pref = settingsCtrl.preferredPlayer.value;
+      if (pref == PlaybackEnginePreference.exoPlayer &&
+          ExoPlayerSurfaceViewAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.exoPlayer;
+      } else if (pref == PlaybackEnginePreference.vlc &&
+          VlcPlayerAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.vlc;
+      } else if (pref == PlaybackEnginePreference.ijk &&
+          IjkPlayerAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.ijk;
+      } else if (pref == PlaybackEnginePreference.mediaKit) {
+        chosenEngine = PlaybackEngineKind.mediaKit;
+      } else {
+        // Auto: Prefer ExoPlayer surface view on Android if supported, otherwise MediaKit
+        if (ExoPlayerSurfaceViewAdapter.isSupported) {
+          chosenEngine = PlaybackEngineKind.exoPlayer;
+        } else {
+          chosenEngine = PlaybackEngineKind.mediaKit;
+        }
+      }
+    } else if (ExoPlayerSurfaceViewAdapter.isSupported) {
+      chosenEngine = PlaybackEngineKind.exoPlayer;
+    }
+
+    inlinePlayerController = PlayerController(
+      engineKind: chosenEngine,
+      streamRepository: Get.isRegistered<StreamRepository>()
+          ? Get.find<StreamRepository>()
+          : null,
+      historyRepository: historyRepository ??
+          (Get.isRegistered<HistoryRepository>()
+              ? Get.find<HistoryRepository>()
+              : null),
+      favoriteRepository: favoriteRepository,
+      catalogRepository: catalogRepository,
+    );
+    inlinePlayerController!.onInit();
   }
 
   Future<void> _syncFavoritesFromRepo() async {
@@ -84,6 +150,8 @@ class LiveTVController extends GetxController {
   void onClose() {
     _catalogSubscription?.cancel();
     _favoriteSubscription?.cancel();
+    inlinePlayerController?.stop();
+    inlinePlayerController?.onClose();
     super.onClose();
   }
 
@@ -126,6 +194,26 @@ class LiveTVController extends GetxController {
       providers.assignAll(providerSet.toList()..sort());
 
       _updateCategoriesAndFilters(favIds);
+
+      // Restore last-watched channel from history if available
+      final historyRepo = historyRepository ??
+          (Get.isRegistered<HistoryRepository>()
+              ? Get.find<HistoryRepository>()
+              : null);
+      if (historyRepo != null) {
+        final recentItems = await historyRepo.getRecent(limit: 20);
+        final lastWatched = recentItems.firstWhereOrNull(
+            (item) => item.mediaType == MediaType.channel);
+        if (lastWatched != null) {
+          final matched = _allChannels
+              .firstWhereOrNull((c) => c.id == lastWatched.id);
+          featuredChannel.value = matched ?? lastWatched;
+        } else if (_allChannels.isNotEmpty) {
+          featuredChannel.value = _allChannels.first;
+        }
+      } else if (_allChannels.isNotEmpty) {
+        featuredChannel.value = _allChannels.first;
+      }
     } catch (e) {
       // Log error
     } finally {
@@ -358,16 +446,50 @@ class LiveTVController extends GetxController {
   }
 
   void openChannel(MediaItem channel) {
+    _initInlinePlayer();
+    activePlayingChannel.value = channel;
+    featuredChannel.value = channel;
+
+    // Record last played channel in history
+    final historyRepo = historyRepository ??
+        (Get.isRegistered<HistoryRepository>()
+            ? Get.find<HistoryRepository>()
+            : null);
+    historyRepo?.add(channel);
+
     final itemsToPass = filteredChannels.isNotEmpty
         ? filteredChannels.toList()
         : (channels.isNotEmpty ? channels.toList() : [channel]);
-    Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': itemsToPass,
-        'currentId': channel.id,
-      },
-    );
+    inlinePlayerController?.setChannelList(itemsToPass, currentId: channel.id);
+  }
+
+  final RxBool isFullscreenMode = false.obs;
+
+  void stopInlinePlayer() {
+    activePlayingChannel.value = null;
+    isFullscreenMode.value = false;
+    inlinePlayerController?.stop();
+  }
+
+  void expandToFullscreen() {
+    if (activePlayingChannel.value != null || featuredChannel.value != null) {
+      if (activePlayingChannel.value == null && featuredChannel.value != null) {
+        openChannel(featuredChannel.value!);
+      }
+      isFullscreenMode.value = true;
+    }
+  }
+
+  void exitFullscreen() {
+    isFullscreenMode.value = false;
+  }
+
+  void toggleFullscreen() {
+    if (isFullscreenMode.value) {
+      exitFullscreen();
+    } else {
+      expandToFullscreen();
+    }
   }
 
   Future<void> toggleFavorite(MediaItem item) async {
