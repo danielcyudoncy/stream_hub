@@ -5,7 +5,6 @@ import '../../../core/media/enums/playback_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
@@ -14,10 +13,12 @@ import '../controllers/live_tv_controller.dart';
 
 class LiveTvEmbeddedPlayer extends StatefulWidget {
   final LiveTVController controller;
+  final bool isFullscreen;
 
   const LiveTvEmbeddedPlayer({
     super.key,
     required this.controller,
+    this.isFullscreen = false,
   });
 
   @override
@@ -36,7 +37,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
 
   void _startControlsTimer() {
     _controlsTimer?.cancel();
-    _controlsTimer = Timer(const Duration(seconds: 4), () {
+    _controlsTimer = Timer(const Duration(seconds: 5), () {
       if (mounted && _controlsVisible) {
         setState(() => _controlsVisible = false);
       }
@@ -54,6 +55,13 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     });
   }
 
+  void _showControlsTemporarily() {
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
+    _startControlsTimer();
+  }
+
   @override
   void dispose() {
     _controlsTimer?.cancel();
@@ -65,6 +73,17 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     return Obx(() {
       final activeChannel = widget.controller.activePlayingChannel.value;
       final playerCtrl = widget.controller.inlinePlayerController;
+
+      if (widget.isFullscreen) {
+        return Container(
+          width: double.infinity,
+          height: double.infinity,
+          color: Colors.black,
+          child: activeChannel != null && playerCtrl != null
+              ? _buildActivePlayer(activeChannel, playerCtrl, isFullscreen: true)
+              : _buildFeaturedHero(isFullscreen: true),
+        );
+      }
 
       return Padding(
         padding: const EdgeInsets.fromLTRB(
@@ -81,14 +100,14 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
               borderRadius: AppRadius.large,
               border: Border.all(
                 color: activeChannel != null
-                    ? AppColors.primary.withValues(alpha: 0.4)
+                    ? AppColors.primary.withValues(alpha: 0.5)
                     : Colors.white.withValues(alpha: 0.1),
                 width: 1.5,
               ),
               boxShadow: [
                 BoxShadow(
                   color: activeChannel != null
-                      ? AppColors.primary.withValues(alpha: 0.2)
+                      ? AppColors.primary.withValues(alpha: 0.25)
                       : Colors.black.withValues(alpha: 0.4),
                   blurRadius: 16.0,
                   offset: const Offset(0, 6),
@@ -98,8 +117,8 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
             child: ClipRRect(
               borderRadius: AppRadius.large,
               child: activeChannel != null && playerCtrl != null
-                  ? _buildActivePlayer(activeChannel, playerCtrl)
-                  : _buildFeaturedHero(),
+                  ? _buildActivePlayer(activeChannel, playerCtrl, isFullscreen: false)
+                  : _buildFeaturedHero(isFullscreen: false),
             ),
           ),
         ),
@@ -109,48 +128,60 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
 
   Widget _buildActivePlayer(
     MediaItem channel,
-    dynamic playerCtrl,
-  ) {
+    dynamic playerCtrl, {
+    required bool isFullscreen,
+  }) {
     final channelNum = channel is Channel ? channel.number : null;
     final formattedTitle = TitleFormatter.formatChannelTitle(channel.title);
     final categoryName = channel.genres.isNotEmpty
         ? channel.genres.first
         : (channel.metadata['category_name'] as String? ?? 'Live TV');
 
-    return GestureDetector(
-      onTap: _toggleControls,
-      behavior: HitTestBehavior.opaque,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // 1. Video Surface Layer
-          Obx(() {
-            playerCtrl.playbackController.engine.engineKindRx.value;
-            final adapter = playerCtrl.playbackController.engine.adapter;
-            return ColoredBox(
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. Video Surface Layer (Ignored pointer so touches flow to Flutter gesture layer)
+        Obx(() {
+          playerCtrl.playbackController.engine.engineKindRx.value;
+          final adapter = playerCtrl.playbackController.engine.adapter;
+          return IgnorePointer(
+            ignoring: true,
+            child: ColoredBox(
               color: Colors.black,
               child: adapter.buildPlayerWidget(),
-            );
-          }),
+            ),
+          );
+        }),
 
-          // 2. Buffering / Loading State Indicator
-          Obx(() {
-            final state =
-                playerCtrl.playbackController.engine.stateRx.value as PlaybackState;
-            if (state == PlaybackState.loading ||
-                state == PlaybackState.buffering) {
-              return Container(
-                color: Colors.black54,
+        // 2. Transparent Fullscreen Tap Interceptor
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _toggleControls,
+            child: const ColoredBox(color: Colors.transparent),
+          ),
+        ),
+
+        // 3. Buffering / Loading State Indicator
+        Obx(() {
+          final state =
+              playerCtrl.playbackController.engine.stateRx.value as PlaybackState;
+          if (state == PlaybackState.loading ||
+              state == PlaybackState.buffering) {
+            return IgnorePointer(
+              ignoring: true,
+              child: Container(
+                color: Colors.black45,
                 child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const SizedBox(
-                        width: 32.0,
-                        height: 32.0,
+                        width: 36.0,
+                        height: 36.0,
                         child: CircularProgressIndicator(
                           color: AppColors.primary,
-                          strokeWidth: 2.5,
+                          strokeWidth: 3.0,
                         ),
                       ),
                       AppSpacing.heightSM,
@@ -160,75 +191,126 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                             : 'Buffering...',
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 12.0,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-            if (state == PlaybackState.error) {
-              return Container(
-                color: Colors.black87,
-                padding: const EdgeInsets.all(AppSpacing.md),
-                child: Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.error_outline_rounded,
-                        color: AppColors.error,
-                        size: 32.0,
-                      ),
-                      AppSpacing.heightXS,
-                      const Text(
-                        'Unable to load live stream',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.0,
+                          fontSize: 12.5,
                           fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      AppSpacing.heightSM,
-                      ElevatedButton.icon(
-                        onPressed: () =>
-                            widget.controller.openChannel(channel),
-                        icon: const Icon(Icons.refresh_rounded, size: 16),
-                        label: const Text(
-                          'Retry',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryContainer,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: AppSpacing.xs,
-                          ),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 4.0),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
-              );
-            }
-            return const SizedBox.shrink();
-          }),
+              ),
+            );
+          }
+          if (state == PlaybackState.error) {
+            return Container(
+              color: Colors.black87,
+              padding: const EdgeInsets.all(AppSpacing.md),
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.error_outline_rounded,
+                      color: AppColors.error,
+                      size: 36.0,
+                    ),
+                    AppSpacing.heightXS,
+                    const Text(
+                      'Unable to load live stream',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.0,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    AppSpacing.heightSM,
+                    ElevatedButton.icon(
+                      onPressed: () =>
+                          widget.controller.openChannel(channel),
+                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                      label: const Text(
+                        'Retry',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primaryContainer,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.xs,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }),
 
-          // 3. Top Gradient & Channel Info
-          AnimatedOpacity(
+        // 4. Center Glowing Play/Pause Button
+        IgnorePointer(
+          ignoring: !_controlsVisible,
+          child: AnimatedOpacity(
+            opacity: _controlsVisible ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: Center(
+              child: Obx(() {
+                final state = playerCtrl
+                    .playbackController.engine.stateRx.value as PlaybackState;
+                final isPlaying = state == PlaybackState.playing;
+
+                return GestureDetector(
+                  onTap: () {
+                    _showControlsTemporarily();
+                    playerCtrl.togglePlayPause();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(14.0),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.65),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.7),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                          blurRadius: 18.0,
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: isFullscreen ? 40.0 : 30.0,
+                    ),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+
+        // 5. Top Gradient Bar & Channel Info
+        IgnorePointer(
+          ignoring: !_controlsVisible,
+          child: AnimatedOpacity(
             opacity: _controlsVisible ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 200),
             child: Align(
               alignment: Alignment.topCenter,
               child: Container(
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
+                  vertical: isFullscreen ? AppSpacing.md : AppSpacing.sm,
                 ),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -241,139 +323,151 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                     ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    // Red Live Pulse
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6.0,
-                        vertical: 2.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.85),
-                        borderRadius: AppRadius.pill,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Container(
-                            width: 6.0,
-                            height: 6.0,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 4.0),
-                          const Text(
-                            'LIVE',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9.0,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8.0),
-
-                    // Channel Number (if available)
-                    if (channelNum != null && channelNum.isNotEmpty) ...[
+                child: SafeArea(
+                  top: isFullscreen,
+                  bottom: false,
+                  child: Row(
+                    children: [
+                      // Red Live Badge
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6.0,
-                          vertical: 2.0,
+                          vertical: 2.5,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4.0),
+                          color: Colors.red.withValues(alpha: 0.9),
+                          borderRadius: AppRadius.pill,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6.0,
+                              height: 6.0,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4.0),
+                            const Text(
+                              'LIVE',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8.0),
+
+                      // Channel Number
+                      if (channelNum != null && channelNum.isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6.0,
+                            vertical: 2.0,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.18),
+                            borderRadius: BorderRadius.circular(4.0),
+                          ),
+                          child: Text(
+                            channelNum,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10.5,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6.0),
+                      ],
+
+                      // Channel Title
+                      Expanded(
+                        child: Text(
+                          formattedTitle,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w700,
+                            shadows: [
+                              Shadow(color: Colors.black87, blurRadius: 4.0),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+
+                      // Category Tag
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7.0,
+                          vertical: 2.5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer.withValues(alpha: 0.4),
+                          borderRadius: AppRadius.pill,
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.4),
+                            width: 0.8,
+                          ),
                         ),
                         child: Text(
-                          channelNum,
+                          categoryName.toUpperCase(),
                           style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 10.0,
-                            fontFamily: 'monospace',
+                            color: AppColors.primary,
+                            fontSize: 9.5,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6.0),
+                      const SizedBox(width: 8.0),
+
+                      // Close / Minimize Button
+                      GestureDetector(
+                        onTap: () {
+                          widget.controller.stopInlinePlayer();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6.0),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 18.0,
+                          ),
+                        ),
+                      ),
                     ],
-
-                    // Channel Title
-                    Expanded(
-                      child: Text(
-                        formattedTitle,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-
-                    // Category Tag
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6.0,
-                        vertical: 2.0,
-                      ),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryContainer.withValues(alpha: 0.3),
-                        borderRadius: AppRadius.pill,
-                        border: Border.all(
-                          color: AppColors.primary.withValues(alpha: 0.3),
-                          width: 0.8,
-                        ),
-                      ),
-                      child: Text(
-                        categoryName.toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6.0),
-
-                    // Close/Stop Button
-                    GestureDetector(
-                      onTap: () => widget.controller.stopInlinePlayer(),
-                      child: Container(
-                        padding: const EdgeInsets.all(4.0),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          color: Colors.white,
-                          size: 16.0,
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
+        ),
 
-          // 4. Bottom Controls Overlay & Fullscreen Expand Button
-          AnimatedOpacity(
+        // 6. Bottom Controls Overlay & Fullscreen Expand Button
+        IgnorePointer(
+          ignoring: !_controlsVisible,
+          child: AnimatedOpacity(
             opacity: _controlsVisible ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 200),
             child: Align(
               alignment: Alignment.bottomCenter,
               child: Container(
-                padding: const EdgeInsets.symmetric(
+                padding: EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
+                  vertical: isFullscreen ? AppSpacing.md : AppSpacing.xs,
                 ),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
@@ -386,90 +480,104 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                     ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    // Play/Pause Button
-                    Obx(() {
-                      final state = playerCtrl
-                          .playbackController.engine.stateRx.value as PlaybackState;
-                      final isPlaying = state == PlaybackState.playing;
+                child: SafeArea(
+                  top: false,
+                  bottom: isFullscreen,
+                  child: Row(
+                    children: [
+                      // Play/Pause Icon Button
+                      Obx(() {
+                        final state = playerCtrl
+                            .playbackController.engine.stateRx.value as PlaybackState;
+                        final isPlaying = state == PlaybackState.playing;
 
-                      return IconButton(
-                        icon: Icon(
-                          isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: 24.0,
-                        ),
-                        onPressed: () {
-                          _startControlsTimer();
-                          playerCtrl.togglePlayPause();
-                        },
-                      );
-                    }),
+                        return IconButton(
+                          icon: Icon(
+                            isPlaying
+                                ? Icons.pause_circle_filled_rounded
+                                : Icons.play_circle_filled_rounded,
+                            color: AppColors.primary,
+                            size: 28.0,
+                          ),
+                          onPressed: () {
+                            _showControlsTemporarily();
+                            playerCtrl.togglePlayPause();
+                          },
+                        );
+                      }),
 
-                    // Program Subtitle or Info
-                    Expanded(
-                      child: Text(
-                        channel.subtitle ??
-                            (channel.genres.isNotEmpty
-                                ? channel.genres.join(' • ')
-                                : 'Live Broadcast'),
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w500,
+                      // Program Subtitle or Info
+                      Expanded(
+                        child: Text(
+                          channel.subtitle ??
+                              (channel.genres.isNotEmpty
+                                  ? channel.genres.join(' • ')
+                                  : 'Live Broadcast'),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                            shadows: [
+                              Shadow(color: Colors.black87, blurRadius: 4.0),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
 
-                    // Favorite Toggle
-                    Obx(() {
-                      final isFav = widget.controller.favorites
-                              .any((f) => f.id == channel.id) ||
-                          channel.favorite;
+                      // Favorite Toggle
+                      Obx(() {
+                        final isFav = widget.controller.favorites
+                                .any((f) => f.id == channel.id) ||
+                            channel.favorite;
 
-                      return IconButton(
-                        icon: Icon(
-                          isFav
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          color: isFav ? Colors.redAccent : Colors.white70,
-                          size: 20.0,
+                        return IconButton(
+                          icon: Icon(
+                            isFav
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            color: isFav ? Colors.redAccent : Colors.white70,
+                            size: 22.0,
+                          ),
+                          onPressed: () {
+                            _showControlsTemporarily();
+                            widget.controller.toggleFavorite(channel);
+                          },
+                        );
+                      }),
+
+                      // Fullscreen Expand Button (⛶)
+                      Tooltip(
+                        message: isFullscreen
+                            ? 'Exit Fullscreen'
+                            : 'Expand to Fullscreen',
+                        child: IconButton(
+                          icon: Icon(
+                            isFullscreen
+                                ? Icons.fullscreen_exit_rounded
+                                : Icons.fullscreen_rounded,
+                            color: Colors.white,
+                            size: 28.0,
+                          ),
+                          onPressed: () {
+                            _showControlsTemporarily();
+                            widget.controller.expandToFullscreen();
+                          },
                         ),
-                        onPressed: () {
-                          _startControlsTimer();
-                          widget.controller.toggleFavorite(channel);
-                        },
-                      );
-                    }),
-
-                    // Fullscreen Expand Button
-                    Tooltip(
-                      message: 'Expand to Fullscreen',
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.fullscreen_rounded,
-                          color: Colors.white,
-                          size: 26.0,
-                        ),
-                        onPressed: () => widget.controller.expandToFullscreen(),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
-  Widget _buildFeaturedHero() {
+  Widget _buildFeaturedHero({bool isFullscreen = false}) {
     final featured = widget.controller.featuredChannel.value ??
         widget.controller.channels.firstOrNull;
 
@@ -539,7 +647,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
 
           // Top Badge
           Positioned(
-            top: AppSpacing.sm,
+            top: isFullscreen ? AppSpacing.lg : AppSpacing.sm,
             left: AppSpacing.md,
             child: Container(
               padding: const EdgeInsets.symmetric(
@@ -558,17 +666,17 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(
-                    Icons.auto_awesome_rounded,
-                    color: Colors.white,
-                    size: 11.0,
+                    Icons.star_rounded,
+                    color: Colors.amber,
+                    size: 14.0,
                   ),
                   const SizedBox(width: 4.0),
                   Text(
                     categoryName.toUpperCase(),
                     style: const TextStyle(
                       color: Colors.white,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 10.0,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -580,59 +688,100 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
           // Center Glowing Play Button
           Center(
             child: Container(
-              width: 54.0,
-              height: 54.0,
+              padding: const EdgeInsets.all(14.0),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.25),
+                color: AppColors.primary,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: AppColors.primary,
-                  width: 2.0,
-                ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.5),
-                    blurRadius: 18.0,
+                    color: AppColors.primary.withValues(alpha: 0.6),
+                    blurRadius: 24.0,
                     spreadRadius: 2.0,
                   ),
                 ],
               ),
               child: const Icon(
                 Icons.play_arrow_rounded,
-                color: Colors.white,
-                size: 34.0,
+                color: Colors.black,
+                size: 32.0,
               ),
             ),
           ),
 
           // Bottom Channel Information
           Positioned(
-            bottom: AppSpacing.sm,
+            bottom: isFullscreen ? AppSpacing.lg : AppSpacing.sm,
             left: AppSpacing.md,
             right: AppSpacing.md,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
-                Text(
-                  formattedTitle,
-                  style: AppTypography.getTitle(color: Colors.white).copyWith(
-                    fontSize: 15.0,
-                    fontWeight: FontWeight.w800,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formattedTitle,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.0,
+                          fontWeight: FontWeight.w800,
+                          shadows: [
+                            Shadow(color: Colors.black, blurRadius: 6.0),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2.0),
+                      Text(
+                        featured.subtitle ?? 'Tap to start watching live',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.8),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          shadows: const [
+                            Shadow(color: Colors.black, blurRadius: 4.0),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2.0),
-                Text(
-                  featured.subtitle ?? 'Tap to watch live stream in top player',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11.0,
-                    fontWeight: FontWeight.w500,
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10.0,
+                    vertical: 5.0,
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: AppRadius.pill,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.25),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.live_tv_rounded,
+                        color: Colors.white,
+                        size: 14.0,
+                      ),
+                      SizedBox(width: 4.0),
+                      Text(
+                        'Watch',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11.0,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),

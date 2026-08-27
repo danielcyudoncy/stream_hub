@@ -25,6 +25,7 @@ class LiveTVPage extends GetView<LiveTVController> {
     final isTV = ResponsiveHelper.isTV(context);
     final isDesktop = ResponsiveHelper.isDesktop(context);
     final isTablet = ResponsiveHelper.isTablet(context);
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
     final crossAxisCount = isTV
         ? 5
@@ -34,21 +35,36 @@ class LiveTVPage extends GetView<LiveTVController> {
       return const TVGuidePage();
     }
 
-    return AppScaffold(
-      title: 'Live TV',
-      showAppBar: false,
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const LiveTvSkeleton();
-        }
+    return Obx(() {
+      if (controller.isLoading.value) {
+        return const Scaffold(
+          body: LiveTvSkeleton(),
+        );
+      }
 
-        final filtered = controller.filteredChannels;
-        final isList = controller.selectedView.value == 'list';
-        final query = controller.searchQuery.value;
-        final favoritesOnly = controller.showFavoritesOnly.value;
-        final selectedCat = controller.selectedCategory.value;
+      // If mobile/tablet is rotated into landscape while a channel is playing,
+      // expand into a seamless edge-to-edge landscape fullscreen player!
+      if (isLandscape && !isDesktop && controller.activePlayingChannel.value != null) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          body: LiveTvEmbeddedPlayer(
+            key: const ValueKey('live_tv_embedded_player_landscape'),
+            controller: controller,
+            isFullscreen: true,
+          ),
+        );
+      }
 
-        return RefreshIndicator(
+      final filtered = controller.filteredChannels;
+      final isList = controller.selectedView.value == 'list';
+      final query = controller.searchQuery.value;
+      final favoritesOnly = controller.showFavoritesOnly.value;
+      final selectedCat = controller.selectedCategory.value;
+
+      return AppScaffold(
+        title: 'Live TV',
+        showAppBar: false,
+        body: RefreshIndicator(
           onRefresh: () async => controller.refresh(),
           child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
@@ -204,7 +220,9 @@ class LiveTVPage extends GetView<LiveTVController> {
               // 2. Top 16:9 Featured Embedded Live Player (or Featured Hero when idle)
               SliverToBoxAdapter(
                 child: LiveTvEmbeddedPlayer(
+                  key: const ValueKey('live_tv_embedded_player_portrait'),
                   controller: controller,
+                  isFullscreen: false,
                 ),
               ),
 
@@ -356,9 +374,9 @@ class LiveTVPage extends GetView<LiveTVController> {
               ),
             ],
           ),
-        );
-      }),
-    );
+        ),
+      );
+    });
   }
 
   void _clearFilters() {
