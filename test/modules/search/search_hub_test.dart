@@ -10,7 +10,7 @@ import 'package:stream_hub/data/models/xmltv_models.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/modules/search/search_hub_controller.dart';
 import 'package:stream_hub/modules/search/search_hub_page.dart';
-import 'package:stream_hub/shared/widgets/media_poster_card.dart';
+import 'package:stream_hub/shared/widgets/premium_media_card.dart';
 
 class _FakeCatalogRepository implements CatalogRepository {
   final List<MediaItem> items;
@@ -276,7 +276,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Inception');
       await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
-      expect(find.byType(MediaPosterCard), findsOneWidget);
+      expect(find.byType(PremiumMediaCard), findsOneWidget);
       expect(find.text('Inception'), findsWidgets);
     });
 
@@ -304,7 +304,7 @@ void main() {
       controller.selectQuery('Inception');
       await tester.pumpAndSettle(const Duration(milliseconds: 300));
 
-      expect(find.byType(MediaPosterCard), findsOneWidget);
+      expect(find.byType(PremiumMediaCard), findsOneWidget);
       expect(find.text('Inception'), findsWidgets);
 
       controller.clearSearch();

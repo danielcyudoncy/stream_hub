@@ -186,12 +186,6 @@ class HomePage extends GetView<HomeController> {
                         ),
                         items: controller.recentlyAdded,
                         itemBuilder: (context, item, index) {
-                          if (item.mediaType == MediaType.channel) {
-                            return HomeLiveChannelCard(
-                              channel: item,
-                              onTap: () => _playChannel(item),
-                            );
-                          }
                           return PremiumMediaCard(
                             item: item,
                             onTap: () => _openItem(item),

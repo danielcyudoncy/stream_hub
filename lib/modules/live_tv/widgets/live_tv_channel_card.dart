@@ -6,8 +6,10 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/channel_placeholder.dart';
 import '../../../shared/widgets/live_badge.dart';
 import '../../epg/controllers/guide_controller.dart';
 import '../../epg/models/epg_program.dart';
@@ -234,7 +236,7 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        widget.channel.title,
+                        TitleFormatter.formatChannelTitle(widget.channel.title),
                         style: AppTypography.getBody(
                           color: _isFocused ? Colors.white : colorScheme.onSurface,
                           scale: 0.9,
@@ -387,8 +389,8 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                           Expanded(
                             child: Text(
                               channelNum != null && channelNum.isNotEmpty
-                                  ? '$channelNum • ${widget.channel.title}'
-                                  : widget.channel.title,
+                                  ? '$channelNum • ${TitleFormatter.formatChannelTitle(widget.channel.title)}'
+                                  : TitleFormatter.formatChannelTitle(widget.channel.title),
                               style: TextStyle(
                                 fontSize: 12.0,
                                 fontWeight: FontWeight.w600,
@@ -472,12 +474,9 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
   Widget _buildFallbackLogo(ColorScheme colorScheme) {
     return Container(
       color: colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Icon(
-          Icons.live_tv_rounded,
-          color: colorScheme.primary.withValues(alpha: 0.6),
-          size: 28.0,
-        ),
+      child: const ChannelPlaceholder(
+        iconSize: 24.0,
+        fontSize: 10.0,
       ),
     );
   }

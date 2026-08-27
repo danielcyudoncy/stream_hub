@@ -50,7 +50,7 @@ class SeriesCategoryPage extends StatelessWidget {
                       maxCrossAxisExtent: isTv ? 200.0 : 170.0,
                       crossAxisSpacing: AppSpacing.md,
                       mainAxisSpacing: AppSpacing.md,
-                      childAspectRatio: 0.65,
+                      childAspectRatio: 0.52,
                     ),
                     delegate: SliverChildBuilderDelegate(
                       (context, index) {
