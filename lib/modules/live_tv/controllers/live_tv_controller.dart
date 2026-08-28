@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
@@ -151,6 +152,12 @@ class LiveTVController extends GetxController {
   void onClose() {
     _catalogSubscription?.cancel();
     _favoriteSubscription?.cancel();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     inlinePlayerController?.stop();
     inlinePlayerController?.onClose();
     super.onClose();
@@ -624,10 +631,17 @@ class LiveTVController extends GetxController {
   }
 
   final RxBool isFullscreenMode = false.obs;
+  DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
 
   void stopInlinePlayer() {
     activePlayingChannel.value = null;
     isFullscreenMode.value = false;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     inlinePlayerController?.stop();
   }
 
@@ -636,12 +650,23 @@ class LiveTVController extends GetxController {
       if (activePlayingChannel.value == null && featuredChannel.value != null) {
         openChannel(featuredChannel.value!);
       }
+      lastFullscreenEntered = DateTime.now();
       isFullscreenMode.value = true;
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
     }
   }
 
   void exitFullscreen() {
     isFullscreenMode.value = false;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
   }
 
   void toggleFullscreen() {

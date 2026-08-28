@@ -417,8 +417,7 @@ class MoviesController extends GetxController {
   }
 
   void resumeMovie(MediaItem item) {
-    final session = sessionsMap[item.id];
-    playMovieDirectly(item, resumePosition: session?.resumePosition);
+    openMovie(item);
   }
 
   Future<void> toggleFavorite(MediaItem item) async {

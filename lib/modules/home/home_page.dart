@@ -506,8 +506,14 @@ class HomePage extends GetView<HomeController> {
   }
 
   Future<void> _resumeContinueWatching(MediaItem item) async {
-    if (item.mediaType == MediaType.channel) {
+    if (item.mediaType == MediaType.channel ||
+        item.mediaType == MediaType.liveEvent) {
       _playChannel(item);
+      return;
+    }
+
+    if (item.mediaType == MediaType.movie) {
+      _openMovie(item);
       return;
     }
 
@@ -540,7 +546,7 @@ class HomePage extends GetView<HomeController> {
       arguments: {
         'items': [item],
         'currentId': item.id,
-        'resumePosition': ?startPosition,
+        'resumePosition': startPosition,
       },
     );
   }

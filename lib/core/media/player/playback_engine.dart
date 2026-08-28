@@ -565,6 +565,9 @@ class PlaybackEngine {
     _stateSub = adapter.stateStream.listen((state) async {
       if (state != _state) {
         _setState(state);
+        if (adapter.duration > Duration.zero && durationRx.value != adapter.duration) {
+          durationRx.value = adapter.duration;
+        }
         if (state == PlaybackState.completed) {
           _onCompleted();
         } else if (state == PlaybackState.error) {
@@ -578,6 +581,9 @@ class PlaybackEngine {
 
     _positionSub = adapter.positionStream.listen((position) {
       positionRx.value = position;
+      if (adapter.duration > Duration.zero && durationRx.value != adapter.duration) {
+        durationRx.value = adapter.duration;
+      }
       for (final listener in List.from(_positionListeners)) {
         listener(position);
       }
