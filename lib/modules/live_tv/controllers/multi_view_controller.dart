@@ -35,6 +35,7 @@ class MultiViewController extends GetxController {
   final List<Rxn<MediaItem>> slots = List.generate(4, (_) => Rxn<MediaItem>());
   final List<PlayerController?> slotControllers = List.generate(4, (_) => null);
   final RxList<MediaItem> allChannels = <MediaItem>[].obs;
+  final RxList<MediaItem> allCategories = <MediaItem>[].obs;
   final RxList<String> categories = <String>['All Channels'].obs;
   final RxList<String> providers = <String>[].obs;
   final RxBool isLoadingChannels = true.obs;
@@ -54,19 +55,42 @@ class MultiViewController extends GetxController {
     try {
       isLoadingChannels.value = true;
       final channels = await catalogRepository.getByType(MediaType.channel);
+      final rawCategories = await catalogRepository.getByType(MediaType.collection);
       allChannels.assignAll(channels);
+      allCategories.assignAll(rawCategories);
 
       final categorySet = <String>{};
       final providerSet = <String>{};
+
       for (final ch in channels) {
-        final cat = ch.metadata['category']?.toString() ??
-            ch.metadata['group']?.toString() ??
-            ch.metadata['group_title']?.toString();
-        if (cat != null && cat.trim().isNotEmpty) {
-          categorySet.add(cat.trim());
+        for (final genre in ch.genres) {
+          if (genre.trim().isNotEmpty) categorySet.add(genre.trim());
+        }
+        final catCandidates = [
+          ch.metadata['category']?.toString(),
+          ch.metadata['category_name']?.toString(),
+          ch.metadata['genre']?.toString(),
+          ch.metadata['group']?.toString(),
+          ch.metadata['group_title']?.toString(),
+          ch.metadata['group-title']?.toString(),
+        ];
+        for (final cat in catCandidates) {
+          if (cat != null && cat.trim().isNotEmpty) {
+            categorySet.add(cat.trim());
+          }
         }
         if (ch.providerId.trim().isNotEmpty) {
           providerSet.add(ch.providerId.trim());
+        }
+      }
+
+      for (final cat in rawCategories) {
+        final isLive = cat.metadata['type'] == 'live' || cat.metadata['type'] == null;
+        if (isLive && cat.title.trim().isNotEmpty) {
+          categorySet.add(cat.title.trim());
+        }
+        if (cat.providerId.trim().isNotEmpty) {
+          providerSet.add(cat.providerId.trim());
         }
       }
 
@@ -79,6 +103,109 @@ class MultiViewController extends GetxController {
     } finally {
       isLoadingChannels.value = false;
     }
+  }
+
+  bool channelMatchesCategory(MediaItem channel, String selectedCategory) {
+    if (selectedCategory == 'All Channels') return true;
+
+    for (final genre in channel.genres) {
+      if (genre.trim().toLowerCase() == selectedCategory.trim().toLowerCase()) {
+        return true;
+      }
+    }
+
+    final candidates = [
+      channel.metadata['category']?.toString(),
+      channel.metadata['category_name']?.toString(),
+      channel.metadata['genre']?.toString(),
+      channel.metadata['group']?.toString(),
+      channel.metadata['group_title']?.toString(),
+      channel.metadata['group-title']?.toString(),
+    ];
+
+    for (final cand in candidates) {
+      if (cand != null && cand.trim().toLowerCase() == selectedCategory.trim().toLowerCase()) {
+        return true;
+      }
+    }
+
+    final categoryId = channel.metadata['category_id']?.toString() ??
+        channel.metadata['category_ids']?.toString();
+    if (categoryId != null && categoryId.isNotEmpty) {
+      for (final cat in allCategories) {
+        if ((cat.id == categoryId || cat.metadata['category_id']?.toString() == categoryId) &&
+            cat.title.trim().toLowerCase() == selectedCategory.trim().toLowerCase()) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  List<String> getCategoriesForProvider(String providerId) {
+    if (providerId.isEmpty) return categories;
+
+    final catSet = <String>{};
+    for (final ch in allChannels) {
+      if (ch.providerId == providerId ||
+          ch.providerType.displayName.toLowerCase() == providerId.toLowerCase() ||
+          ch.providerType.name.toLowerCase() == providerId.toLowerCase()) {
+        for (final genre in ch.genres) {
+          if (genre.trim().isNotEmpty) catSet.add(genre.trim());
+        }
+        final catCandidates = [
+          ch.metadata['category']?.toString(),
+          ch.metadata['category_name']?.toString(),
+          ch.metadata['genre']?.toString(),
+          ch.metadata['group']?.toString(),
+          ch.metadata['group_title']?.toString(),
+          ch.metadata['group-title']?.toString(),
+        ];
+        for (final cat in catCandidates) {
+          if (cat != null && cat.trim().isNotEmpty) {
+            catSet.add(cat.trim());
+          }
+        }
+      }
+    }
+
+    for (final cat in allCategories) {
+      final isLive = cat.metadata['type'] == 'live' || cat.metadata['type'] == null;
+      if (isLive &&
+          (cat.providerId == providerId ||
+              cat.providerType.displayName.toLowerCase() == providerId.toLowerCase() ||
+              cat.providerType.name.toLowerCase() == providerId.toLowerCase())) {
+        if (cat.title.trim().isNotEmpty) {
+          catSet.add(cat.title.trim());
+        }
+      }
+    }
+
+    final sorted = catSet.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return ['All Channels', ...sorted];
+  }
+
+  String? getChannelCategoryName(MediaItem ch) {
+    if (ch.genres.isNotEmpty) return ch.genres.first;
+    final metaCat = ch.metadata['category_name']?.toString() ??
+        ch.metadata['category']?.toString() ??
+        ch.metadata['genre']?.toString() ??
+        ch.metadata['group_title']?.toString() ??
+        ch.metadata['group-title']?.toString() ??
+        ch.metadata['group']?.toString();
+    if (metaCat != null && metaCat.isNotEmpty) return metaCat;
+    final catId = ch.metadata['category_id']?.toString() ??
+        ch.metadata['category_ids']?.toString();
+    if (catId != null && catId.isNotEmpty) {
+      for (final cat in allCategories) {
+        if (cat.id == catId || cat.metadata['category_id']?.toString() == catId) {
+          return cat.title;
+        }
+      }
+    }
+    return null;
   }
 
   Future<void> setChannelForSlot(int slotIndex, MediaItem channel) async {

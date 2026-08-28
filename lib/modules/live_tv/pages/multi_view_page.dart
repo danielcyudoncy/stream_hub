@@ -238,7 +238,7 @@ class MultiViewPage extends GetView<MultiViewController> {
               ),
               child: Column(
                 children: [
-                  // Header with Title, Provider Selector, and Close Button
+                  // Header with Title, Compact Provider Selector Button, and Close Button
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.md,
@@ -252,7 +252,7 @@ class MultiViewPage extends GetView<MultiViewController> {
                         AppSpacing.widthSM,
                         Expanded(
                           child: Text(
-                            'Select Channel for Slot ${slotIndex + 1}',
+                            'Select Channel (Slot ${slotIndex + 1})',
                             style: AppTypography.getTitle(color: Colors.white).copyWith(
                               fontWeight: FontWeight.bold,
                               fontSize: 16.0,
@@ -261,13 +261,15 @@ class MultiViewPage extends GetView<MultiViewController> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        // Provider Filter Button
+                        // Compact Provider Filter Button (identical to Live TV Screen)
                         Obx(() => ProviderSelectorButton(
                               selectedProviderId: selectedProviderId.value,
-                              onSelectProvider: (pId) =>
-                                  selectedProviderId.value = pId,
+                              onSelectProvider: (pId) {
+                                selectedProviderId.value = pId;
+                                selectedCategory.value = 'All Channels';
+                              },
                               sheetTitle: 'Filter by Provider',
-                              isCompact: false,
+                              isCompact: true,
                             )),
                         const SizedBox(width: 4.0),
                         IconButton(
@@ -307,11 +309,13 @@ class MultiViewPage extends GetView<MultiViewController> {
 
                   // Horizontal Category Pills
                   Obx(() {
-                    final categories = controller.categories;
+                    final categories = controller.getCategoriesForProvider(
+                      selectedProviderId.value,
+                    );
                     if (categories.isEmpty) return const SizedBox.shrink();
 
                     return Container(
-                      height: 40.0,
+                      height: 42.0,
                       margin: const EdgeInsets.symmetric(vertical: 4.0),
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
@@ -326,8 +330,8 @@ class MultiViewPage extends GetView<MultiViewController> {
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 12.0,
-                                vertical: 6.0,
+                                horizontal: 14.0,
+                                vertical: 8.0,
                               ),
                               decoration: BoxDecoration(
                                 color: isSelected
@@ -357,10 +361,10 @@ class MultiViewPage extends GetView<MultiViewController> {
                                     cat,
                                     style: TextStyle(
                                       color: isSelected ? Colors.white : Colors.white70,
-                                      fontSize: 12.0,
+                                      fontSize: 12.5,
                                       fontWeight: isSelected
                                           ? FontWeight.bold
-                                          : FontWeight.normal,
+                                          : FontWeight.w500,
                                     ),
                                   ),
                                 ],
@@ -397,14 +401,8 @@ class MultiViewPage extends GetView<MultiViewController> {
                         }
 
                         // Category filter
-                        if (catFilter != 'All Channels') {
-                          final chCat = c.metadata['category']?.toString() ??
-                              c.metadata['group']?.toString() ??
-                              c.metadata['group_title']?.toString() ??
-                              '';
-                          if (chCat.trim() != catFilter.trim()) {
-                            return false;
-                          }
+                        if (!controller.channelMatchesCategory(c, catFilter)) {
+                          return false;
                         }
 
                         // Search query filter
@@ -457,9 +455,7 @@ class MultiViewPage extends GetView<MultiViewController> {
                           final ch = list[index];
                           final rawLogo = ch.thumbnail ?? ch.poster ?? ch.backdrop;
                           final logoUrl = ImageUrlFormatter.format(rawLogo, item: ch);
-                          final chCat = ch.metadata['category']?.toString() ??
-                              ch.metadata['group']?.toString() ??
-                              ch.metadata['group_title']?.toString();
+                          final chCat = controller.getChannelCategoryName(ch);
 
                           return ListTile(
                             contentPadding: const EdgeInsets.symmetric(
