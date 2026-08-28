@@ -35,6 +35,8 @@ class MultiViewController extends GetxController {
   final List<Rxn<MediaItem>> slots = List.generate(4, (_) => Rxn<MediaItem>());
   final List<PlayerController?> slotControllers = List.generate(4, (_) => null);
   final RxList<MediaItem> allChannels = <MediaItem>[].obs;
+  final RxList<String> categories = <String>['All Channels'].obs;
+  final RxList<String> providers = <String>[].obs;
   final RxBool isLoadingChannels = true.obs;
 
   @override
@@ -53,6 +55,25 @@ class MultiViewController extends GetxController {
       isLoadingChannels.value = true;
       final channels = await catalogRepository.getByType(MediaType.channel);
       allChannels.assignAll(channels);
+
+      final categorySet = <String>{};
+      final providerSet = <String>{};
+      for (final ch in channels) {
+        final cat = ch.metadata['category']?.toString() ??
+            ch.metadata['group']?.toString() ??
+            ch.metadata['group_title']?.toString();
+        if (cat != null && cat.trim().isNotEmpty) {
+          categorySet.add(cat.trim());
+        }
+        if (ch.providerId.trim().isNotEmpty) {
+          providerSet.add(ch.providerId.trim());
+        }
+      }
+
+      final sortedCategories = categorySet.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      categories.assignAll(['All Channels', ...sortedCategories]);
+      providers.assignAll(providerSet.toList()..sort());
     } catch (e) {
       // Ignore
     } finally {

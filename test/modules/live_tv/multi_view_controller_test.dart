@@ -269,6 +269,7 @@ void main() {
     title: 'ESPN HD',
     mediaType: MediaType.channel,
     streamUrl: 'https://example.com/espn.m3u8',
+    metadata: {'category': 'Sports'},
     createdAt: DateTime.now(),
     updatedAt: DateTime.now(),
   );
@@ -280,6 +281,7 @@ void main() {
     title: 'BBC One',
     mediaType: MediaType.channel,
     streamUrl: 'https://example.com/bbc.m3u8',
+    metadata: {'category': 'News'},
     createdAt: DateTime.now(),
     updatedAt: DateTime.now(),
   );
@@ -305,12 +307,14 @@ void main() {
     Get.reset();
   });
 
-  test('MultiViewController initializes with quad layout and loads channels', () async {
+  test('MultiViewController initializes with quad layout and loads channels and categories', () async {
     controller.onInit();
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
     expect(controller.layoutMode.value, MultiViewLayoutMode.quad);
     expect(controller.allChannels.length, 2);
+    expect(controller.categories, containsAll(['All Channels', 'Sports', 'News']));
+    expect(controller.providers, contains('p-1'));
     expect(controller.activeAudioSlot.value, 0);
   });
 
