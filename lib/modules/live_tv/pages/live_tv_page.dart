@@ -35,6 +35,17 @@ class LiveTVPage extends GetView<LiveTVController> {
       return const TVGuidePage();
     }
 
+    // Auto-exit fullscreen if device is rotated back to portrait
+    if (!isLandscape && controller.isFullscreenMode.value && !isTV && !isDesktop) {
+      if (DateTime.now().difference(controller.lastFullscreenEntered).inMilliseconds > 500) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (controller.isFullscreenMode.value) {
+            controller.exitFullscreen();
+          }
+        });
+      }
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!controller.isLoading.value) {
         controller.syncHiddenCategories();

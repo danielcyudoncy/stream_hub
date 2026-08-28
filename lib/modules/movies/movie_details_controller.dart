@@ -1,13 +1,24 @@
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import '../../../core/iptv/models/player_negotiation.dart';
 import '../../../core/media/enums/media_type.dart';
+import '../../../core/media/enums/playback_engine_preference.dart';
 import '../../../core/media/media_library.dart';
+import '../../../core/media/player/exo_player_surface_view_adapter.dart';
+import '../../../core/media/player/ijk_player_adapter.dart';
+import '../../../core/media/player/vlc_player_adapter.dart';
 import '../../../core/media/repositories/playback_repository.dart';
-import '../../../core/routes/app_routes.dart';
+import '../../../core/streaming/repositories/stream_repository.dart';
 import '../../../core/streaming/vod/xtream_vod_info_service.dart';
 import '../../../data/models/cast_member.dart';
 import '../../../data/models/media_item.dart';
+import '../../../data/models/playback_session_model.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
+import '../../../data/repositories/history_repository.dart';
+import '../player/controllers/player_controller.dart';
+import '../settings/settings_controller.dart';
 
 enum MoviePlayAction {
   play,
@@ -20,6 +31,10 @@ class MovieDetailsController extends GetxController {
   final FavoriteRepository favoriteRepository;
   final PlaybackRepository playbackRepository;
   final MediaLibrary mediaLibrary;
+
+  PlayerController? inlinePlayerController;
+  final RxBool isInlinePlayerActive = false.obs;
+  final GlobalKey embeddedPlayerKey = GlobalKey();
 
   final Rx<MediaItem?> movieRx = Rx<MediaItem?>(null);
   final RxBool isLoading = true.obs;
@@ -52,6 +67,13 @@ class MovieDetailsController extends GetxController {
   void onInit() {
     super.onInit();
     _loadMovie();
+  }
+
+  @override
+  void onClose() {
+    stopInlinePlayback();
+    inlinePlayerController?.onClose();
+    super.onClose();
   }
 
   Future<void> _loadMovie() async {
@@ -142,7 +164,21 @@ class MovieDetailsController extends GetxController {
   }
 
   Future<void> _checkWatchProgress(MediaItem item) async {
-    final session = await playbackRepository.getWatchSession(item.id);
+    PlaybackSessionModel? session = await playbackRepository.getWatchSession(item.id);
+    if (session == null && item.metadata['position'] != null) {
+      final posNum = item.metadata['position'] is num ? item.metadata['position'] as num : 0;
+      final durNum = item.metadata['duration'] is num ? item.metadata['duration'] as num : 0;
+      if (posNum > 10000) {
+        session = PlaybackSessionModel(
+          id: item.id,
+          itemId: item.id,
+          providerType: item.providerType.name,
+          resumePosition: Duration(milliseconds: posNum.toInt()),
+          completionPercentage: durNum > 0 ? (posNum / durNum).clamp(0.0, 1.0) : 0.0,
+          updatedAt: DateTime.now(),
+        );
+      }
+    }
     if (session != null) {
       resumePosition.value = session.resumePosition;
       completionPercentage.value = session.completionPercentage;
@@ -225,23 +261,133 @@ class MovieDetailsController extends GetxController {
     }
   }
 
-  void play() {
+  void _initInlinePlayer() {
+    if (inlinePlayerController != null) return;
+
+    PlaybackEngineKind chosenEngine = PlaybackEngineKind.mediaKit;
+    final settingsCtrl = Get.isRegistered<SettingsController>()
+        ? Get.find<SettingsController>()
+        : null;
+    if (settingsCtrl != null) {
+      final pref = settingsCtrl.preferredPlayer.value;
+      if (pref == PlaybackEnginePreference.exoPlayer &&
+          ExoPlayerSurfaceViewAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.exoPlayer;
+      } else if (pref == PlaybackEnginePreference.vlc &&
+          VlcPlayerAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.vlc;
+      } else if (pref == PlaybackEnginePreference.ijk &&
+          IjkPlayerAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.ijk;
+      } else if (pref == PlaybackEnginePreference.mediaKit) {
+        chosenEngine = PlaybackEngineKind.mediaKit;
+      } else {
+        if (ExoPlayerSurfaceViewAdapter.isSupported) {
+          chosenEngine = PlaybackEngineKind.exoPlayer;
+        } else {
+          chosenEngine = PlaybackEngineKind.mediaKit;
+        }
+      }
+    } else if (ExoPlayerSurfaceViewAdapter.isSupported) {
+      chosenEngine = PlaybackEngineKind.exoPlayer;
+    }
+
+    inlinePlayerController = PlayerController(
+      engineKind: chosenEngine,
+      streamRepository: Get.isRegistered<StreamRepository>()
+          ? Get.find<StreamRepository>()
+          : null,
+      historyRepository: Get.isRegistered<HistoryRepository>()
+          ? Get.find<HistoryRepository>()
+          : null,
+      favoriteRepository: favoriteRepository,
+      playbackRepository: playbackRepository,
+      catalogRepository: catalogRepository,
+    );
+    inlinePlayerController!.onInit();
+  }
+
+  Future<void> startInlinePlayback() async {
     final item = movie;
     if (item == null) return;
+
+    _initInlinePlayer();
+    isInlinePlayerActive.value = true;
 
     Duration? startPosition;
     if (playAction.value == MoviePlayAction.resume) {
       startPosition = resumePosition.value;
     }
 
-    Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': [item],
-        'currentId': item.id,
-        'resumePosition': ?startPosition,
-      },
+    final itemsToPass = [item, ...relatedMovies];
+    inlinePlayerController?.setChannelList(itemsToPass, currentId: item.id);
+    inlinePlayerController?.setVolume(1.0);
+    await inlinePlayerController?.playMediaItem(
+      item,
+      resumePosition: startPosition,
     );
+  }
+
+  final RxBool isFullscreenMode = false.obs;
+  DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
+
+  Future<void> stopInlinePlayback() async {
+    final item = movie;
+    if (item != null && inlinePlayerController != null) {
+      final currentPos = inlinePlayerController!.playbackController.engine.positionRx.value;
+      final totalDur = inlinePlayerController!.playbackController.engine.durationRx.value;
+      if (currentPos > Duration.zero && totalDur > Duration.zero) {
+        await playbackRepository.saveWatchProgress(item, currentPos, totalDur);
+        await _checkWatchProgress(item);
+      }
+    }
+    isInlinePlayerActive.value = false;
+    isFullscreenMode.value = false;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    inlinePlayerController?.stop();
+  }
+
+  void expandToFullscreen() {
+    if (!isInlinePlayerActive.value) {
+      startInlinePlayback();
+    }
+    lastFullscreenEntered = DateTime.now();
+    isFullscreenMode.value = true;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void exitFullscreen() {
+    isFullscreenMode.value = false;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void toggleFullscreen() {
+    if (isFullscreenMode.value) {
+      exitFullscreen();
+    } else {
+      expandToFullscreen();
+    }
+  }
+
+  void openFullscreen() {
+    expandToFullscreen();
+  }
+
+  void play() {
+    startInlinePlayback();
   }
 
   void selectMovie(MediaItem item) {
@@ -252,6 +398,10 @@ class MovieDetailsController extends GetxController {
     _checkWatchProgress(item);
     _loadRelatedMovies(item);
     _enrichFromVodService(item);
+
+    if (isInlinePlayerActive.value) {
+      startInlinePlayback();
+    }
   }
 
   void openRelatedMovie(MediaItem related) {

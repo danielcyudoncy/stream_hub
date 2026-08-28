@@ -12,6 +12,7 @@ import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import 'movie_details_controller.dart';
 import 'widgets/movie_carousel.dart';
+import 'widgets/movie_inline_player.dart';
 
 class MovieDetailsPage extends GetView<MovieDetailsController> {
   const MovieDetailsPage({super.key});
@@ -19,106 +20,348 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isTV = PlatformHelper.isTV;
 
-    return AppScaffold(
-      title: 'Movie Details',
-      showNavigation: false,
-      actions: [
-        Obx(
-          () => TvFocusable(
-            onTap: controller.toggleFavorite,
-            borderRadius: AppRadius.medium,
-            scale: 1.05,
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.xs),
-              child: Icon(
-                controller.isFavorite.value
-                    ? Icons.favorite
-                    : AppIcons.favorites,
-                color: controller.isFavorite.value
-                    ? AppColors.darkError
-                    : colorScheme.onSurface,
-                size: 22.0,
+    // Auto-exit fullscreen if device is rotated back to portrait
+    if (!isLandscape && controller.isFullscreenMode.value && !isTV) {
+      if (DateTime.now().difference(controller.lastFullscreenEntered).inMilliseconds > 500) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (controller.isFullscreenMode.value) {
+            controller.exitFullscreen();
+          }
+        });
+      }
+    }
+
+    return Obx(() {
+      if (controller.isFullscreenMode.value && controller.movie != null) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            controller.exitFullscreen();
+          },
+          child: AppScaffold(
+            title: controller.movie!.title,
+            showAppBar: false,
+            showNavigation: false,
+            body: Container(
+              color: Colors.black,
+              width: double.infinity,
+              height: double.infinity,
+              child: MovieInlinePlayer(
+                key: controller.embeddedPlayerKey,
+                controller: controller,
+                isFullscreen: true,
               ),
             ),
           ),
-        ),
-      ],
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
-        }
+        );
+      }
 
-        if (controller.errorMessage.value.isNotEmpty || controller.movie == null) {
-          return EmptyLibrary(
-            icon: AppIcons.error,
-            title: 'Movie Unavailable',
-            description: controller.errorMessage.value.isNotEmpty
-                ? controller.errorMessage.value
-                : 'Could not load movie information.',
-            actionLabel: 'Try Again',
-            onAction: controller.reload,
-          );
-        }
+      return AppScaffold(
+        title: 'Movie Details',
+        showNavigation: false,
+        actions: [
+          Obx(
+            () => TvFocusable(
+              onTap: controller.toggleFavorite,
+              borderRadius: AppRadius.medium,
+              scale: 1.05,
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                child: Icon(
+                  controller.isFavorite.value
+                      ? Icons.favorite
+                      : AppIcons.favorites,
+                  color: controller.isFavorite.value
+                      ? AppColors.darkError
+                      : colorScheme.onSurface,
+                  size: 22.0,
+                ),
+              ),
+            ),
+          ),
+        ],
+        body: Obx(() {
+          if (controller.isLoading.value) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        final movie = controller.movie!;
-        return _buildContent(context, movie);
-      }),
-    );
+          if (controller.errorMessage.value.isNotEmpty || controller.movie == null) {
+            return EmptyLibrary(
+              icon: AppIcons.error,
+              title: 'Movie Unavailable',
+              description: controller.errorMessage.value.isNotEmpty
+                  ? controller.errorMessage.value
+                  : 'Could not load movie information.',
+              actionLabel: 'Try Again',
+              onAction: controller.reload,
+            );
+          }
+
+          final movie = controller.movie!;
+          return _buildContent(context, movie);
+        }),
+      );
+    });
   }
 
   Widget _buildContent(BuildContext context, MediaItem movie) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 800;
+        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
         final isTv = PlatformHelper.isTV;
 
-        return CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: isWide || isTv
-                  ? _buildWideHero(context, movie, isTv)
-                  : _buildMobileHero(context, movie),
-            ),
-            SliverToBoxAdapter(
-              child: _buildDetailsSection(context, movie, isWide || isTv),
-            ),
-            Obx(() {
-              if (controller.cast.isEmpty) {
-                return const SliverToBoxAdapter(child: SizedBox.shrink());
-              }
-              return SliverToBoxAdapter(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _buildCastSection(context),
-                    AppSpacing.heightMD,
-                  ],
-                ),
-              );
-            }),
-            Obx(() {
-              if (controller.relatedMovies.isEmpty) {
-                return const SliverToBoxAdapter(child: SizedBox.shrink());
-              }
-              return SliverToBoxAdapter(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    MovieCarousel(
-                      title: 'Related Movies',
-                      subtitle: 'More like this',
-                      movies: controller.relatedMovies,
-                      onMovieTap: controller.openRelatedMovie,
+        if (isLandscape && !isTv) {
+          return _buildLandscapeLayout(context, movie, constraints);
+        }
+
+        final isWide = constraints.maxWidth >= 800;
+        final playerWidth = constraints.maxWidth.clamp(0.0, 1000.0);
+        final playerHeight = (playerWidth - (AppSpacing.md * 2)) * (9 / 16) + AppSpacing.xs + AppSpacing.sm;
+
+        return Obx(() {
+          final isPlaying = controller.isInlinePlayerActive.value;
+
+          return CustomScrollView(
+            slivers: [
+              if (isPlaying)
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _StickyMoviePlayerHeaderDelegate(
+                    height: playerHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.md,
+                        AppSpacing.xs,
+                        AppSpacing.md,
+                        AppSpacing.sm,
+                      ),
+                      child: MovieInlinePlayer(
+                        key: controller.embeddedPlayerKey,
+                        controller: controller,
+                      ),
                     ),
-                    AppSpacing.heightXXL,
-                  ],
+                  ),
+                )
+              else
+                SliverToBoxAdapter(
+                  child: isWide || isTv
+                      ? _buildWideHero(context, movie, isTv)
+                      : _buildMobileHero(context, movie),
                 ),
+              SliverToBoxAdapter(
+                child: _buildDetailsSection(context, movie, isWide || isTv),
+              ),
+              Obx(() {
+                if (controller.cast.isEmpty) {
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
+                return SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildCastSection(context),
+                      AppSpacing.heightMD,
+                    ],
+                  ),
+                );
+              }),
+              Obx(() {
+                if (controller.relatedMovies.isEmpty) {
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
+                return SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      MovieCarousel(
+                        title: 'Related Movies',
+                        subtitle: 'More like this',
+                        movies: controller.relatedMovies,
+                        onMovieTap: controller.openRelatedMovie,
+                      ),
+                      AppSpacing.heightXXL,
+                    ],
+                  ),
+                );
+              }),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  Widget _buildLandscapeLayout(
+    BuildContext context,
+    MediaItem movie,
+    BoxConstraints constraints,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left Pane (48% width): Inline Player / Hero Poster + Title + Meta + CTA Buttons
+        SizedBox(
+          width: constraints.maxWidth * 0.48,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.md,
+              vertical: AppSpacing.sm,
+            ),
+            child: Obx(() {
+              final isPlaying = controller.isInlinePlayerActive.value;
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ClipRRect(
+                    borderRadius: AppRadius.medium,
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: isPlaying
+                          ? MovieInlinePlayer(
+                              key: controller.embeddedPlayerKey,
+                              controller: controller,
+                            )
+                          : _buildLandscapeHeroPoster(context, movie),
+                    ),
+                  ),
+                  AppSpacing.heightMD,
+                  Text(
+                    movie.title,
+                    style: AppTypography.getTitle(
+                      color: colorScheme.onSurface,
+                      scale: 1.15,
+                    ).copyWith(fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  AppSpacing.heightSM,
+                  _buildMetaChipsRow(context, movie),
+                  AppSpacing.heightMD,
+                  _buildActionButtons(context),
+                ],
               );
             }),
-          ],
-        );
-      },
+          ),
+        ),
+        // Subtle Vertical Divider
+        VerticalDivider(
+          width: 1,
+          thickness: 1,
+          color: colorScheme.outlineVariant.withValues(alpha: 0.2),
+        ),
+        // Right Pane: Scrollable Overview + Details + Cast + Related
+        Expanded(
+          child: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(
+                child: _buildDetailsSection(context, movie, true),
+              ),
+              Obx(() {
+                if (controller.cast.isEmpty) {
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
+                return SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildCastSection(context),
+                      AppSpacing.heightMD,
+                    ],
+                  ),
+                );
+              }),
+              Obx(() {
+                if (controller.relatedMovies.isEmpty) {
+                  return const SliverToBoxAdapter(child: SizedBox.shrink());
+                }
+                return SliverToBoxAdapter(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      MovieCarousel(
+                        title: 'Related Movies',
+                        subtitle: 'More like this',
+                        movies: controller.relatedMovies,
+                        onMovieTap: controller.openRelatedMovie,
+                      ),
+                      AppSpacing.heightXXL,
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeHeroPoster(BuildContext context, MediaItem movie) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final backdrop = movie.resolvedBackdropUrl ??
+        movie.backdrop ??
+        movie.poster ??
+        movie.thumbnail;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        if (backdrop != null && backdrop.isNotEmpty)
+          Image.network(
+            backdrop,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => _placeholder(colorScheme),
+          )
+        else
+          _placeholder(colorScheme),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.transparent,
+                Colors.black.withValues(alpha: 0.6),
+              ],
+            ),
+          ),
+        ),
+        Center(
+          child: TvFocusable(
+            onTap: controller.play,
+            borderRadius: AppRadius.pill,
+            child: Container(
+              width: 52.0,
+              height: 52.0,
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: AppColors.primaryGradient,
+                ),
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.darkPrimary.withValues(alpha: 0.5),
+                    blurRadius: 14.0,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white,
+                size: 32.0,
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -154,6 +397,33 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
                   Colors.black.withValues(alpha: 0.95),
                 ],
                 stops: const [0.0, 0.4, 1.0],
+              ),
+            ),
+          ),
+
+          // Central Play Tap Button
+          Center(
+            child: TvFocusable(
+              onTap: controller.play,
+              borderRadius: AppRadius.pill,
+              child: Container(
+                padding: const EdgeInsets.all(14.0),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary.withValues(alpha: 0.85),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.45),
+                      blurRadius: 16.0,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  size: 36.0,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -438,23 +708,31 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
 
   Widget _buildActionButtons(BuildContext context) {
     return Obx(() {
+      final isPlaying = controller.isInlinePlayerActive.value;
       final action = controller.playAction.value;
       final isFav = controller.isFavorite.value;
 
       String playLabel;
-      IconData playIcon = AppIcons.play;
+      IconData playIcon;
 
-      switch (action) {
-        case MoviePlayAction.resume:
-          playLabel = 'Resume';
-          break;
-        case MoviePlayAction.watchAgain:
-          playLabel = 'Watch Again';
-          playIcon = Icons.replay_rounded;
-          break;
-        case MoviePlayAction.play:
-          playLabel = 'Play';
-          break;
+      if (isPlaying) {
+        playLabel = 'Stop';
+        playIcon = Icons.stop_rounded;
+      } else {
+        switch (action) {
+          case MoviePlayAction.resume:
+            playLabel = 'Resume';
+            playIcon = AppIcons.play;
+            break;
+          case MoviePlayAction.watchAgain:
+            playLabel = 'Watch Again';
+            playIcon = Icons.replay_rounded;
+            break;
+          case MoviePlayAction.play:
+            playLabel = 'Play';
+            playIcon = AppIcons.play;
+            break;
+        }
       }
 
       return Wrap(
@@ -462,9 +740,9 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
         runSpacing: AppSpacing.xs,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          // Primary Play Button
+          // Primary Play / Stop Button
           TvFocusable(
-            onTap: controller.play,
+            onTap: isPlaying ? controller.stopInlinePlayback : controller.play,
             borderRadius: AppRadius.pill,
             child: Container(
               padding: const EdgeInsets.symmetric(
@@ -472,10 +750,22 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
                 vertical: AppSpacing.md,
               ),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: AppColors.primaryGradient,
-                ),
+                gradient: isPlaying
+                    ? null
+                    : const LinearGradient(
+                        colors: AppColors.primaryGradient,
+                      ),
+                color: isPlaying ? AppColors.darkError : null,
                 borderRadius: AppRadius.pill,
+                boxShadow: isPlaying
+                    ? [
+                        BoxShadow(
+                          color: AppColors.darkError.withValues(alpha: 0.4),
+                          blurRadius: 8.0,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -699,5 +989,39 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
         ),
       ),
     );
+  }
+}
+
+class _StickyMoviePlayerHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double height;
+  final Widget child;
+
+  _StickyMoviePlayerHeaderDelegate({
+    required this.height,
+    required this.child,
+  });
+
+  @override
+  double get minExtent => height;
+
+  @override
+  double get maxExtent => height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      height: height,
+      child: child,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _StickyMoviePlayerHeaderDelegate oldDelegate) {
+    return oldDelegate.height != height || oldDelegate.child != child;
   }
 }

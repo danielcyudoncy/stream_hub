@@ -81,27 +81,38 @@ class ExoPlayerSurfaceView(
         private const val RENDER_WATCHDOG_MS = 10_000L
     }
 
-    private val player: ExoPlayer = ExoPlayer.Builder(
-        context,
-        DefaultRenderersFactory(context)
-            .setEnableDecoderFallback(true)
-            .setMediaCodecSelector(
-                if (hardwareDecode) MediaCodecSelector.DEFAULT else MediaCodecSelector.PREFER_SOFTWARE
-            ),
-    )
-        .setLoadControl(
-            DefaultLoadControl.Builder()
-                .setBufferDurationsMs(
-                    MIN_BUFFER_MS,
-                    MAX_BUFFER_MS,
-                    BUFFER_FOR_PLAYBACK_MS,
-                    BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
-                )
-                .setBackBuffer(BACK_BUFFER_DURATION_MS, false)
-                .setPrioritizeTimeOverSizeThresholds(true)
-                .build(),
+    private val player: ExoPlayer = run {
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(C.USAGE_MEDIA)
+            .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+            .build()
+
+        ExoPlayer.Builder(
+            context,
+            DefaultRenderersFactory(context)
+                .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+                .setEnableDecoderFallback(true)
+                .setMediaCodecSelector(
+                    if (hardwareDecode) MediaCodecSelector.DEFAULT else MediaCodecSelector.PREFER_SOFTWARE
+                ),
         )
-        .build()
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
+            .setHandleAudioBecomingNoisy(true)
+            .setWakeMode(C.WAKE_MODE_NETWORK)
+            .setLoadControl(
+                DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        MIN_BUFFER_MS,
+                        MAX_BUFFER_MS,
+                        BUFFER_FOR_PLAYBACK_MS,
+                        BUFFER_FOR_PLAYBACK_AFTER_REBUFFER_MS,
+                    )
+                    .setBackBuffer(BACK_BUFFER_DURATION_MS, false)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .build(),
+            )
+            .build()
+    }
 
     private val playerView = PlayerView(context).apply {
         layoutParams = FrameLayout.LayoutParams(
@@ -300,13 +311,6 @@ class ExoPlayerSurfaceView(
     }
 
     init {
-        player.setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(C.USAGE_MEDIA)
-                .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                .build(),
-            false,
-        )
         player.addListener(playerListener)
         channel.setMethodCallHandler(this)
         events.setStreamHandler(streamHandler)
