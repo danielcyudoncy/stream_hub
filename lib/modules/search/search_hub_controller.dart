@@ -288,6 +288,18 @@ class SearchHubController extends GetxController {
         AppRoutes.seriesDetails,
         arguments: {'item': item},
       );
+    } else if (item.mediaType == MediaType.movie) {
+      Get.toNamed(
+        AppRoutes.movieDetails,
+        arguments: item,
+      );
+    } else if (item.mediaType == MediaType.channel ||
+        item.mediaType == MediaType.liveEvent ||
+        item.mediaType == MediaType.program) {
+      Get.toNamed(
+        AppRoutes.liveTV,
+        arguments: {'channel': item},
+      );
     } else {
       Get.toNamed(
         AppRoutes.fullscreenPlayer,

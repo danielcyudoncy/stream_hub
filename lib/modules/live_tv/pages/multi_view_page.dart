@@ -6,6 +6,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/provider_selector_button.dart';
 import '../controllers/multi_view_controller.dart';
 import '../models/multi_view_layout_mode.dart';
 import '../widgets/multi_view_slot_tile.dart';
@@ -214,6 +215,8 @@ class MultiViewPage extends GetView<MultiViewController> {
 
   void _openChannelPicker(BuildContext context, int slotIndex) {
     final searchFilter = ''.obs;
+    final selectedCategory = 'All Channels'.obs;
+    final selectedProviderId = ''.obs;
 
     showModalBottomSheet(
       context: context,
@@ -225,7 +228,7 @@ class MultiViewPage extends GetView<MultiViewController> {
       builder: (ctx) {
         return DraggableScrollableSheet(
           expand: false,
-          initialChildSize: 0.75,
+          initialChildSize: 0.85,
           maxChildSize: 0.95,
           minChildSize: 0.5,
           builder: (_, scrollController) {
@@ -235,22 +238,40 @@ class MultiViewPage extends GetView<MultiViewController> {
               ),
               child: Column(
                 children: [
+                  // Header with Title, Compact Provider Selector Button, and Close Button
                   Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.md,
+                      AppSpacing.sm,
+                      AppSpacing.xs,
+                    ),
                     child: Row(
                       children: [
                         const Icon(Icons.tv_rounded, color: AppColors.primary),
                         AppSpacing.widthSM,
                         Expanded(
                           child: Text(
-                            'Select Channel for Slot ${slotIndex + 1}',
+                            'Select Channel (Slot ${slotIndex + 1})',
                             style: AppTypography.getTitle(color: Colors.white).copyWith(
                               fontWeight: FontWeight.bold,
+                              fontSize: 16.0,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        // Compact Provider Filter Button (identical to Live TV Screen)
+                        Obx(() => ProviderSelectorButton(
+                              selectedProviderId: selectedProviderId.value,
+                              onSelectProvider: (pId) {
+                                selectedProviderId.value = pId;
+                                selectedCategory.value = 'All Channels';
+                              },
+                              sheetTitle: 'Filter by Provider',
+                              isCompact: true,
+                            )),
+                        const SizedBox(width: 4.0),
                         IconButton(
                           icon: const Icon(Icons.close, color: Colors.white70),
                           onPressed: () => Navigator.of(ctx).pop(),
@@ -258,102 +279,247 @@ class MultiViewPage extends GetView<MultiViewController> {
                       ],
                     ),
                   ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-                  child: TextField(
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'Search channel name or number...',
-                      hintStyle: const TextStyle(color: Colors.white54),
-                      prefixIcon: const Icon(Icons.search, color: Colors.white70),
-                      filled: true,
-                      fillColor: const Color(0xFF21262D),
-                      border: OutlineInputBorder(
-                        borderRadius: AppRadius.medium,
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.sm,
-                      ),
+
+                  // Search TextField
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.xs,
                     ),
-                    onChanged: (val) => searchFilter.value = val.trim().toLowerCase(),
-                  ),
-                ),
-                AppSpacing.heightSM,
-                Expanded(
-                  child: Obx(() {
-                    if (controller.isLoadingChannels.value) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    var list = controller.allChannels;
-                    if (searchFilter.value.isNotEmpty) {
-                      list = list
-                          .where((c) => c.title.toLowerCase().contains(searchFilter.value))
-                          .toList()
-                          .obs;
-                    }
-
-                    if (list.isEmpty) {
-                      return Center(
-                        child: Text(
-                          'No channels found',
-                          style: AppTypography.getBody(color: Colors.white60),
+                    child: TextField(
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'Search channel name or number...',
+                        hintStyle: const TextStyle(color: Colors.white54, fontSize: 13.5),
+                        prefixIcon: const Icon(Icons.search, color: Colors.white70, size: 20),
+                        filled: true,
+                        fillColor: const Color(0xFF21262D),
+                        border: OutlineInputBorder(
+                          borderRadius: AppRadius.medium,
+                          borderSide: BorderSide.none,
                         ),
-                      );
-                    }
-
-                    return ListView.separated(
-                      controller: scrollController,
-                      itemCount: list.length,
-                      separatorBuilder: (context, index) => const Divider(
-                        color: Colors.white10,
-                        height: 1,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.md,
+                          vertical: AppSpacing.sm,
+                        ),
                       ),
-                      itemBuilder: (context, index) {
-                        final ch = list[index];
-                        final rawLogo = ch.thumbnail ?? ch.poster ?? ch.backdrop;
-                        final logoUrl = ImageUrlFormatter.format(rawLogo, item: ch);
+                      onChanged: (val) => searchFilter.value = val.trim().toLowerCase(),
+                    ),
+                  ),
 
-                        return ListTile(
-                          leading: logoUrl != null && logoUrl.isNotEmpty
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(4.0),
-                                  child: Image.network(
-                                    logoUrl,
-                                    width: 36.0,
-                                    height: 36.0,
-                                    fit: BoxFit.contain,
-                                    errorBuilder: (context, error, stackTrace) =>
-                                        const Icon(Icons.live_tv, size: 24.0, color: Colors.white54),
+                  // Horizontal Category Pills
+                  Obx(() {
+                    final categories = controller.getCategoriesForProvider(
+                      selectedProviderId.value,
+                    );
+                    if (categories.isEmpty) return const SizedBox.shrink();
+
+                    return Container(
+                      height: 42.0,
+                      margin: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                        itemCount: categories.length,
+                        separatorBuilder: (context, index) => const SizedBox(width: 8.0),
+                        itemBuilder: (context, idx) {
+                          final cat = categories[idx];
+                          final isSelected = selectedCategory.value == cat;
+                          return GestureDetector(
+                            onTap: () => selectedCategory.value = cat,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14.0,
+                                vertical: 8.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : const Color(0xFF21262D),
+                                borderRadius: AppRadius.pill,
+                                border: Border.all(
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : Colors.white12,
+                                  width: 1.0,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (cat == 'All Channels') ...[
+                                    Icon(
+                                      Icons.grid_view_rounded,
+                                      size: 14.0,
+                                      color: isSelected ? Colors.white : AppColors.primary,
+                                    ),
+                                    const SizedBox(width: 5.0),
+                                  ],
+                                  Text(
+                                    cat,
+                                    style: TextStyle(
+                                      color: isSelected ? Colors.white : Colors.white70,
+                                      fontSize: 12.5,
+                                      fontWeight: isSelected
+                                          ? FontWeight.bold
+                                          : FontWeight.w500,
+                                    ),
                                   ),
-                                )
-                              : const Icon(Icons.live_tv, size: 24.0, color: Colors.white54),
-                          title: Text(
-                            ch.title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
+                                ],
+                              ),
                             ),
-                          ),
-                          subtitle: ch.subtitle != null
-                              ? Text(
-                                  ch.subtitle!,
-                                  style: const TextStyle(color: Colors.white54, fontSize: 12.0),
-                                )
-                              : null,
-                          onTap: () {
-                            controller.setChannelForSlot(slotIndex, ch);
-                            Navigator.of(ctx).pop();
-                          },
-                        );
-                      },
+                          );
+                        },
+                      ),
                     );
                   }),
-                ),
-              ],
-            ),
+
+                  AppSpacing.heightXS,
+
+                  // Channel List
+                  Expanded(
+                    child: Obx(() {
+                      if (controller.isLoadingChannels.value) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final query = searchFilter.value;
+                      final catFilter = selectedCategory.value;
+                      final pFilter = selectedProviderId.value;
+
+                      final list = controller.allChannels.where((c) {
+                        // Provider filter
+                        if (pFilter.isNotEmpty &&
+                            c.providerId != pFilter &&
+                            c.providerType.displayName.toLowerCase() !=
+                                pFilter.toLowerCase() &&
+                            c.providerType.name.toLowerCase() !=
+                                pFilter.toLowerCase()) {
+                          return false;
+                        }
+
+                        // Category filter
+                        if (!controller.channelMatchesCategory(c, catFilter)) {
+                          return false;
+                        }
+
+                        // Search query filter
+                        if (query.isNotEmpty) {
+                          final title = c.title.toLowerCase();
+                          final numStr = c.metadata['tvg-chno']?.toString() ?? '';
+                          if (!title.contains(query) && !numStr.contains(query)) {
+                            return false;
+                          }
+                        }
+
+                        return true;
+                      }).toList();
+
+                      if (list.isEmpty) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.tv_off_rounded, size: 40.0, color: Colors.white24),
+                              const SizedBox(height: 8.0),
+                              Text(
+                                'No channels found',
+                                style: AppTypography.getBody(color: Colors.white60),
+                              ),
+                              if (catFilter != 'All Channels' || pFilter.isNotEmpty || query.isNotEmpty) ...[
+                                const SizedBox(height: 8.0),
+                                TextButton(
+                                  onPressed: () {
+                                    selectedCategory.value = 'All Channels';
+                                    selectedProviderId.value = '';
+                                    searchFilter.value = '';
+                                  },
+                                  child: const Text('Reset Filters'),
+                                ),
+                              ],
+                            ],
+                          ),
+                        );
+                      }
+
+                      return ListView.separated(
+                        controller: scrollController,
+                        itemCount: list.length,
+                        separatorBuilder: (context, index) => const Divider(
+                          color: Colors.white10,
+                          height: 1,
+                        ),
+                        itemBuilder: (context, index) {
+                          final ch = list[index];
+                          final rawLogo = ch.thumbnail ?? ch.poster ?? ch.backdrop;
+                          final logoUrl = ImageUrlFormatter.format(rawLogo, item: ch);
+                          final chCat = controller.getChannelCategoryName(ch);
+
+                          return ListTile(
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                              vertical: 2.0,
+                            ),
+                            leading: logoUrl != null && logoUrl.isNotEmpty
+                                ? ClipRRect(
+                                    borderRadius: BorderRadius.circular(4.0),
+                                    child: Image.network(
+                                      logoUrl,
+                                      width: 38.0,
+                                      height: 38.0,
+                                      fit: BoxFit.contain,
+                                      errorBuilder: (context, error, stackTrace) =>
+                                          const Icon(Icons.live_tv, size: 24.0, color: Colors.white54),
+                                    ),
+                                  )
+                                : const Icon(Icons.live_tv, size: 24.0, color: Colors.white54),
+                            title: Text(
+                              ch.title,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14.0,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: chCat != null && chCat.isNotEmpty
+                                ? Text(
+                                    chCat,
+                                    style: const TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 11.5,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  )
+                                : (ch.subtitle != null
+                                    ? Text(
+                                        ch.subtitle!,
+                                        style: const TextStyle(
+                                          color: Colors.white54,
+                                          fontSize: 11.5,
+                                        ),
+                                      )
+                                    : null),
+                            trailing: const Icon(
+                              Icons.play_circle_outline_rounded,
+                              color: AppColors.primary,
+                              size: 24.0,
+                            ),
+                            onTap: () {
+                              controller.setChannelForSlot(slotIndex, ch);
+                              Navigator.of(ctx).pop();
+                            },
+                          );
+                        },
+                      );
+                    }),
+                  ),
+                ],
+              ),
             );
           },
         );
