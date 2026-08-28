@@ -173,7 +173,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     });
 
     _volumeSub = _player!.stream.volume.listen((vol) {
-      _currentVolume = vol;
+      _currentVolume = (vol / 100.0).clamp(0.0, 1.0);
     });
 
     _playingSub = _player!.stream.playing.listen((playing) {
@@ -296,6 +296,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     final media = mk.Media(session.stream.url,
         httpHeaders: session.stream.headers);
     await _player!.open(media);
+    await _player?.setVolume(_currentMuted ? 0.0 : (_currentVolume * 100.0));
     _currentDuration = Duration.zero;
   }
 
@@ -327,6 +328,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     }
 
     await _player!.open(mk.Media(session.streamUrl, httpHeaders: headers));
+    await _player?.setVolume(_currentMuted ? 0.0 : (_currentVolume * 100.0));
     _currentDuration = Duration.zero;
   }
 
@@ -519,13 +521,13 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   @override
   Future<void> setVolume(double volume) async {
     _currentVolume = volume.clamp(0.0, 1.0);
-    await _player?.setVolume(_currentVolume);
+    await _player?.setVolume(_currentMuted ? 0.0 : (_currentVolume * 100.0));
   }
 
   @override
   Future<void> setMuted(bool muted) async {
     _currentMuted = muted;
-    await _player?.setVolume(muted ? 0.0 : _currentVolume);
+    await _player?.setVolume(muted ? 0.0 : (_currentVolume * 100.0));
   }
 
   @override

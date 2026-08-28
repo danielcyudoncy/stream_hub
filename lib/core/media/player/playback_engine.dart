@@ -383,11 +383,13 @@ class PlaybackEngine {
   Future<void> resume() async {
     await adapter.resume();
     _setState(PlaybackState.playing);
-    _publishEvent(PlaybackResumedEvent(
-      sessionId: _currentSession!.id,
-      occurredAt: DateTime.now(),
-    ));
-    _resumeAnalytics();
+    if (_currentSession != null) {
+      _publishEvent(PlaybackResumedEvent(
+        sessionId: _currentSession!.id,
+        occurredAt: DateTime.now(),
+      ));
+      _resumeAnalytics();
+    }
   }
 
   Future<void> stop() async {

@@ -81,6 +81,9 @@ class MultiViewController extends GetxController {
     setActiveAudioSlot(slotIndex);
 
     await newCtrl.playMediaItem(channel);
+
+    // Re-assert audio focus across all slots now that playback session and views have initialized
+    setActiveAudioSlot(activeAudioSlot.value);
   }
 
   void clearSlot(int slotIndex) {
@@ -113,14 +116,16 @@ class MultiViewController extends GetxController {
       final ctrl = slotControllers[i];
       if (ctrl != null) {
         if (i == slotIndex) {
+          ctrl.setMuted(false);
           ctrl.setVolume(1.0);
           try {
-            if (ctrl.state != PlaybackState.playing) {
+            if (ctrl.state == PlaybackState.paused) {
               ctrl.resume();
             }
           } catch (_) {}
         } else {
           ctrl.setVolume(0.0);
+          ctrl.setMuted(true);
         }
       }
     }

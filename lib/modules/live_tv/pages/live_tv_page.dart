@@ -506,10 +506,11 @@ class LiveTVPage extends GetView<LiveTVController> {
               color: Colors.white,
             ),
             tooltip: 'Multi-View (Multi-Screen)',
-            onPressed: () {
+            onPressed: () async {
               final activeChannel = controller.activePlayingChannel.value ??
                   controller.featuredChannel.value;
-              Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
+              controller.stopInlinePlayer();
+              await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
             },
           ),
 

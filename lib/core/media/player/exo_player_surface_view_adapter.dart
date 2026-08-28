@@ -161,6 +161,10 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
     if (!_viewReady.isCompleted) _viewReady.complete(viewId);
     _logger.info('ExoPlayer platform view created (id: $viewId)', tag: 'Player');
 
+    // Immediately push buffered volume and muted states to the native player
+    _channel?.invokeMethod<void>('setVolume', {'volume': _currentVolume}).catchError((_) {});
+    _channel?.invokeMethod<void>('setMuted', {'muted': _currentMuted}).catchError((_) {});
+
     if (_lastLoadedUrl != null &&
         !_currentState.isStoppedLike &&
         _currentState != PlaybackState.error) {
@@ -176,6 +180,7 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
           await _channel?.invokeMethod<void>('seekTo', {'positionMs': _currentPosition.inMilliseconds});
         }
         await _channel?.invokeMethod<void>('setVolume', {'volume': _currentVolume});
+        await _channel?.invokeMethod<void>('setMuted', {'muted': _currentMuted});
         await _channel?.invokeMethod<void>('play');
       }).catchError((e) {
         _logger.warning('Failed to restore stream on view created: $e', tag: 'Player');
@@ -288,6 +293,8 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
         'url': url,
         'headers': headers ?? const <String, String>{},
       });
+      await channel.invokeMethod<void>('setVolume', {'volume': _currentVolume});
+      await channel.invokeMethod<void>('setMuted', {'muted': _currentMuted});
     } on MissingPluginException {
       // If the platform view channel changed during recreation, wait briefly and retry with fresh channel
       _logger.warning('MethodChannel for ExoPlayer surface $viewId disconnected, waiting for updated view...', tag: 'Player');
@@ -297,6 +304,8 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
           'url': url,
           'headers': headers ?? const <String, String>{},
         });
+        await _channel!.invokeMethod<void>('setVolume', {'volume': _currentVolume});
+        await _channel!.invokeMethod<void>('setMuted', {'muted': _currentMuted});
       }
     }
     _logger.info(
