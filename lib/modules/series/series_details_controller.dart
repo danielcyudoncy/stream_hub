@@ -1,17 +1,24 @@
 // modules/series/series_details_controller.dart
 import 'dart:async';
+import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
+import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
+import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
+import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
+import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
+import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/core/streaming/series/next_episode_resolver.dart';
 import 'package:stream_hub/core/streaming/series/series_progress_service.dart';
 import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
 import 'package:stream_hub/core/streaming/session/session_manager.dart';
-import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/data/models/cast_member.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playback_session_model.dart';
@@ -19,7 +26,10 @@ import 'package:stream_hub/data/models/series_progress.dart';
 import 'package:stream_hub/data/providers/stalker/stalker_portal_client.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
+import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
+import 'package:stream_hub/modules/player/controllers/player_controller.dart';
+import 'package:stream_hub/modules/settings/settings_controller.dart';
 
 /// Loads a series' seasons and episodes and prepares individual episodes for playback.
 class SeriesDetailsController extends GetxController {
@@ -29,6 +39,7 @@ class SeriesDetailsController extends GetxController {
   final XtreamSeriesInfoService seriesInfoService;
   final FavoriteRepository? favoriteRepository;
   final PlaybackRepository? playbackRepository;
+  final StreamRepository? streamRepository;
   final LoggingService logger;
   final SeriesProgressService progressService;
   final NextEpisodeResolver resolver;
@@ -41,6 +52,7 @@ class SeriesDetailsController extends GetxController {
     required this.seriesInfoService,
     this.favoriteRepository,
     this.playbackRepository,
+    this.streamRepository,
     this.progressService = const SeriesProgressService(),
     this.resolver = const NextEpisodeResolver(),
     LoggingService? logger,
@@ -48,10 +60,11 @@ class SeriesDetailsController extends GetxController {
   }) : logger = logger ?? LoggingService(),
        _initialSeries = initialSeries;
 
-  MediaItem? _series;
-  MediaItem get series => _series!;
+  final Rx<MediaItem?> _series = Rx<MediaItem?>(null);
+  MediaItem? get series => _series.value;
+  Rx<MediaItem?> get seriesRx => _series;
 
-  String get seriesTitle => _series?.title ?? 'Series';
+  String get seriesTitle => _series.value?.title ?? 'Series';
 
   final RxBool isLoading = true.obs;
   final RxString errorMessage = ''.obs;
@@ -67,6 +80,13 @@ class SeriesDetailsController extends GetxController {
   final RxList<MediaItem> relatedSeries = <MediaItem>[].obs;
   final RxList<CastMember> castMembers = <CastMember>[].obs;
 
+  PlayerController? inlinePlayerController;
+  final GlobalKey embeddedPlayerKey = GlobalKey();
+  final RxBool isInlinePlayerActive = false.obs;
+  final Rx<MediaItem?> activeEpisode = Rx<MediaItem?>(null);
+  final RxBool isFullscreenMode = false.obs;
+  DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
+
   SeasonGroup? get selectedSeason {
     final index = selectedSeasonIndex.value;
     if (seasons.isEmpty || index < 0 || index >= seasons.length) return null;
@@ -79,20 +99,27 @@ class SeriesDetailsController extends GetxController {
       seasons.fold(0, (sum, season) => sum + season.episodes.length);
 
   @override
+  void onClose() {
+    stopInlinePlayback();
+    inlinePlayerController?.onClose();
+    super.onClose();
+  }
+
+  @override
   void onInit() {
     super.onInit();
     final args = Get.arguments;
-    _series = _initialSeries ??
+    _series.value = _initialSeries ??
         (args is MediaItem
             ? args
             : (args is Map ? args['item'] as MediaItem? : null));
-    isFavorite.value = _series?.favorite ?? false;
+    isFavorite.value = _series.value?.favorite ?? false;
     _parseCastMembers();
     _load();
   }
 
   void _parseCastMembers() {
-    final s = _series;
+    final s = _series.value;
     if (s == null) return;
     final rawCast = s.metadata['cast'] ?? s.metadata['actors'];
     if (rawCast is List) {
@@ -120,19 +147,19 @@ class SeriesDetailsController extends GetxController {
     errorMessage.value = '';
     infoMessage.value = '';
     try {
-      final series = _series;
-      if (series == null) {
+      final current = _series.value;
+      if (current == null) {
         errorMessage.value = 'No series was selected.';
         return;
       }
-      final groups = await _fetchSeasonGroups(series);
+      final groups = await _fetchSeasonGroups(current);
       seasons.assignAll(groups);
       selectedSeasonIndex.value = 0;
       await _loadProgress();
       await _loadRelatedSeries();
     } on StreamSeriesInfoUnavailableException catch (e) {
       logger.warning(
-        'Provider does not expose series info for ${_series?.id}',
+        'Provider does not expose series info for ${_series.value?.id}',
         tag: 'SeriesDetailsController',
         error: e,
       );
@@ -141,7 +168,7 @@ class SeriesDetailsController extends GetxController {
           'Your provider may not support episode discovery for this series.';
     } catch (e) {
       logger.warning(
-        'Failed to load episodes for series ${_series?.id} (error: $e)',
+        'Failed to load episodes for series ${_series.value?.id} (error: $e)',
         tag: 'SeriesDetailsController',
         error: e,
       );
@@ -152,7 +179,7 @@ class SeriesDetailsController extends GetxController {
   }
 
   Future<void> _loadProgress() async {
-    final s = _series;
+    final s = _series.value;
     if (s == null || playbackRepository == null) return;
     try {
       final sessions = await playbackRepository!.getAllWatchSessions();
@@ -192,7 +219,7 @@ class SeriesDetailsController extends GetxController {
   }
 
   Future<void> _loadRelatedSeries() async {
-    final s = _series;
+    final s = _series.value;
     if (s == null) return;
     try {
       final all = await catalogRepository.getByType(MediaType.series);
@@ -446,7 +473,7 @@ class SeriesDetailsController extends GetxController {
       }
     } catch (e) {
       logger.warning(
-        'Failed to cache episodes for ${_series?.id}',
+        'Failed to cache episodes for ${_series.value?.id}',
         tag: 'SeriesDetailsController',
         error: e,
       );
@@ -465,6 +492,45 @@ class SeriesDetailsController extends GetxController {
       alternativeIds: [if (streamId != null && streamId.isNotEmpty) streamId],
     );
     if (info.seasons.isEmpty) return const [];
+
+    // Enrich series metadata with rich overview, cast, rating, cover, backdrop
+    final currentSeries = _series.value;
+    if (currentSeries != null) {
+      final updatedPlot = (info.plot != null && info.plot!.isNotEmpty)
+          ? info.plot
+          : (currentSeries.description != null && currentSeries.description!.isNotEmpty
+              ? currentSeries.description
+              : null);
+      final updatedCover = info.cover.isNotEmpty ? info.cover : currentSeries.poster;
+      final updatedBackdrop = info.backdrop.isNotEmpty ? info.backdrop : currentSeries.backdrop;
+      final updatedRating = info.rating ?? currentSeries.rating;
+      final updatedGenres = (info.genre != null && info.genre!.isNotEmpty)
+          ? info.genre!
+              .split(RegExp(r'[,;/]'))
+              .map((g) => g.trim())
+              .where((g) => g.isNotEmpty)
+              .toList()
+          : currentSeries.genres;
+
+      final newMeta = <String, dynamic>{
+        ...currentSeries.metadata,
+        if (info.cast != null && info.cast!.isNotEmpty) 'cast': info.cast,
+        if (info.director != null && info.director!.isNotEmpty) 'director': info.director,
+        if (info.releaseDate != null && info.releaseDate!.isNotEmpty) 'releaseDate': info.releaseDate,
+        if (info.youtubeTrailer != null && info.youtubeTrailer!.isNotEmpty) 'youtubeTrailer': info.youtubeTrailer,
+      };
+
+      _series.value = currentSeries.copyWith(
+        description: updatedPlot,
+        poster: updatedCover,
+        backdrop: updatedBackdrop,
+        rating: updatedRating,
+        genres: updatedGenres.isNotEmpty ? updatedGenres : currentSeries.genres,
+        metadata: newMeta,
+      );
+      _parseCastMembers();
+    }
+
     final groups = info.seasons.map((season) {
       return SeasonGroup(
         number: season.number,
@@ -472,7 +538,7 @@ class SeriesDetailsController extends GetxController {
         episodes: season.episodes
             .map(
               (episode) =>
-                  _episodeMediaItem(series, session, episode, season: season),
+                  _episodeMediaItem(_series.value ?? series, session, episode, season: season),
             )
             .toList(),
       );
@@ -575,7 +641,9 @@ class SeriesDetailsController extends GetxController {
       providerType: series.providerType,
       mediaType: MediaType.episode,
       title: episode.title,
-      subtitle: 'S${episode.seasonNum} E${episode.episodeNum}',
+      subtitle: (season?.name != null && season!.name.isNotEmpty)
+          ? season.name
+          : 'Season ${episode.seasonNum > 0 ? episode.seasonNum : 1}',
       description: episode.plot,
       poster: (episode.cover != null && episode.cover!.isNotEmpty)
           ? episode.cover
@@ -590,6 +658,9 @@ class SeriesDetailsController extends GetxController {
         'seasonNumber': episode.seasonNum,
         'seasonName': season?.name,
         'episodeNumber': episode.episodeNum,
+        if (episode.durationSeconds != null) 'duration': episode.durationSeconds,
+        if (episode.durationSeconds != null) 'durationSeconds': episode.durationSeconds,
+        if (episode.airDate != null) 'airDate': episode.airDate,
         'streamUrl': episode.streamUrl(
           baseUrl: session.baseUrl,
           username: session.username,
@@ -603,6 +674,144 @@ class SeriesDetailsController extends GetxController {
     );
   }
 
+  void _initInlinePlayer() {
+    if (inlinePlayerController != null) return;
+
+    PlaybackEngineKind chosenEngine = PlaybackEngineKind.mediaKit;
+    final settingsCtrl = Get.isRegistered<SettingsController>()
+        ? Get.find<SettingsController>()
+        : null;
+    if (settingsCtrl != null) {
+      final pref = settingsCtrl.preferredPlayer.value;
+      if (pref == PlaybackEnginePreference.exoPlayer &&
+          ExoPlayerSurfaceViewAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.exoPlayer;
+      } else if (pref == PlaybackEnginePreference.vlc &&
+          VlcPlayerAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.vlc;
+      } else if (pref == PlaybackEnginePreference.ijk &&
+          IjkPlayerAdapter.isSupported) {
+        chosenEngine = PlaybackEngineKind.ijk;
+      } else if (pref == PlaybackEnginePreference.mediaKit) {
+        chosenEngine = PlaybackEngineKind.mediaKit;
+      } else {
+        if (ExoPlayerSurfaceViewAdapter.isSupported) {
+          chosenEngine = PlaybackEngineKind.exoPlayer;
+        } else {
+          chosenEngine = PlaybackEngineKind.mediaKit;
+        }
+      }
+    } else if (ExoPlayerSurfaceViewAdapter.isSupported) {
+      chosenEngine = PlaybackEngineKind.exoPlayer;
+    }
+
+    final sRepo = streamRepository ??
+        (Get.isRegistered<StreamRepository>()
+            ? Get.find<StreamRepository>()
+            : null);
+    if (sRepo == null) {
+      logger.warning(
+        'SeriesDetailsController: StreamRepository not available, skipping player instantiation',
+      );
+      return;
+    }
+
+    inlinePlayerController = PlayerController(
+      engineKind: chosenEngine,
+      streamRepository: sRepo,
+      historyRepository: Get.isRegistered<HistoryRepository>()
+          ? Get.find<HistoryRepository>()
+          : null,
+      favoriteRepository: favoriteRepository,
+      playbackRepository: playbackRepository,
+      catalogRepository: catalogRepository,
+    );
+    inlinePlayerController!.onInit();
+  }
+
+  /// Starts inline playback for a specific episode.
+  Future<void> startEpisodePlayback(
+    MediaItem episode, {
+    Duration? resumePosition,
+  }) async {
+    activeEpisode.value = episode;
+    isInlinePlayerActive.value = true;
+
+    _initInlinePlayer();
+    if (inlinePlayerController == null) return;
+
+    final allSeasonEps = selectedSeason?.episodes ?? seasons.expand((s) => s.episodes).toList();
+    final itemsToPass = allSeasonEps.isNotEmpty ? allSeasonEps : [episode];
+    inlinePlayerController?.setChannelList(itemsToPass, currentId: episode.id);
+    inlinePlayerController?.setVolume(1.0);
+
+    // Resolve resume position if not provided
+    var startPos = resumePosition;
+    if (startPos == null && playbackRepository != null) {
+      final progress = await playbackRepository!.getWatchProgress(episode.id);
+      if (progress != null && progress > Duration.zero) {
+        startPos = progress;
+      }
+    }
+
+    await inlinePlayerController?.playMediaItem(
+      episode,
+      resumePosition: startPos,
+    );
+  }
+
+  /// Stops inline playback and saves current watch progress.
+  Future<void> stopInlinePlayback() async {
+    final ep = activeEpisode.value;
+    if (ep != null && inlinePlayerController != null && playbackRepository != null) {
+      final currentPos = inlinePlayerController!.playbackController.engine.positionRx.value;
+      final totalDur = inlinePlayerController!.playbackController.engine.durationRx.value;
+      if (currentPos > Duration.zero && totalDur > Duration.zero) {
+        await playbackRepository!.saveWatchProgress(ep, currentPos, totalDur);
+        await _loadProgress();
+      }
+    }
+    isInlinePlayerActive.value = false;
+    isFullscreenMode.value = false;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+    inlinePlayerController?.stop();
+  }
+
+  void expandToFullscreen() {
+    if (!isInlinePlayerActive.value && seasons.isNotEmpty) {
+      playPrimaryAction();
+    }
+    lastFullscreenEntered = DateTime.now();
+    isFullscreenMode.value = true;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void exitFullscreen() {
+    isFullscreenMode.value = false;
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  void toggleFullscreen() {
+    if (isFullscreenMode.value) {
+      exitFullscreen();
+    } else {
+      expandToFullscreen();
+    }
+  }
+
   /// Triggers the primary action (Play S01E01 / Resume / Play Next / Watch Again).
   void playPrimaryAction() {
     final prog = seriesProgress.value;
@@ -610,44 +819,50 @@ class SeriesDetailsController extends GetxController {
     if (allEps.isEmpty) return;
 
     final target = prog?.nextEpisodeToWatch ?? allEps.first;
-    Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': allEps,
-        'currentId': target.id,
-        if (prog?.actionType == SeriesWatchActionType.resume && prog?.currentPosition != null)
-          'resumePosition': prog!.currentPosition,
-      },
+    startEpisodePlayback(
+      target,
+      resumePosition: (prog?.actionType == SeriesWatchActionType.resume && prog?.currentPosition != null)
+          ? prog!.currentPosition
+          : null,
     );
   }
 
-  /// Plays a single episode, passing all episodes in the season for next/prev playlist support.
+  /// Plays a single episode in the inline player.
   void playEpisode(MediaItem episode) {
-    final allSeasonEps = selectedSeason?.episodes ?? seasons.expand((s) => s.episodes).toList();
-    Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': allSeasonEps.isNotEmpty ? allSeasonEps : [episode],
-        'currentId': episode.id,
-      },
-    );
+    startEpisodePlayback(episode);
   }
 
   /// Plays every episode of the currently selected season.
   void playSeason() {
     final season = selectedSeason;
     if (season == null || season.episodes.isEmpty) return;
-    Get.toNamed(
-      AppRoutes.fullscreenPlayer,
-      arguments: {
-        'items': season.episodes,
-        'currentId': season.episodes.first.id,
-      },
-    );
+    startEpisodePlayback(season.episodes.first);
+  }
+
+  /// Plays the next episode in sequence.
+  void playNextEpisode() {
+    final current = activeEpisode.value;
+    if (current == null) return;
+    final allEps = seasons.expand((s) => s.episodes).toList();
+    final idx = allEps.indexWhere((e) => e.id == current.id);
+    if (idx >= 0 && idx + 1 < allEps.length) {
+      startEpisodePlayback(allEps[idx + 1]);
+    }
+  }
+
+  /// Plays the previous episode in sequence.
+  void playPreviousEpisode() {
+    final current = activeEpisode.value;
+    if (current == null) return;
+    final allEps = seasons.expand((s) => s.episodes).toList();
+    final idx = allEps.indexWhere((e) => e.id == current.id);
+    if (idx > 0) {
+      startEpisodePlayback(allEps[idx - 1]);
+    }
   }
 
   Future<void> toggleFavorite() async {
-    final item = _series;
+    final item = _series.value;
     final repository = favoriteRepository;
     if (item == null || repository == null) return;
     try {
@@ -666,8 +881,19 @@ class SeriesDetailsController extends GetxController {
     }
   }
 
+  void selectSeries(MediaItem item) {
+    stopInlinePlayback();
+    activeEpisode.value = null;
+    _series.value = item;
+    isFavorite.value = item.favorite;
+    _parseCastMembers();
+    seasons.clear();
+    selectedSeasonIndex.value = 0;
+    _load();
+  }
+
   void openRelatedSeries(MediaItem item) {
-    Get.toNamed(AppRoutes.seriesDetails, arguments: item, preventDuplicates: false);
+    selectSeries(item);
   }
 
   static String? _seriesId(MediaItem series) {

@@ -15,6 +15,7 @@ class SeriesCarousel extends StatelessWidget {
   final VoidCallback? onViewAll;
   final Map<String, double>? progressMap;
   final Set<String>? completedIds;
+  final void Function(MediaItem item)? onToggleFavorite;
 
   const SeriesCarousel({
     super.key,
@@ -25,6 +26,7 @@ class SeriesCarousel extends StatelessWidget {
     this.onViewAll,
     this.progressMap,
     this.completedIds,
+    this.onToggleFavorite,
   });
 
   @override
@@ -122,6 +124,9 @@ class SeriesCarousel extends StatelessWidget {
                 height: cardHeight,
                 progressPercentage: progress,
                 isCompleted: isCompleted,
+                onToggleFavorite: onToggleFavorite != null
+                    ? () => onToggleFavorite!(item)
+                    : null,
                 onTap: () => onSeriesTap(item),
               );
             },

@@ -678,7 +678,8 @@ List<MediaItem> _buildStalkerMoviesIsolated(_StalkerBuildMoviesParams params) {
     final cmd = m['cmd']?.toString() ?? '';
     final directSource = m['direct_source']?.toString() ?? '';
     final cover = ImageUrlFormatter.extractFromMap(m, serverUrl: params.portalUrl);
-    final rating = double.tryParse(m['rating_imdb']?.toString() ?? '');
+    final rating = _parseStalkerRatingIsolated(m);
+    final description = m['description']?.toString() ?? m['plot']?.toString() ?? m['overview']?.toString();
 
     items.add(MediaItem(
       id: 'stalker-${params.providerId}-vod-$streamId',
@@ -686,7 +687,7 @@ List<MediaItem> _buildStalkerMoviesIsolated(_StalkerBuildMoviesParams params) {
       providerType: MediaSourceType.stalker,
       mediaType: MediaType.movie,
       title: name,
-      description: m['description']?.toString(),
+      description: description,
       poster: cover,
       backdrop: cover,
       genres: genreName.isNotEmpty ? [genreName] : [],
@@ -700,6 +701,10 @@ List<MediaItem> _buildStalkerMoviesIsolated(_StalkerBuildMoviesParams params) {
         'directSource': directSource,
         if (directSource.isNotEmpty) 'streamUrl': directSource,
         'hd': m['hd'],
+        'resolution': m['hd_resolution'] ?? m['resolution'],
+        'year': m['year'] ?? m['release_date'],
+        'director': m['director'],
+        'actors': m['actors'] ?? m['cast'],
         'added': m['added'],
         'portalUrl': params.portalUrl,
       },
@@ -709,6 +714,17 @@ List<MediaItem> _buildStalkerMoviesIsolated(_StalkerBuildMoviesParams params) {
   }
 
   return items;
+}
+
+double? _parseStalkerRatingIsolated(Map m) {
+  for (final key in ['rating_imdb', 'rating_kinopoisk', 'rating_5based', 'rating', 'rate', 'vote_average']) {
+    final val = m[key];
+    if (val != null) {
+      final parsed = double.tryParse(val.toString().replaceAll(RegExp(r'[^0-9.]'), ''));
+      if (parsed != null && parsed > 0 && parsed <= 10) return parsed;
+    }
+  }
+  return null;
 }
 
 List<MediaItem> _buildStalkerSeriesIsolated(_StalkerBuildSeriesParams params) {
@@ -740,6 +756,8 @@ List<MediaItem> _buildStalkerSeriesIsolated(_StalkerBuildSeriesParams params) {
     final cover = ImageUrlFormatter.extractFromMap(s, serverUrl: params.portalUrl);
     final seasons = s['seasons'];
     final seasonsList = seasons is List ? seasons.whereType<Map>().toList() : <Map>[];
+    final rating = _parseStalkerRatingIsolated(s);
+    final description = s['description']?.toString() ?? s['plot']?.toString() ?? s['overview']?.toString();
 
     items.add(MediaItem(
       id: 'stalker-${params.providerId}-series-$streamId',
@@ -747,9 +765,11 @@ List<MediaItem> _buildStalkerSeriesIsolated(_StalkerBuildSeriesParams params) {
       providerType: MediaSourceType.stalker,
       mediaType: MediaType.series,
       title: name,
+      description: description,
       poster: cover,
       backdrop: cover,
       genres: genreName.isNotEmpty ? [genreName] : [],
+      rating: rating,
       metadata: {
         'type': 'series',
         'cmd': cmd,
@@ -757,6 +777,12 @@ List<MediaItem> _buildStalkerSeriesIsolated(_StalkerBuildSeriesParams params) {
         'genre': genreName,
         'streamId': streamId,
         'seasonCount': seasonsList.length,
+        'hd': s['hd'],
+        'resolution': s['hd_resolution'] ?? s['resolution'],
+        'year': s['year'] ?? s['release_date'],
+        'director': s['director'],
+        'actors': s['actors'] ?? s['cast'],
+        'plot': description ?? '',
         'portalUrl': params.portalUrl,
       },
       createdAt: params.createdAt,
