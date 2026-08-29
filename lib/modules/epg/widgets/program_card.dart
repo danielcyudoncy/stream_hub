@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stream_hub/core/utils/date_formatter.dart';
 import 'package:stream_hub/modules/epg/models/epg_program.dart';
 import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
@@ -150,7 +151,7 @@ class ProgramCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          '${_formatTime(program.startTime)} - ${_formatTime(program.endTime)}',
+                          DateFormatter.formatTimeRange(program.startTime, program.endTime),
                           style: AppTypography.getCaption(
                             color: colorScheme.onSurfaceVariant,
                           ),
@@ -184,9 +185,5 @@ class ProgramCard extends StatelessWidget {
         size: 48,
       ),
     );
-  }
-
-  String _formatTime(DateTime date) {
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

@@ -24,6 +24,43 @@ class GuideRepositoryImpl implements GuideRepository {
     if (catalogRepository != null) {
       final items = await catalogRepository!.getByType(MediaType.channel);
       final now = DateTime.now();
+      final todayMidnight = DateTime(now.year, now.month, now.day);
+      final scheduleTemplates = [
+        {'title': 'Morning Live', 'durationHours': 2, 'desc': 'Morning live broadcast and daily highlights.'},
+        {'title': 'Daytime Express', 'durationHours': 2, 'desc': 'Daytime program schedule and entertainment.'},
+        {'title': 'News & Current Affairs', 'durationHours': 1, 'desc': 'Comprehensive news and live coverage.'},
+        {'title': 'Prime Showcase', 'durationHours': 2, 'desc': 'Prime time entertainment and special features.'},
+        {'title': 'Live Feature Broadcast', 'durationHours': 2, 'desc': 'Live studio broadcast and special event coverage.'},
+        {'title': 'Evening Special', 'durationHours': 2, 'desc': 'Evening prime programming and recap.'},
+        {'title': 'Night Edition', 'durationHours': 3, 'desc': 'Late night programming and international broadcast.'},
+      ];
+
+      final realPrograms = await catalogRepository!.getByType(MediaType.program);
+      final Map<String, List<EPGProgram>> realProgramsByChannel = {};
+
+      if (realPrograms.isNotEmpty) {
+        for (final rp in realPrograms) {
+          final sTime = rp.metadata['startTime'] != null ? DateTime.tryParse(rp.metadata['startTime'].toString()) : null;
+          final eTime = rp.metadata['endTime'] != null ? DateTime.tryParse(rp.metadata['endTime'].toString()) : null;
+          final chId = rp.metadata['channelId']?.toString() ?? rp.subtitle;
+          if (sTime != null && eTime != null && chId != null) {
+            realProgramsByChannel.putIfAbsent(chId, () => []).add(EPGProgram(
+              id: rp.id,
+              providerId: rp.providerId,
+              providerType: rp.providerType,
+              title: rp.title,
+              mediaType: rp.mediaType,
+              createdAt: rp.createdAt,
+              updatedAt: rp.updatedAt,
+              channelId: chId,
+              startTime: sTime,
+              endTime: eTime,
+              description: rp.description,
+              isLive: !now.isBefore(sTime) && now.isBefore(eTime),
+            ));
+          }
+        }
+      }
 
       for (var item in items) {
         final channel = EPGChannel(
@@ -40,22 +77,37 @@ class GuideRepositoryImpl implements GuideRepository {
         );
         channels.add(channel);
 
-        // Generate a single dummy program for the channel covering 24 hours
-        var currentStart = now.subtract(const Duration(hours: 2));
-        var currentEnd = currentStart.add(const Duration(hours: 24));
-        programs.add(EPGProgram(
-          id: 'prog_${channel.id}_0',
-          providerId: channel.providerId,
-          providerType: channel.providerType,
-          title: 'No Guide Data for ${channel.title}',
-          mediaType: MediaType.program,
-          createdAt: now,
-          updatedAt: now,
-          channelId: channel.id,
-          startTime: currentStart,
-          endTime: currentEnd,
-          description: 'No EPG data is available for this channel at the moment.',
-        ));
+        final channelRealPrograms = realProgramsByChannel[channel.id];
+        if (channelRealPrograms != null && channelRealPrograms.isNotEmpty) {
+          programs.addAll(channelRealPrograms);
+        } else {
+          // Generate clean round-hour schedule blocks for the day and next day
+          var slotStart = todayMidnight;
+          int progIdx = 0;
+          while (slotStart.isBefore(todayMidnight.add(const Duration(hours: 36)))) {
+            final template = scheduleTemplates[progIdx % scheduleTemplates.length];
+            final durationHours = template['durationHours'] as int;
+            final slotEnd = slotStart.add(Duration(hours: durationHours));
+
+            programs.add(EPGProgram(
+              id: 'prog_${channel.id}_$progIdx',
+              providerId: channel.providerId,
+              providerType: channel.providerType,
+              title: '${channel.title}: ${template['title']}',
+              mediaType: MediaType.program,
+              createdAt: now,
+              updatedAt: now,
+              channelId: channel.id,
+              startTime: slotStart,
+              endTime: slotEnd,
+              description: template['desc'] as String,
+              isLive: !now.isBefore(slotStart) && now.isBefore(slotEnd),
+            ));
+
+            slotStart = slotEnd;
+            progIdx++;
+          }
+        }
       }
     }
 

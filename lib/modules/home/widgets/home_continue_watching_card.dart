@@ -13,11 +13,13 @@ import '../../../shared/widgets/tv_focusable.dart';
 class HomeContinueWatchingCard extends StatelessWidget {
   final MediaItem item;
   final VoidCallback? onTap;
+  final ValueChanged<bool>? onFocusChange;
 
   const HomeContinueWatchingCard({
     super.key,
     required this.item,
     this.onTap,
+    this.onFocusChange,
   });
 
   double _getProgress() {
@@ -79,6 +81,7 @@ class HomeContinueWatchingCard extends StatelessWidget {
 
     return TvFocusable(
       onTap: onTap,
+      onFocusChange: onFocusChange,
       borderRadius: AppRadius.medium,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

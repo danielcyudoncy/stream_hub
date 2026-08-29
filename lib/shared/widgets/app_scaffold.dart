@@ -28,17 +28,19 @@ class AppScaffold extends StatelessWidget {
 
   int _getSelectedIndex() {
     final route = Get.currentRoute;
-    if (route == AppRoutes.home) return 0;
-    if (route == AppRoutes.liveTV) return 1;
-    if (route == AppRoutes.movies || route == AppRoutes.movieDetails) return 2;
-    if (route == AppRoutes.series || route == AppRoutes.seriesDetails) return 3;
+    if (route == AppRoutes.search || route == AppRoutes.guideSearch) return 0;
+    if (route == AppRoutes.home) return 1;
+    if (route == AppRoutes.liveTV || route == AppRoutes.channelDetails) return 2;
+    if (route == AppRoutes.movies || route == AppRoutes.movieDetails) return 3;
+    if (route == AppRoutes.series || route == AppRoutes.seriesDetails) return 4;
+    if (route == AppRoutes.favorites) return 5;
     if (route == AppRoutes.settings ||
         route == AppRoutes.providerManager ||
         route == AppRoutes.providerForm ||
         route == AppRoutes.providerDetails) {
-      return 4;
+      return 6;
     }
-    return 0;
+    return 1;
   }
 
   void _onItemTapped(int index) {
@@ -47,18 +49,24 @@ class AppScaffold extends StatelessWidget {
     }
     switch (index) {
       case 0:
-        Get.offAllNamed(AppRoutes.home);
+        Get.offAllNamed(AppRoutes.search);
         break;
       case 1:
-        Get.offAllNamed(AppRoutes.liveTV);
+        Get.offAllNamed(AppRoutes.home);
         break;
       case 2:
-        Get.offAllNamed(AppRoutes.movies);
+        Get.offAllNamed(AppRoutes.liveTV);
         break;
       case 3:
-        Get.offAllNamed(AppRoutes.series);
+        Get.offAllNamed(AppRoutes.movies);
         break;
       case 4:
+        Get.offAllNamed(AppRoutes.series);
+        break;
+      case 5:
+        Get.offAllNamed(AppRoutes.favorites);
+        break;
+      case 6:
         Get.offAllNamed(AppRoutes.settings);
         break;
     }
@@ -70,6 +78,11 @@ class AppScaffold extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     final List<NavigationDestination> destinations = [
+      const NavigationDestination(
+        icon: Icon(Icons.search_rounded),
+        selectedIcon: Icon(Icons.search_rounded),
+        label: 'Search',
+      ),
       const NavigationDestination(
         icon: Icon(AppIcons.home),
         selectedIcon: Icon(AppIcons.home),
@@ -89,6 +102,11 @@ class AppScaffold extends StatelessWidget {
         icon: Icon(Icons.video_library_outlined),
         selectedIcon: Icon(Icons.video_library),
         label: 'Series',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.star_rounded),
+        selectedIcon: Icon(Icons.star_rounded),
+        label: 'Favorites',
       ),
       const NavigationDestination(
         icon: Icon(AppIcons.settings),

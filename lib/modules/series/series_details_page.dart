@@ -784,6 +784,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
           children: [
             Expanded(
               child: TvFocusable(
+                autofocus: PlatformHelper.supportsDPadNavigation,
                 onTap: isPlaying
                     ? _controller.stopInlinePlayback
                     : _controller.playPrimaryAction,

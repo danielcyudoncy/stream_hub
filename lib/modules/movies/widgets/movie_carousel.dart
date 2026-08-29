@@ -101,28 +101,30 @@ class MovieCarousel extends StatelessWidget {
         ),
         SizedBox(
           height: cardHeight,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            scrollDirection: Axis.horizontal,
-            itemCount: movies.length,
-            separatorBuilder: (context, index) => AppSpacing.widthSM,
-            itemBuilder: (context, index) {
-              final movie = movies[index];
-              final progress = progressMap?[movie.id];
-              final isDone = completedIds?.contains(movie.id) ?? false;
+          child: FocusTraversalGroup(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              scrollDirection: Axis.horizontal,
+              itemCount: movies.length,
+              separatorBuilder: (context, index) => AppSpacing.widthSM,
+              itemBuilder: (context, index) {
+                final movie = movies[index];
+                final progress = progressMap?[movie.id];
+                final isDone = completedIds?.contains(movie.id) ?? false;
 
-              return MovieCard(
-                item: movie,
-                width: cardWidth,
-                height: cardHeight,
-                progressPercentage: progress,
-                isCompleted: isDone,
-                onTap: () => onMovieTap(movie),
-                onToggleFavorite: onToggleFavorite != null
-                    ? () => onToggleFavorite!(movie)
-                    : null,
-              );
-            },
+                return MovieCard(
+                  item: movie,
+                  width: cardWidth,
+                  height: cardHeight,
+                  progressPercentage: progress,
+                  isCompleted: isDone,
+                  onTap: () => onMovieTap(movie),
+                  onToggleFavorite: onToggleFavorite != null
+                      ? () => onToggleFavorite!(movie)
+                      : null,
+                );
+              },
+            ),
           ),
         ),
       ],

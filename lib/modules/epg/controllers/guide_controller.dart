@@ -1,4 +1,5 @@
 import 'package:get/get.dart';
+import 'package:stream_hub/data/repositories/provider_repository.dart';
 import 'package:stream_hub/modules/epg/models/epg_channel.dart';
 import 'package:stream_hub/modules/epg/models/epg_program.dart';
 import 'package:stream_hub/modules/epg/repositories/guide_repository.dart';
@@ -31,6 +32,15 @@ class GuideController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      selectedProvider.value = providerRepo.activeProviderId.value;
+      ever(providerRepo.activeProviderId, (id) {
+        if (selectedProvider.value != id) {
+          setProvider(id);
+        }
+      });
+    }
     loadGuide();
   }
 
@@ -88,7 +98,16 @@ class GuideController extends GetxController {
   }
 
   void setProvider(String provider) {
-    selectedProvider.value = provider;
+    if (selectedProvider.value != provider) {
+      selectedProvider.value = provider;
+    }
+    selectedCategory.value = 'All';
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      if (providerRepo.activeProviderId.value != provider) {
+        providerRepo.setActiveProviderId(provider);
+      }
+    }
     _applyFilters();
   }
 

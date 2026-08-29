@@ -317,6 +317,16 @@ extension MediaItemVodExtensions on MediaItem {
         quality.contains('UHD');
   }
 
+  /// Whether video is FHD (1080p)
+  bool get isFhd {
+    final titleUpper = title.toUpperCase();
+    final quality = metadata['quality']?.toString().toUpperCase() ?? '';
+    return titleUpper.contains('1080') ||
+        titleUpper.contains('FHD') ||
+        quality.contains('1080') ||
+        quality.contains('FHD');
+  }
+
   /// Whether video is HD
   bool get isHd {
     if (is4k) return true;
@@ -327,6 +337,31 @@ extension MediaItemVodExtensions on MediaItem {
         titleUpper.contains('720') ||
         quality.contains('HD') ||
         quality.contains('1080');
+  }
+
+  /// Resolved release year
+  String? get resolvedYear {
+    final y = metadata['year'] ?? metadata['release_date'] ?? metadata['released'] ?? metadata['aired'];
+    if (y is int && y > 1900) return y.toString();
+    if (y is String && y.isNotEmpty) {
+      final match = RegExp(r'\b(19\d\d|20\d\d)\b').firstMatch(y);
+      if (match != null) return match.group(0);
+    }
+    return null;
+  }
+
+  /// Resolved primary genre / category
+  String? get resolvedGenre {
+    if (genres.isNotEmpty) return genres.first;
+    final g = metadata['genre'] ?? metadata['genres'] ?? metadata['category_name'] ?? metadata['category'];
+    if (g is String && g.trim().isNotEmpty) {
+      final first = g.split(RegExp(r'[,;/]')).first.trim();
+      if (first.isNotEmpty) return first;
+    }
+    if (g is List && g.isNotEmpty) {
+      return g.first.toString().trim();
+    }
+    return null;
   }
 }
 

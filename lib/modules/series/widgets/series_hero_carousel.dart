@@ -92,14 +92,17 @@ class _SeriesHeroCarouselState extends State<SeriesHeroCarousel> {
     }
 
     final isTv = PlatformHelper.isTV;
+    final size = MediaQuery.of(context).size;
+    final screenHeight = size.height;
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final width = constraints.maxWidth;
         final height = isTv
-            ? 450.0
-            : (constraints.maxWidth >= 800
-                ? 380.0
-                : (constraints.maxWidth * 0.95).clamp(280.0, 420.0));
+            ? 560.0
+            : (width >= 1024
+                ? (screenHeight * 0.65).clamp(500.0, 900.0)
+                : (width >= 600 ? 380.0 : 330.0));
 
         return SizedBox(
           height: height,

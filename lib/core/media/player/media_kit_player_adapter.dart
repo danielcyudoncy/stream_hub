@@ -84,6 +84,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     if (controller == null) return const SizedBox.shrink();
     return Video(
       controller: controller,
+      controls: NoVideoControls,
       subtitleViewConfiguration: const SubtitleViewConfiguration(
         style: TextStyle(
           height: 1.4,

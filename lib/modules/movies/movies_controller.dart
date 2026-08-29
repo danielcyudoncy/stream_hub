@@ -9,6 +9,7 @@ import '../../../data/models/media_item.dart';
 import '../../../data/models/playback_session_model.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
+import '../../../data/repositories/provider_repository.dart';
 
 class MoviesController extends GetxController {
   final MediaEngine mediaEngine;
@@ -61,6 +62,16 @@ class MoviesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      selectedProvider.value = providerRepo.activeProviderId.value;
+      ever(providerRepo.activeProviderId, (id) {
+        if (selectedProvider.value != id) {
+          selectedProvider.value = id;
+          _applyProviderFilter();
+        }
+      });
+    }
     _loadMovies();
     mediaLibrary.moviesStream.listen((items) {
       if (items.isNotEmpty) {
@@ -83,7 +94,14 @@ class MoviesController extends GetxController {
   Future<void> reloadMovies() => _loadMovies();
 
   void setProvider(String providerId) {
+    if (selectedProvider.value == providerId) return;
     selectedProvider.value = providerId;
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      if (providerRepo.activeProviderId.value != providerId) {
+        providerRepo.setActiveProviderId(providerId);
+      }
+    }
     _applyProviderFilter();
   }
 

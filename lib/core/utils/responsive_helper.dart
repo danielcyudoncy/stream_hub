@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import '../helpers/platform_helper.dart';
 
 /// Screen breakpoints based on UI_GUIDELINES.md
 class ResponsiveHelper {
@@ -21,7 +22,7 @@ class ResponsiveHelper {
   }
 
   static bool isTV(BuildContext context) =>
-      MediaQuery.sizeOf(context).width > desktopMaxWidth;
+      PlatformHelper.isTV || MediaQuery.sizeOf(context).width > desktopMaxWidth;
 
   /// Returns a value based on the current screen size.
   static T value<T>(

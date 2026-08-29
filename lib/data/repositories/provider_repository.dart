@@ -11,6 +11,33 @@ class ProviderRepository extends GetxService {
   final DatabaseService _dbService = Get.find<DatabaseService>();
   final LoggingService _logger = Get.find<LoggingService>();
 
+  final RxString activeProviderId = ''.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    _loadActiveProviderId();
+  }
+
+  void _loadActiveProviderId() {
+    try {
+      final saved = _dbService.settingsBox.get('active_provider_id');
+      if (saved is String && saved.isNotEmpty) {
+        activeProviderId.value = saved;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> setActiveProviderId(String id) async {
+    try {
+      activeProviderId.value = id;
+      await _dbService.settingsBox.put('active_provider_id', id);
+      _logger.info('Active provider set to: $id', tag: 'ProviderRepository');
+    } catch (e) {
+      _logger.error('Failed to set active provider', tag: 'ProviderRepository', error: e);
+    }
+  }
+
   Future<List<ProviderModel>> getAllProviders() async {
     try {
       final box = _dbService.providersBox;

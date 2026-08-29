@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/repositories/playback_repository.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
@@ -11,9 +14,11 @@ import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/glass_panel.dart';
 import '../../../shared/widgets/premium_media_card.dart';
+import '../../../shared/widgets/provider_selector_button.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import 'home_controller.dart';
 import 'widgets/home_content_rail.dart';
+import 'widgets/home_continue_watching_card.dart';
 import 'widgets/home_live_channel_card.dart';
 import 'widgets/home_skeleton_loader.dart';
 
@@ -66,9 +71,21 @@ class _TvHomePageState extends State<TvHomePage> {
         arguments: {
           'items': [item],
           'currentId': item.id,
-          'resumePosition': ?startPosition,
+          'resumePosition': startPosition,
         },
       );
+    }
+  }
+
+  void _openDetails(MediaItem item) {
+    if (item.mediaType == MediaType.series) {
+      Get.toNamed(AppRoutes.seriesDetails, arguments: {'item': item});
+    } else if (item.mediaType == MediaType.movie) {
+      Get.toNamed(AppRoutes.movieDetails, arguments: item);
+    } else if (item.mediaType == MediaType.channel) {
+      Get.toNamed(AppRoutes.liveTV, arguments: {'channel': item});
+    } else {
+      _openItem(item);
     }
   }
 
@@ -82,20 +99,36 @@ class _TvHomePageState extends State<TvHomePage> {
           return const HomeSkeletonLoader();
         }
 
-        // Default to first item if none focused yet
-        final backgroundItem = _focusedItem ?? (controller.movies.isNotEmpty ? controller.movies.first : null);
+        // Spotlight background item priority:
+        // 1. Current focused item from D-pad
+        // 2. First hero item
+        // 3. First continue watching item
+        // 4. First movie/series
+        final backgroundItem = _focusedItem ??
+            (controller.featuredHeroItems.isNotEmpty
+                ? controller.featuredHeroItems.first
+                : (controller.continueWatching.isNotEmpty
+                    ? controller.continueWatching.first
+                    : (controller.movies.isNotEmpty
+                        ? controller.movies.first
+                        : (controller.series.isNotEmpty
+                            ? controller.series.first
+                            : null))));
+
         final rawBackdrop = backgroundItem?.backdrop ?? backgroundItem?.poster;
-        final backdrop = backgroundItem != null ? ImageUrlFormatter.format(rawBackdrop, item: backgroundItem) : null;
+        final backdrop = backgroundItem != null
+            ? ImageUrlFormatter.format(rawBackdrop, item: backgroundItem)
+            : null;
 
         return Stack(
           children: [
-            // Background Image
+            // 1. Background Cinematic Spotlight Image
             if (backdrop != null && backdrop.isNotEmpty)
               Positioned(
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 716.0,
+                height: 760.0,
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 600),
                   child: Image.network(
@@ -108,21 +141,21 @@ class _TvHomePageState extends State<TvHomePage> {
                 ),
               ),
 
-            // Hero Gradients (Stitch Design)
+            // 2. Rich Multi-Layer Gradient Overlays (Vignette + Readability)
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              height: 716.0,
+              height: 760.0,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
-                    stops: const [0.0, 0.4, 1.0],
+                    stops: const [0.0, 0.45, 1.0],
                     colors: [
                       AppColors.background,
-                      AppColors.background.withValues(alpha: 0.8),
+                      AppColors.background.withValues(alpha: 0.85),
                       Colors.transparent,
                     ],
                   ),
@@ -133,16 +166,16 @@ class _TvHomePageState extends State<TvHomePage> {
               top: 0,
               left: 0,
               right: 0,
-              height: 716.0,
+              height: 760.0,
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    stops: const [0.0, 0.3, 1.0],
+                    stops: const [0.0, 0.35, 1.0],
                     colors: [
                       AppColors.background,
-                      AppColors.background.withValues(alpha: 0.7),
+                      AppColors.background.withValues(alpha: 0.75),
                       Colors.transparent,
                     ],
                   ),
@@ -150,46 +183,48 @@ class _TvHomePageState extends State<TvHomePage> {
               ),
             ),
 
-            // Main Scrolling Content
+            // 3. Main Scrolling Content (Hero + Content Rails)
             Positioned.fill(
               child: CustomScrollView(
                 slivers: [
-                  // Hero Content Area
+                  // Hero Spotlight Header
                   SliverToBoxAdapter(
                     child: SizedBox(
-                      height: 550, // pushes content down, leaves room for -mt-16 row overlap
+                      height: 560,
                       child: Padding(
-                        padding: const EdgeInsets.only(left: 64.0, right: 64.0, bottom: 64.0),
+                        padding: const EdgeInsets.only(
+                          left: 64.0,
+                          right: 64.0,
+                          bottom: 48.0,
+                        ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            if (backgroundItem != null) _buildHeroContent(backgroundItem),
+                            if (backgroundItem != null)
+                              _buildHeroContent(backgroundItem),
                           ],
                         ),
                       ),
                     ),
                   ),
 
-                  // Rows (Overlapping the hero slightly)
+                  // Rails Section
                   SliverToBoxAdapter(
                     child: Transform.translate(
-                      offset: const Offset(0, -64), // -mt-16 overlap hero
+                      offset: const Offset(0, -32),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          if (controller.movies.isNotEmpty) ...[
+                          // 1. Continue Watching (Real session progress)
+                          if (controller.continueWatching.isNotEmpty) ...[
                             HomeContentRail(
-                              title: 'Continue Watching', // Renamed for Stitch match
-                              items: controller.movies,
+                              title: 'Continue Watching',
+                              items: controller.continueWatching,
                               onSeeAll: () => Get.toNamed(AppRoutes.movies),
                               itemBuilder: (context, item, index) {
-                                return PremiumMediaCard(
+                                return HomeContinueWatchingCard(
                                   item: item,
-                                  width: 320, // Wider for continue watching
-                                  aspectRatio: 16 / 9,
-                                  useGlassLabel: true,
-                                  progress: 0.65, // Stubbed progress
                                   onTap: () => _openItem(item),
                                   onFocusChange: (f) => _onItemFocus(item, f),
                                 );
@@ -198,10 +233,47 @@ class _TvHomePageState extends State<TvHomePage> {
                             AppSpacing.heightXL,
                           ],
 
+                          // 2. Live TV Quick Picks
+                          if (controller.liveChannels.isNotEmpty) ...[
+                            HomeContentRail(
+                              title: 'Live TV Quick Picks',
+                              items: controller.liveChannels.take(15).toList(),
+                              onSeeAll: () => Get.toNamed(AppRoutes.liveTV),
+                              itemBuilder: (context, item, index) {
+                                return HomeLiveChannelCard(
+                                  channel: item,
+                                  onTap: () => _openItem(item),
+                                  onFocusChange: (f) => _onItemFocus(item, f),
+                                );
+                              },
+                            ),
+                            AppSpacing.heightXL,
+                          ],
+
+                          // 3. Featured Movies
+                          if (controller.movies.isNotEmpty) ...[
+                            HomeContentRail(
+                              title: 'Trending Movies',
+                              items: controller.movies.take(20).toList(),
+                              onSeeAll: () => Get.toNamed(AppRoutes.movies),
+                              itemBuilder: (context, item, index) {
+                                return PremiumMediaCard(
+                                  item: item,
+                                  width: 200,
+                                  aspectRatio: 2 / 3,
+                                  onTap: () => _openItem(item),
+                                  onFocusChange: (f) => _onItemFocus(item, f),
+                                );
+                              },
+                            ),
+                            AppSpacing.heightXL,
+                          ],
+
+                          // 4. Popular Series
                           if (controller.series.isNotEmpty) ...[
                             HomeContentRail(
-                              title: 'Recommended for You',
-                              items: controller.series,
+                              title: 'Popular Series',
+                              items: controller.series.take(20).toList(),
                               onSeeAll: () => Get.toNamed(AppRoutes.series),
                               itemBuilder: (context, item, index) {
                                 return PremiumMediaCard(
@@ -216,15 +288,17 @@ class _TvHomePageState extends State<TvHomePage> {
                             AppSpacing.heightXL,
                           ],
 
+                          // 5. Recently Added
                           if (controller.recentlyAdded.isNotEmpty) ...[
                             HomeContentRail(
                               title: 'Recently Added',
-                              items: controller.recentlyAdded,
+                              items: controller.recentlyAdded.take(20).toList(),
                               itemBuilder: (context, item, index) {
                                 if (item.mediaType == MediaType.channel) {
                                   return HomeLiveChannelCard(
                                     channel: item,
                                     onTap: () => _openItem(item),
+                                    onFocusChange: (f) => _onItemFocus(item, f),
                                   );
                                 }
                                 return PremiumMediaCard(
@@ -247,6 +321,43 @@ class _TvHomePageState extends State<TvHomePage> {
                 ],
               ),
             ),
+            // 4. Top-Right Header Actions (Provider Switcher & Search)
+            Positioned(
+              top: 32.0,
+              right: 48.0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Obx(() {
+                    return ProviderSelectorButton(
+                      selectedProviderId: controller.selectedProviderId.value,
+                      onSelectProvider: controller.setSelectedProvider,
+                      isCompact: false,
+                    );
+                  }),
+                  AppSpacing.widthSM,
+                  TvFocusable(
+                    onTap: () => Get.toNamed(AppRoutes.search),
+                    borderRadius: AppRadius.pill,
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.25),
+                        ),
+                      ),
+                      child: const Icon(
+                        AppIcons.search,
+                        color: Colors.white,
+                        size: 20.0,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
         );
       }),
@@ -254,45 +365,105 @@ class _TvHomePageState extends State<TvHomePage> {
   }
 
   Widget _buildHeroContent(MediaItem item) {
+    final typeLabel = item.mediaType == MediaType.series
+        ? 'SERIES'
+        : (item.mediaType == MediaType.channel ? 'LIVE TV' : 'MOVIE');
+
+    final year = item.resolvedYear;
+    final resolution = item.is4k
+        ? '4K UHD'
+        : (item.isFhd ? 'FHD' : (item.isHd ? 'HD' : null));
+
+    final rating = item.formattedRating;
+    final genre = item.resolvedGenre;
+
     return SizedBox(
-      width: MediaQuery.of(context).size.width * 0.6,
+      width: MediaQuery.of(context).size.width * 0.58,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Badges and Metadata
-          Row(
+          // Badges and Metadata Row
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              // Content Type Tag
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.secondaryContainer,
+                  color: AppColors.primary,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'FEATURED',
-                  style: AppTypography.getLabel(color: AppColors.onSecondaryContainer).copyWith(
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.5,
+                  typeLabel,
+                  style: AppTypography.getLabel(color: Colors.white).copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
                   ),
                 ),
               ),
-              AppSpacing.widthMD,
-              Text(
-                '2024 • Action • 2h 15m', // Stubbing metadata since model might lack it
-                style: AppTypography.getLabel(color: AppColors.textSecondary),
-              ),
-              if (item.rating != null && item.rating! > 0) ...[
-                AppSpacing.widthMD,
-                Icon(Icons.star, color: AppColors.primary, size: 16),
-                AppSpacing.widthXXS,
+
+              // Rating Badge
+              if (rating != null && rating.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded, color: Colors.amber, size: 14.0),
+                      const SizedBox(width: 4.0),
+                      Text(
+                        rating,
+                        style: AppTypography.getLabel(color: Colors.amber).copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              // Year
+              if (year != null && year.isNotEmpty)
                 Text(
-                  item.rating!.toStringAsFixed(1),
+                  year,
+                  style: AppTypography.getLabel(color: AppColors.textSecondary)
+                      .copyWith(fontWeight: FontWeight.w600),
+                ),
+
+              // Resolution
+              if (resolution != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(3),
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: Text(
+                    resolution,
+                    style: AppTypography.getCaption(color: Colors.white70).copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+
+              // Genre
+              if (genre != null && genre.isNotEmpty)
+                Text(
+                  '•  $genre',
                   style: AppTypography.getLabel(color: AppColors.textSecondary),
                 ),
-              ],
             ],
           ),
-          AppSpacing.heightMD,
+          AppSpacing.heightSM,
 
           // Title
           AnimatedSwitcher(
@@ -301,13 +472,13 @@ class _TvHomePageState extends State<TvHomePage> {
               item.title,
               key: ValueKey(item.title),
               style: AppTypography.getDisplay(color: AppColors.textPrimary).copyWith(
-                fontSize: 48,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.0,
+                fontSize: 44,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.8,
                 shadows: [
                   Shadow(
-                    color: Colors.black.withValues(alpha: 0.8),
-                    blurRadius: 10,
+                    color: Colors.black.withValues(alpha: 0.9),
+                    blurRadius: 12,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -316,9 +487,9 @@ class _TvHomePageState extends State<TvHomePage> {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          AppSpacing.heightMD,
+          AppSpacing.heightSM,
 
-          // Description
+          // Description / Synopsis
           if (item.description != null && item.description!.isNotEmpty)
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
@@ -326,10 +497,11 @@ class _TvHomePageState extends State<TvHomePage> {
                 item.description!,
                 key: ValueKey(item.description),
                 style: AppTypography.getBody(color: AppColors.textSecondary).copyWith(
+                  height: 1.4,
                   shadows: [
                     Shadow(
                       color: Colors.black.withValues(alpha: 0.8),
-                      blurRadius: 5,
+                      blurRadius: 6,
                       offset: const Offset(0, 1),
                     ),
                   ],
@@ -338,41 +510,60 @@ class _TvHomePageState extends State<TvHomePage> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-          
-          AppSpacing.heightXL,
 
-          // Buttons
+          AppSpacing.heightLG,
+
+          // Action Buttons
           Row(
             children: [
+              // Watch Now / Resume Button
               TvFocusable(
+                autofocus: PlatformHelper.supportsDPadNavigation,
                 onTap: () => _openItem(item),
+                borderRadius: AppRadius.pill,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryContainer,
-                    borderRadius: BorderRadius.circular(32),
+                    gradient: const LinearGradient(
+                      colors: AppColors.primaryGradient,
+                    ),
+                    borderRadius: AppRadius.pill,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.play_arrow, color: AppColors.onPrimaryContainer),
+                      const Icon(AppIcons.play, color: Colors.white, size: 22),
                       AppSpacing.widthSM,
                       Text(
                         'Watch Now',
-                        style: AppTypography.getTitle(color: AppColors.onPrimaryContainer),
+                        style: AppTypography.getTitle(color: Colors.white).copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ],
                   ),
                 ),
               ),
-              AppSpacing.widthLG,
+              AppSpacing.widthMD,
+
+              // More Info / Details Button
               TvFocusable(
-                onTap: () {},
+                onTap: () => _openDetails(item),
+                borderRadius: AppRadius.pill,
                 child: GlassPanel(
-                  borderRadius: BorderRadius.circular(32),
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  borderRadius: AppRadius.pill,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                   child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.info_outline, color: AppColors.textPrimary),
+                      const Icon(Icons.info_outline_rounded, color: AppColors.textPrimary, size: 20),
                       AppSpacing.widthSM,
                       Text(
                         'More Info',
@@ -382,6 +573,25 @@ class _TvHomePageState extends State<TvHomePage> {
                   ),
                 ),
               ),
+              AppSpacing.widthMD,
+
+              // Favorite Toggle
+              Obx(() {
+                final isFav = controller.isItemFavorite(item.id);
+                return TvFocusable(
+                  onTap: () => controller.toggleFavorite(item),
+                  borderRadius: AppRadius.pill,
+                  child: GlassPanel(
+                    borderRadius: AppRadius.pill,
+                    padding: const EdgeInsets.all(14),
+                    child: Icon(
+                      isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      color: isFav ? AppColors.darkError : Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                );
+              }),
             ],
           ),
         ],

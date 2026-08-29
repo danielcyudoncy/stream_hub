@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
@@ -60,6 +60,20 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final resolution = widget.channel.metadata['resolution'] as String?;
     final isTV = PlatformHelper.isTV;
 
+    final GuideController? guideController =
+        Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
+    final now = DateTime.now();
+    final EPGProgram? currentProgram = guideController?.programs
+        .firstWhereOrNull((p) => p.channelId == widget.channel.id && p.isCurrentlyPlaying);
+
+    final double progress = currentProgram != null
+        ? (now.difference(currentProgram.startTime).inSeconds /
+                (currentProgram.endTime.difference(currentProgram.startTime).inSeconds > 0
+                    ? currentProgram.endTime.difference(currentProgram.startTime).inSeconds
+                    : 1))
+            .clamp(0.0, 1.0)
+        : (widget.isPlaying ? 0.45 : 0.0);
+
     return FocusableActionDetector(
       onShowFocusHighlight: (show) {
         if (mounted && _isFocused != show) {
@@ -77,22 +91,34 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
             duration: const Duration(milliseconds: 180),
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
-              color: colorScheme.surface,
+              color: widget.isPlaying
+                  ? AppColors.primary.withValues(alpha: 0.12)
+                  : colorScheme.surface,
               borderRadius: AppRadius.medium,
               border: Border.all(
-                color: _isFocused || widget.isPlaying
-                    ? colorScheme.primary
-                    : colorScheme.outline.withValues(alpha: 0.1),
-                width: _isFocused || widget.isPlaying ? 2.0 : 1.0,
+                color: widget.isPlaying
+                    ? AppColors.primary
+                    : (_isFocused
+                        ? colorScheme.primary
+                        : colorScheme.outline.withValues(alpha: 0.1)),
+                width: widget.isPlaying ? 2.5 : (_isFocused ? 2.0 : 1.0),
               ),
               boxShadow: [
-                BoxShadow(
-                  color: _isFocused || widget.isPlaying
-                      ? colorScheme.primary.withValues(alpha: 0.35)
-                      : Colors.black.withValues(alpha: 0.2),
-                  blurRadius: _isFocused || widget.isPlaying ? 14.0 : 8.0,
-                  offset: const Offset(0, 4),
-                ),
+                if (widget.isPlaying || _isFocused)
+                  BoxShadow(
+                    color: AppColors.primary.withValues(
+                      alpha: widget.isPlaying ? 0.45 : 0.35,
+                    ),
+                    blurRadius: widget.isPlaying ? 20.0 : 14.0,
+                    spreadRadius: widget.isPlaying ? 2.0 : 1.0,
+                    offset: const Offset(0, 4),
+                  )
+                else
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 8.0,
+                    offset: const Offset(0, 4),
+                  ),
               ],
             ),
             child: Column(
@@ -102,7 +128,9 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                      color: widget.isPlaying
+                          ? AppColors.primary.withValues(alpha: 0.18)
+                          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(10.0),
                       ),
@@ -221,49 +249,113 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
 
               // Channel metadata section below image
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6.0,
-                  vertical: 4.0,
-                ),
+                padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 6.0),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            TitleFormatter.formatChannelTitle(widget.channel.title),
+                            style: AppTypography.getBody(
+                              color: widget.isPlaying
+                                  ? AppColors.primary
+                                  : (_isFocused ? Colors.white : colorScheme.onSurface),
+                              scale: 0.88,
+                            ).copyWith(
+                              fontWeight: FontWeight.bold,
+                              shadows: widget.isPlaying
+                                  ? [
+                                      Shadow(
+                                        color: AppColors.primary.withValues(alpha: 0.8),
+                                        blurRadius: 10.0,
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (widget.isPlaying)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              borderRadius: BorderRadius.circular(4.0),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(alpha: 0.6),
+                                  blurRadius: 8.0,
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.graphic_eq_rounded,
+                                  color: Colors.black,
+                                  size: 10.0,
+                                ),
+                                SizedBox(width: 3.0),
+                                Text(
+                                  'PLAYING',
+                                  style: TextStyle(
+                                    color: Colors.black,
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    // Current Program or Genre / Subtitle
                     Text(
-                      TitleFormatter.formatChannelTitle(widget.channel.title),
-                      style: AppTypography.getBody(
-                        color: _isFocused ? Colors.white : colorScheme.onSurface,
-                        scale: 0.85,
+                      currentProgram?.title ??
+                          (widget.channel.subtitle?.isNotEmpty == true
+                              ? widget.channel.subtitle!
+                              : (widget.channel.genres.isNotEmpty
+                                  ? widget.channel.genres.first
+                                  : 'Live Broadcast')),
+                      style: AppTypography.getCaption(
+                        color: _isFocused || widget.isPlaying ? AppColors.primary : AppColors.darkTextMuted,
                       ).copyWith(
-                        fontWeight: FontWeight.w600,
+                        fontSize: 10.5,
+                        fontWeight: currentProgram != null || widget.isPlaying ? FontWeight.w600 : FontWeight.normal,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                      if (widget.channel.genres.isNotEmpty ||
-                          (widget.channel.subtitle != null && widget.channel.subtitle!.isNotEmpty)) ...[
-                        const SizedBox(height: 1.5),
-                        Text(
-                          widget.channel.genres.isNotEmpty
-                              ? widget.channel.genres.first
-                              : (widget.channel.subtitle ?? ''),
-                          style: AppTypography.getCaption(
-                            color: AppColors.darkTextMuted,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                    const SizedBox(height: 4),
+                    // Progress Bar
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(2),
+                      child: LinearProgressIndicator(
+                        value: progress,
+                        backgroundColor: colorScheme.surfaceContainerHighest,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          widget.isPlaying ? AppColors.primary : colorScheme.primary,
                         ),
-                      ],
-                    ],
-                  ),
+                        minHeight: 2.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildListTile(BuildContext context) {
     final theme = Theme.of(context);
@@ -276,17 +368,28 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
 
     final GuideController? guideController =
         Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
+    final now = DateTime.now();
     final EPGProgram? currentProgram = guideController?.programs
         .firstWhereOrNull((p) => p.channelId == widget.channel.id && p.isCurrentlyPlaying);
+
+    final double progress = currentProgram != null
+        ? (now.difference(currentProgram.startTime).inSeconds /
+                (currentProgram.endTime.difference(currentProgram.startTime).inSeconds > 0
+                    ? currentProgram.endTime.difference(currentProgram.startTime).inSeconds
+                    : 1))
+            .clamp(0.0, 1.0)
+        : (widget.isPlaying ? 0.45 : 0.0);
 
     final String titleStr = currentProgram?.title ??
         (widget.channel.subtitle?.isNotEmpty == true
             ? widget.channel.subtitle!
-            : widget.channel.title);
+            : (widget.channel.genres.isNotEmpty
+                ? widget.channel.genres.first
+                : 'Live Broadcast'));
+
     final String timeStr = currentProgram != null
-        ? '${DateFormat('HH:mm').format(currentProgram.startTime)} - ${DateFormat('HH:mm').format(currentProgram.endTime)}'
+        ? '${DateFormatter.formatTime(currentProgram.startTime)} - ${DateFormatter.formatTime(currentProgram.endTime)}'
         : '';
-    final double progress = currentProgram?.progressPercent ?? 0.0;
 
     return FocusableActionDetector(
       onShowFocusHighlight: (show) {
@@ -305,26 +408,30 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
             margin: const EdgeInsets.only(bottom: 6.0),
             padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
             decoration: BoxDecoration(
-              // Glassmorphism Card
+              // Glassmorphism Card with neon glow when playing
               color: widget.isPlaying
-                  ? AppColors.primaryContainer.withValues(alpha: 0.2)
+                  ? AppColors.primaryContainer.withValues(alpha: 0.25)
                   : const Color(0xCC121214),
               borderRadius: BorderRadius.circular(10.0),
               border: Border.all(
-                color: _isFocused || widget.isPlaying
-                    ? colorScheme.primary
-                    : Colors.white.withValues(alpha: 0.08),
-                width: _isFocused || widget.isPlaying ? 1.5 : 1.0,
+                color: widget.isPlaying
+                    ? AppColors.primary
+                    : (_isFocused
+                        ? colorScheme.primary
+                        : Colors.white.withValues(alpha: 0.08)),
+                width: widget.isPlaying ? 2.0 : (_isFocused ? 1.5 : 1.0),
               ),
-              boxShadow: _isFocused || widget.isPlaying
-                  ? [
-                      BoxShadow(
-                        color: colorScheme.primary.withValues(alpha: 0.25),
-                        blurRadius: 8.0,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : null,
+              boxShadow: [
+                if (widget.isPlaying || _isFocused)
+                  BoxShadow(
+                    color: AppColors.primary.withValues(
+                      alpha: widget.isPlaying ? 0.4 : 0.25,
+                    ),
+                    blurRadius: widget.isPlaying ? 14.0 : 8.0,
+                    spreadRadius: widget.isPlaying ? 1.5 : 0.0,
+                    offset: const Offset(0, 2),
+                  ),
+              ],
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -381,6 +488,14 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                                 color: widget.isPlaying
                                     ? AppColors.primary
                                     : (_isFocused ? colorScheme.primary : Colors.white),
+                                shadows: widget.isPlaying
+                                    ? [
+                                        Shadow(
+                                          color: AppColors.primary.withValues(alpha: 0.8),
+                                          blurRadius: 10.0,
+                                        ),
+                                      ]
+                                    : null,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,

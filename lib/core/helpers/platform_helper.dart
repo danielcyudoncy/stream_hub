@@ -19,4 +19,7 @@ class PlatformHelper {
   static bool get isAppleTV => isIOS && isTVDevice;
   static bool get isAndroidTV => isAndroid && isTVDevice;
   static bool get isTV => isTVDevice || isAppleTV || isAndroidTV;
+
+  /// Whether the platform supports 10-foot / D-Pad navigation (TV or Desktop with keyboard)
+  static bool get supportsDPadNavigation => isTV || isDesktop;
 }
