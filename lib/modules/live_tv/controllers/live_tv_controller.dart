@@ -19,6 +19,7 @@ import '../../../data/models/media_item.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
+import '../../../data/repositories/provider_repository.dart';
 import '../../../data/services/database_service.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
@@ -47,6 +48,7 @@ class LiveTVController extends GetxController {
   final RxList<MediaItem> channels = <MediaItem>[].obs;
   final RxList<MediaItem> filteredChannels = <MediaItem>[].obs;
   final RxList<MediaItem> favorites = <MediaItem>[].obs;
+  final RxList<MediaItem> recentChannels = <MediaItem>[].obs;
   final RxList<String> categories = <String>[].obs;
   final RxList<String> providers = <String>[].obs;
   final RxList<String> languages = <String>[].obs;
@@ -74,6 +76,15 @@ class LiveTVController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      selectedProvider.value = providerRepo.activeProviderId.value;
+      ever(providerRepo.activeProviderId, (id) {
+        if (selectedProvider.value != id) {
+          setProvider(id);
+        }
+      });
+    }
     _loadLiveTVData();
     _catalogSubscription =
         catalogRepository.watchUpdates().listen((_) => refresh());
@@ -230,6 +241,7 @@ class LiveTVController extends GetxController {
       }
       providers.assignAll(providerSet.toList()..sort());
 
+      await _loadRecentChannels();
       _updateCategoriesAndFilters(favIds);
 
       final args = Get.arguments;
@@ -465,7 +477,7 @@ class LiveTVController extends GetxController {
 
     final sortedCategories = categorySet.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    categories.assignAll(['All Channels', ...sortedCategories]);
+    categories.assignAll(['All Channels', '★ Favorites', '🕒 Recent', ...sortedCategories]);
 
     if (!categories.contains(selectedCategory.value)) {
       selectedCategory.value = 'All Channels';
@@ -476,6 +488,22 @@ class LiveTVController extends GetxController {
     resolutions.assignAll(resolutionSet.toList()..sort());
 
     _applyFilters();
+  }
+
+  Future<void> _loadRecentChannels() async {
+    try {
+      final historyRepo = historyRepository ??
+          (Get.isRegistered<HistoryRepository>()
+              ? Get.find<HistoryRepository>()
+              : null);
+      if (historyRepo != null) {
+        final recentItems = await historyRepo.getRecent(limit: 50);
+        final channelItems = recentItems
+            .where((item) => item.mediaType == MediaType.channel)
+            .toList();
+        recentChannels.assignAll(channelItems);
+      }
+    } catch (_) {}
   }
 
   void setView(String view) {
@@ -497,9 +525,16 @@ class LiveTVController extends GetxController {
   }
 
   void setProvider(String provider) {
-    if (selectedProvider.value == provider) return;
-    selectedProvider.value = provider;
+    if (selectedProvider.value != provider) {
+      selectedProvider.value = provider;
+    }
     selectedCategory.value = 'All Channels';
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      if (providerRepo.activeProviderId.value != provider) {
+        providerRepo.setActiveProviderId(provider);
+      }
+    }
     _updateCategoriesAndFilters();
   }
 
@@ -547,13 +582,78 @@ class LiveTVController extends GetxController {
       }).toList();
     }
 
-    if (selectedCategory.value != 'All Channels') {
+    if (selectedCategory.value == '★ Favorites') {
+      final favIds = favorites.map((f) => f.id).toSet();
       result = result
-          .where((item) =>
-              item.genres.contains(selectedCategory.value) ||
-              item.metadata['genre'] == selectedCategory.value ||
-              item.metadata['category_name'] == selectedCategory.value)
+          .where((item) => favIds.contains(item.id) || item.favorite)
           .toList();
+    } else if (selectedCategory.value == '🕒 Recent') {
+      final recentIds = recentChannels.map((r) => r.id).toSet();
+      result = result.where((item) => recentIds.contains(item.id)).toList();
+      final idOrder = {
+        for (int i = 0; i < recentChannels.length; i++) recentChannels[i].id: i
+      };
+      result.sort((a, b) => (idOrder[a.id] ?? 999).compareTo(idOrder[b.id] ?? 999));
+    } else if (selectedCategory.value != 'All Channels' &&
+        selectedCategory.value.trim().isNotEmpty) {
+      final selectedCat = selectedCategory.value.trim().toLowerCase();
+
+      // Find all associated category IDs and titles from _allCategories
+      final matchingCatIds = <String>{};
+      for (final cat in _allCategories) {
+        if (cat.title.trim().toLowerCase() == selectedCat ||
+            cat.id.trim().toLowerCase() == selectedCat) {
+          matchingCatIds.add(cat.id.trim().toLowerCase());
+          matchingCatIds.add(cat.title.trim().toLowerCase());
+        }
+      }
+
+      result = result.where((item) {
+        // Direct genre / category name match
+        for (final g in item.genres) {
+          final gLower = g.trim().toLowerCase();
+          if (gLower == selectedCat || matchingCatIds.contains(gLower)) return true;
+        }
+
+        final genreMeta =
+            item.metadata['genre']?.toString().trim().toLowerCase();
+        if (genreMeta != null &&
+            (genreMeta == selectedCat || matchingCatIds.contains(genreMeta))) {
+          return true;
+        }
+
+        final catNameMeta =
+            item.metadata['category_name']?.toString().trim().toLowerCase();
+        if (catNameMeta != null &&
+            (catNameMeta == selectedCat || matchingCatIds.contains(catNameMeta))) {
+          return true;
+        }
+
+        final catIdMeta =
+            item.metadata['category_id']?.toString().trim().toLowerCase();
+        if (catIdMeta != null &&
+            (catIdMeta == selectedCat || matchingCatIds.contains(catIdMeta))) {
+          return true;
+        }
+
+        final genreIdMeta =
+            item.metadata['genreId']?.toString().trim().toLowerCase();
+        if (genreIdMeta != null &&
+            (genreIdMeta == selectedCat || matchingCatIds.contains(genreIdMeta))) {
+          return true;
+        }
+
+        final groupTitleMeta =
+            item.metadata['group_title']?.toString().trim().toLowerCase() ??
+            item.metadata['group-title']?.toString().trim().toLowerCase() ??
+            item.metadata['group']?.toString().trim().toLowerCase();
+        if (groupTitleMeta != null &&
+            (groupTitleMeta == selectedCat || matchingCatIds.contains(groupTitleMeta))) {
+          return true;
+        }
+
+        return false;
+      }).toList();
     }
 
     if (selectedProvider.value.isNotEmpty) {
@@ -622,7 +722,9 @@ class LiveTVController extends GetxController {
         (Get.isRegistered<HistoryRepository>()
             ? Get.find<HistoryRepository>()
             : null);
-    historyRepo?.add(channel);
+    if (historyRepo != null) {
+      historyRepo.add(channel).then((_) => _loadRecentChannels());
+    }
 
     final itemsToPass = filteredChannels.isNotEmpty
         ? filteredChannels.toList()

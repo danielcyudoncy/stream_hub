@@ -106,30 +106,32 @@ class SeriesCarousel extends StatelessWidget {
         AppSpacing.heightSM,
         SizedBox(
           height: carouselHeight,
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            itemCount: series.length,
-            separatorBuilder: (context, index) => AppSpacing.widthMD,
-            itemBuilder: (context, index) {
-              final item = series[index];
-              final progress = progressMap?[item.id];
-              final isCompleted = completedIds?.contains(item.id) ?? false;
+          child: FocusTraversalGroup(
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              itemCount: series.length,
+              separatorBuilder: (context, index) => AppSpacing.widthMD,
+              itemBuilder: (context, index) {
+                final item = series[index];
+                final progress = progressMap?[item.id];
+                final isCompleted = completedIds?.contains(item.id) ?? false;
 
-              return SeriesCard(
-                key: ValueKey('series-card-${item.id}'),
-                item: item,
-                width: cardWidth,
-                height: cardHeight,
-                progressPercentage: progress,
-                isCompleted: isCompleted,
-                onToggleFavorite: onToggleFavorite != null
-                    ? () => onToggleFavorite!(item)
-                    : null,
-                onTap: () => onSeriesTap(item),
-              );
-            },
+                return SeriesCard(
+                  key: ValueKey('series-card-${item.id}'),
+                  item: item,
+                  width: cardWidth,
+                  height: cardHeight,
+                  progressPercentage: progress,
+                  isCompleted: isCompleted,
+                  onToggleFavorite: onToggleFavorite != null
+                      ? () => onToggleFavorite!(item)
+                      : null,
+                  onTap: () => onSeriesTap(item),
+                );
+              },
+            ),
           ),
         ),
       ],

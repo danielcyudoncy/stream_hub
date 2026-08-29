@@ -98,7 +98,7 @@ class _HomeHeroCarouselState extends State<HomeHeroCarousel> {
     final width = size.width;
     final screenHeight = size.height;
     final heroHeight = isTv
-        ? 440.0
+        ? 560.0
         : (width >= 1024
             ? (screenHeight * 0.65).clamp(500.0, 900.0)
             : (width >= 600 ? 380.0 : 330.0));

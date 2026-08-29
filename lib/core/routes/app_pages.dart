@@ -168,7 +168,7 @@ class AppPages {
     GetPage(
       name: AppRoutes.profile,
       page: () => const ProfilePage(),
-      binding: ProfileBinding(),
+      bindings: [ProfileBinding(), SettingsBinding()],
     ),
     GetPage(
       name: AppRoutes.about,

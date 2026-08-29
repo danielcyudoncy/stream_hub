@@ -742,6 +742,7 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
         children: [
           // Primary Play / Stop Button
           TvFocusable(
+            autofocus: PlatformHelper.supportsDPadNavigation,
             onTap: isPlaying ? controller.stopInlinePlayback : controller.play,
             borderRadius: AppRadius.pill,
             child: Container(

@@ -31,7 +31,7 @@ class LiveTVPage extends GetView<LiveTVController> {
         ? 5
         : (isDesktop ? 4 : (isTablet ? 3 : 2));
 
-    if (isTV) {
+    if (isTV || isDesktop) {
       return const TVGuidePage();
     }
 

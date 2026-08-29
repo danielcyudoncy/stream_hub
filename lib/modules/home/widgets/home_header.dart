@@ -6,7 +6,9 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../shared/widgets/provider_selector_button.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../home_controller.dart';
 
 class HomeHeader extends StatelessWidget {
   final String greeting;
@@ -80,10 +82,19 @@ class HomeHeader extends StatelessWidget {
               ),
             ),
 
-            // Header Actions (Search & Profile/Settings)
+            // Header Actions (Provider Switcher, Search & Profile/Settings)
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (Get.isRegistered<HomeController>())
+                  Obx(() {
+                    final homeCtrl = Get.find<HomeController>();
+                    return ProviderSelectorButton(
+                      selectedProviderId: homeCtrl.selectedProviderId.value,
+                      onSelectProvider: homeCtrl.setSelectedProvider,
+                      isCompact: true,
+                    );
+                  }),
                 TvFocusable(
                   onTap: () => Get.toNamed(AppRoutes.search),
                   borderRadius: AppRadius.pill,

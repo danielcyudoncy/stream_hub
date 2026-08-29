@@ -192,6 +192,7 @@ class _NextEpisodeOverlayState extends State<NextEpisodeOverlay> {
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
                               AppIcons.play,
@@ -199,9 +200,12 @@ class _NextEpisodeOverlayState extends State<NextEpisodeOverlay> {
                               color: Colors.white,
                             ),
                             AppSpacing.widthXXS,
-                            Text(
-                              'Play Now',
-                              style: AppTypography.getButton(color: Colors.white),
+                            Flexible(
+                              child: Text(
+                                'Play Now',
+                                style: AppTypography.getButton(color: Colors.white, scale: 0.9),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                           ],
                         ),

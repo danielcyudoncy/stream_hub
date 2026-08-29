@@ -43,6 +43,7 @@ class HomeController extends GetxController {
 
   final RxInt selectedIndex = 0.obs;
   final RxInt providerCount = 0.obs;
+  final RxString selectedProviderId = ''.obs;
   final RxBool isLoading = true.obs;
   final RxBool hasProviders = false.obs;
   final RxBool _hasLoadedFromCache = false.obs;
@@ -69,6 +70,16 @@ class HomeController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      selectedProviderId.value = providerRepo.activeProviderId.value;
+      ever(providerRepo.activeProviderId, (id) {
+        if (selectedProviderId.value != id) {
+          selectedProviderId.value = id;
+          refresh();
+        }
+      });
+    }
     _initializeHome();
     _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
       _refreshSectionsInBackground();
@@ -142,11 +153,34 @@ class HomeController extends GetxController {
     });
   }
 
+  List<MediaItem> _filterBySelectedProvider(List<MediaItem> items) {
+    if (selectedProviderId.value.isEmpty) return items;
+    return items
+        .where((item) =>
+            item.providerId == selectedProviderId.value ||
+            item.metadata['providerId'] == selectedProviderId.value ||
+            item.metadata['provider_id'] == selectedProviderId.value)
+        .toList();
+  }
+
+  void setSelectedProvider(String providerId) {
+    if (selectedProviderId.value == providerId) return;
+    selectedProviderId.value = providerId;
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      if (providerRepo.activeProviderId.value != providerId) {
+        providerRepo.setActiveProviderId(providerId);
+      }
+    }
+    refresh();
+  }
+
   Future<void> _refreshSectionsInBackground() async {
     _log('[HOME] Background refresh started');
     try {
       await _loadProviders();
-      final allItems = await catalogRepository.getAllItems();
+      final rawItems = await catalogRepository.getAllItems();
+      final allItems = _filterBySelectedProvider(rawItems);
       if (allItems.isEmpty && hasContent) {
         _log('[HOME] Catalog empty but have cached content, skipping refresh');
         return;
@@ -170,7 +204,8 @@ class HomeController extends GetxController {
 
   Future<void> _loadAllFromNetwork() async {
     try {
-      final allItems = await catalogRepository.getAllItems();
+      final rawItems = await catalogRepository.getAllItems();
+      final allItems = _filterBySelectedProvider(rawItems);
       await Future.wait([
         _refreshHeroSection(allItems),
         _refreshMoviesSection(allItems),
@@ -570,7 +605,8 @@ class HomeController extends GetxController {
     isLoading.value = !hasContent;
     try {
       await _loadProviders();
-      final allItems = await catalogRepository.getAllItems();
+      final rawItems = await catalogRepository.getAllItems();
+      final allItems = _filterBySelectedProvider(rawItems);
       await Future.wait([
         _refreshHeroSection(allItems),
         _refreshMoviesSection(allItems),

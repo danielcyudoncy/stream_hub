@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/date_formatter.dart';
 import '../../data/models/program.dart';
 
 class ProgramBanner extends StatelessWidget {
@@ -59,29 +60,14 @@ class ProgramBanner extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           const SizedBox(height: AppSpacing.xxs),
-          Row(
-            children: [
-              Text(
-                _formatTime(program.startTime),
-                style: AppTypography.getCaption(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-              const Text(' - '),
-              Text(
-                _formatTime(program.endTime),
-                style: AppTypography.getCaption(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
+          Text(
+            DateFormatter.formatTimeRange(program.startTime, program.endTime),
+            style: AppTypography.getCaption(
+              color: colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
     );
-  }
-
-  String _formatTime(DateTime date) {
-    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -18,52 +19,65 @@ class MultiViewPage extends GetView<MultiViewController> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return AppScaffold(
-      title: 'Multi-View',
-      showNavigation: false,
-      actions: [
-        // Layout Mode Selector
-        Obx(() {
-          return PopupMenuButton<MultiViewLayoutMode>(
-            icon: const Icon(Icons.grid_view_rounded, color: Colors.white),
-            tooltip: 'Change Layout',
-            initialValue: controller.layoutMode.value,
-            onSelected: controller.setLayoutMode,
-            itemBuilder: (context) {
-              return MultiViewLayoutMode.values.map((mode) {
-                final isSelected = controller.layoutMode.value == mode;
-                return PopupMenuItem(
-                  value: mode,
-                  child: Row(
-                    children: [
-                      Icon(
-                        _iconForLayout(mode),
-                        color: isSelected ? AppColors.primary : colorScheme.onSurface,
-                        size: 20.0,
-                      ),
-                      const SizedBox(width: 8.0),
-                      Text(
-                        mode.label,
-                        style: TextStyle(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          Get.offAllNamed(AppRoutes.home);
+        }
+      },
+      child: AppScaffold(
+        title: 'Multi-View',
+        actions: [
+          // Home / Exit Multi-View
+          IconButton(
+            icon: const Icon(Icons.home_rounded, color: Colors.white),
+            tooltip: 'Back to Home',
+            onPressed: () => Get.offAllNamed(AppRoutes.home),
+          ),
+          // Layout Mode Selector
+          Obx(() {
+            return PopupMenuButton<MultiViewLayoutMode>(
+              icon: const Icon(Icons.grid_view_rounded, color: Colors.white),
+              tooltip: 'Change Layout',
+              initialValue: controller.layoutMode.value,
+              onSelected: controller.setLayoutMode,
+              itemBuilder: (context) {
+                return MultiViewLayoutMode.values.map((mode) {
+                  final isSelected = controller.layoutMode.value == mode;
+                  return PopupMenuItem(
+                    value: mode,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _iconForLayout(mode),
                           color: isSelected ? AppColors.primary : colorScheme.onSurface,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          size: 20.0,
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList();
-            },
-          );
-        }),
-      ],
-      body: Container(
-        color: Colors.black,
-        padding: const EdgeInsets.all(AppSpacing.xs),
-        child: Obx(() {
-          final mode = controller.layoutMode.value;
-          return _buildGridForLayout(context, mode);
-        }),
+                        const SizedBox(width: 8.0),
+                        Text(
+                          mode.label,
+                          style: TextStyle(
+                            color: isSelected ? AppColors.primary : colorScheme.onSurface,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList();
+              },
+            );
+          }),
+        ],
+        body: Container(
+          color: Colors.black,
+          padding: const EdgeInsets.all(AppSpacing.xs),
+          child: Obx(() {
+            final mode = controller.layoutMode.value;
+            return _buildGridForLayout(context, mode);
+          }),
+        ),
       ),
     );
   }

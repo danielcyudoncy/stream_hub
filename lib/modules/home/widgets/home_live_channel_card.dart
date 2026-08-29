@@ -11,11 +11,13 @@ import '../../../shared/widgets/tv_focusable.dart';
 class HomeLiveChannelCard extends StatelessWidget {
   final MediaItem channel;
   final VoidCallback? onTap;
+  final ValueChanged<bool>? onFocusChange;
 
   const HomeLiveChannelCard({
     super.key,
     required this.channel,
     this.onTap,
+    this.onFocusChange,
   });
 
   @override
@@ -29,6 +31,7 @@ class HomeLiveChannelCard extends StatelessWidget {
 
     return TvFocusable(
       onTap: onTap,
+      onFocusChange: onFocusChange,
       borderRadius: AppRadius.medium,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

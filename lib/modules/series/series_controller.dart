@@ -12,6 +12,7 @@ import '../../../data/models/playback_session_model.dart';
 import '../../../data/models/series_progress.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
+import '../../../data/repositories/provider_repository.dart';
 
 class ContinueWatchingSeriesItem {
   final MediaItem series;
@@ -35,16 +36,28 @@ class SeriesController extends GetxController {
   final CatalogRepository catalogRepository;
   final PlaybackRepository? playbackRepository;
   final FavoriteRepository? favoriteRepository;
+  final NextEpisodeResolver nextEpisodeResolver;
   final SeriesProgressService progressService;
 
   SeriesController({
     required this.mediaEngine,
     required this.mediaLibrary,
     required this.catalogRepository,
-    this.playbackRepository,
-    this.favoriteRepository,
-    this.progressService = const SeriesProgressService(),
-  });
+    PlaybackRepository? playbackRepository,
+    FavoriteRepository? favoriteRepository,
+    NextEpisodeResolver? nextEpisodeResolver,
+    SeriesProgressService? progressService,
+  })  : playbackRepository = playbackRepository ??
+            (Get.isRegistered<PlaybackRepository>()
+                ? Get.find<PlaybackRepository>()
+                : null),
+        favoriteRepository = favoriteRepository ??
+            (Get.isRegistered<FavoriteRepository>()
+                ? Get.find<FavoriteRepository>()
+                : null),
+        nextEpisodeResolver = nextEpisodeResolver ?? NextEpisodeResolver(),
+        progressService =
+            progressService ?? const SeriesProgressService();
 
   final RxBool isLoading = true.obs;
   final RxString selectedProvider = ''.obs;
@@ -69,6 +82,16 @@ class SeriesController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      selectedProvider.value = providerRepo.activeProviderId.value;
+      ever(providerRepo.activeProviderId, (id) {
+        if (selectedProvider.value != id) {
+          selectedProvider.value = id;
+          _applyProviderFilter();
+        }
+      });
+    }
     _loadSeries();
     mediaLibrary.seriesStream.listen((items) {
       if (items.isNotEmpty) {
@@ -84,7 +107,14 @@ class SeriesController extends GetxController {
   Future<void> reloadSeries() => _loadSeries();
 
   void setProvider(String providerId) {
+    if (selectedProvider.value == providerId) return;
     selectedProvider.value = providerId;
+    if (Get.isRegistered<ProviderRepository>()) {
+      final providerRepo = Get.find<ProviderRepository>();
+      if (providerRepo.activeProviderId.value != providerId) {
+        providerRepo.setActiveProviderId(providerId);
+      }
+    }
     _applyProviderFilter();
   }
 

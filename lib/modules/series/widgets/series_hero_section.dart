@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
@@ -38,17 +39,33 @@ class SeriesHeroSection extends StatelessWidget {
     return ImageUrlFormatter.extractFromMediaItem(series);
   }
 
+  static String? _resolvePoster(MediaItem series) {
+    final formattedPoster =
+        ImageUrlFormatter.format(series.poster, item: series);
+    if (formattedPoster != null && formattedPoster.isNotEmpty) {
+      return formattedPoster;
+    }
+    return ImageUrlFormatter.extractFromMediaItem(series);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isTv = PlatformHelper.isTV;
+    final size = MediaQuery.of(context).size;
+    final screenHeight = size.height;
     final backdrop = _resolveBackdrop(series);
+    final poster = _resolvePoster(series);
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isTv = constraints.maxWidth >= 900;
+        final width = constraints.maxWidth;
+        final isWide = width >= 750;
         final heroHeight = isTv
-            ? (constraints.maxHeight * 0.55).clamp(320.0, 600.0)
-            : (constraints.maxHeight * 0.38).clamp(260.0, 420.0);
+            ? 560.0
+            : (width >= 1024
+                ? (screenHeight * 0.65).clamp(500.0, 900.0)
+                : (width >= 600 ? 380.0 : 330.0));
 
         return GestureDetector(
           onTap: onDetails,
@@ -58,6 +75,7 @@ class SeriesHeroSection extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
+                // Backdrop image
                 if (backdrop != null)
                   Image.network(
                     backdrop,
@@ -67,81 +85,140 @@ class SeriesHeroSection extends StatelessWidget {
                   )
                 else
                   ColoredBox(color: colorScheme.surfaceContainerHighest),
+
+                // Radial / linear gradient overlay for cinematic readability
                 Container(
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [Colors.transparent, Colors.black87],
+                      colors: [
+                        Colors.black.withValues(alpha: 0.15),
+                        Colors.black.withValues(alpha: 0.5),
+                        Colors.black.withValues(alpha: 0.95),
+                      ],
+                      stops: const [0.0, 0.45, 1.0],
                     ),
                   ),
                 ),
-                Positioned(
-                  left: AppSpacing.lg,
-                  right: AppSpacing.lg,
-                  bottom: AppSpacing.lg,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        series.title,
-                        style: AppTypography.getHeadline(
-                          color: Colors.white,
-                          scale: isTv ? 1.4 : 1.0,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      AppSpacing.heightXS,
-                      _buildMetaRow(series, colorScheme),
-                      if (series.description != null &&
-                          series.description!.isNotEmpty) ...[
-                        AppSpacing.heightSM,
-                        Text(
-                          series.description!,
-                          style: AppTypography.getBody(
-                            color: Colors.white70,
-                            scale: isTv ? 1.0 : 0.9,
-                          ),
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      AppSpacing.heightSM,
-                      Row(
-                        children: [
-                          if (onWatch != null)
-                            Expanded(
-                              child: _HeroButton(
-                                icon: AppIcons.play,
-                                label: 'WATCH NOW',
-                                onTap: onWatch,
-                              ),
-                            ),
-                          if (onWatch != null && (onDetails != null || onFavorite != null))
-                            AppSpacing.widthSM,
-                          if (onDetails != null)
-                            Expanded(
-                              child: _HeroButton(
-                                icon: Icons.info_outline,
-                                label: 'DETAILS',
-                                onTap: onDetails,
-                                secondary: true,
-                              ),
-                            ),
-                          if (onDetails != null && onFavorite != null)
-                            AppSpacing.widthSM,
-                          if (onFavorite != null && onDetails == null)
-                            Expanded(
-                              child: _HeroButton(
-                                icon: isFavorite ? Icons.favorite : AppIcons.add,
-                                label: isFavorite ? 'FAVORITE' : 'ADD LIST',
-                                onTap: onFavorite,
-                                secondary: true,
-                              ),
-                            ),
+
+                // Side gradient for wide screens
+                if (isWide)
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.92),
+                          Colors.transparent,
                         ],
+                        stops: const [0.0, 0.65],
+                      ),
+                    ),
+                  ),
+
+                // Content layer
+                Positioned(
+                  left: isTv ? 48.0 : AppSpacing.lg,
+                  right: isTv ? 48.0 : AppSpacing.lg,
+                  bottom: isTv ? 36.0 : AppSpacing.lg,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (poster != null && poster.isNotEmpty) ...[
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: AppRadius.large,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: AppRadius.large,
+                            child: SizedBox(
+                              width: isTv ? 190.0 : isWide ? 150.0 : 100.0,
+                              height: isTv ? 280.0 : isWide ? 220.0 : 150.0,
+                              child: Image.network(
+                                poster,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            ),
+                          ),
+                        ),
+                        AppSpacing.widthLG,
+                      ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              series.title,
+                              style: AppTypography.getHeadline(
+                                color: Colors.white,
+                                scale: isTv ? 1.25 : (isWide ? 1.1 : 0.95),
+                              ).copyWith(fontWeight: FontWeight.bold),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            AppSpacing.heightXS,
+                            _buildMetaRow(series, colorScheme),
+                            if (series.description != null &&
+                                series.description!.isNotEmpty &&
+                                isWide) ...[
+                              AppSpacing.heightSM,
+                              Text(
+                                series.description!,
+                                style: AppTypography.getBody(
+                                  color: Colors.white70,
+                                  scale: isTv ? 0.95 : 0.85,
+                                ),
+                                maxLines: isTv ? 3 : 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                            AppSpacing.heightMD,
+                            Wrap(
+                              spacing: AppSpacing.sm,
+                              runSpacing: AppSpacing.xs,
+                              children: [
+                                if (onWatch != null)
+                                  _HeroButton(
+                                    icon: AppIcons.play,
+                                    label: 'WATCH NOW',
+                                    onTap: onWatch,
+                                  ),
+                                if (onDetails != null)
+                                  _HeroButton(
+                                    icon: Icons.info_outline,
+                                    label: 'DETAILS',
+                                    onTap: onDetails,
+                                    secondary: true,
+                                  ),
+                                if (onFavorite != null)
+                                  _HeroButton(
+                                    icon: isFavorite
+                                        ? Icons.favorite
+                                        : AppIcons.add,
+                                    label: isFavorite ? 'FAVORITE' : 'MY LIST',
+                                    onTap: onFavorite,
+                                    secondary: true,
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

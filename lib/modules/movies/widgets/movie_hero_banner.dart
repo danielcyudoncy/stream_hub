@@ -130,15 +130,18 @@ class _MovieHeroBannerState extends State<MovieHeroBanner> {
     final duration = widget.movie.formattedDuration;
     final hasResume = widget.resumePosition != null && widget.resumePosition! > Duration.zero;
 
+    final size = MediaQuery.of(context).size;
+    final screenHeight = size.height;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final width = constraints.maxWidth;
         final isWide = width >= 750;
         final bannerHeight = isTv
-            ? 450.0
-            : isWide
-                ? 380.0
-                : 280.0;
+            ? 560.0
+            : (width >= 1024
+                ? (screenHeight * 0.65).clamp(500.0, 900.0)
+                : (width >= 600 ? 380.0 : 330.0));
 
         return SizedBox(
           width: double.infinity,
@@ -164,11 +167,11 @@ class _MovieHeroBannerState extends State<MovieHeroBanner> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.2),
-                        Colors.black.withValues(alpha: 0.6),
+                        Colors.black.withValues(alpha: 0.15),
+                        Colors.black.withValues(alpha: 0.5),
                         Colors.black.withValues(alpha: 0.95),
                       ],
-                      stops: const [0.0, 0.5, 1.0],
+                      stops: const [0.0, 0.45, 1.0],
                     ),
                   ),
                 ),
@@ -181,37 +184,53 @@ class _MovieHeroBannerState extends State<MovieHeroBanner> {
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                         colors: [
-                          Colors.black.withValues(alpha: 0.9),
+                          Colors.black.withValues(alpha: 0.92),
                           Colors.transparent,
                         ],
-                        stops: const [0.0, 0.7],
+                        stops: const [0.0, 0.65],
                       ),
                     ),
                   ),
 
                 // Content layer
                 Positioned(
-                  left: AppSpacing.lg,
-                  right: AppSpacing.lg,
-                  bottom: AppSpacing.lg,
+                  left: isTv ? 48.0 : AppSpacing.lg,
+                  right: isTv ? 48.0 : AppSpacing.lg,
+                  bottom: isTv ? 36.0 : AppSpacing.lg,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      if (isWide && poster != null && poster.isNotEmpty) ...[
-                        ClipRRect(
-                          borderRadius: AppRadius.medium,
-                          child: SizedBox(
-                            width: isTv ? 120.0 : 95.0,
-                            height: isTv ? 175.0 : 140.0,
-                            child: Image.network(
-                              poster,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const SizedBox.shrink(),
+                      if (poster != null && poster.isNotEmpty) ...[
+                        Container(
+                          decoration: BoxDecoration(
+                            borderRadius: AppRadius.large,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              width: 1.5,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: AppRadius.large,
+                            child: SizedBox(
+                              width: isTv ? 190.0 : isWide ? 150.0 : 100.0,
+                              height: isTv ? 280.0 : isWide ? 220.0 : 150.0,
+                              child: Image.network(
+                                poster,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
+                              ),
                             ),
                           ),
                         ),
-                        AppSpacing.widthMD,
+                        AppSpacing.widthLG,
                       ],
                       Expanded(
                         child: Column(
