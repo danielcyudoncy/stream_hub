@@ -63,6 +63,13 @@ class XtreamSeriesInfo {
   final String name;
   final String cover;
   final String backdrop;
+  final String? plot;
+  final String? cast;
+  final String? director;
+  final String? genre;
+  final String? releaseDate;
+  final double? rating;
+  final String? youtubeTrailer;
   final List<XtreamSeriesSeason> seasons;
 
   const XtreamSeriesInfo({
@@ -70,6 +77,13 @@ class XtreamSeriesInfo {
     required this.name,
     this.cover = '',
     this.backdrop = '',
+    this.plot,
+    this.cast,
+    this.director,
+    this.genre,
+    this.releaseDate,
+    this.rating,
+    this.youtubeTrailer,
     required this.seasons,
   });
 
@@ -291,11 +305,48 @@ class XtreamSeriesInfoService {
       );
     }).toList();
 
+    final infoMap = decoded['info'] is Map ? decoded['info'] as Map : decoded;
+
+    final name = _stringValue(infoMap['name']).isNotEmpty
+        ? _stringValue(infoMap['name'])
+        : _stringValue(decoded['name']);
+    final cover = _stringValue(infoMap['cover']).isNotEmpty
+        ? _stringValue(infoMap['cover'])
+        : _stringValue(decoded['cover']);
+
+    String backdrop = '';
+    final rawBackdrop = infoMap['backdrop_path'] ?? decoded['backdrop_path'];
+    if (rawBackdrop is List && rawBackdrop.isNotEmpty) {
+      backdrop = _stringValue(rawBackdrop.first);
+    } else if (rawBackdrop is String) {
+      backdrop = rawBackdrop;
+    }
+
+    final plot = _plotFrom(infoMap) ?? _plotFrom(decoded);
+    final cast = _stringValue(infoMap['cast']).isNotEmpty ? _stringValue(infoMap['cast']) : null;
+    final director = _stringValue(infoMap['director']).isNotEmpty ? _stringValue(infoMap['director']) : null;
+    final genre = _stringValue(infoMap['genre']).isNotEmpty ? _stringValue(infoMap['genre']) : null;
+    final releaseDate = _stringValue(infoMap['releaseDate']).isNotEmpty
+        ? _stringValue(infoMap['releaseDate'])
+        : (_stringValue(infoMap['release_date']).isNotEmpty ? _stringValue(infoMap['release_date']) : null);
+    final rawRating = infoMap['rating'] ?? infoMap['rating_5based'] ?? decoded['rating'];
+    final rating = double.tryParse(rawRating?.toString() ?? '');
+    final youtubeTrailer = _stringValue(infoMap['youtube_trailer']).isNotEmpty
+        ? _stringValue(infoMap['youtube_trailer'])
+        : null;
+
     return XtreamSeriesInfo(
       seriesId: seriesId,
-      name: _stringValue(decoded['name']),
-      cover: _stringValue(decoded['cover']),
-      backdrop: _stringValue(decoded['backdrop_path']),
+      name: name,
+      cover: cover,
+      backdrop: backdrop,
+      plot: plot,
+      cast: cast,
+      director: director,
+      genre: genre,
+      releaseDate: releaseDate,
+      rating: rating,
+      youtubeTrailer: youtubeTrailer,
       seasons: seasonList,
     );
   }
@@ -402,47 +453,91 @@ class XtreamSeriesInfoService {
         .replaceFirst('.', '');
     final season = _toInt(raw['season']);
     final episodeNum = _toInt(raw['episode_num']);
+    final info = raw['info'] is Map ? raw['info'] as Map : null;
+
+    // Check info map first or top-level title/name
+    String? candidateTitle;
+    if (info != null) {
+      final infoName = info['name'] ?? info['title'];
+      if (infoName != null && infoName.toString().trim().isNotEmpty) {
+        candidateTitle = infoName.toString().trim();
+      }
+    }
+    if (candidateTitle == null || candidateTitle.isEmpty) {
+      final rawTitle = raw['title'] ?? raw['name'];
+      if (rawTitle != null && rawTitle.toString().trim().isNotEmpty) {
+        candidateTitle = rawTitle.toString().trim();
+      }
+    }
+
+    final title = (candidateTitle != null && candidateTitle.isNotEmpty)
+        ? candidateTitle
+        : 'Episode ${episodeNum == 0 ? id : episodeNum}';
 
     return XtreamSeriesEpisode(
       id: id,
-      title:
-          raw['title'] as String? ??
-          'Episode ${episodeNum == 0 ? id : episodeNum}',
+      title: title,
       extension: ext.isEmpty ? 'mkv' : ext,
       seasonNum: season != 0 ? season : fallbackSeason,
       episodeNum: episodeNum,
       plot: _plotFrom(raw),
       cover: _coverFrom(raw),
-      durationSeconds: _durationFrom(raw['duration']),
-      airDate: (raw['air_date'] as String?) ?? (raw['airdate'] as String?),
+      durationSeconds: _durationFrom(raw['duration'], info),
+      airDate: (raw['air_date'] as String?) ??
+          (raw['airdate'] as String?) ??
+          (info?['air_date'] as String?) ??
+          (info?['airdate'] as String?),
     );
   }
 
   static String? _plotFrom(Map raw) {
-    final direct = (raw['plot'] as String?) ?? (raw['description'] as String?);
+    final direct = (raw['plot'] as String?) ??
+        (raw['description'] as String?) ??
+        (raw['overview'] as String?);
     if (direct != null && direct.isNotEmpty) return direct;
     final info = raw['info'];
     if (info is Map) {
-      final plot = info['plot'];
-      if (plot is String && plot.isNotEmpty) return plot;
+      final plot = (info['plot'] as String?) ??
+          (info['description'] as String?) ??
+          (info['overview'] as String?);
+      if (plot != null && plot.isNotEmpty) return plot;
     }
     return null;
   }
 
   static String? _coverFrom(Map raw) {
-    final direct = (raw['cover'] as String?) ?? (raw['movie_image'] as String?);
+    final direct = (raw['cover'] as String?) ??
+        (raw['movie_image'] as String?) ??
+        (raw['screenshot_uri'] as String?);
     if (direct != null && direct.isNotEmpty) return direct;
     final info = raw['info'];
     if (info is Map) {
-      final image = info['movie_image'];
-      if (image is String && image.isNotEmpty) return image;
+      final image = (info['movie_image'] as String?) ??
+          (info['cover'] as String?) ??
+          (info['screenshot_uri'] as String?);
+      if (image != null && image.isNotEmpty) return image;
     }
     return null;
   }
 
   /// Parses episode duration in seconds from either an integer or an
   /// `HH:MM:SS` / plain-number string (both are emitted by panels).
-  static int? _durationFrom(dynamic raw) {
+  static int? _durationFrom(dynamic raw, [Map? info]) {
+    if (raw != null) {
+      final val = _parseDurationVal(raw);
+      if (val != null && val > 0) return val;
+    }
+    if (info != null) {
+      final infoDur = info['duration_secs'] ?? info['duration'] ?? info['duration_seconds'];
+      if (infoDur != null) {
+        final val = _parseDurationVal(infoDur);
+        if (val != null && val > 0) return val;
+      }
+    }
+    return null;
+  }
+
+  static int? _parseDurationVal(dynamic raw) {
     if (raw is int) return raw;
     if (raw is num) return raw.toInt();
     if (raw is String) {

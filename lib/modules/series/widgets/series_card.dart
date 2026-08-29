@@ -82,13 +82,13 @@ class SeriesCard extends StatelessWidget {
                     else
                       _buildPlaceholder(colorScheme),
 
-                    if (rating != null)
+                    if (rating != null && rating.isNotEmpty)
                       Positioned(
                         top: AppSpacing.xs,
                         left: AppSpacing.xs,
                         child: GlassPanel(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.xs,
+                            horizontal: 6.0,
                             vertical: 2.0,
                           ),
                           borderRadius: AppRadius.small,
@@ -96,9 +96,9 @@ class SeriesCard extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               const Icon(
-                                Icons.star,
+                                Icons.star_rounded,
                                 size: 12.0,
-                                color: AppColors.darkWarning,
+                                color: Colors.amber,
                               ),
                               const SizedBox(width: 2.0),
                               Text(
@@ -116,7 +116,7 @@ class SeriesCard extends StatelessWidget {
                     if (seasonsCount != null && !isCompleted)
                       Positioned(
                         top: AppSpacing.xs,
-                        right: onToggleFavorite != null ? AppSpacing.xxl : AppSpacing.xs,
+                        right: (onToggleFavorite != null || item.favorite) ? AppSpacing.xxl : AppSpacing.xs,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.xs,
@@ -136,22 +136,22 @@ class SeriesCard extends StatelessWidget {
                         ),
                       ),
 
-                    if (onToggleFavorite != null)
+                    if (onToggleFavorite != null || item.favorite)
                       Positioned(
-                        top: AppSpacing.xxs,
-                        right: AppSpacing.xxs,
+                        top: AppSpacing.xs,
+                        right: AppSpacing.xs,
                         child: GestureDetector(
                           onTap: onToggleFavorite,
                           behavior: HitTestBehavior.opaque,
                           child: Container(
                             padding: const EdgeInsets.all(4.0),
-                            decoration: const BoxDecoration(
-                              color: Colors.black54,
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.6),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              item.favorite ? Icons.favorite : Icons.favorite_border,
-                              size: 16.0,
+                              item.favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                              size: 14.0,
                               color: item.favorite ? AppColors.darkError : Colors.white,
                             ),
                           ),

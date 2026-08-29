@@ -384,5 +384,38 @@ void main() {
       controller.selectSeason(99);
       expect(controller.selectedSeason?.number, 2);
     });
+
+    test('fullscreen mode can be expanded, exited, and toggled', () async {
+      final controller = buildController();
+      expect(controller.isFullscreenMode.value, isFalse);
+
+      controller.expandToFullscreen();
+      expect(controller.isFullscreenMode.value, isTrue);
+
+      controller.exitFullscreen();
+      expect(controller.isFullscreenMode.value, isFalse);
+
+      controller.toggleFullscreen();
+      expect(controller.isFullscreenMode.value, isTrue);
+
+      controller.toggleFullscreen();
+      expect(controller.isFullscreenMode.value, isFalse);
+    });
+
+    test('playNextEpisode and playPreviousEpisode navigate through playlist correctly', () async {
+      seriesInfoService.info = sampleInfo();
+      final controller = buildController();
+      await pumpLoad(controller);
+
+      final ep1 = controller.seasons[0].episodes[0];
+      final ep2 = controller.seasons[1].episodes[0];
+
+      controller.activeEpisode.value = ep1;
+      controller.playNextEpisode();
+      expect(controller.activeEpisode.value?.id, ep2.id);
+
+      controller.playPreviousEpisode();
+      expect(controller.activeEpisode.value?.id, ep1.id);
+    });
   });
 }

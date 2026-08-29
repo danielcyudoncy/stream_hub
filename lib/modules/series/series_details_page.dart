@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
@@ -15,6 +16,7 @@ import '../../../shared/widgets/tv_focusable.dart';
 import 'series_details_controller.dart';
 import 'widgets/episode_card.dart';
 import 'widgets/series_carousel.dart';
+import 'widgets/series_inline_player.dart';
 
 class SeriesDetailsPage extends StatefulWidget {
   const SeriesDetailsPage({super.key});
@@ -26,124 +28,475 @@ class SeriesDetailsPage extends StatefulWidget {
 class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
   late final SeriesDetailsController _controller =
       Get.find<SeriesDetailsController>();
+  final ScrollController _scrollController = ScrollController();
+  Worker? _seriesWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _seriesWorker = ever(_controller.seriesRx, (_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _seriesWorker?.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isTv = PlatformHelper.isTV;
 
-    return AppScaffold(
-      title: _controller.seriesTitle,
-      showNavigation: false,
-      actions: [
-        Obx(
-          () => TvFocusable(
-            onTap: _controller.toggleFavorite,
-            borderRadius: AppRadius.medium,
-            scale: 1.05,
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.xs),
-              child: Icon(
-                _controller.isFavorite.value ? Icons.favorite : AppIcons.favorites,
-                color: _controller.isFavorite.value
-                    ? AppColors.darkError
-                    : colorScheme.onSurface,
-                size: 22.0,
+    // Auto-exit fullscreen if device is rotated back to portrait
+    if (!isLandscape && _controller.isFullscreenMode.value && !isTv) {
+      if (DateTime.now().difference(_controller.lastFullscreenEntered).inMilliseconds > 500) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_controller.isFullscreenMode.value) {
+            _controller.exitFullscreen();
+          }
+        });
+      }
+    }
+
+    return Obx(() {
+      if (_controller.isFullscreenMode.value) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, _) {
+            if (didPop) return;
+            _controller.exitFullscreen();
+          },
+          child: AppScaffold(
+            title: _controller.seriesTitle,
+            showAppBar: false,
+            showNavigation: false,
+            body: Container(
+              color: Colors.black,
+              width: double.infinity,
+              height: double.infinity,
+              child: SeriesInlinePlayer(
+                key: _controller.embeddedPlayerKey,
+                controller: _controller,
+                isFullscreen: true,
               ),
             ),
           ),
-        ),
-      ],
-      body: Obx(() {
-        if (_controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
-        }
+        );
+      }
 
-        if (_controller.errorMessage.value.isNotEmpty) {
-          return EmptyLibrary(
-            icon: AppIcons.error,
-            title: 'Episodes Unavailable',
-            description: _controller.errorMessage.value,
-            actionLabel: 'Try Again',
-            onAction: _controller.retry,
-          );
-        }
+      return AppScaffold(
+        title: _controller.seriesTitle,
+        showNavigation: false,
+        actions: [
+          Obx(
+            () => TvFocusable(
+              onTap: _controller.toggleFavorite,
+              borderRadius: AppRadius.medium,
+              scale: 1.05,
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.xs),
+                child: Icon(
+                  _controller.isFavorite.value ? Icons.favorite : AppIcons.favorites,
+                  color: _controller.isFavorite.value
+                      ? AppColors.darkError
+                      : colorScheme.onSurface,
+                  size: 22.0,
+                ),
+              ),
+            ),
+          ),
+        ],
+        body: Obx(() {
+          if (_controller.isLoading.value) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        if (_controller.seasons.isEmpty) {
-          final hasInfo = _controller.infoMessage.value.isNotEmpty;
-          return EmptyLibrary(
-            icon: AppIcons.series,
-            title: hasInfo ? 'Episodes Unavailable' : 'No Episodes Yet',
-            description: hasInfo
-                ? _controller.infoMessage.value
-                : 'This series has no episodes available right now.',
-            actionLabel: hasInfo ? 'Try Again' : null,
-            onAction: hasInfo ? _controller.retry : null,
-          );
-        }
+          if (_controller.errorMessage.value.isNotEmpty) {
+            return EmptyLibrary(
+              icon: AppIcons.error,
+              title: 'Episodes Unavailable',
+              description: _controller.errorMessage.value,
+              actionLabel: 'Try Again',
+              onAction: _controller.retry,
+            );
+          }
 
-        return _buildContent(context);
-      }),
-    );
+          if (_controller.seasons.isEmpty) {
+            final hasInfo = _controller.infoMessage.value.isNotEmpty;
+            return EmptyLibrary(
+              icon: AppIcons.series,
+              title: hasInfo ? 'Episodes Unavailable' : 'No Episodes Yet',
+              description: hasInfo
+                  ? _controller.infoMessage.value
+                  : 'This series has no episodes available right now.',
+              actionLabel: hasInfo ? 'Try Again' : null,
+              onAction: hasInfo ? _controller.retry : null,
+            );
+          }
+
+          return _buildContent(context);
+        }),
+      );
+    });
   }
 
   Widget _buildContent(BuildContext context) {
     final series = _controller.series;
-    final selectedSeason = _controller.selectedSeason;
-    final prog = _controller.seriesProgress.value;
+    if (series == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-    return CustomScrollView(
-      physics: const BouncingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(child: _buildHero(context, series)),
-        SliverToBoxAdapter(child: _buildMeta(context, series, prog)),
-        SliverToBoxAdapter(child: _buildPrimaryActionButton(prog)),
-        if (_controller.castMembers.isNotEmpty)
-          SliverToBoxAdapter(child: _buildCastSection(context)),
-        if (_controller.seasonCount > 1)
-          SliverToBoxAdapter(child: _buildSeasonSelector(context)),
-        if (selectedSeason != null)
-          SliverPadding(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+        final isTv = PlatformHelper.isTV;
+
+        if (isLandscape && !isTv) {
+          return _buildLandscapeLayout(context, series, constraints);
+        }
+
+        final playerWidth = constraints.maxWidth.clamp(0.0, 1000.0);
+        final playerHeight = (playerWidth - (AppSpacing.md * 2)) * (9 / 16) + AppSpacing.xs + AppSpacing.sm;
+
+        return Obx(() {
+          final isPlaying = _controller.isInlinePlayerActive.value;
+          final selectedSeason = _controller.selectedSeason;
+          final prog = _controller.seriesProgress.value;
+          final activeEp = _controller.activeEpisode.value;
+
+          return CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              if (isPlaying)
+                SliverPersistentHeader(
+                  pinned: true,
+                  delegate: _StickySeriesPlayerHeaderDelegate(
+                    minHeight: playerHeight,
+                    maxHeight: playerHeight,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.xs,
+                      ),
+                      child: ClipRRect(
+                        borderRadius: AppRadius.medium,
+                        child: SeriesInlinePlayer(
+                          key: _controller.embeddedPlayerKey,
+                          controller: _controller,
+                          isFullscreen: false,
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SliverToBoxAdapter(child: _buildHero(context, series)),
+
+              SliverToBoxAdapter(child: _buildMeta(context, series, prog)),
+              SliverToBoxAdapter(child: _buildActionButtons(context, prog)),
+              if (_controller.castMembers.isNotEmpty)
+                SliverToBoxAdapter(child: _buildCastSection(context)),
+              if (_controller.seasonCount > 1)
+                SliverToBoxAdapter(child: _buildSeasonSelector(context)),
+              if (selectedSeason != null)
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.xs,
+                    AppSpacing.lg,
+                    AppSpacing.md,
+                  ),
+                  sliver: SliverList.separated(
+                    itemCount: selectedSeason.episodes.length,
+                    separatorBuilder: (context, index) => AppSpacing.heightXS,
+                    itemBuilder: (context, index) {
+                      final episode = selectedSeason.episodes[index];
+                      final episodeNumber = _resolveEpisodeCode(episode);
+                      final epProgress = _controller.episodeProgressMap[episode.id];
+                      final isCompleted = _controller.completedEpisodeIds.contains(episode.id);
+                      final isNextUp = prog?.nextEpisodeToWatch?.id == episode.id;
+                      final isCurrentlyPlaying = isPlaying && activeEp?.id == episode.id;
+
+                      return EpisodeCard(
+                        key: ValueKey('ep-${episode.id}'),
+                        episode: episode,
+                        episodeNumber: episodeNumber,
+                        progressPercentage: epProgress,
+                        isCompleted: isCompleted,
+                        isNextUp: isNextUp,
+                        isCurrentlyPlaying: isCurrentlyPlaying,
+                        onTap: () => _controller.playEpisode(episode),
+                      );
+                    },
+                  ),
+                ),
+              if (_controller.relatedSeries.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                    child: SeriesCarousel(
+                      title: 'More Like This',
+                      series: _controller.relatedSeries,
+                      onSeriesTap: _controller.openRelatedSeries,
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
+            ],
+          );
+        });
+      },
+    );
+  }
+
+  Widget _buildLandscapeLayout(
+    BuildContext context,
+    MediaItem series,
+    BoxConstraints constraints,
+  ) {
+    final prog = _controller.seriesProgress.value;
+    final selectedSeason = _controller.selectedSeason;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Left Pane (48% width): Inline Player / Hero Poster + Series/Episode Title + Meta + Primary Action Button
+        SizedBox(
+          width: constraints.maxWidth * 0.48,
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.xs,
-              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.sm,
+              AppSpacing.sm,
               AppSpacing.md,
             ),
-            sliver: SliverList.separated(
-              itemCount: selectedSeason.episodes.length,
-              separatorBuilder: (context, index) => AppSpacing.heightXS,
-              itemBuilder: (context, index) {
-                final episode = selectedSeason.episodes[index];
-                final episodeNumber = _resolveEpisodeCode(episode);
-                final epProgress = _controller.episodeProgressMap[episode.id];
-                final isCompleted = _controller.completedEpisodeIds.contains(episode.id);
-                final isNextUp = prog?.nextEpisodeToWatch?.id == episode.id;
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 16:9 Video Player or Hero Backdrop Poster
+                Obx(() {
+                  final isPlaying = _controller.isInlinePlayerActive.value;
+                  if (isPlaying) {
+                    return ClipRRect(
+                      borderRadius: AppRadius.medium,
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: SeriesInlinePlayer(
+                          key: _controller.embeddedPlayerKey,
+                          controller: _controller,
+                          isFullscreen: false,
+                        ),
+                      ),
+                    );
+                  }
+                  return _buildLandscapeHeroPoster(context, series);
+                }),
+                AppSpacing.heightSM,
 
-                return EpisodeCard(
-                  key: ValueKey('ep-${episode.id}'),
-                  episode: episode,
-                  episodeNumber: episodeNumber,
-                  progressPercentage: epProgress,
-                  isCompleted: isCompleted,
-                  isNextUp: isNextUp,
-                  onTap: () => _controller.playEpisode(episode),
-                );
-              },
+                // Series Title & Subtitle / Episode Title
+                Obx(() {
+                  final activeEp = _controller.activeEpisode.value;
+                  final isPlaying = _controller.isInlinePlayerActive.value;
+                  final epCode = activeEp != null ? _resolveEpisodeCode(activeEp) : '';
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        series.title,
+                        style: AppTypography.getTitle(color: Colors.white).copyWith(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16.0,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (isPlaying && activeEp != null) ...[
+                        AppSpacing.heightXXS,
+                        Text(
+                          epCode.isNotEmpty ? '$epCode: ${activeEp.title}' : activeEp.title,
+                          style: AppTypography.getCaption(
+                            color: Theme.of(context).colorScheme.primary,
+                            scale: 0.9,
+                          ).copyWith(fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ] else if (series.subtitle != null) ...[
+                        AppSpacing.heightXXS,
+                        Text(
+                          series.subtitle!,
+                          style: AppTypography.getCaption(color: Colors.white70),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
+                  );
+                }),
+                AppSpacing.heightXS,
+
+                // Metadata Chips & Overview
+                _buildMeta(context, series, prog),
+                AppSpacing.heightXS,
+
+                // Primary Play / Resume / Stop Action Button + Favorite
+                _buildActionButtons(context, prog),
+              ],
             ),
           ),
-        if (_controller.relatedSeries.isNotEmpty)
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
-              child: SeriesCarousel(
-                title: 'More Like This',
-                series: _controller.relatedSeries,
-                onSeriesTap: _controller.openRelatedSeries,
+        ),
+
+        // Vertical Divider
+        Container(
+          width: 1.0,
+          color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.2),
+        ),
+
+        // Right Pane (52% width): Scrollable Season Tabs + Episode Cards + Cast Carousel + Related Series
+        Expanded(
+          child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
+            slivers: [
+              if (_controller.seasonCount > 1)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.sm),
+                    child: _buildSeasonSelector(context),
+                  ),
+                ),
+              if (selectedSeason != null)
+                Obx(() {
+                  final isPlaying = _controller.isInlinePlayerActive.value;
+                  final activeEp = _controller.activeEpisode.value;
+
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.md,
+                      AppSpacing.sm,
+                      AppSpacing.md,
+                      AppSpacing.md,
+                    ),
+                    sliver: SliverList.separated(
+                      itemCount: selectedSeason.episodes.length,
+                      separatorBuilder: (context, index) => AppSpacing.heightXS,
+                      itemBuilder: (context, index) {
+                        final episode = selectedSeason.episodes[index];
+                        final episodeNumber = _resolveEpisodeCode(episode);
+                        final epProgress = _controller.episodeProgressMap[episode.id];
+                        final isCompleted = _controller.completedEpisodeIds.contains(episode.id);
+                        final isNextUp = prog?.nextEpisodeToWatch?.id == episode.id;
+                        final isCurrentlyPlaying = isPlaying && activeEp?.id == episode.id;
+
+                        return EpisodeCard(
+                          key: ValueKey('ep-land-${episode.id}'),
+                          episode: episode,
+                          episodeNumber: episodeNumber,
+                          progressPercentage: epProgress,
+                          isCompleted: isCompleted,
+                          isNextUp: isNextUp,
+                          isCurrentlyPlaying: isCurrentlyPlaying,
+                          onTap: () => _controller.playEpisode(episode),
+                        );
+                      },
+                    ),
+                  );
+                }),
+              if (_controller.castMembers.isNotEmpty)
+                SliverToBoxAdapter(child: _buildCastSection(context)),
+              if (_controller.relatedSeries.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.lg),
+                    child: SeriesCarousel(
+                      title: 'More Like This',
+                      series: _controller.relatedSeries,
+                      onSeriesTap: _controller.openRelatedSeries,
+                    ),
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeHeroPoster(BuildContext context, MediaItem series) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final rawBackdrop = series.backdrop ?? series.poster ?? series.thumbnail;
+    final backdrop = ImageUrlFormatter.format(rawBackdrop, item: series) ??
+        ImageUrlFormatter.extractFromMediaItem(series);
+
+    return ClipRRect(
+      borderRadius: AppRadius.medium,
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (backdrop != null && backdrop.isNotEmpty)
+              Image.network(
+                backdrop,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    ColoredBox(color: colorScheme.surfaceContainerHighest),
+              )
+            else
+              ColoredBox(color: colorScheme.surfaceContainerHighest),
+            Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black87],
+                ),
               ),
             ),
-          ),
-        const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.xxl)),
-      ],
+            Center(
+              child: GestureDetector(
+                onTap: _controller.playPrimaryAction,
+                child: Container(
+                  width: 52.0,
+                  height: 52.0,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: AppColors.primaryGradient),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.darkPrimary.withValues(alpha: 0.5),
+                        blurRadius: 16.0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 32.0,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -268,14 +621,66 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     );
   }
 
+  Widget _buildMetaChipsRow(BuildContext context, MediaItem series) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final rating = series.formattedRating;
+    final year = series.releaseYear?.toString() ?? series.metadata['year']?.toString();
+    final is4k = series.is4k || (series.metadata['resolution']?.toString().contains('4k') ?? false);
+    final isFhd = (series.metadata['resolution']?.toString().contains('1080') ?? false) ||
+        (series.title.toUpperCase().contains('FHD')) ||
+        (series.title.toUpperCase().contains('1080P'));
+    final qualityLabel = is4k ? '4K UHD' : (isFhd ? 'FHD' : 'HD');
+
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (rating != null && rating.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7.0, vertical: 3.0),
+            decoration: BoxDecoration(
+              color: Colors.amber.withValues(alpha: 0.2),
+              borderRadius: AppRadius.small,
+              border: Border.all(
+                color: Colors.amber.withValues(alpha: 0.6),
+                width: 1.0,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star_rounded, color: Colors.amber, size: 14.0),
+                const SizedBox(width: 3.0),
+                Text(
+                  rating,
+                  style: AppTypography.getCaption(
+                    color: Colors.amber,
+                  ).copyWith(fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        if (year != null && year.isNotEmpty)
+          _MetaChip(label: year, colorScheme: colorScheme),
+        _MetaChip(label: qualityLabel, colorScheme: colorScheme, emphasized: true),
+        if (_controller.seasonCount > 0)
+          _MetaChip(
+            label: '${_controller.seasonCount} ${_controller.seasonCount == 1 ? 'Season' : 'Seasons'}',
+            colorScheme: colorScheme,
+          ),
+        for (final genre in series.genres.take(3))
+          _MetaChip(label: genre, colorScheme: colorScheme),
+      ],
+    );
+  }
+
   Widget _buildMeta(BuildContext context, MediaItem series, SeriesProgress? prog) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    final metaParts = <String>[];
-    final year = series.releaseYear?.toString() ?? series.metadata['year']?.toString();
-    if (year != null && year.isNotEmpty) metaParts.add(year);
-    metaParts.addAll(series.genres);
-
+    final overview = series.description ??
+        series.metadata['plot']?.toString() ??
+        series.metadata['description']?.toString() ??
+        series.metadata['overview']?.toString();
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -287,43 +692,27 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (metaParts.isNotEmpty || series.rating != null)
-            Wrap(
-              spacing: AppSpacing.xs,
-              runSpacing: AppSpacing.xs,
+          _buildMetaChipsRow(context, series),
+
+          if (prog != null) ...[
+            AppSpacing.heightSM,
+            Row(
               children: [
-                for (final part in metaParts.take(5))
-                  _MetaChip(label: part, colorScheme: colorScheme),
-                if (series.rating != null)
-                  _MetaChip(
-                    label: '★ ${series.rating!.toStringAsFixed(1)}',
-                    colorScheme: colorScheme,
-                    emphasized: true,
-                  ),
-              ],
-            ),
-          AppSpacing.heightSM,
-          Row(
-            children: [
-              Text(
-                '${_controller.seasonCount} '
-                '${_controller.seasonCount == 1 ? 'Season' : 'Seasons'}'
-                ' · ${_controller.totalEpisodes} '
-                '${_controller.totalEpisodes == 1 ? 'Episode' : 'Episodes'}',
-                style: AppTypography.getLabel(color: colorScheme.primary)
-                    .copyWith(fontWeight: FontWeight.w600),
-              ),
-              if (prog != null && prog.completedEpisodes > 0) ...[
-                const SizedBox(width: 8.0),
+                Icon(
+                  AppIcons.series,
+                  size: 14.0,
+                  color: colorScheme.primary,
+                ),
+                AppSpacing.widthXXS,
                 Text(
-                  '• ${prog.completedEpisodes}/${prog.totalAvailableEpisodes} Watched',
+                  '${_controller.seasonCount} ${_controller.seasonCount == 1 ? 'Season' : 'Seasons'} • ${_controller.totalEpisodes} Episodes',
                   style: AppTypography.getCaption(
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
               ],
-            ],
-          ),
+            ),
+          ],
 
           // Overall Series Progress Bar
           if (prog != null && prog.overallPercentage > 0) ...[
@@ -344,7 +733,6 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                           AppColors.darkPrimary,
                         ],
                       ),
-
                     ),
                   ),
                 ),
@@ -352,15 +740,22 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
             ),
           ],
 
-          if (series.description != null &&
-              series.description!.isNotEmpty) ...[
-            AppSpacing.heightSM,
+          // Overview / Synopsis
+          if (overview != null && overview.trim().isNotEmpty) ...[
+            AppSpacing.heightMD,
             Text(
-              series.description!,
+              'Overview',
+              style: AppTypography.getTitle(
+                color: colorScheme.onSurface,
+              ).copyWith(fontWeight: FontWeight.bold),
+            ),
+            AppSpacing.heightXS,
+            Text(
+              overview.trim(),
               style: AppTypography.getBody(
                 color: colorScheme.onSurfaceVariant,
               ),
-              maxLines: 4,
+              maxLines: 5,
               overflow: TextOverflow.ellipsis,
             ),
           ],
@@ -369,74 +764,135 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
     );
   }
 
-  Widget _buildPrimaryActionButton(SeriesProgress? prog) {
-    final actionLabel = prog?.actionLabel ?? 'Play Series';
-    final summaryText = prog?.summaryText;
+  Widget _buildActionButtons(BuildContext context, SeriesProgress? prog) {
+    return Obx(() {
+      final isPlaying = _controller.isInlinePlayerActive.value;
+      final isFav = _controller.isFavorite.value;
+      final actionLabel = isPlaying
+          ? 'Stop Video'
+          : (prog?.actionLabel ?? 'Play Series');
+      final summaryText = isPlaying ? null : prog?.summaryText;
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.lg,
-        AppSpacing.md,
-        AppSpacing.lg,
-        AppSpacing.sm,
-      ),
-      child: TvFocusable(
-        onTap: _controller.playPrimaryAction,
-        borderRadius: AppRadius.pill,
-        scale: 1.03,
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.lg,
-            vertical: AppSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: AppColors.primaryGradient),
-            borderRadius: AppRadius.pill,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.darkPrimary.withValues(alpha: 0.3),
-                blurRadius: 12.0,
-                offset: const Offset(0, 4),
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.lg,
+          AppSpacing.md,
+          AppSpacing.lg,
+          AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: TvFocusable(
+                onTap: isPlaying
+                    ? _controller.stopInlinePlayback
+                    : _controller.playPrimaryAction,
+                borderRadius: AppRadius.pill,
+                scale: 1.02,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.md,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isPlaying
+                          ? [AppColors.darkError, AppColors.darkError.withValues(alpha: 0.8)]
+                          : AppColors.primaryGradient,
+                    ),
+                    borderRadius: AppRadius.pill,
+                    boxShadow: [
+                      BoxShadow(
+                        color: isPlaying
+                            ? AppColors.darkError.withValues(alpha: 0.3)
+                            : AppColors.darkPrimary.withValues(alpha: 0.3),
+                        blurRadius: 12.0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        isPlaying
+                            ? Icons.stop_rounded
+                            : (prog?.isCompleted == true ? Icons.replay : AppIcons.play),
+                        color: Colors.white,
+                        size: 20.0,
+                      ),
+                      AppSpacing.widthXS,
+                      Flexible(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              actionLabel,
+                              style: AppTypography.getButton(color: Colors.white)
+                                  .copyWith(fontWeight: FontWeight.bold),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (summaryText != null)
+                              Text(
+                                summaryText,
+                                style: AppTypography.getCaption(
+                                  color: Colors.white70,
+                                  scale: 0.85,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                prog?.isCompleted == true ? Icons.replay : AppIcons.play,
-                color: Colors.white,
-                size: 22.0,
-              ),
-              AppSpacing.widthXS,
-              Flexible(
-                child: Column(
+            ),
+            AppSpacing.widthSM,
+            TvFocusable(
+              onTap: _controller.toggleFavorite,
+              borderRadius: AppRadius.pill,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.lg,
+                  vertical: AppSpacing.md,
+                ),
+                decoration: BoxDecoration(
+                  color: isFav
+                      ? AppColors.darkError.withValues(alpha: 0.2)
+                      : Colors.white.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.pill,
+                  border: Border.all(
+                    color: isFav
+                        ? AppColors.darkError.withValues(alpha: 0.6)
+                        : Colors.white24,
+                  ),
+                ),
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      actionLabel,
-                      style: AppTypography.getButton(color: Colors.white)
-                          .copyWith(fontWeight: FontWeight.bold),
-                      overflow: TextOverflow.ellipsis,
+                    Icon(
+                      isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                      color: isFav ? AppColors.darkError : Colors.white,
+                      size: 18.0,
                     ),
-                    if (summaryText != null)
-                      Text(
-                        summaryText,
-                        style: AppTypography.getCaption(
-                          color: Colors.white70,
-                          scale: 0.85,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    AppSpacing.widthXXS,
+                    Text(
+                      isFav ? 'In Favorites' : 'My List',
+                      style: AppTypography.getButton(
+                        color: isFav ? AppColors.darkError : Colors.white,
+                        scale: 0.9,
                       ),
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ),
-    );
+      );
+    });
   }
 
   Widget _buildCastSection(BuildContext context) {
@@ -533,6 +989,43 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
       return 'S${sStr}E$eStr';
     }
     return ep.subtitle ?? 'Episode';
+  }
+}
+
+class _StickySeriesPlayerHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final Widget child;
+  final double minHeight;
+  final double maxHeight;
+
+  _StickySeriesPlayerHeaderDelegate({
+    required this.child,
+    required this.minHeight,
+    required this.maxHeight,
+  });
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: child,
+    );
+  }
+
+  @override
+  double get maxExtent => maxHeight;
+
+  @override
+  double get minExtent => minHeight;
+
+  @override
+  bool shouldRebuild(covariant _StickySeriesPlayerHeaderDelegate oldDelegate) {
+    return oldDelegate.minHeight != minHeight ||
+        oldDelegate.maxHeight != maxHeight ||
+        oldDelegate.child != child;
   }
 }
 

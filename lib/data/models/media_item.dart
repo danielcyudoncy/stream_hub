@@ -235,13 +235,17 @@ extension MediaItemVodExtensions on MediaItem {
     }
     final rawRating = metadata['rating_5based'] ??
         metadata['rating'] ??
-        metadata['vote_average'];
+        metadata['rating_imdb'] ??
+        metadata['rating_kinopoisk'] ??
+        metadata['vote_average'] ??
+        metadata['rate'];
     if (rawRating is num && rawRating > 0) {
       return rawRating.toDouble().toStringAsFixed(1);
     }
-    if (rawRating is String) {
-      final parsed = double.tryParse(rawRating);
-      if (parsed != null && parsed > 0) return parsed.toStringAsFixed(1);
+    if (rawRating is String && rawRating.isNotEmpty) {
+      final cleaned = rawRating.replaceAll(RegExp(r'[^0-9.]'), '');
+      final parsed = double.tryParse(cleaned);
+      if (parsed != null && parsed > 0 && parsed <= 10) return parsed.toStringAsFixed(1);
     }
     return null;
   }
