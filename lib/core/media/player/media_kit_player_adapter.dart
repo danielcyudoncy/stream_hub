@@ -132,6 +132,20 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
         await native.setProperty('demuxer-readahead-secs', '20');
         // Allow connecting to http sources from https context
         await native.setProperty('tls-verify', 'no');
+        // Enable buffer scrubbing and suppress non-seekable live stream warnings
+        await native.setProperty('force-seekable', 'yes');
+        // Auto-reconnect on live stream drop / EOF for seamless IPTV streaming
+        await native.setProperty(
+          'demuxer-lavf-o',
+          'reconnect=1,reconnect_at_eof=1,reconnect_streamed=1,reconnect_delay_max=5',
+        );
+        await native.setProperty(
+          'stream-lavf-o',
+          'reconnect=1,reconnect_at_eof=1,reconnect_streamed=1,reconnect_delay_max=5',
+        );
+        // Generous demuxer cache to absorb network jitter
+        await native.setProperty('demuxer-max-bytes', '33554432');
+        await native.setProperty('demuxer-max-back-bytes', '16777216');
         if (Platform.isAndroid) {
           await native.setProperty('hwdec', 'mediacodec-copy');
           await native.setProperty('vd-lavc-dr', 'no');
@@ -217,6 +231,18 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     });
 
     _errorSub = _player!.stream.error.listen((error) {
+      final errorStr = error.toString().toLowerCase();
+      // Filter out non-fatal mpv informational notices
+      if (errorStr.contains('cannot seek in this stream') ||
+          errorStr.contains('force-seekable') ||
+          errorStr.contains('you can force it with')) {
+        _logger.debug(
+          'Ignored non-fatal player seek notice: $error',
+          tag: 'Player',
+        );
+        return;
+      }
+
       _setPlaybackState(PlaybackState.error);
       _errorController.add(
         _describePlayerError(error),

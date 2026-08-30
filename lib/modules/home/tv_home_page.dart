@@ -332,7 +332,7 @@ class _TvHomePageState extends State<TvHomePage> {
                     return ProviderSelectorButton(
                       selectedProviderId: controller.selectedProviderId.value,
                       onSelectProvider: controller.setSelectedProvider,
-                      isCompact: false,
+                      isCompact: true,
                     );
                   }),
                   AppSpacing.widthSM,

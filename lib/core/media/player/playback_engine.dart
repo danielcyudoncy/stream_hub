@@ -78,6 +78,10 @@ class PlaybackEngine {
   Timer? _bufferTimer;
   int _retryCount = 0;
   static const int maxRetries = 3;
+  int _liveReconnectAttempts = 0;
+  static const int maxLiveReconnectAttempts = 5;
+  Timer? _liveReconnectTimer;
+  bool _disposed = false;
 
   PlaybackEngine({
     PlayerAdapter? adapter,
@@ -405,6 +409,12 @@ class PlaybackEngine {
 
   Future<void> seek(Duration position) async {
     if (_currentSession == null) return;
+    final isLive = _currentSession?.metadata.isLive == true ||
+        _currentSession?.mediaItem.mediaType == MediaType.channel ||
+        _currentSession?.mediaItem.mediaType == MediaType.liveEvent;
+    if (isLive && position <= Duration.zero) {
+      return;
+    }
     _setState(PlaybackState.seeking);
     try {
       await adapter.seek(position);
@@ -422,6 +432,13 @@ class PlaybackEngine {
 
   Future<void> replay() async {
     if (_currentSession == null) return;
+    final isLive = _currentSession?.metadata.isLive == true ||
+        _currentSession?.mediaItem.mediaType == MediaType.channel ||
+        _currentSession?.mediaItem.mediaType == MediaType.liveEvent;
+    if (isLive) {
+      await play();
+      return;
+    }
     await seek(Duration.zero);
     await play();
   }
@@ -543,6 +560,7 @@ class PlaybackEngine {
   }
 
   Future<void> dispose() async {
+    _disposed = true;
     _finalizeAnalytics();
     _cleanup();
     await adapter.dispose();
@@ -788,6 +806,17 @@ class PlaybackEngine {
 
   void _onCompleted() {
     if (_currentSession == null) return;
+
+    // For live streams, an EOF is not a natural end — it indicates a connection drop.
+    final isLive = _currentSession?.metadata.isLive == true ||
+        _currentSession?.mediaItem.mediaType == MediaType.channel ||
+        _currentSession?.mediaItem.mediaType == MediaType.liveEvent;
+
+    if (isLive) {
+      _handleLiveStreamDisconnect();
+      return;
+    }
+
     _finalizeAnalytics();
     _publishEvent(PlaybackCompletedEvent(
       sessionId: _currentSession!.id,
@@ -795,6 +824,62 @@ class PlaybackEngine {
       occurredAt: DateTime.now(),
     ));
     logger.info('Playback completed', tag: 'PlaybackEngine');
+  }
+
+  void _handleLiveStreamDisconnect() {
+    if (_disposed) return;
+    if (_liveReconnectAttempts >= maxLiveReconnectAttempts) {
+      logger.warning(
+        'Live stream auto-reconnect exceeded max attempts ($maxLiveReconnectAttempts)',
+        tag: 'PlaybackEngine',
+      );
+      _handleError('Live stream connection lost. Please try again or switch channels.');
+      return;
+    }
+
+    _liveReconnectAttempts++;
+    final delaySeconds = (_liveReconnectAttempts == 1) ? 1 : (_liveReconnectAttempts * 2);
+    logger.info(
+      'Live stream disconnected (EOF/socket drop). Auto-reconnecting in ${delaySeconds}s (attempt $_liveReconnectAttempts/$maxLiveReconnectAttempts)...',
+      tag: 'PlaybackEngine',
+    );
+
+    _setState(PlaybackState.buffering);
+    _liveReconnectTimer?.cancel();
+    _liveReconnectTimer = Timer(Duration(seconds: delaySeconds), () async {
+      if (_disposed || _currentSession == null) return;
+      try {
+        final session = _currentSession!;
+        final rawSession = _currentPlayableSession;
+        if (rawSession != null) {
+          await _adapter.playSession(rawSession, title: session.metadata.title);
+        } else {
+          await _adapter.load(session);
+        }
+        await _adapter.play();
+        logger.info(
+          'Live stream auto-reconnected successfully',
+          tag: 'PlaybackEngine',
+        );
+        Future.delayed(const Duration(seconds: 8), () {
+          if (_state == PlaybackState.playing) {
+            _liveReconnectAttempts = 0;
+          }
+        });
+      } catch (e, st) {
+        logger.warning(
+          'Live stream auto-reconnect attempt $_liveReconnectAttempts failed: $e',
+          tag: 'PlaybackEngine',
+          error: e,
+          stackTrace: st,
+        );
+        if (_liveReconnectAttempts < maxLiveReconnectAttempts) {
+          _handleLiveStreamDisconnect();
+        } else {
+          _handleError('Live stream connection lost after $maxLiveReconnectAttempts retries');
+        }
+      }
+    });
   }
 
   /// Records a user-facing playback failure and transitions to the error state.
@@ -916,6 +1001,9 @@ class PlaybackEngine {
   }
 
   void _cleanup() {
+    _liveReconnectTimer?.cancel();
+    _liveReconnectTimer = null;
+    _liveReconnectAttempts = 0;
     _disposeAdapterStreams();
     _bufferTimer?.cancel();
     _bufferTimer = null;

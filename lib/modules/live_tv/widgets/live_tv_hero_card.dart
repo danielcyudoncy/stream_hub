@@ -8,6 +8,7 @@ import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/channel_placeholder.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class LiveTvHeroCard extends StatefulWidget {
   final MediaItem? channel;
@@ -270,23 +271,28 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
                                   ),
                                   if (widget.onFavorite != null) ...[
                                     const SizedBox(width: AppSpacing.xs),
-                                    IconButton(
-                                      visualDensity: VisualDensity.compact,
-                                      padding: const EdgeInsets.all(4.0),
-                                      constraints: const BoxConstraints(),
-                                      onPressed: widget.onFavorite,
-                                      icon: Icon(
-                                        channel.favorite
-                                            ? Icons.favorite_rounded
-                                            : Icons.favorite_border_rounded,
-                                        color: channel.favorite
-                                            ? AppColors.darkError
-                                            : Colors.white70,
-                                        size: 20.0,
+                                    TvFocusable(
+                                      onTap: widget.onFavorite,
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: IconButton(
+                                        visualDensity: VisualDensity.compact,
+                                        padding: const EdgeInsets.all(4.0),
+                                        constraints: const BoxConstraints(),
+                                        onPressed: widget.onFavorite,
+                                        icon: Icon(
+                                          channel.favorite
+                                              ? Icons.favorite_rounded
+                                              : Icons.favorite_border_rounded,
+                                          color: channel.favorite
+                                              ? AppColors.darkError
+                                              : Colors.white70,
+                                          size: 20.0,
+                                        ),
+                                        tooltip: channel.favorite
+                                            ? 'Remove from Favorites'
+                                            : 'Add to Favorites',
                                       ),
-                                      tooltip: channel.favorite
-                                          ? 'Remove from Favorites'
-                                          : 'Add to Favorites',
                                     ),
                                   ],
                                 ],

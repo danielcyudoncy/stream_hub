@@ -13,6 +13,7 @@ import 'package:stream_hub/shared/widgets/empty_view.dart';
 import 'package:stream_hub/shared/loading/loading_indicator.dart';
 import 'package:stream_hub/shared/widgets/error_view.dart';
 import 'package:stream_hub/shared/widgets/filter_sheet.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class GuideSearchPage extends GetView<GuideController> {
   const GuideSearchPage({super.key});
@@ -124,9 +125,13 @@ class GuideSearchPage extends GetView<GuideController> {
     required VoidCallback onTap,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    return GestureDetector(
+      return TvFocusable(
       onTap: onTap,
-      child: Container(
+      borderRadius: AppRadius.pill,
+      scale: 1.05,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
           vertical: AppSpacing.xs,
@@ -142,6 +147,7 @@ class GuideSearchPage extends GetView<GuideController> {
           style: AppTypography.getCaption(
             color: isSelected ? Colors.white : colorScheme.onSurface,
           ),
+        ),
         ),
       ),
     );

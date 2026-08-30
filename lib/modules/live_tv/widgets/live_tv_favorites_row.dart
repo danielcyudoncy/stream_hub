@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
@@ -70,14 +71,19 @@ class LiveTvFavoritesRow extends StatelessWidget {
                   ],
                 ),
                 if (onSeeAll != null)
-                  TextButton(
-                    onPressed: onSeeAll,
-                    style: TextButton.styleFrom(
-                      foregroundColor: colorScheme.primary,
-                      padding: EdgeInsets.zero,
-                      visualDensity: VisualDensity.compact,
+                  TvFocusable(
+                    onTap: onSeeAll!,
+                    scale: 1.05,
+                    borderRadius: BorderRadius.circular(8),
+                    child: TextButton(
+                      onPressed: onSeeAll,
+                      style: TextButton.styleFrom(
+                        foregroundColor: colorScheme.primary,
+                        padding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: const Text('See All'),
                     ),
-                    child: const Text('See All'),
                   ),
               ],
             ),

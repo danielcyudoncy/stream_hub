@@ -10,6 +10,7 @@ import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/channel_placeholder.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import '../../epg/controllers/guide_controller.dart';
 import '../../epg/models/epg_program.dart';
 
@@ -240,9 +241,13 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                         Positioned(
                           top: AppSpacing.xxs,
                           right: AppSpacing.xxs,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
+                          child: TvFocusable(
                             onTap: widget.onFavorite,
+                            scale: 1.15,
+                            borderRadius: BorderRadius.circular(16),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: widget.onFavorite,
                             child: Container(
                               padding: const EdgeInsets.all(5.0),
                               decoration: BoxDecoration(
@@ -259,9 +264,10 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                                 size: 16.0,
                               ),
                             ),
+                            ),
                           ),
                         ),
-                    ],
+                      ],
                   ),
                 ),
               ),
@@ -600,19 +606,24 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                 // Favorite Toggle Button
                 if (widget.showFavoriteButton) ...[
                   const SizedBox(width: 6.0),
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  TvFocusable(
                     onTap: widget.onFavorite,
-                    child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Icon(
-                        widget.channel.favorite
-                            ? Icons.favorite_rounded
-                            : Icons.favorite_border_rounded,
-                        color: widget.channel.favorite
-                            ? AppColors.darkError
-                            : Colors.white38,
-                        size: 18.0,
+                    scale: 1.15,
+                    borderRadius: BorderRadius.circular(12),
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: widget.onFavorite,
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: Icon(
+                          widget.channel.favorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          color: widget.channel.favorite
+                              ? AppColors.darkError
+                              : Colors.white38,
+                          size: 18.0,
+                        ),
                       ),
                     ),
                   ),

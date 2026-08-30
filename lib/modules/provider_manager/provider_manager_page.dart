@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
@@ -12,7 +13,6 @@ import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'provider_manager_controller.dart';
 import 'provider_details_page.dart';
-import 'provider_form_page.dart';
 
 class ProviderManagerPage extends GetView<ProviderManagerController> {
   const ProviderManagerPage({super.key});
@@ -29,7 +29,7 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
       title: 'Provider Manager',
       actions: [
         TvFocusable(
-          onTap: () => Get.to(() => ProviderFormPage()),
+          onTap: () => Get.toNamed(AppRoutes.providerForm),
           borderRadius: BorderRadius.circular(8.0),
           scale: 1.05,
           child: Container(
@@ -55,11 +55,11 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
         const SizedBox(width: AppSpacing.md),
       ],
       floatingActionButton: TvFocusable(
-        onTap: () => Get.to(() => ProviderFormPage()),
+        onTap: () => Get.toNamed(AppRoutes.providerForm),
         borderRadius: BorderRadius.circular(28.0),
         scale: 1.05,
         child: FloatingActionButton.extended(
-          onPressed: () => Get.to(() => ProviderFormPage()),
+          onPressed: () => Get.toNamed(AppRoutes.providerForm),
           backgroundColor: colorScheme.primary,
           icon: const Icon(AppIcons.add, color: Colors.white),
           label: Text(
@@ -86,7 +86,7 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
                   description: 'Add your first IPTV provider to get started.',
                   icon: AppIcons.providers,
                   actionLabel: 'Add Provider',
-                  onAction: () => Get.to(() => ProviderFormPage()),
+                  onAction: () => Get.toNamed(AppRoutes.providerForm),
                 );
               }
 

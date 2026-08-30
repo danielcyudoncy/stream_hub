@@ -3,11 +3,14 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
+import '../../core/media/enums/playback_state.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../data/repositories/provider_repository.dart';
 import '../../modules/live_tv/controllers/live_tv_controller.dart';
+import '../../modules/player/controllers/player_controller.dart';
+import '../../modules/player/pages/floating_player_page.dart';
 import '../../modules/profiles/profile_controller.dart';
 import '../../modules/provider_manager/provider_manager_controller.dart';
 import 'sync_progress_bar.dart';
@@ -16,10 +19,7 @@ import 'tv_focusable.dart';
 class TvScaffold extends StatefulWidget {
   final Widget body;
 
-  const TvScaffold({
-    super.key,
-    required this.body,
-  });
+  const TvScaffold({super.key, required this.body});
 
   @override
   State<TvScaffold> createState() => _TvScaffoldState();
@@ -50,7 +50,9 @@ class _TvScaffoldState extends State<TvScaffold> {
     final route = Get.currentRoute;
     if (route == AppRoutes.search || route == AppRoutes.guideSearch) return 0;
     if (route == AppRoutes.home) return 1;
-    if (route == AppRoutes.liveTV || route == AppRoutes.channelDetails) return 2;
+    if (route == AppRoutes.liveTV || route == AppRoutes.channelDetails) {
+      return 2;
+    }
     if (route == AppRoutes.movies ||
         route == AppRoutes.movieDetails ||
         route == AppRoutes.movieGenre ||
@@ -77,35 +79,23 @@ class _TvScaffoldState extends State<TvScaffold> {
     return 1;
   }
 
-  void _onItemTapped(int index) {
-    if (_getSelectedIndex() == index) return;
+  static const _rootRoutes = [
+    AppRoutes.search, // 0
+    AppRoutes.home, // 1
+    AppRoutes.liveTV, // 2
+    AppRoutes.movies, // 3
+    AppRoutes.series, // 4
+    AppRoutes.favorites, // 5
+    AppRoutes.multiView, // 6
+    AppRoutes.settings, // 7
+  ];
 
-    switch (index) {
-      case 0:
-        Get.offAllNamed(AppRoutes.search);
-        break;
-      case 1:
-        Get.offAllNamed(AppRoutes.home);
-        break;
-      case 2:
-        Get.offAllNamed(AppRoutes.liveTV);
-        break;
-      case 3:
-        Get.offAllNamed(AppRoutes.movies);
-        break;
-      case 4:
-        Get.offAllNamed(AppRoutes.series);
-        break;
-      case 5:
-        Get.offAllNamed(AppRoutes.favorites);
-        break;
-      case 6:
-        Get.offAllNamed(AppRoutes.multiView);
-        break;
-      case 7:
-        Get.offAllNamed(AppRoutes.settings);
-        break;
-    }
+  void _onItemTapped(int index) {
+    if (index < 0 || index >= _rootRoutes.length) return;
+    final targetRoute = _rootRoutes[index];
+    if (Get.currentRoute == targetRoute) return;
+
+    Get.offAllNamed(targetRoute);
   }
 
   @override
@@ -128,6 +118,19 @@ class _TvScaffoldState extends State<TvScaffold> {
               ),
             ),
           ),
+
+          // Floating Player (PiP overlay when browsing outside fullscreen/liveTV)
+          if (Get.isRegistered<PlayerController>() &&
+              Get.currentRoute != AppRoutes.fullscreenPlayer &&
+              Get.currentRoute != AppRoutes.liveTV)
+            Obx(() {
+              final state = Get.find<PlayerController>().stateRx.value;
+              if (state == PlaybackState.idle ||
+                  state == PlaybackState.stopped) {
+                return const SizedBox.shrink();
+              }
+              return const FloatingPlayerPage();
+            }),
 
           // Sidebar Navigation (Floats on top, expands on focus/hover)
           Positioned(
@@ -204,7 +207,10 @@ class _TvScaffoldState extends State<TvScaffold> {
         // 2. Navigation Items List
         Expanded(
           child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 12.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10.0,
+              vertical: 12.0,
+            ),
             children: [
               // Search
               _buildNavItem(
@@ -292,22 +298,27 @@ class _TvScaffoldState extends State<TvScaffold> {
   }
 
   Widget _buildProfileHeader() {
-    final profileCtrl =
-        Get.isRegistered<ProfileController>() ? Get.find<ProfileController>() : null;
-    final providerCtrl =
-        Get.isRegistered<ProviderManagerController>() ? Get.find<ProviderManagerController>() : null;
-    final providerRepo =
-        Get.isRegistered<ProviderRepository>() ? Get.find<ProviderRepository>() : null;
+    final profileCtrl = Get.isRegistered<ProfileController>()
+        ? Get.find<ProfileController>()
+        : null;
+    final providerCtrl = Get.isRegistered<ProviderManagerController>()
+        ? Get.find<ProviderManagerController>()
+        : null;
+    final providerRepo = Get.isRegistered<ProviderRepository>()
+        ? Get.find<ProviderRepository>()
+        : null;
 
-    final profileName = profileCtrl?.activeProfile.value?.displayName ??
+    final profileName =
+        profileCtrl?.activeProfile.value?.displayName ??
         profileCtrl?.displayName.value ??
         'Primary User';
-    
+
     final activeId = providerRepo?.activeProviderId.value ?? '';
     final matchedProvider = providerCtrl?.providers.firstWhereOrNull(
       (p) => p.id == activeId || p.name == activeId,
     );
-    final providerName = matchedProvider?.name ??
+    final providerName =
+        matchedProvider?.name ??
         (providerCtrl?.providers.isNotEmpty == true
             ? providerCtrl!.providers.first.name
             : 'IPTV Premium');
@@ -328,7 +339,9 @@ class _TvScaffoldState extends State<TvScaffold> {
           vertical: 18.0,
         ),
         child: Row(
-          mainAxisAlignment: _isExpanded ? MainAxisAlignment.start : MainAxisAlignment.center,
+          mainAxisAlignment: _isExpanded
+              ? MainAxisAlignment.start
+              : MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Profile Avatar with Online Pulse Dot
@@ -355,7 +368,9 @@ class _TvScaffoldState extends State<TvScaffold> {
                   ),
                   child: Center(
                     child: Text(
-                      profileName.isNotEmpty ? profileName[0].toUpperCase() : 'U',
+                      profileName.isNotEmpty
+                          ? profileName[0].toUpperCase()
+                          : 'U',
                       style: const TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.bold,
@@ -373,7 +388,10 @@ class _TvScaffoldState extends State<TvScaffold> {
                     decoration: BoxDecoration(
                       color: const Color(0xFF00E676), // Online Green
                       shape: BoxShape.circle,
-                      border: Border.all(color: const Color(0xFF0E1116), width: 2),
+                      border: Border.all(
+                        color: const Color(0xFF0E1116),
+                        width: 2,
+                      ),
                     ),
                   ),
                 ),
@@ -433,8 +451,9 @@ class _TvScaffoldState extends State<TvScaffold> {
   }
 
   Widget? _buildFavoritesBadge() {
-    final liveCtrl =
-        Get.isRegistered<LiveTVController>() ? Get.find<LiveTVController>() : null;
+    final liveCtrl = Get.isRegistered<LiveTVController>()
+        ? Get.find<LiveTVController>()
+        : null;
     if (liveCtrl == null) return null;
 
     return Obx(() {
@@ -445,7 +464,10 @@ class _TvScaffoldState extends State<TvScaffold> {
         decoration: BoxDecoration(
           color: AppColors.primaryContainer.withValues(alpha: 0.6),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.7), width: 0.8),
+          border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.7),
+            width: 0.8,
+          ),
         ),
         child: Text(
           '$count',
@@ -548,14 +570,10 @@ class _TvScaffoldState extends State<TvScaffold> {
           horizontal: _isExpanded ? 14.0 : 4.0,
         ),
         decoration: BoxDecoration(
-          color: isSelected
-              ? selectedRedBg
-              : Colors.transparent,
+          color: isSelected ? selectedRedBg : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected
-                ? selectedRedBorder
-                : Colors.transparent,
+            color: isSelected ? selectedRedBorder : Colors.transparent,
             width: 1.5,
           ),
           boxShadow: isSelected
@@ -568,76 +586,85 @@ class _TvScaffoldState extends State<TvScaffold> {
                 ]
               : null,
         ),
-        child: _isExpanded
-            // Expanded Mode: Horizontal Row with Icon, Title, and Badge
-            ? Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                children: [
-                  const SizedBox(width: 6.0),
-                  Icon(
-                    icon,
-                    color: isSelected ? Colors.white : Colors.white70,
-                    size: 22.0,
-                  ),
-                  const SizedBox(width: 16.0),
-                  Expanded(
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
-                        fontSize: 13.5,
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                        letterSpacing: isSelected ? 0.3 : 0.0,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (badgeWidget != null) ...[
-                    badgeWidget,
-                    const SizedBox(width: 4.0),
-                  ],
-                ],
-              )
-            // Collapsed Mode: Vertical Stack with Icon on Top and Text Below
-            : SizedBox(
-                width: double.infinity,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Stack(
-                      clipBehavior: Clip.none,
-                      alignment: Alignment.center,
+        child: ClipRect(
+          child: _isExpanded
+              // Expanded Mode: Horizontal Row with Icon, Title, and Badge
+              ? SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: SizedBox(
+                    width: 200.0,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.start,
                       children: [
+                        const SizedBox(width: 6.0),
                         Icon(
                           icon,
                           color: isSelected ? Colors.white : Colors.white70,
-                          size: 24.0,
+                          size: 22.0,
                         ),
-                        if (badgeWidget != null)
-                          Positioned(
-                            top: -4,
-                            right: -10,
-                            child: badgeWidget,
+                        const SizedBox(width: 16.0),
+                        Expanded(
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: isSelected ? Colors.white : Colors.white70,
+                              fontSize: 13.5,
+                              fontWeight: isSelected
+                                  ? FontWeight.w800
+                                  : FontWeight.w500,
+                              letterSpacing: isSelected ? 0.3 : 0.0,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
+                        ),
+                        if (badgeWidget != null) ...[
+                          badgeWidget,
+                          const SizedBox(width: 4.0),
+                        ],
                       ],
                     ),
-                    const SizedBox(height: 4.0),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: isSelected ? Colors.white : Colors.white70,
-                        fontSize: 10.0,
-                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                  ),
+                )
+              // Collapsed Mode: Vertical Stack with Icon on Top and Text Below
+              : SizedBox(
+                  width: double.infinity,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.center,
+                        children: [
+                          Icon(
+                            icon,
+                            color: isSelected ? Colors.white : Colors.white70,
+                            size: 24.0,
+                          ),
+                          if (badgeWidget != null)
+                            Positioned(top: -4, right: -10, child: badgeWidget),
+                        ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                      const SizedBox(height: 4.0),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontSize: 10.0,
+                          fontWeight: isSelected
+                              ? FontWeight.w800
+                              : FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

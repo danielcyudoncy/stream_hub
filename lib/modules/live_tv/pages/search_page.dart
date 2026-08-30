@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/search_bar.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class SearchPage extends StatelessWidget {
   const SearchPage({super.key});
@@ -91,7 +92,7 @@ class SearchPage extends StatelessWidget {
           spacing: AppSpacing.xs,
           runSpacing: AppSpacing.xs,
           children: items.map((item) {
-            return GestureDetector(
+            return TvFocusable(
               onTap: () {
                 Get.toNamed(
                   '/live-tv',
@@ -100,7 +101,18 @@ class SearchPage extends StatelessWidget {
                   },
                 );
               },
-              child: Container(
+              scale: 1.05,
+              borderRadius: BorderRadius.circular(999.0),
+              child: GestureDetector(
+                onTap: () {
+                  Get.toNamed(
+                    '/live-tv',
+                    parameters: {
+                      'filter': item.toLowerCase().replaceAll(' ', '_'),
+                    },
+                  );
+                },
+                child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
                   vertical: AppSpacing.xs,
@@ -116,7 +128,8 @@ class SearchPage extends StatelessWidget {
                   ),
                 ),
               ),
-            );
+            ),
+          );
           }).toList(),
         ),
       ],

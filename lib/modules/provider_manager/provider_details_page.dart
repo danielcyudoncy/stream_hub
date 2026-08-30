@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
@@ -12,7 +13,6 @@ import 'package:stream_hub/shared/dialogs/confirmation_dialog.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
 import 'provider_manager_controller.dart';
-import 'provider_form_page.dart';
 
 class ProviderDetailsPage extends GetView<ProviderManagerController> {
   final String providerId;
@@ -124,7 +124,10 @@ class ProviderDetailsPage extends GetView<ProviderManagerController> {
                 Expanded(
                   child: AppButton(
                     text: 'Edit',
-                    onPressed: () => Get.to(() => ProviderFormPage(provider: provider)),
+                    onPressed: () => Get.toNamed(
+                      AppRoutes.providerForm,
+                      arguments: provider,
+                    ),
                   ),
                 ),
                 AppSpacing.widthMD,
