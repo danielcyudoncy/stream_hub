@@ -36,6 +36,7 @@ import 'package:stream_hub/core/streaming/security/data_encryption.dart';
 import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
 import 'package:stream_hub/core/streaming/vod/xtream_vod_info_service.dart';
 import 'package:stream_hub/core/streaming/session/factories/bearer_server_provider_session_factory.dart';
+import 'package:stream_hub/core/streaming/session/factories/custom_provider_session_factory.dart';
 import 'package:stream_hub/core/streaming/session/factories/m3u_provider_session_factory.dart';
 import 'package:stream_hub/core/streaming/session/factories/stalker_provider_session_factory.dart';
 import 'package:stream_hub/core/streaming/session/factories/xtream_provider_session_factory.dart';
@@ -93,6 +94,7 @@ class StreamEngineBinding extends Bindings {
     Get.put<AuthenticationEngine>(authEngine, permanent: true);
 
     final registry = ProviderSessionFactoryRegistry();
+    registry.register(CustomProviderSessionFactory());
     registry.register(M3UProviderSessionFactory());
     registry.register(const BearerServerProviderSessionFactory(
       MediaSourceType.plex,

@@ -53,20 +53,21 @@ class _TvScaffoldState extends State<TvScaffold> {
     if (route == AppRoutes.liveTV || route == AppRoutes.channelDetails) {
       return 2;
     }
+    if (route == AppRoutes.freeLiveTV) return 3;
     if (route == AppRoutes.movies ||
         route == AppRoutes.movieDetails ||
         route == AppRoutes.movieGenre ||
         route == AppRoutes.moviesCategory) {
-      return 3;
+      return 4;
     }
     if (route == AppRoutes.series ||
         route == AppRoutes.seriesDetails ||
         route == AppRoutes.seriesGenre ||
         route == AppRoutes.seriesCategory) {
-      return 4;
+      return 5;
     }
-    if (route == AppRoutes.favorites) return 5;
-    if (route == AppRoutes.multiView) return 6;
+    if (route == AppRoutes.favorites) return 6;
+    if (route == AppRoutes.multiView) return 7;
     if (route == AppRoutes.settings ||
         route == AppRoutes.providerManager ||
         route == AppRoutes.providerForm ||
@@ -74,7 +75,7 @@ class _TvScaffoldState extends State<TvScaffold> {
         route == AppRoutes.profile ||
         route == AppRoutes.storage ||
         route == AppRoutes.about) {
-      return 7;
+      return 8;
     }
     return 1;
   }
@@ -83,11 +84,12 @@ class _TvScaffoldState extends State<TvScaffold> {
     AppRoutes.search, // 0
     AppRoutes.home, // 1
     AppRoutes.liveTV, // 2
-    AppRoutes.movies, // 3
-    AppRoutes.series, // 4
-    AppRoutes.favorites, // 5
-    AppRoutes.multiView, // 6
-    AppRoutes.settings, // 7
+    AppRoutes.freeLiveTV, // 3
+    AppRoutes.movies, // 4
+    AppRoutes.series, // 5
+    AppRoutes.favorites, // 6
+    AppRoutes.multiView, // 7
+    AppRoutes.settings, // 8
   ];
 
   void _onItemTapped(int index) {
@@ -239,12 +241,21 @@ class _TvScaffoldState extends State<TvScaffold> {
               ),
               const SizedBox(height: 4),
 
+              // Free Live TV
+              _buildNavItem(
+                icon: Icons.tv_rounded,
+                label: 'Free TV',
+                isSelected: selectedIndex == 3,
+                onTap: () => _onItemTapped(3),
+              ),
+              const SizedBox(height: 4),
+
               // VOD Movies
               _buildNavItem(
                 icon: Icons.movie_creation_outlined,
                 label: 'VOD Movies',
-                isSelected: selectedIndex == 3,
-                onTap: () => _onItemTapped(3),
+                isSelected: selectedIndex == 4,
+                onTap: () => _onItemTapped(4),
               ),
               const SizedBox(height: 4),
 
@@ -252,8 +263,8 @@ class _TvScaffoldState extends State<TvScaffold> {
               _buildNavItem(
                 icon: Icons.video_library_outlined,
                 label: 'Series',
-                isSelected: selectedIndex == 4,
-                onTap: () => _onItemTapped(4),
+                isSelected: selectedIndex == 5,
+                onTap: () => _onItemTapped(5),
               ),
               const SizedBox(height: 4),
 
@@ -261,8 +272,8 @@ class _TvScaffoldState extends State<TvScaffold> {
               _buildNavItem(
                 icon: Icons.star_rounded,
                 label: 'Favorites',
-                isSelected: selectedIndex == 5,
-                onTap: () => _onItemTapped(5),
+                isSelected: selectedIndex == 6,
+                onTap: () => _onItemTapped(6),
                 badgeWidget: _buildFavoritesBadge(),
               ),
               const SizedBox(height: 4),
@@ -271,8 +282,8 @@ class _TvScaffoldState extends State<TvScaffold> {
               _buildNavItem(
                 icon: Icons.grid_view_rounded,
                 label: 'Multi-View',
-                isSelected: selectedIndex == 6,
-                onTap: () => _onItemTapped(6),
+                isSelected: selectedIndex == 7,
+                onTap: () => _onItemTapped(7),
               ),
             ],
           ),
@@ -289,8 +300,8 @@ class _TvScaffoldState extends State<TvScaffold> {
           child: _buildNavItem(
             icon: AppIcons.settings,
             label: 'Settings',
-            isSelected: selectedIndex == 7,
-            onTap: () => _onItemTapped(7),
+            isSelected: selectedIndex == 8,
+            onTap: () => _onItemTapped(8),
           ),
         ),
       ],

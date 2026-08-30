@@ -26,6 +26,12 @@ class HomeQuickActions extends StatelessWidget {
         route: AppRoutes.liveTV,
       ),
       _QuickActionItem(
+        icon: Icons.tv_rounded,
+        label: 'Free TV',
+        color: const Color(0xFF3B82F6), // Blue
+        route: AppRoutes.freeLiveTV,
+      ),
+      _QuickActionItem(
         icon: AppIcons.movies,
         label: 'Movies',
         color: const Color(0xFF6366F1), // Indigo

@@ -12,6 +12,7 @@ class AppRoutes {
   static const String home = '/home';
   static const String syncScreen = '/sync-screen';
   static const String liveTV = '/live-tv';
+  static const String freeLiveTV = '/free-live-tv';
   static const String library = '/library';
   static const String movies = '/movies';
   static const String movieDetails = '/movie-details';

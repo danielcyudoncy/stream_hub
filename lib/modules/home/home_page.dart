@@ -404,6 +404,12 @@ class HomePage extends GetView<HomeController> {
                   colorScheme: colorScheme,
                 ),
                 _buildFeatureChip(
+                  icon: Icons.tv_rounded,
+                  label: 'Free TV',
+                  onTap: () => Get.toNamed(AppRoutes.freeLiveTV),
+                  colorScheme: colorScheme,
+                ),
+                _buildFeatureChip(
                   icon: AppIcons.movies,
                   label: 'Movies',
                   onTap: () => Get.toNamed(AppRoutes.movies),

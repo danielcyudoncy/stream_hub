@@ -211,6 +211,41 @@ MediaCatalog updated
 
 ---
 
+### Free Live TV Adapter
+
+Free Live TV is a **provider-free** source built on the public IPTV-org open
+catalog. It requires no M3U/Xtream/Stalker provider, no subscription, and no
+stream via the Stream Engine. It functions independently and offline-first,
+coexisting with provider-based IPTV.
+
+| Concern | Implementation |
+|---------|----------------|
+| Fetch | `FreeTvService` — pulls IPTV-org `channels.json`, `streams.json`, `countries.json` concurrently with timeout and DoH resilience |
+| Normalize | Matches streams to channels (`stream.channel == channel.id`), excludes `is_nsfw`, drops malformed records, deduplicates URLs, enriches country/category names |
+| Model | `FreeTvChannel` → canonical `MediaItem` via `toMediaItem()` (consumed by `PlaybackEngine` / `PlayerController`) |
+| Cache | `FreeTvRepository` — Hive boxes `free_tv_catalog` (TTL 12h), `free_tv_favorites`, `free_tv_recent` (capped at 20) |
+| Playback | Inline embedded player with automatic multi-stream failover (Stream 1 ➔ 2 ➔ 3) |
+| Session | `CustomProviderSessionFactory` — registered for `MediaSourceType.custom`; builds a credential-free `ProviderSession` from the direct stream URL, so Free TV flows through the standard Stream Engine pipeline (resolver → normalize → validate → `PlayableSession`) without any provider |
+
+Key invariants:
+
+- **Subscription independence** — never checks for active providers or
+  subscriptions; remains usable offline via the local catalog cache.
+- **Provider-independent playback** — channels map to `MediaItem` (via
+  `toMediaItem()` using `MediaSourceType.custom`) and reuse the existing
+  `PlaybackEngine` / `PlayerController` and embedded-player architecture. The
+  `CustomProviderSessionFactory` makes `custom` a first-class session type, so
+  the player still receives only a `PlayableSession` — never a raw URL.
+- **Resilience & failover** — dead or rate-limited streams are retried
+  sequentially against remaining candidates.
+- **Local caching** — catalog, favorites, and recently watched persist in
+  dedicated Hive boxes.
+
+The source exposes normalized `FreeTvChannel` objects only; it never reaches
+the UI, player, or download engine directly.
+
+---
+
 ### XMLTV Adapter
 
 The `XMLTVMediaSource` is the XMLTV adapter. It:
