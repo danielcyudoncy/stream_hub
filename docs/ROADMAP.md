@@ -170,6 +170,39 @@ EPG Experience
 
 ---
 
+## Phase 3FT — Free Live TV (Provider-Free)
+
+Independent, provider-free Free Live TV experience powered by the public
+IPTV-org open catalog. Functions independently without requiring any IPTV
+provider or subscription, while preserving all provider-based features.
+
+### Data & Domain Layer
+
+- [x] `FreeTvChannel` — strongly-typed immutable model with `toMediaItem()` conversion
+- [x] `FreeTvService` — fetches IPTV-org `channels.json`, `streams.json`, `countries.json`, `categories.json` with timeout & DoH resilience
+- [x] Ingestion pipeline (stream-channel matching, NSFW exclusion, invalid record exclusion, URL deduplication, country/category enrichment)
+- [x] `FreeTvRepository` — Hive caching (`free_tv_catalog` + TTL), favorites (`free_tv_favorites`), recent history (`free_tv_recent`, capped at 20)
+
+### Presentation Layer
+
+- [x] `FreeLiveTvBinding`, `FreeLiveTvController`, `FreeLiveTvPage`
+- [x] Sticky embedded player with automatic multi-stream failover (Stream 1 ➔ 2 ➔ 3)
+- [x] Category / Country / Language filter bar with prominent Nigeria discovery
+- [x] Responsive grid / list with search (debounced), sorting, favorites toggle
+- [x] Skeleton shimmer, empty states, error banners, pull-to-refresh
+- [x] Fullscreen, landscape 2-pane, and TV focus support
+- [x] Reusable widgets (`FreeTvChannelCard`, `FreeTvEmbeddedPlayer`, `FreeTvCategoryBar`, `FreeTvSkeleton`)
+
+### Navigation & Shell
+
+- [x] `AppRoutes.freeLiveTV` + `AppPages` registration
+- [x] `AppScaffold` bottom navigation + `NavigationRail` (Search/Settings moved to AppBar)
+- [x] `TvScaffold` expandable sidebar with D-pad focus
+- [x] Home Quick Actions + feature chip shortcuts
+- [x] 18 Free TV tests passing (model, service, repository, controller, page)
+
+---
+
 ## Phase 3Z — Stream Engine
 
 Provider-independent playback and download preparation pipeline.

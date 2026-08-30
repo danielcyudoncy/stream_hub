@@ -40,31 +40,24 @@ class AppScaffold extends StatelessWidget {
 
   int _getSelectedIndex() {
     final route = Get.currentRoute;
-    if (route == AppRoutes.search || route == AppRoutes.guideSearch) return 0;
-    if (route == AppRoutes.home) return 1;
+    if (route == AppRoutes.home) return 0;
     if (route == AppRoutes.liveTV || route == AppRoutes.channelDetails) {
-      return 2;
+      return 1;
     }
+    if (route == AppRoutes.freeLiveTV) return 2;
     if (route == AppRoutes.movies || route == AppRoutes.movieDetails) return 3;
     if (route == AppRoutes.series || route == AppRoutes.seriesDetails) return 4;
     if (route == AppRoutes.favorites) return 5;
-    if (route == AppRoutes.settings ||
-        route == AppRoutes.providerManager ||
-        route == AppRoutes.providerForm ||
-        route == AppRoutes.providerDetails) {
-      return 6;
-    }
-    return 1;
+    return 0;
   }
 
   static const _rootRoutes = [
-    AppRoutes.search, // 0
-    AppRoutes.home, // 1
-    AppRoutes.liveTV, // 2
+    AppRoutes.home, // 0
+    AppRoutes.liveTV, // 1
+    AppRoutes.freeLiveTV, // 2
     AppRoutes.movies, // 3
     AppRoutes.series, // 4
     AppRoutes.favorites, // 5
-    AppRoutes.settings, // 6
   ];
 
   void _onItemTapped(int index) {
@@ -82,11 +75,6 @@ class AppScaffold extends StatelessWidget {
 
     final List<NavigationDestination> destinations = [
       const NavigationDestination(
-        icon: Icon(Icons.search_rounded),
-        selectedIcon: Icon(Icons.search_rounded),
-        label: 'Search',
-      ),
-      const NavigationDestination(
         icon: Icon(AppIcons.home),
         selectedIcon: Icon(AppIcons.home),
         label: 'Home',
@@ -95,6 +83,11 @@ class AppScaffold extends StatelessWidget {
         icon: Icon(AppIcons.liveTv),
         selectedIcon: Icon(AppIcons.liveTv),
         label: 'Live TV',
+      ),
+      const NavigationDestination(
+        icon: Icon(Icons.tv_rounded),
+        selectedIcon: Icon(Icons.tv_rounded),
+        label: 'Free TV',
       ),
       const NavigationDestination(
         icon: Icon(Icons.movie_creation_outlined),
@@ -110,11 +103,6 @@ class AppScaffold extends StatelessWidget {
         icon: Icon(Icons.star_rounded),
         selectedIcon: Icon(Icons.star_rounded),
         label: 'Favorites',
-      ),
-      const NavigationDestination(
-        icon: Icon(AppIcons.settings),
-        selectedIcon: Icon(AppIcons.settings),
-        label: 'Settings',
       ),
     ];
 

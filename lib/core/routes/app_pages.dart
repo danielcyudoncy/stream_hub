@@ -38,6 +38,8 @@ import '../../modules/live_tv/pages/library_overview_page.dart';
 import '../../modules/live_tv/pages/multi_view_page.dart';
 import '../../modules/live_tv/bindings/live_tv_binding.dart';
 import '../../modules/live_tv/bindings/multi_view_binding.dart';
+import '../../modules/free_live_tv/pages/free_live_tv_page.dart';
+import '../../modules/free_live_tv/bindings/free_live_tv_binding.dart';
 import '../../modules/library/library_page.dart';
 import '../../modules/library/library_binding.dart';
 import '../../modules/movies/movies_page.dart';
@@ -199,6 +201,11 @@ class AppPages {
       name: AppRoutes.liveTV,
       page: () => const LiveTVPage(),
       bindings: [LiveTVBinding(), EPGBinding()],
+    ),
+    GetPage(
+      name: AppRoutes.freeLiveTV,
+      page: () => const FreeLiveTvPage(),
+      binding: FreeLiveTvBinding(),
     ),
     GetPage(
       name: AppRoutes.library,
