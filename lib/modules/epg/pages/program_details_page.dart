@@ -9,6 +9,7 @@ import 'package:stream_hub/modules/epg/controllers/program_controller.dart';
 import 'package:stream_hub/modules/epg/models/epg_program.dart';
 import 'package:stream_hub/modules/epg/widgets/now_indicator.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/shared/loading/loading_indicator.dart';
 import 'package:stream_hub/shared/widgets/error_view.dart';
 import 'package:stream_hub/shared/widgets/empty_view.dart';
@@ -295,8 +296,9 @@ borderRadius: AppRadius.large,
         if (isPast)
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
+            child: TvFocusable(
+              autofocus: true,
+              onTap: () {
                 Get.snackbar(
                   'Catch-Up Playback',
                   'Starting archive catch-up stream for ${program.title}',
@@ -305,30 +307,41 @@ borderRadius: AppRadius.large,
                   colorText: Colors.white,
                 );
               },
-              icon: const Icon(Icons.history_rounded, color: Colors.white),
-              label: const Text('Play Catch-Up (Archive)'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14.0),
+              borderRadius: AppRadius.medium,
+              focusColor: AppColors.primary,
+              child: ElevatedButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.history_rounded, color: Colors.white),
+                label: const Text('Play Catch-Up (Archive)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14.0),
+                ),
               ),
             ),
           )
         else if (program.isLive || program.isCurrentlyPlaying)
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
+            child: TvFocusable(
+              autofocus: true,
+              onTap: () {
                 if (program.channelId != null && program.channelId!.isNotEmpty) {
                   Get.back();
                 }
               },
-              icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
-              label: const Text('Watch Live Channel'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14.0),
+              borderRadius: AppRadius.medium,
+              focusColor: AppColors.primary,
+              child: ElevatedButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+                label: const Text('Watch Live Channel'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14.0),
+                ),
               ),
             ),
           ),
@@ -336,27 +349,32 @@ borderRadius: AppRadius.large,
         Row(
           children: [
             Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () {
+              child: TvFocusable(
+                onTap: () {
                   Get.snackbar(
                     'Favorites',
                     'Added ${program.title} to your watchlist.',
                     snackPosition: SnackPosition.BOTTOM,
                   );
                 },
-                icon: const Icon(Icons.favorite_border),
-                label: const Text('Watchlist'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: colorScheme.primary,
-                  side: BorderSide(color: colorScheme.primary),
+                borderRadius: AppRadius.medium,
+                focusColor: colorScheme.primary,
+                child: OutlinedButton.icon(
+                  onPressed: null,
+                  icon: const Icon(Icons.favorite_border),
+                  label: const Text('Watchlist'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.primary,
+                    side: BorderSide(color: colorScheme.primary),
+                  ),
                 ),
               ),
             ),
             if (isUpcoming) ...[
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () {
+                child: TvFocusable(
+                  onTap: () {
                     Get.snackbar(
                       'Reminder Set',
                       'You will be notified before ${program.title} starts.',
@@ -365,11 +383,16 @@ borderRadius: AppRadius.large,
                       colorText: Colors.white,
                     );
                   },
-                  icon: const Icon(Icons.alarm_add_outlined),
-                  label: const Text('Remind Me'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: colorScheme.secondary,
-                    side: BorderSide(color: colorScheme.secondary),
+                  borderRadius: AppRadius.medium,
+                  focusColor: colorScheme.secondary,
+                  child: OutlinedButton.icon(
+                    onPressed: null,
+                    icon: const Icon(Icons.alarm_add_outlined),
+                    label: const Text('Remind Me'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: colorScheme.secondary,
+                      side: BorderSide(color: colorScheme.secondary),
+                    ),
                   ),
                 ),
               ),

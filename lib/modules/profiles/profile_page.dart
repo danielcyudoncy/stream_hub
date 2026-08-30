@@ -7,6 +7,7 @@ import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/app_button.dart';
 import 'package:stream_hub/shared/widgets/profile_card.dart';
 import 'package:stream_hub/shared/widgets/section_header.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/modules/authentication/models/user_model.dart';
 import 'package:stream_hub/modules/settings/settings_controller.dart';
 import 'profile_controller.dart';
@@ -77,51 +78,59 @@ class ProfilePage extends GetView<ProfileController> {
             AppCard(
               child: Column(
                 children: [
-                  ListTile(
-                    leading: Icon(
-                      Icons.language_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    title: Text(
-                      'Language',
-                      style: AppTypography.getBody(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    subtitle: Text(
-                      controller.activeProfile.value?.language ?? 'English',
-                      style: AppTypography.getCaption(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  TvFocusable(
+                    borderRadius: BorderRadius.circular(12),
+                    scale: 1.02,
                     onTap: () => _showLanguagePicker(context),
+                    child: ListTile(
+                      leading: Icon(
+                        Icons.language_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: Text(
+                        'Language',
+                        style: AppTypography.getBody(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      subtitle: Text(
+                        controller.activeProfile.value?.language ?? 'English',
+                        style: AppTypography.getCaption(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    ),
                   ),
-                  ListTile(
-                    leading: Icon(
-                      Icons.brightness_6_outlined,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
-                    title: Text(
-                      'Theme',
-                      style: AppTypography.getBody(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _themeLabel(
-                        Get.find<SettingsController>().themeMode.value,
-                      ),
-                      style: AppTypography.getCaption(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  TvFocusable(
+                    borderRadius: BorderRadius.circular(12),
+                    scale: 1.02,
                     onTap: () => Get.back(),
+                    child: ListTile(
+                      leading: Icon(
+                        Icons.brightness_6_outlined,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      title: Text(
+                        'Theme',
+                        style: AppTypography.getBody(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                      subtitle: Text(
+                        _themeLabel(
+                          Get.find<SettingsController>().themeMode.value,
+                        ),
+                        style: AppTypography.getCaption(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    ),
                   ),
                 ],
               ),

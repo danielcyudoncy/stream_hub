@@ -7,6 +7,7 @@ import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/settings_tile.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'developer_controller.dart';
 
 class DeveloperPage extends GetView<DeveloperController> {
@@ -23,22 +24,26 @@ class DeveloperPage extends GetView<DeveloperController> {
           AppCard(
             child: Obx(() {
               final enabled = controller.isDebugEnabled;
-              return SwitchListTile(
-                title: Text(
-                  'Debug Mode',
-                  style: AppTypography.getBody(color: colorScheme.onSurface),
-                ),
-                subtitle: Text(
-                  'Enables verbose logging of stream resolution, negotiation '
-                  'and playback events. For debugging only.',
-                  style: AppTypography.getCaption(
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+              return TvFocusable(
+                borderRadius: BorderRadius.circular(12),
+                scale: 1.01,
+                child: SwitchListTile(
+                  title: Text(
+                    'Debug Mode',
+                    style: AppTypography.getBody(color: colorScheme.onSurface),
                   ),
+                  subtitle: Text(
+                    'Enables verbose logging of stream resolution, negotiation '
+                    'and playback events. For debugging only.',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  value: enabled,
+                  onChanged: (value) => value
+                      ? controller.debugMode.enableAll()
+                      : controller.debugMode.disableAll(),
                 ),
-                value: enabled,
-                onChanged: (value) => value
-                    ? controller.debugMode.enableAll()
-                    : controller.debugMode.disableAll(),
               );
             }),
           ),

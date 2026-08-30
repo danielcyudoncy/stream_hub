@@ -8,6 +8,7 @@ import 'package:stream_hub/modules/developer/pages/provider_test_controller.dart
 import 'package:stream_hub/modules/developer/widgets/diagnostics_report_view.dart';
 import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class ProviderTestPage extends GetView<ProviderTestController> {
   const ProviderTestPage({super.key});
@@ -54,13 +55,18 @@ class ProviderTestPage extends GetView<ProviderTestController> {
                 ),
                 AppSpacing.heightSM,
                 Obx(
-                  () => FilledButton.icon(
-                    onPressed: controller.isRunning ? null : controller.run,
-                    icon: Icon(
-                      controller.isRunning ? AppIcons.pause : AppIcons.play,
-                    ),
-                    label: Text(
-                      controller.isRunning ? 'Running…' : 'Analyze',
+                  () => TvFocusable(
+                    onTap: controller.isRunning ? null : controller.run,
+                    borderRadius: BorderRadius.circular(8),
+                    focusColor: colorScheme.primary,
+                    child: FilledButton.icon(
+                      onPressed: controller.isRunning ? null : controller.run,
+                      icon: Icon(
+                        controller.isRunning ? AppIcons.pause : AppIcons.play,
+                      ),
+                      label: Text(
+                        controller.isRunning ? 'Running…' : 'Analyze',
+                      ),
                     ),
                   ),
                 ),

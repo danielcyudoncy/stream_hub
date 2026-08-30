@@ -5,24 +5,24 @@ import '../../../core/utils/responsive_helper.dart';
 
 import '../controllers/favorites_controller.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class FavoritesPage extends GetView<FavoritesController> {
   const FavoritesPage({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Favorites'),
-        actions: [
-          PopupMenuButton<String>(
+    return AppScaffold(
+      title: 'Favorites',
+      actions: [
+        TvFocusable(
+          scale: 1.0,
+          borderRadius: BorderRadius.circular(8),
+          child: PopupMenuButton<String>(
             onSelected: (value) => controller.setSort(value),
             itemBuilder: (context) => [
               const PopupMenuItem(
@@ -44,8 +44,8 @@ class FavoritesPage extends GetView<FavoritesController> {
             ],
             icon: const Icon(Icons.sort),
           ),
-        ],
-      ),
+        ),
+      ],
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(

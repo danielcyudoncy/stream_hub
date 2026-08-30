@@ -4,6 +4,7 @@ import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/shared/widgets/live_badge.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class MiniGuide extends StatelessWidget {
   final List<EPGProgram> programs;
@@ -50,12 +51,17 @@ class MiniGuide extends StatelessWidget {
               ),
               const Spacer(),
               if (onViewAll != null)
-                TextButton(
-                  onPressed: onViewAll,
-                  child: Text(
-                    'View All',
-                    style: AppTypography.getCaption(
-                      color: colorScheme.primary,
+                TvFocusable(
+                  onTap: onViewAll,
+                  borderRadius: AppRadius.medium,
+                  scale: 1.05,
+                  child: TextButton(
+                    onPressed: null,
+                    child: Text(
+                      'View All',
+                      style: AppTypography.getCaption(
+                        color: colorScheme.primary,
+                      ),
                     ),
                   ),
                 ),

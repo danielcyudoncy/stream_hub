@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
-import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/empty_view.dart';
 import 'package:stream_hub/shared/widgets/filter_sheet.dart';
 import 'package:stream_hub/shared/widgets/provider_card.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'provider_manager_controller.dart';
 import 'provider_details_page.dart';
@@ -16,6 +17,9 @@ import 'provider_form_page.dart';
 class ProviderManagerPage extends GetView<ProviderManagerController> {
   const ProviderManagerPage({super.key});
 
+  static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
+      GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -23,13 +27,45 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
 
     return AppScaffold(
       title: 'Provider Manager',
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Get.to(() => ProviderFormPage()),
-        backgroundColor: colorScheme.primary,
-        icon: const Icon(AppIcons.add, color: Colors.white),
-        label: Text(
-          'Add Provider',
-          style: AppTypography.getButton(color: Colors.white),
+      actions: [
+        TvFocusable(
+          onTap: () => Get.to(() => ProviderFormPage()),
+          borderRadius: BorderRadius.circular(8.0),
+          scale: 1.05,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: AppColors.primaryGradient),
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(AppIcons.add, size: 16, color: Colors.white),
+                const SizedBox(width: 4),
+                Text(
+                  'Add Provider',
+                  style: AppTypography.getButton(color: Colors.white)
+                      .copyWith(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: AppSpacing.md),
+      ],
+      floatingActionButton: TvFocusable(
+        onTap: () => Get.to(() => ProviderFormPage()),
+        borderRadius: BorderRadius.circular(28.0),
+        scale: 1.05,
+        child: FloatingActionButton.extended(
+          onPressed: () => Get.to(() => ProviderFormPage()),
+          backgroundColor: colorScheme.primary,
+          icon: const Icon(AppIcons.add, color: Colors.white),
+          label: Text(
+            'Add Provider',
+            style: AppTypography.getButton(color: Colors.white),
+          ),
         ),
       ),
       body: Column(
@@ -109,89 +145,59 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
         ),
       ),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Expanded(
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search providers...',
-                hintStyle: AppTypography.getCaption(
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-                prefixIcon: Icon(
-                  AppIcons.search,
-                  size: 20,
-                  color: colorScheme.onSurface.withValues(alpha: 0.5),
-                ),
-                suffixIcon: Obx(() {
-                  if (controller.searchQuery.value.isEmpty) {
-                    return const SizedBox.shrink();
-                  }
-                  return IconButton(
-                    icon: Icon(
-                      AppIcons.close,
-                      size: 18,
-                      color: colorScheme.onSurface.withValues(alpha: 0.5),
-                    ),
-                    onPressed: () => controller.updateSearchQuery(''),
-                  );
-                }),
-                filled: true,
-                fillColor: colorScheme.surfaceContainerHighest.withValues(
-                  alpha: 0.5,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: AppRadius.medium,
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
-                ),
+          TvFocusable(
+            onTap: () => _showFilterSheet(context),
+            scale: 1.15,
+            borderRadius: BorderRadius.circular(24),
+            child: IconButton(
+              onPressed: () => _showFilterSheet(context),
+              icon: Icon(
+                Icons.tune_outlined,
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
               ),
-              onChanged: controller.updateSearchQuery,
+              tooltip: 'Filters',
             ),
           ),
-          AppSpacing.widthSM,
-          IconButton(
-            onPressed: () => _showFilterSheet(context),
-            icon: Icon(
-              Icons.tune_outlined,
-              color: colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-            tooltip: 'Filters',
-          ),
-          PopupMenuButton<String>(
-            icon: Icon(
-              Icons.sort_outlined,
-              color: colorScheme.onSurface.withValues(alpha: 0.7),
-            ),
-            tooltip: 'Sort',
-            onSelected: (value) {
-              final field = ProviderSortField.values.firstWhereOrNull(
-                (f) => f.name == value,
-              );
-              if (field != null) controller.updateSortField(field);
-            },
-            itemBuilder: (context) => ProviderSortField.values.map((field) {
-              return PopupMenuItem(
-                value: field.name,
-                child: Row(
-                  children: [
-                    Obx(
-                      () => Icon(
-                        Icons.check,
-                        size: 18,
-                        color: controller.sortField.value == field
-                            ? colorScheme.primary
-                            : Colors.transparent,
+          TvFocusable(
+            onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
+            scale: 1.15,
+            borderRadius: BorderRadius.circular(24),
+            child: PopupMenuButton<String>(
+              key: _sortPopupKey,
+              icon: Icon(
+                Icons.sort_outlined,
+                color: colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+              tooltip: 'Sort',
+              onSelected: (value) {
+                final field = ProviderSortField.values.firstWhereOrNull(
+                  (f) => f.name == value,
+                );
+                if (field != null) controller.updateSortField(field);
+              },
+              itemBuilder: (context) => ProviderSortField.values.map((field) {
+                return PopupMenuItem(
+                  value: field.name,
+                  child: Row(
+                    children: [
+                      Obx(
+                        () => Icon(
+                          Icons.check,
+                          size: 18,
+                          color: controller.sortField.value == field
+                              ? colorScheme.primary
+                              : Colors.transparent,
+                        ),
                       ),
-                    ),
-                    AppSpacing.widthXS,
-                    Text(_sortLabel(field)),
-                  ],
-                ),
-              );
-            }).toList(),
+                      AppSpacing.widthXS,
+                      Text(_sortLabel(field)),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         ],
       ),

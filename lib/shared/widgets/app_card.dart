@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_shadows.dart';
+import 'tv_focusable.dart';
 
 class AppCard extends StatelessWidget {
   final Widget child;
@@ -42,16 +43,11 @@ class AppCard extends StatelessWidget {
     );
 
     if (onTap != null) {
-      cardContent = ClipRRect(
+      cardContent = TvFocusable(
+        onTap: onTap,
+        scale: 1.02,
         borderRadius: AppRadius.medium,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            borderRadius: AppRadius.medium,
-            child: cardContent,
-          ),
-        ),
+        child: cardContent,
       );
     }
 
@@ -65,3 +61,4 @@ class AppCard extends StatelessWidget {
     return cardContent;
   }
 }
+

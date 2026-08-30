@@ -5,6 +5,7 @@ import '../../../core/utils/responsive_helper.dart';
 
 import '../controllers/live_tv_controller.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
@@ -14,14 +15,9 @@ class RecentPage extends GetView<LiveTVController> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Recent'),
-      ),
+    return AppScaffold(
+      title: 'Recent',
+      showNavigation: false,
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(

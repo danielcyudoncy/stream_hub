@@ -526,94 +526,72 @@ class EPGProgramCard extends StatefulWidget {
 }
 
 class _EPGProgramCardState extends State<EPGProgramCard> {
-  bool _isFocused = false;
-
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return TvFocusable(
       onTap: widget.onTap,
-      onFocusChange: (focused) {
-        setState(() {
-          _isFocused = focused;
-        });
-      },
       borderRadius: BorderRadius.circular(8.0),
-      child: AnimatedScale(
-        scale: _isFocused ? 1.05 : 1.0,
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          decoration: BoxDecoration(
+      scale: 1.05,
+      child: Container(
+        decoration: BoxDecoration(
+          color: widget.program.isLive
+              ? AppColors.primaryContainer.withValues(alpha: 0.25)
+              : AppColors.surfaceVariant.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(8.0),
+          border: Border.all(
             color: widget.program.isLive
-                ? AppColors.primaryContainer.withValues(alpha: _isFocused ? 0.45 : 0.2)
-                : AppColors.surfaceVariant.withValues(alpha: _isFocused ? 0.5 : 0.3),
-            borderRadius: BorderRadius.circular(8.0),
-            border: Border.all(
-              color: _isFocused
-                  ? AppColors.primary
-                  : (widget.program.isLive
-                      ? AppColors.primary.withValues(alpha: 0.3)
-                      : Colors.white.withValues(alpha: 0.06)),
-              width: _isFocused ? 2.0 : 1.0,
-            ),
-            boxShadow: _isFocused
-                ? [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.45),
-                      blurRadius: 16.0,
-                    ),
-                  ]
-                : [],
+                ? AppColors.primary.withValues(alpha: 0.3)
+                : Colors.white.withValues(alpha: 0.06),
+            width: 1.0,
           ),
-          padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.program.title,
-                      style: AppTypography.getTitle(color: AppColors.textPrimary).copyWith(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.program.title,
+                    style: AppTypography.getTitle(color: AppColors.textPrimary).copyWith(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (widget.program.isLive)
+                  Container(
+                    margin: const EdgeInsets.only(left: 4),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Text(
+                      'LIVE',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.bold,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  if (widget.program.isLive)
-                    Container(
-                      margin: const EdgeInsets.only(left: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
-                      child: const Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                ],
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _formatTimeRange(widget.program.startTime, widget.program.endTime),
+              style: AppTypography.getLabel(color: AppColors.textSecondary).copyWith(
+                fontSize: 11,
               ),
-              const SizedBox(height: 4),
-              Text(
-                _formatTimeRange(widget.program.startTime, widget.program.endTime),
-                style: AppTypography.getLabel(color: AppColors.textSecondary).copyWith(
-                  fontSize: 11,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
       ),
     );

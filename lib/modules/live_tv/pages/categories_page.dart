@@ -10,6 +10,7 @@ import '../controllers/category_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class CategoriesPage extends GetView<CategoryController> {
   const CategoriesPage({super.key});
@@ -44,9 +45,15 @@ class CategoriesPage extends GetView<CategoryController> {
           backgroundColor: colorScheme.surface,
           appBar: AppBar(
             leading: isDetailView
-                ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: controller.clearSelection,
+                ? TvFocusable(
+                    onTap: controller.clearSelection,
+                    scale: 1.0,
+                    borderRadius: BorderRadius.circular(8),
+                    child: const IconButton(
+                      icon: Icon(Icons.arrow_back),
+                      onPressed: null,
+                      tooltip: 'Back',
+                    ),
                   )
                 : null,
             title: Text(
@@ -59,26 +66,30 @@ class CategoriesPage extends GetView<CategoryController> {
                     Obx(() {
                       final isHidden =
                           controller.isCategoryHidden(selectedCategory.id);
-                      return IconButton(
-                        tooltip: isHidden ? 'Unhide Category' : 'Hide Category',
-                        icon: Icon(
-                          isHidden
-                              ? Icons.visibility_off_rounded
-                              : Icons.visibility_rounded,
-                          color: isHidden ? Colors.amber : Colors.white70,
-                        ),
-                        onPressed: () {
-                          controller
-                              .toggleCategoryVisibility(selectedCategory.id);
-                          Get.snackbar(
-                            isHidden ? 'Category Unhidden' : 'Category Hidden',
+                      return TvFocusable(
+                        scale: 1.0,
+                        borderRadius: BorderRadius.circular(8),
+                        child: IconButton(
+                          tooltip: isHidden ? 'Unhide Category' : 'Hide Category',
+                          icon: Icon(
                             isHidden
-                                ? '${selectedCategory.name} is now visible across the app.'
-                                : '${selectedCategory.name} is now hidden from channel guides.',
-                            snackPosition: SnackPosition.BOTTOM,
-                            duration: const Duration(seconds: 2),
-                          );
-                        },
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
+                            color: isHidden ? Colors.amber : Colors.white70,
+                          ),
+                          onPressed: () {
+                            controller
+                                .toggleCategoryVisibility(selectedCategory.id);
+                            Get.snackbar(
+                              isHidden ? 'Category Unhidden' : 'Category Hidden',
+                              isHidden
+                                  ? '${selectedCategory.name} is now visible across the app.'
+                                  : '${selectedCategory.name} is now hidden from channel guides.',
+                              snackPosition: SnackPosition.BOTTOM,
+                              duration: const Duration(seconds: 2),
+                            );
+                          },
+                        ),
                       );
                     }),
                   ]
@@ -213,8 +224,10 @@ class CategoriesPage extends GetView<CategoryController> {
                     return Obx(() {
                       final isHidden =
                           controller.isCategoryHidden(category.id);
-                      return GestureDetector(
+                      return TvFocusable(
                         onTap: () => controller.selectCategory(category.id),
+                        borderRadius: AppRadius.medium,
+                        scale: 1.05,
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.all(AppSpacing.sm),
@@ -364,8 +377,10 @@ class CategoriesPage extends GetView<CategoryController> {
     final isSelected = controller.filterTab.value == tabKey;
     final activeColor = color ?? AppColors.primary;
 
-    return GestureDetector(
+    return TvFocusable(
       onTap: () => controller.filterTab.value = tabKey,
+      borderRadius: BorderRadius.circular(20.0),
+      scale: 1.08,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
         decoration: BoxDecoration(
@@ -427,10 +442,15 @@ class CategoriesPage extends GetView<CategoryController> {
                     ],
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: controller.clearSelection,
-                  icon: const Icon(Icons.grid_view_rounded, size: 16),
-                  label: const Text('All Categories'),
+                TvFocusable(
+                  onTap: controller.clearSelection,
+                  borderRadius: AppRadius.medium,
+                  scale: 1.05,
+                  child: TextButton.icon(
+                    onPressed: null,
+                    icon: const Icon(Icons.grid_view_rounded, size: 16),
+                    label: const Text('All Categories'),
+                  ),
                 ),
               ],
             ),
@@ -473,7 +493,7 @@ class CategoriesPage extends GetView<CategoryController> {
                       Positioned(
                         top: 6.0,
                         left: 6.0,
-                        child: GestureDetector(
+                        child: TvFocusable(
                           onTap: () {
                             controller.toggleChannelVisibility(item.id);
                             Get.snackbar(
@@ -487,6 +507,8 @@ class CategoriesPage extends GetView<CategoryController> {
                               duration: const Duration(seconds: 1),
                             );
                           },
+                          borderRadius: BorderRadius.circular(16.0),
+                          scale: 1.15,
                           child: Container(
                             padding: const EdgeInsets.all(4.0),
                             decoration: BoxDecoration(

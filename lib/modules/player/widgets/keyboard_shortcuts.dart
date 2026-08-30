@@ -13,6 +13,7 @@ class PlayerKeyboardShortcuts extends StatelessWidget {
   final VoidCallback? onSeekForward;
   final VoidCallback? onSeekBackward;
   final ValueChanged<double>? onSpeedChange;
+  final VoidCallback? onDpadPress;
 
   const PlayerKeyboardShortcuts({
     super.key,
@@ -27,12 +28,29 @@ class PlayerKeyboardShortcuts extends StatelessWidget {
     this.onSeekForward,
     this.onSeekBackward,
     this.onSpeedChange,
+    this.onDpadPress,
   });
+
+  static bool _isDirectional(KeyEvent event) => switch (event.logicalKey) {
+        LogicalKeyboardKey.arrowUp ||
+        LogicalKeyboardKey.arrowDown ||
+        LogicalKeyboardKey.arrowLeft ||
+        LogicalKeyboardKey.arrowRight =>
+        true,
+        _ => false,
+      };
 
   @override
   Widget build(BuildContext context) {
     return Focus(
       autofocus: true,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent && onDpadPress != null && _isDirectional(event)) {
+          onDpadPress!();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       child: Shortcuts(
         shortcuts: <LogicalKeySet, Intent>{
           LogicalKeySet(LogicalKeyboardKey.space): const PlayPauseIntent(),
@@ -49,13 +67,9 @@ class PlayerKeyboardShortcuts extends StatelessWidget {
           LogicalKeySet(LogicalKeyboardKey.keyF): const FullscreenIntent(),
           LogicalKeySet(LogicalKeyboardKey.contextMenu): const FullscreenIntent(),
           LogicalKeySet(LogicalKeyboardKey.keyM): const MuteIntent(),
-          LogicalKeySet(LogicalKeyboardKey.arrowUp): const ChannelUpIntent(),
-          LogicalKeySet(LogicalKeyboardKey.arrowDown): const ChannelDownIntent(),
           LogicalKeySet(LogicalKeyboardKey.mediaTrackNext): const ChannelUpIntent(),
           LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious): const ChannelDownIntent(),
-          LogicalKeySet(LogicalKeyboardKey.arrowRight): const SeekForwardIntent(),
           LogicalKeySet(LogicalKeyboardKey.mediaFastForward): const SeekForwardIntent(),
-          LogicalKeySet(LogicalKeyboardKey.arrowLeft): const SeekBackwardIntent(),
           LogicalKeySet(LogicalKeyboardKey.mediaRewind): const SeekBackwardIntent(),
           LogicalKeySet(LogicalKeyboardKey.keyS): const SpeedCycleIntent(),
         },

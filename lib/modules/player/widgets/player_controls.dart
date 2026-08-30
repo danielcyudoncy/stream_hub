@@ -8,6 +8,7 @@ import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'subtitle_selector.dart';
 
 class PlayerControls extends StatelessWidget {
@@ -44,9 +45,14 @@ class PlayerControls extends StatelessWidget {
               padding: const EdgeInsets.all(AppSpacing.md),
               child: Row(
                 children: [
-                  IconButton(
-                    onPressed: () => Get.back(),
-                    icon: const Icon(AppIcons.back, color: Colors.white),
+                  TvFocusable(
+                    onTap: () => Get.back(),
+                    scale: 1.15,
+                    borderRadius: BorderRadius.circular(24),
+                    child: IconButton(
+                      onPressed: () => Get.back(),
+                      icon: const Icon(AppIcons.back, color: Colors.white),
+                    ),
                   ),
                   Expanded(
                     child: Obx(() {
@@ -137,29 +143,49 @@ class PlayerControls extends StatelessWidget {
                             labelBuilder: (q) => Text(q.displayName),
                             onSelected: (q) => controller.setQuality(q),
                           ),
-                          IconButton(
-                            onPressed: () => _showSubtitlesSheet(context),
-                            icon: const Icon(AppIcons.subtitles,
-                                color: Colors.white),
-                            tooltip: 'Subtitles',
+                          TvFocusable(
+                            onTap: () => _showSubtitlesSheet(context),
+                            scale: 1.15,
+                            borderRadius: BorderRadius.circular(24),
+                            child: IconButton(
+                              onPressed: () => _showSubtitlesSheet(context),
+                              icon: const Icon(AppIcons.subtitles,
+                                  color: Colors.white),
+                              tooltip: 'Subtitles',
+                            ),
                           ),
-                          IconButton(
-                            onPressed: () => _showAudioTracksSheet(context),
-                            icon: const Icon(AppIcons.audioTrack,
-                                color: Colors.white),
-                            tooltip: 'Audio Tracks',
+                          TvFocusable(
+                            onTap: () => _showAudioTracksSheet(context),
+                            scale: 1.15,
+                            borderRadius: BorderRadius.circular(24),
+                            child: IconButton(
+                              onPressed: () => _showAudioTracksSheet(context),
+                              icon: const Icon(AppIcons.audioTrack,
+                                  color: Colors.white),
+                              tooltip: 'Audio Tracks',
+                            ),
                           ),
                           if (onPiPPressed != null)
-                            IconButton(
-                              onPressed: onPiPPressed,
-                              icon: const Icon(Icons.picture_in_picture_alt,
-                                  color: Colors.white),
-                              tooltip: 'Picture-in-Picture',
+                            TvFocusable(
+                              onTap: onPiPPressed,
+                              scale: 1.15,
+                              borderRadius: BorderRadius.circular(24),
+                              child: IconButton(
+                                onPressed: onPiPPressed,
+                                icon: const Icon(Icons.picture_in_picture_alt,
+                                    color: Colors.white),
+                                tooltip: 'Picture-in-Picture',
+                              ),
                             ),
-                          IconButton(
-                            onPressed: () => _toggleFullscreen(context),
-                            icon: const Icon(AppIcons.fullscreenExit,
-                                color: Colors.white),
+                          TvFocusable(
+                            onTap: () => _toggleFullscreen(context),
+                            scale: 1.15,
+                            borderRadius: BorderRadius.circular(24),
+                            child: IconButton(
+                              onPressed: () => _toggleFullscreen(context),
+                              icon: const Icon(AppIcons.fullscreenExit,
+                                  color: Colors.white),
+                            ),
                           ),
                         ],
                       ],
@@ -290,22 +316,28 @@ class _ControlButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onPressed,
-      icon: Icon(icon, size: size, color: Colors.white),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      constraints: BoxConstraints(minWidth: size + 16, minHeight: size + 16),
+    return TvFocusable(
+      onTap: onPressed,
+      scale: 1.15,
+      borderRadius: BorderRadius.circular(size),
+      child: IconButton(
+        onPressed: onPressed,
+        icon: Icon(icon, size: size, color: Colors.white),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        constraints: BoxConstraints(minWidth: size + 16, minHeight: size + 16),
+      ),
     );
   }
 }
 
-class _PopupMenuButton<T> extends StatelessWidget {
+class _PopupMenuButton<T> extends StatefulWidget {
   final IconData icon;
   final List<T> items;
   final Widget Function(T) labelBuilder;
   final ValueChanged<T> onSelected;
 
   const _PopupMenuButton({
+    super.key,
     required this.icon,
     required this.items,
     required this.labelBuilder,
@@ -313,18 +345,31 @@ class _PopupMenuButton<T> extends StatelessWidget {
   });
 
   @override
+  State<_PopupMenuButton<T>> createState() => _PopupMenuButtonState<T>();
+}
+
+class _PopupMenuButtonState<T> extends State<_PopupMenuButton<T>> {
+  final GlobalKey<PopupMenuButtonState<T>> _popupKey = GlobalKey();
+
+  @override
   Widget build(BuildContext context) {
-    return PopupMenuButton<T>(
-      icon: Icon(icon, color: Colors.white, size: 20),
-      onSelected: onSelected,
-      itemBuilder: (context) {
-        return items
-            .map((item) => PopupMenuItem<T>(
-                  value: item,
-                  child: labelBuilder(item),
-                ))
-            .toList();
-      },
+    return TvFocusable(
+      onTap: () => _popupKey.currentState?.showButtonMenu(),
+      scale: 1.15,
+      borderRadius: BorderRadius.circular(24),
+      child: PopupMenuButton<T>(
+        key: _popupKey,
+        icon: Icon(widget.icon, color: Colors.white, size: 20),
+        onSelected: widget.onSelected,
+        itemBuilder: (context) {
+          return widget.items
+              .map((item) => PopupMenuItem<T>(
+                    value: item,
+                    child: widget.labelBuilder(item),
+                  ))
+              .toList();
+        },
+      ),
     );
   }
 }

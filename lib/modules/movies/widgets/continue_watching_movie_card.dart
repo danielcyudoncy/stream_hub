@@ -243,12 +243,17 @@ class _ContinueWatchingMovieCardState extends State<ContinueWatchingMovieCard> {
                 ),
                 if (widget.onDetails != null) ...[
                   AppSpacing.widthXXS,
-                  GestureDetector(
+                  TvFocusable(
                     onTap: widget.onDetails,
-                    child: Icon(
-                      Icons.more_vert_rounded,
-                      color: colorScheme.onSurfaceVariant,
-                      size: 16.0,
+                    borderRadius: BorderRadius.circular(12.0),
+                    scale: 1.15,
+                    child: Padding(
+                      padding: const EdgeInsets.all(2.0),
+                      child: Icon(
+                        Icons.more_vert_rounded,
+                        color: colorScheme.onSurfaceVariant,
+                        size: 16.0,
+                      ),
                     ),
                   ),
                 ],

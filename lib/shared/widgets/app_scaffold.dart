@@ -1,9 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../core/helpers/platform_helper.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/responsive_helper.dart';
 import 'app_app_bar.dart';
 import 'sync_progress_bar.dart';
 import 'tv_scaffold.dart';
@@ -121,9 +123,10 @@ class AppScaffold extends StatelessWidget {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
+          final isTvMode = PlatformHelper.isTV || ResponsiveHelper.isTV(context);
 
           // Desktop / TV — persistent sidebar
-          if (width >= 1024 && showNavigation) {
+          if ((width >= 1024 || isTvMode) && showNavigation) {
             return TvScaffold(body: body);
           }
 
@@ -184,7 +187,8 @@ class AppScaffold extends StatelessWidget {
           ? null
           : LayoutBuilder(
               builder: (context, constraints) {
-                if (constraints.maxWidth >= 600) return const SizedBox.shrink();
+                final isTvMode = PlatformHelper.isTV || ResponsiveHelper.isTV(context);
+                if (constraints.maxWidth >= 600 || isTvMode) return const SizedBox.shrink();
                 return ClipRect(
                   child: BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),

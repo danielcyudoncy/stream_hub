@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
+import 'tv_focusable.dart';
 
 class FilterSheet extends StatelessWidget {
   final String sortField;
@@ -57,14 +59,19 @@ class FilterSheet extends StatelessWidget {
               if (value != null) onSortChanged(value);
             },
             child: Column(
-              children: ['Name', 'Date Added', 'Last Updated', 'Provider Type'].map((field) => InkWell(
+              children: ['Name', 'Date Added', 'Last Updated', 'Provider Type'].map((field) => TvFocusable(
                 onTap: () => onSortChanged(field),
-                child: Row(
-                  children: [
-                    Radio<String>(value: field),
-                    const SizedBox(width: 8),
-                    Text(field, style: AppTypography.getBody(color: colorScheme.onSurface)),
-                  ],
+                borderRadius: AppRadius.medium,
+                scale: 1.02,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                  child: Row(
+                    children: [
+                      Radio<String>(value: field),
+                      const SizedBox(width: 8),
+                      Text(field, style: AppTypography.getBody(color: colorScheme.onSurface)),
+                    ],
+                  ),
                 ),
               )).toList(),
             ),
@@ -78,14 +85,19 @@ class FilterSheet extends StatelessWidget {
               if (value != null) onFilterChanged(value);
             },
             child: Column(
-              children: ['All', 'Enabled', 'Disabled', 'Favorites'].map((type) => InkWell(
+              children: ['All', 'Enabled', 'Disabled', 'Favorites'].map((type) => TvFocusable(
                 onTap: () => onFilterChanged(type),
-                child: Row(
-                  children: [
-                    Radio<String>(value: type),
-                    const SizedBox(width: 8),
-                    Text(type, style: AppTypography.getBody(color: colorScheme.onSurface)),
-                  ],
+                borderRadius: AppRadius.medium,
+                scale: 1.02,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+                  child: Row(
+                    children: [
+                      Radio<String>(value: type),
+                      const SizedBox(width: 8),
+                      Text(type, style: AppTypography.getBody(color: colorScheme.onSurface)),
+                    ],
+                  ),
                 ),
               )).toList(),
             ),
@@ -96,16 +108,27 @@ class FilterSheet extends StatelessWidget {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
+              runSpacing: 8,
               children: [
-                ChoiceChip(
-                  label: const Text('All'),
-                  selected: filterProviderType == null,
-                  onSelected: (_) => onProviderTypeChanged(null),
+                TvFocusable(
+                  onTap: () => onProviderTypeChanged(null),
+                  borderRadius: AppRadius.pill,
+                  scale: 1.05,
+                  child: ChoiceChip(
+                    label: const Text('All'),
+                    selected: filterProviderType == null,
+                    onSelected: (_) => onProviderTypeChanged(null),
+                  ),
                 ),
-                ...availableTypes.map((type) => ChoiceChip(
-                  label: Text(type),
-                  selected: filterProviderType == type,
-                  onSelected: (_) => onProviderTypeChanged(type),
+                ...availableTypes.map((type) => TvFocusable(
+                  onTap: () => onProviderTypeChanged(type),
+                  borderRadius: AppRadius.pill,
+                  scale: 1.05,
+                  child: ChoiceChip(
+                    label: Text(type),
+                    selected: filterProviderType == type,
+                    onSelected: (_) => onProviderTypeChanged(type),
+                  ),
                 )),
               ],
             ),
@@ -114,11 +137,21 @@ class FilterSheet extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(onPressed: onReset, child: const Text('Reset')),
+                child: TvFocusable(
+                  onTap: onReset,
+                  borderRadius: AppRadius.medium,
+                  scale: 1.04,
+                  child: OutlinedButton(onPressed: onReset, child: const Text('Reset')),
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: FilledButton(onPressed: onApply, child: const Text('Apply')),
+                child: TvFocusable(
+                  onTap: onApply,
+                  borderRadius: AppRadius.medium,
+                  scale: 1.04,
+                  child: FilledButton(onPressed: onApply, child: const Text('Apply')),
+                ),
               ),
             ],
           ),

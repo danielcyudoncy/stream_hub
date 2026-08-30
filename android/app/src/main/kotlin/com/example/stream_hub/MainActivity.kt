@@ -31,6 +31,14 @@ class MainActivity : FlutterActivity() {
             "stream_hub/native_player_launch",
         ).setMethodCallHandler { call, result ->
             when (call.method) {
+                "isTelevision" -> {
+                    val uiModeManager = getSystemService(android.content.Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+                    val isTvMode = uiModeManager?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+                    val hasLeanback = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
+                    val hasTelevision = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TELEVISION)
+                    val isTv = isTvMode || hasLeanback || hasTelevision
+                    result.success(isTv)
+                }
                 "getDeviceHardwareInfo" -> {
                     val info = mapOf(
                         "hardware" to android.os.Build.HARDWARE,

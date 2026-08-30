@@ -11,10 +11,12 @@ import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
+import 'package:stream_hub/modules/player/widgets/keyboard_shortcuts.dart';
 import 'package:stream_hub/modules/player/widgets/player_controls.dart';
 import 'package:stream_hub/modules/player/widgets/next_episode_overlay.dart';
 import 'package:stream_hub/modules/player/widgets/skip_intro_button.dart';
 import 'package:stream_hub/modules/player/widgets/player_touch_gesture_overlay.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class FullscreenPlayerPage extends StatefulWidget {
   const FullscreenPlayerPage({super.key});
@@ -94,26 +96,80 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
     super.dispose();
   }
 
+  Widget _buildInteractivePlayer() {
+    return PlayerKeyboardShortcuts(
+      onPlayPause: () {
+        if (!_controlsVisible) {
+          setState(() => _controlsVisible = true);
+          _autoHideControls();
+        } else {
+          _controller.togglePlayPause();
+        }
+      },
+      onStop: _handleBack,
+      onSeekForward: () {
+        final newPos = _controller.position + const Duration(seconds: 10);
+        _controller.seek(newPos);
+        if (!_controlsVisible) {
+          setState(() => _controlsVisible = true);
+          _autoHideControls();
+        }
+      },
+      onSeekBackward: () {
+        final newPos = _controller.position - const Duration(seconds: 10);
+        _controller.seek(newPos);
+        if (!_controlsVisible) {
+          setState(() => _controlsVisible = true);
+          _autoHideControls();
+        }
+      },
+      onChannelUp: () => _controller.next(),
+      onChannelDown: () => _controller.previous(),
+      onDpadPress: () {
+        if (!_controlsVisible) {
+          setState(() => _controlsVisible = true);
+          _autoHideControls();
+        }
+      },
+      child: PlayerTouchGestureOverlay(
+        onTap: _toggleControls,
+        onVolumeChanged: (vol) => _controller.setVolume(vol),
+        controls: Stack(
+          children: [
+            _buildStateOverlay(),
+            _buildSkipIntroOverlay(),
+            _buildNextEpisodeOverlay(),
+            if (_controlsVisible) ...[
+              _buildControlsOverlay(context),
+              _buildTopBar(context),
+            ],
+          ],
+        ),
+        child: _buildVideoLayer(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isExternal = _controller.playbackController.engine.adapter
               is NativeActivityPlayerAdapter ||
           _controller.playbackController.engine.adapter is IjkPlayerAdapter;
 
-      if (isExternal) {
-        return PopScope(
-          canPop: true,
-          onPopInvokedWithResult: (didPop, _) {
-            _stateSub?.cancel();
-            _stateSub = null;
-            _controlsTimer?.cancel();
-          },
-          child: const Scaffold(
-            backgroundColor: Colors.black,
-            body: SizedBox.shrink(),
-          ),
-        );
-      }
+    if (isExternal) {
+      return PopScope(
+        canPop: true,
+        onPopInvokedWithResult: (didPop, _) {
+          _stateSub?.cancel();
+          _stateSub = null;
+          _controlsTimer?.cancel();
+        },
+        child: const Scaffold(
+          backgroundColor: Colors.black,
+          body: SizedBox.shrink(),
+        ),
+      );
+    }
 
     if (!_isPiPSupported) {
       return PopScope(
@@ -125,22 +181,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         },
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: PlayerTouchGestureOverlay(
-            onTap: _toggleControls,
-            onVolumeChanged: (vol) => _controller.setVolume(vol),
-            controls: Stack(
-              children: [
-                _buildStateOverlay(),
-                _buildSkipIntroOverlay(),
-                _buildNextEpisodeOverlay(),
-                if (_controlsVisible) ...[
-                  _buildControlsOverlay(context),
-                  _buildTopBar(context),
-                ],
-              ],
-            ),
-            child: _buildVideoLayer(),
-          ),
+          body: _buildInteractivePlayer(),
         ),
       );
     }
@@ -160,22 +201,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         },
         child: Scaffold(
           backgroundColor: Colors.black,
-          body: PlayerTouchGestureOverlay(
-            onTap: _toggleControls,
-            onVolumeChanged: (vol) => _controller.setVolume(vol),
-            controls: Stack(
-              children: [
-                _buildStateOverlay(),
-                _buildSkipIntroOverlay(),
-                _buildNextEpisodeOverlay(),
-                if (_controlsVisible) ...[
-                  _buildControlsOverlay(context),
-                  _buildTopBar(context),
-                ],
-              ],
-            ),
-            child: _buildVideoLayer(),
-          ),
+          body: _buildInteractivePlayer(),
         ),
       ),
     );
@@ -279,13 +305,17 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  AppSpacing.heightMD,
-                  ElevatedButton.icon(
-                    onPressed: () =>
-                        _controller.retry(),
-                    icon: const Icon(AppIcons.refresh),
-                    label: const Text('Retry'),
-                  ),
+                   AppSpacing.heightMD,
+                   TvFocusable(
+                     onTap: () => _controller.retry(),
+                     scale: 1.08,
+                     borderRadius: BorderRadius.circular(12),
+                     child: ElevatedButton.icon(
+                       onPressed: () => _controller.retry(),
+                       icon: const Icon(AppIcons.refresh),
+                       label: const Text('Retry'),
+                     ),
+                   ),
                 ],
               ),
             ),
@@ -345,39 +375,49 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                 ],
               ),
             ),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: const Icon(AppIcons.back, color: Colors.white),
-                  onPressed: _handleBack,
-                ),
-                Expanded(
-                  child: Obx(() {
-                    final title =
-                        _controller.sessionRx.value?.metadata.title ?? 'Player';
-                    return Text(
-                      title,
-                      style: AppTypography.getBody(color: Colors.white).copyWith(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  }),
-                ),
-                Obx(() {
-                  final isFav = _controller.isFavoriteRx.value;
-                  return IconButton(
-                    icon: Icon(
-                      isFav ? Icons.favorite : Icons.favorite_border,
-                      color: isFav ? Colors.red : Colors.white70,
-                    ),
-                    onPressed: _controller.toggleFavorite,
-                  );
-                }),
-              ],
-            ),
+             child: Row(
+               children: [
+                 TvFocusable(
+                   onTap: _handleBack,
+                   scale: 1.15,
+                   borderRadius: BorderRadius.circular(24),
+                   child: IconButton(
+                     icon: const Icon(AppIcons.back, color: Colors.white),
+                     onPressed: _handleBack,
+                   ),
+                 ),
+                 Expanded(
+                   child: Obx(() {
+                     final title =
+                         _controller.sessionRx.value?.metadata.title ?? 'Player';
+                     return Text(
+                       title,
+                       style: AppTypography.getBody(color: Colors.white).copyWith(
+                         fontSize: 13,
+                         fontWeight: FontWeight.w600,
+                       ),
+                       maxLines: 2,
+                       overflow: TextOverflow.ellipsis,
+                     );
+                   }),
+                 ),
+                 Obx(() {
+                   final isFav = _controller.isFavoriteRx.value;
+                   return TvFocusable(
+                     onTap: _controller.toggleFavorite,
+                     scale: 1.15,
+                     borderRadius: BorderRadius.circular(24),
+                     child: IconButton(
+                       icon: Icon(
+                         isFav ? Icons.favorite : Icons.favorite_border,
+                         color: isFav ? Colors.red : Colors.white70,
+                       ),
+                       onPressed: _controller.toggleFavorite,
+                     ),
+                   );
+                 }),
+               ],
+             ),
           ),
         ),
       ),

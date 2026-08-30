@@ -9,6 +9,7 @@ import '../../data/models/media_item.dart';
 import '../../data/models/channel.dart';
 import 'cached_home_image.dart';
 import 'channel_placeholder.dart';
+import 'tv_focusable.dart';
 
 class ChannelCard extends StatelessWidget {
   final MediaItem channel;
@@ -42,20 +43,19 @@ class ChannelCard extends StatelessWidget {
     final posterUrl = ImageUrlFormatter.format(rawPoster, item: channel);
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: AppRadius.medium,
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: colorScheme.surface,
-            borderRadius: AppRadius.medium,
-            border: Border.all(
-              color: colorScheme.outline.withValues(alpha: 0.08),
-            ),
+    return TvFocusable(
+      onTap: onTap,
+      borderRadius: AppRadius.medium,
+      scale: 1.05,
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: AppRadius.medium,
+          border: Border.all(
+            color: colorScheme.outline.withValues(alpha: 0.08),
           ),
+        ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -165,9 +165,8 @@ class ChannelCard extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
   Widget _buildPlaceholder(ColorScheme colorScheme) {
     return Container(

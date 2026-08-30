@@ -470,8 +470,10 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               ),
             ),
             Center(
-              child: GestureDetector(
+              child: TvFocusable(
                 onTap: _controller.playPrimaryAction,
+                borderRadius: BorderRadius.circular(26.0),
+                scale: 1.15,
                 child: Container(
                   width: 52.0,
                   height: 52.0,

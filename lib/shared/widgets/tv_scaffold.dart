@@ -111,17 +111,21 @@ class _TvScaffoldState extends State<TvScaffold> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
           // Main Body pushed by 96px (collapsed sidebar width)
           Positioned.fill(
             left: 96.0,
-            child: Column(
-              children: [
-                const SyncProgressBar(),
-                Expanded(child: widget.body),
-              ],
+            child: Focus(
+              autofocus: true,
+              child: Column(
+                children: [
+                  const SyncProgressBar(),
+                  Expanded(child: widget.body),
+                ],
+              ),
             ),
           ),
 
@@ -523,10 +527,15 @@ class _TvScaffoldState extends State<TvScaffold> {
     required VoidCallback onTap,
     Widget? badgeWidget,
   }) {
+    // Vibrant Red Accent for active selection on TV (Highly visible from 10-ft distance)
+    const selectedRedBg = Color(0xFFE50914);
+    const selectedRedBorder = Color(0xFFFF4D5A);
+
     return TvFocusable(
       onTap: onTap,
-      scale: 1.02,
+      scale: 1.04,
       borderRadius: BorderRadius.circular(10),
+      focusColor: selectedRedBorder,
       onFocusChange: (focused) {
         if (focused && !_isExpanded && mounted) {
           setState(() => _isExpanded = true);
@@ -540,20 +549,21 @@ class _TvScaffoldState extends State<TvScaffold> {
         ),
         decoration: BoxDecoration(
           color: isSelected
-              ? AppColors.primaryContainer.withValues(alpha: 0.28)
+              ? selectedRedBg
               : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected
-                ? AppColors.primary.withValues(alpha: 0.6)
+                ? selectedRedBorder
                 : Colors.transparent,
-            width: 1.0,
+            width: 1.5,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.2),
-                    blurRadius: 10,
+                    color: selectedRedBg.withValues(alpha: 0.55),
+                    blurRadius: 14,
+                    spreadRadius: 1.0,
                   ),
                 ]
               : null,
@@ -566,7 +576,7 @@ class _TvScaffoldState extends State<TvScaffold> {
                   const SizedBox(width: 6.0),
                   Icon(
                     icon,
-                    color: isSelected ? AppColors.primary : Colors.white70,
+                    color: isSelected ? Colors.white : Colors.white70,
                     size: 22.0,
                   ),
                   const SizedBox(width: 16.0),
@@ -576,7 +586,8 @@ class _TvScaffoldState extends State<TvScaffold> {
                       style: TextStyle(
                         color: isSelected ? Colors.white : Colors.white70,
                         fontSize: 13.5,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+                        letterSpacing: isSelected ? 0.3 : 0.0,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -601,7 +612,7 @@ class _TvScaffoldState extends State<TvScaffold> {
                       children: [
                         Icon(
                           icon,
-                          color: isSelected ? AppColors.primary : Colors.white70,
+                          color: isSelected ? Colors.white : Colors.white70,
                           size: 24.0,
                         ),
                         if (badgeWidget != null)
@@ -616,9 +627,9 @@ class _TvScaffoldState extends State<TvScaffold> {
                     Text(
                       label,
                       style: TextStyle(
-                        color: isSelected ? AppColors.primary : Colors.white70,
+                        color: isSelected ? Colors.white : Colors.white70,
                         fontSize: 10.0,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

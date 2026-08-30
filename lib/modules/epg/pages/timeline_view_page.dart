@@ -8,6 +8,7 @@ import 'package:stream_hub/modules/epg/widgets/timeline_header.dart';
 import 'package:stream_hub/modules/epg/widgets/timeline_ruler.dart';
 import 'package:stream_hub/modules/epg/widgets/program_tile.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/shared/loading/loading_indicator.dart';
 import 'package:stream_hub/shared/widgets/error_view.dart';
 import 'package:stream_hub/shared/widgets/empty_view.dart';
@@ -22,17 +23,21 @@ class TimelineViewPage extends GetView<TimelineController> {
     return AppScaffold(
       title: 'Timeline',
       actions: [
-        PopupMenuButton<int>(
-          onSelected: (hours) => controller.setTimelineWindowHours(hours),
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 1, child: Text('30 min')),
-            const PopupMenuItem(value: 2, child: Text('1 hour')),
-            const PopupMenuItem(value: 4, child: Text('2 hours')),
-            const PopupMenuItem(value: 6, child: Text('6 hours')),
-            const PopupMenuItem(value: 12, child: Text('12 hours')),
-            const PopupMenuItem(value: 24, child: Text('24 hours')),
-          ],
-          icon: const Icon(Icons.timeline),
+        TvFocusable(
+          scale: 1.0,
+          borderRadius: BorderRadius.circular(8),
+          child: PopupMenuButton<int>(
+            onSelected: (hours) => controller.setTimelineWindowHours(hours),
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: 1, child: Text('30 min')),
+              const PopupMenuItem(value: 2, child: Text('1 hour')),
+              const PopupMenuItem(value: 4, child: Text('2 hours')),
+              const PopupMenuItem(value: 6, child: Text('6 hours')),
+              const PopupMenuItem(value: 12, child: Text('12 hours')),
+              const PopupMenuItem(value: 24, child: Text('24 hours')),
+            ],
+            icon: const Icon(Icons.timeline),
+          ),
         ),
       ],
       body: Column(

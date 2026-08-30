@@ -3,6 +3,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import 'tv_focusable.dart';
 
 class EmptyLibrary extends StatelessWidget {
   final String title;
@@ -61,30 +62,33 @@ class EmptyLibrary extends StatelessWidget {
             ],
             if (actionLabel != null && onAction != null) ...[
               AppSpacing.heightMD,
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: AppColors.primaryGradient,
-                  ),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(8.0),
-                    onTap: onAction,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.lg,
-                        vertical: AppSpacing.sm,
-                      ),
-                      child: Text(
-                        actionLabel!,
-                        style: AppTypography.getButton(
-                          color: Colors.white,
-                        ),
-                      ),
+              TvFocusable(
+                onTap: onAction,
+                borderRadius: BorderRadius.circular(8.0),
+                scale: 1.08,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: AppColors.primaryGradient,
                     ),
+                    borderRadius: BorderRadius.circular(8.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.35),
+                        blurRadius: 12.0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.sm,
+                  ),
+                  child: Text(
+                    actionLabel!,
+                    style: AppTypography.getButton(
+                      color: Colors.white,
+                    ).copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
               ),

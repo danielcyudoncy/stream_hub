@@ -8,6 +8,7 @@ import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/shared/widgets/channel_logo.dart';
 import 'package:stream_hub/shared/widgets/live_badge.dart';
 import 'package:stream_hub/shared/widgets/provider_chip.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class ChannelColumn extends StatelessWidget {
   final EPGChannel channel;
@@ -34,8 +35,10 @@ class ChannelColumn extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
+      scale: 1.01,
+      borderRadius: BorderRadius.circular(6),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.sm),
         decoration: BoxDecoration(

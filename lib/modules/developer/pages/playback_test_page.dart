@@ -7,6 +7,7 @@ import 'package:stream_hub/modules/developer/pages/playback_test_controller.dart
 import 'package:stream_hub/modules/developer/widgets/diagnostics_report_view.dart';
 import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class PlaybackTestPage extends GetView<PlaybackTestController> {
   const PlaybackTestPage({super.key});
@@ -39,13 +40,18 @@ class PlaybackTestPage extends GetView<PlaybackTestController> {
                 ),
                 AppSpacing.heightSM,
                 Obx(
-                  () => FilledButton.icon(
-                    onPressed: controller.isRunning ? null : controller.run,
-                    icon: Icon(
-                      controller.isRunning ? AppIcons.pause : AppIcons.play,
-                    ),
-                    label: Text(
-                      controller.isRunning ? 'Running…' : 'Run Test',
+                  () => TvFocusable(
+                    onTap: controller.isRunning ? null : controller.run,
+                    borderRadius: BorderRadius.circular(8),
+                    focusColor: colorScheme.primary,
+                    child: FilledButton.icon(
+                      onPressed: controller.isRunning ? null : controller.run,
+                      icon: Icon(
+                        controller.isRunning ? AppIcons.pause : AppIcons.play,
+                      ),
+                      label: Text(
+                        controller.isRunning ? 'Running…' : 'Run Test',
+                      ),
                     ),
                   ),
                 ),

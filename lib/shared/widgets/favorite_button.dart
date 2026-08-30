@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
+import 'tv_focusable.dart';
 
 class FavoriteButton extends StatelessWidget {
   final bool isFavorite;
@@ -19,8 +20,10 @@ class FavoriteButton extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
+      scale: 1.15,
+      borderRadius: BorderRadius.circular(size),
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.xxs),
         decoration: BoxDecoration(
