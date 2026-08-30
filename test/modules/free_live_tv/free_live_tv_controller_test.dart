@@ -13,11 +13,38 @@ class _FakeFreeTvRepository implements FreeTvRepository {
   final StreamController<Set<String>> _favController =
       StreamController<Set<String>>.broadcast();
 
+  /// Set of channel ids known to be working; used by getWorkingCatalog/
+  /// refreshWorkingStatus to simulate reachability results.
+  Set<String> workingIds = {};
+
   @override
   Future<List<FreeTvChannel>> getCatalog({bool forceRefresh = false}) async {
     return catalog.map((c) {
       final isFav = favoriteIds.contains(c.id);
       return c.copyWith(isFavorite: isFav);
+    }).toList();
+  }
+
+  @override
+  Future<List<FreeTvChannel>> getWorkingCatalog({
+    bool forceRefresh = false,
+  }) async {
+    return catalog
+        .where((c) => workingIds.contains(c.id))
+        .map((c) => c.copyWith(isWorking: true))
+        .toList();
+  }
+
+  @override
+  Future<List<FreeTvChannel>> refreshWorkingStatus(
+    List<FreeTvChannel> channels, {
+    int concurrency = 16,
+    Duration timeout = const Duration(seconds: 5),
+    int? maxChannels,
+  }) async {
+    return channels.map((c) {
+      final working = workingIds.contains(c.id);
+      return c.copyWith(isWorking: working);
     }).toList();
   }
 
@@ -225,6 +252,35 @@ void main() {
       controller.setFavoritesOnly(true);
       expect(controller.filteredChannels.length, 1);
       expect(controller.filteredChannels.first.id, channel.id);
+    });
+
+    test('enables working-only filter using cached reachability then background '
+        'probe', () async {
+      // Only Channels Television and Red Bull TV are reachable.
+      fakeRepo.workingIds = {'ChannelsTV.ng', 'RedBullTV.at'};
+
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      // Browse the full valid catalog so the filter can be observed broadly.
+      controller.catalogMode = 'all';
+
+      await controller.setWorkingOnly(true);
+      // Allow the synchronous cached load + background probe to complete.
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(controller.showWorkingOnly.value, isTrue);
+      expect(controller.workingCount.value, 2);
+      expect(controller.filteredChannels.length, 2);
+      expect(
+        controller.filteredChannels.map((c) => c.id).toSet(),
+        {'ChannelsTV.ng', 'RedBullTV.at'},
+      );
+
+      // Turning it off restores the full catalog.
+      await controller.setWorkingOnly(false);
+      expect(controller.showWorkingOnly.value, isFalse);
+      expect(controller.filteredChannels.length, 4);
     });
 
     test('sorts channels alphabetically, by country, and by category',

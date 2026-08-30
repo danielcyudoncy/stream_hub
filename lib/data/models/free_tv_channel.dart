@@ -41,6 +41,14 @@ class FreeTvChannel {
   final bool isFavorite;
   final DateTime? lastWatched;
 
+  /// Reachability state determined by a live stream probe.
+  ///
+  /// Tri-state:
+  ///   - `true`  : at least one stream URL was reachable on the last probe.
+  ///   - `false` : all stream URLs were unreachable on the last probe.
+  ///   - `null`  : not yet probed (default).
+  final bool? isWorking;
+
   /// Internal catalog-quality heuristic score (0–100). Not an official
   /// popularity metric.
   final int qualityScore;
@@ -67,6 +75,7 @@ class FreeTvChannel {
     this.streamUrls = const [],
     this.isFavorite = false,
     this.lastWatched,
+    this.isWorking,
     this.qualityScore = 0,
     this.qualityTier = FreeTvQualityTier.valid,
   });
@@ -97,6 +106,7 @@ class FreeTvChannel {
     List<String>? streamUrls,
     bool? isFavorite,
     DateTime? lastWatched,
+    bool? isWorking,
     int? qualityScore,
     FreeTvQualityTier? qualityTier,
   }) {
@@ -119,6 +129,7 @@ class FreeTvChannel {
       streamUrls: streamUrls ?? this.streamUrls,
       isFavorite: isFavorite ?? this.isFavorite,
       lastWatched: lastWatched ?? this.lastWatched,
+      isWorking: isWorking ?? this.isWorking,
       qualityScore: qualityScore ?? this.qualityScore,
       qualityTier: qualityTier ?? this.qualityTier,
     );
@@ -181,6 +192,7 @@ class FreeTvChannel {
       if (logo != null) 'logo': logo,
       'stream_urls': streamUrls,
       'is_favorite': isFavorite,
+      'is_working': isWorking,
       'quality_score': qualityScore,
       'quality_tier': qualityTier.name,
       if (lastWatched != null)
@@ -267,6 +279,9 @@ class FreeTvChannel {
           .toList(),
       isFavorite: isFavorite ?? json['is_favorite'] == true,
       lastWatched: lastWatched,
+      isWorking: json['is_working'] is bool
+          ? json['is_working'] as bool
+          : null,
       qualityScore: qualityScore,
       qualityTier: qualityTier,
     );

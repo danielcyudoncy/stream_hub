@@ -124,10 +124,15 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
                         selectedRegion: controller.selectedRegion.value,
                         showFavoritesOnly: controller.showFavoritesOnly.value,
                         favoritesCount: controller.favorites.length,
+                        showWorkingOnly: controller.showWorkingOnly.value,
+                        workingCount: controller.workingCount.value,
+                        isCheckingWorking:
+                            controller.isCheckingWorking.value,
                         onCategorySelected: controller.setCategory,
                         onCountrySelected: controller.setCountry,
                         onRegionSelected: controller.setRegion,
                         onFavoritesToggle: controller.setFavoritesOnly,
+                        onWorkingToggle: controller.setWorkingOnly,
                       ),
                     ),
                   ],
@@ -199,15 +204,19 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
                 selectedRegion: controller.selectedRegion.value,
                 showFavoritesOnly: controller.showFavoritesOnly.value,
                 favoritesCount: controller.favorites.length,
+                showWorkingOnly: controller.showWorkingOnly.value,
+                workingCount: controller.workingCount.value,
+                isCheckingWorking: controller.isCheckingWorking.value,
                 onCategorySelected: controller.setCategory,
                 onCountrySelected: controller.setCountry,
                 onRegionSelected: controller.setRegion,
                 onFavoritesToggle: controller.setFavoritesOnly,
+                onWorkingToggle: controller.setWorkingOnly,
               ),
             ),
 
-            // 4. Header Summary Row
-            _buildHeaderSummaryRow(
+          // 4. Header Summary Row
+          _buildHeaderSummaryRow(
               favoritesOnly,
               selectedCountry,
               selectedCat,

@@ -106,6 +106,7 @@ void main() {
         languages: ['eng'],
         streamUrls: ['https://nta.stream/live.m3u8'],
         isFavorite: true,
+        isWorking: true,
       );
 
       final json = original.toJson();
@@ -117,6 +118,21 @@ void main() {
       expect(reconstructed.countryCode, original.countryCode);
       expect(reconstructed.streamUrls, original.streamUrls);
       expect(reconstructed.isFavorite, isTrue);
+      expect(reconstructed.isWorking, isTrue);
+    });
+
+    test('isWorking round-trips false and is null when absent', () {
+      final falseJson = const FreeTvChannel(
+        id: 'c', name: 'Chan', country: 'NG', countryCode: 'NG',
+        streamUrls: ['https://a/live.m3u8'], isWorking: false,
+      ).toJson();
+      expect(FreeTvChannel.fromJson(falseJson).isWorking, isFalse);
+
+      final absentJson = const FreeTvChannel(
+        id: 'c', name: 'Chan', country: 'NG', countryCode: 'NG',
+        streamUrls: ['https://a/live.m3u8'],
+      ).toJson();
+      expect(FreeTvChannel.fromJson(absentJson).isWorking, isNull);
     });
   });
 }

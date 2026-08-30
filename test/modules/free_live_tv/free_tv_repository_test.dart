@@ -2,9 +2,13 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:stream_hub/core/streaming/models/stream_probe.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
 import 'package:stream_hub/data/repositories/free_tv_repository.dart';
+import 'package:stream_hub/data/services/free_tv_reachability_service.dart';
 import 'package:stream_hub/data/services/free_tv_service.dart';
+
+import '../../stream_engine/fakes/fake_http_probe.dart';
 
 List<FreeTvChannel> _sampleCatalog() {
   return const [
@@ -131,6 +135,80 @@ void main() {
       final recent = await repository.getRecentlyWatched();
       expect(recent.length, 2);
       expect(recent.first.id, 'ChannelsTV.ng');
+    });
+  });
+
+  group('FreeTvRepository reachability cache', () {
+    FreeTvReachabilityService workingProbeService() {
+      return FreeTvReachabilityService(
+        probe: FakeHttpProbe(results: {
+          'https://stream1.channelstv.com/live.m3u8': HttpProbeResult(
+            statusCode: 200,
+            finalUri: Uri.parse('https://stream1.channelstv.com/live.m3u8'),
+          ),
+          'https://bbc.stream/live.m3u8': HttpProbeResult(
+            statusCode: 404,
+            finalUri: Uri.parse('https://bbc.stream/live.m3u8'),
+          ),
+        }),
+      );
+    }
+
+    test('refreshWorkingStatus persists working channel ids and getWorkingCatalog '
+        'filters to them', () async {
+      final repository = FreeTvRepository(
+        service: _FakeFreeTvService(_sampleCatalog()),
+        reachability: workingProbeService(),
+      );
+
+      await repository.refreshWorkingStatus(_sampleCatalog());
+
+      final working = await repository.getWorkingCatalog();
+      expect(working.map((c) => c.id), ['ChannelsTV.ng']);
+      expect(working.first.isWorking, isTrue);
+    });
+
+    test('reachability cache is durable across repository instances',
+        () async {
+      final service = _FakeFreeTvService(_sampleCatalog());
+      final repository = FreeTvRepository(
+        service: service,
+        reachability: workingProbeService(),
+      );
+
+      await repository.refreshWorkingStatus(_sampleCatalog());
+
+      // A fresh repository instance should read the persisted working ids.
+      final repository2 = FreeTvRepository(
+        service: _FakeFreeTvService(_sampleCatalog()),
+        reachability: workingProbeService(),
+      );
+      final working = await repository2.getWorkingCatalog();
+      expect(working.map((c) => c.id), ['ChannelsTV.ng']);
+    });
+
+    test('returning an empty working snapshot yields an empty working catalog',
+        () async {
+      // Probe marks nothing working (404 for every URL).
+      final repo = FreeTvRepository(
+        service: _FakeFreeTvService(_sampleCatalog()),
+        reachability: FreeTvReachabilityService(
+          probe: FakeHttpProbe(results: {
+            'https://stream1.channelstv.com/live.m3u8': HttpProbeResult(
+              statusCode: 404,
+              finalUri: Uri.parse('https://stream1.channelstv.com/live.m3u8'),
+            ),
+            'https://bbc.stream/live.m3u8': HttpProbeResult(
+              statusCode: 404,
+              finalUri: Uri.parse('https://bbc.stream/live.m3u8'),
+            ),
+          }),
+        ),
+      );
+
+      await repo.refreshWorkingStatus(_sampleCatalog());
+      final working = await repo.getWorkingCatalog();
+      expect(working, isEmpty);
     });
   });
 }

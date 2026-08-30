@@ -228,6 +228,7 @@ coexisting with provider-based IPTV.
 | Quality | `FreeTvQualityService` — hard eligibility (NSFW, missing id/name, non-http stream, junk/test names) plus a deterministic 0–100 score; tiers `recommended` / `valid` |
 | Model | `FreeTvChannel` → canonical `MediaItem` via `toMediaItem()` (consumed by `PlaybackEngine` / `PlayerController`); carries `qualityScore` / `qualityTier` / `region` |
 | Cache | `FreeTvRepository` — Hive boxes `free_tv_catalog` (TTL 12h), `free_tv_favorites`, `free_tv_recent` (capped at 20); mirrors quality fields via `toJson`/`fromJson` |
+| Reachability | `FreeTvReachabilityService` — reuses the Stream Engine's `HttpProbe` (`DartHttpProbe`) with a bounded concurrency pool to mark each channel `isWorking`; `FreeTvRepository` caches working channel ids in a `free_tv_reachability` Hive box; the controller exposes a "Working Only" filter |
 | Playback | Inline embedded player with automatic multi-stream failover (Stream 1 ➔ 2 ➔ 3) |
 | Session | `CustomProviderSessionFactory` — registered for `MediaSourceType.custom`; builds a credential-free `ProviderSession` from the direct stream URL, so Free TV flows through the standard Stream Engine pipeline (resolver → normalize → validate → `PlayableSession`) without any provider |
 
@@ -249,6 +250,13 @@ Key invariants:
   the player still receives only a `PlayableSession` — never a raw URL.
 - **Resilience & failover** — dead or rate-limited streams are retried
   sequentially against remaining candidates.
+- **Reachability filtering (Working Only)** — `FreeTvReachabilityService`
+  probes streams with the existing `HttpProbe` (DoH-aware HEAD-then-GET) and
+  marks each channel `isWorking` when at least one stream URL answers 2xx or a
+  playable media content-type. Results are cached in a `free_tv_reachability`
+  Hive box (24h TTL) and surfaced to the UI as a "Working Only" toggle; the
+  background probe targets the curated `recommended` tier (bounded) to keep
+  startup fast and offline-first. Reachability never blocks catalog load.
 - **Local caching** — catalog, favorites, and recently watched persist in
   dedicated Hive boxes.
 

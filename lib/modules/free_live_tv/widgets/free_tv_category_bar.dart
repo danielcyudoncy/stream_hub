@@ -27,10 +27,14 @@ class FreeTvCategoryBar extends StatelessWidget {
   final String selectedRegion;
   final bool showFavoritesOnly;
   final int favoritesCount;
+  final bool showWorkingOnly;
+  final int workingCount;
+  final bool isCheckingWorking;
   final ValueChanged<String> onCategorySelected;
   final ValueChanged<String> onCountrySelected;
   final ValueChanged<String> onRegionSelected;
   final ValueChanged<bool> onFavoritesToggle;
+  final ValueChanged<bool> onWorkingToggle;
 
   const FreeTvCategoryBar({
     super.key,
@@ -42,10 +46,14 @@ class FreeTvCategoryBar extends StatelessWidget {
     this.selectedRegion = 'All Regions',
     required this.showFavoritesOnly,
     required this.favoritesCount,
+    this.showWorkingOnly = false,
+    this.workingCount = 0,
+    this.isCheckingWorking = false,
     required this.onCategorySelected,
     required this.onCountrySelected,
     required this.onRegionSelected,
     required this.onFavoritesToggle,
+    required this.onWorkingToggle,
   });
 
   @override
@@ -68,11 +76,13 @@ class FreeTvCategoryBar extends StatelessWidget {
             label: 'Recommended',
             icon: Icons.auto_awesome_rounded,
             isSelected: !showFavoritesOnly &&
+                !showWorkingOnly &&
                 selectedCategory == 'All Categories' &&
                 selectedCountry == 'All Countries' &&
                 selectedRegion == 'All Regions',
             onTap: () {
               if (showFavoritesOnly) onFavoritesToggle(false);
+              if (showWorkingOnly) onWorkingToggle(false);
               onCategorySelected('All Categories');
               onCountrySelected('All Countries');
               onRegionSelected('All Regions');
@@ -91,6 +101,23 @@ class FreeTvCategoryBar extends StatelessWidget {
             ),
             const SizedBox(width: AppSpacing.xs),
           ],
+
+          // "Working Only" chip
+          _CategoryChip(
+            label: isCheckingWorking
+                ? 'Checking working...'
+                : workingCount > 0
+                    ? 'Working ($workingCount)'
+                    : 'Working',
+            icon: Icons.check_circle_rounded,
+            iconColor: Colors.greenAccent,
+            isSelected: showWorkingOnly,
+            onTap: () {
+              if (showFavoritesOnly) onFavoritesToggle(false);
+              onWorkingToggle(!showWorkingOnly);
+            },
+          ),
+          const SizedBox(width: AppSpacing.xs),
 
           // Curated Country chips (prominent, right after ground state)
           ...curated.countries.map(

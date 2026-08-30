@@ -49,6 +49,9 @@ class FreeLiveTvController extends GetxController {
   final RxString selectedSort = 'alphabetical'.obs;
   final RxString searchQuery = ''.obs;
   final RxBool showFavoritesOnly = false.obs;
+  final RxBool showWorkingOnly = false.obs;
+  final RxBool isCheckingWorking = false.obs;
+  final RxInt workingCount = 0.obs;
   final RxBool isLoading = true.obs;
   final RxString errorMessage = ''.obs;
 
@@ -267,9 +270,7 @@ class FreeLiveTvController extends GetxController {
       selectedRegion.value != 'All Regions' ||
       selectedLanguage.value != 'All Languages' ||
       showFavoritesOnly.value ||
-      searchQuery.value.trim().isNotEmpty;
-
-  void _applyFiltersAndSorting() {
+      searchQuery.value.trim().isNotEmpty;  void _applyFiltersAndSorting() {
     // In curated (recommended) mode, the default browse surface is the curated
     // subset. Picking an explicit filter still searches the whole valid catalog.
     final base = (!_hasActiveBrowseFilters &&
@@ -317,7 +318,12 @@ class FreeLiveTvController extends GetxController {
       list = list.where((c) => c.isFavorite).toList();
     }
 
-    // 6. Search Query
+    // 6. Working Only
+    if (showWorkingOnly.value) {
+      list = list.where((c) => c.isWorking == true).toList();
+    }
+
+    // 7. Search Query
     final query = searchQuery.value.trim().toLowerCase();
     if (query.isNotEmpty) {
       list = list.where((c) {
@@ -336,7 +342,7 @@ class FreeLiveTvController extends GetxController {
       }).toList();
     }
 
-    // 7. Sorting
+    // 8. Sorting
     switch (selectedSort.value) {
       case 'country':
         list.sort((a, b) => a.country.compareTo(b.country));
@@ -402,6 +408,98 @@ class FreeLiveTvController extends GetxController {
     _applyFiltersAndSorting();
   }
 
+  /// Toggles the "Working Only" filter. Enabling it immediately shows the
+  /// currently-known working channels and, when no fresh reachability snapshot
+  /// exists, kicks off a background probe that refines the list as it
+  /// completes.
+  Future<void> setWorkingOnly(bool workingOnly) async {
+    showWorkingOnly.value = workingOnly;
+    if (workingOnly) {
+      _applyFiltersAndSorting();
+      await _ensureReachability();
+    } else {
+      _applyFiltersAndSorting();
+    }
+  }
+
+  /// Applies cached working status to the known-working set, polling the cache
+  /// first so the UI responds instantly, then re-probing in the background if
+  /// the snapshot is stale or empty.
+  Future<void> _ensureReachability() async {
+    try {
+      workingCount.value = _countWorking(_allChannels);
+
+      final cachedWorking = await repository.getWorkingCatalog();
+      if (cachedWorking.isNotEmpty) {
+        _applyWorkingStatus(cachedWorking);
+        workingCount.value = _countWorking(_allChannels);
+        _applyFiltersAndSorting();
+      }
+    } catch (e) {
+      _logger.warning(
+        'Failed to load cached working channels: $e',
+        tag: 'FreeLiveTvController',
+      );
+    }
+
+    // Probe the curated set in the background (bounded) to keep the catalog
+    // reachable/up to date. Only the recommended tier is probed to bound cost.
+    _refreshReachability();
+  }
+
+  Future<void> _refreshReachability() async {
+    if (isCheckingWorking.value) return;
+    isCheckingWorking.value = true;
+    try {
+      final targets = _recommendedAll.isNotEmpty
+          ? _recommendedAll
+          : _allChannels.where(
+              (c) =>
+                  c.qualityTier == FreeTvQualityTier.recommended ||
+                  c.qualityScore >= 55,
+            ).toList();
+
+      final probed = await repository.refreshWorkingStatus(
+        targets,
+        maxChannels: 1500,
+      );
+      _applyWorkingStatus(probed);
+
+      _populateWorkingCount();
+      _applyFiltersAndSorting();
+    } catch (e) {
+      _logger.error('Reachability probe failed',
+          tag: 'FreeLiveTvController', error: e);
+    } finally {
+      isCheckingWorking.value = false;
+    }
+  }
+
+  void _applyWorkingStatus(List<FreeTvChannel> probed) {
+    if (probed.isEmpty) return;
+    final statusById = {
+      for (final c in probed) c.id: c.isWorking,
+    };
+    final updated = _allChannels.map((c) {
+      final status = statusById[c.id];
+      if (status == null || status == c.isWorking) return c;
+      return c.copyWith(isWorking: status);
+    }).toList();
+    _allChannels.clear();
+    _allChannels.addAll(updated);
+    _buildRecommendedFromAll();
+    final recommended = List.of(_recommendedAll);
+    recommendedChannels.assignAll(recommended);
+    _buildFeatured(recommended);
+  }
+
+  void _populateWorkingCount() {
+    workingCount.value = _countWorking(_allChannels);
+  }
+
+  int _countWorking(List<FreeTvChannel> channels) =>
+      channels.where((c) => c.isWorking == true).length;
+
   void clearFilters() {
     searchQuery.value = '';
     selectedCategory.value = 'All Categories';
@@ -410,6 +508,7 @@ class FreeLiveTvController extends GetxController {
     selectedLanguage.value = 'All Languages';
     selectedSort.value = 'alphabetical';
     showFavoritesOnly.value = false;
+    showWorkingOnly.value = false;
     _applyFiltersAndSorting();
   }
 

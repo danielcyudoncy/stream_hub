@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
+import 'package:stream_hub/data/services/free_tv_reachability_service.dart';
 import 'package:stream_hub/data/services/free_tv_service.dart';
 
 /// Repository managing the Free Live TV catalog, caching, favorites, and history.
@@ -9,33 +10,42 @@ class FreeTvRepository {
   static const String kBoxCatalog = 'free_tv_catalog';
   static const String kBoxFavorites = 'free_tv_favorites';
   static const String kBoxRecent = 'free_tv_recent';
+  static const String kBoxReachability = 'free_tv_reachability';
 
   static const String kKeyChannels = 'channels_data';
   static const String kKeyCachedAt = 'cached_at';
+  static const String kKeyWorkingIds = 'working_ids';
+  static const String kKeyWorkingCheckedAt = 'working_checked_at';
 
   static const Duration kCacheTtl = Duration(hours: 12);
+  static const Duration kReachabilityTtl = Duration(hours: 24);
   static const int kMaxRecentChannels = 20;
 
   final FreeTvService _service;
+  final FreeTvReachabilityService _reachability;
   final LoggingService _logger;
 
   Box? _catalogBox;
   Box? _favoritesBox;
   Box? _recentBox;
+  Box? _reachabilityBox;
 
   final StreamController<Set<String>> _favoritesController =
       StreamController<Set<String>>.broadcast();
 
   FreeTvRepository({
     FreeTvService? service,
+    FreeTvReachabilityService? reachability,
     LoggingService? logger,
   })  : _service = service ?? FreeTvService(),
+        _reachability = reachability ?? FreeTvReachabilityService(),
         _logger = logger ?? LoggingService();
 
   Future<void> _ensureBoxesOpen() async {
     _catalogBox ??= await _openBoxSafe(kBoxCatalog);
     _favoritesBox ??= await _openBoxSafe(kBoxFavorites);
     _recentBox ??= await _openBoxSafe(kBoxRecent);
+    _reachabilityBox ??= await _openBoxSafe(kBoxReachability);
   }
 
   Future<Box> _openBoxSafe(String name) async {
@@ -110,6 +120,115 @@ class FreeTvRepository {
         .toList();
     recommended.sort((a, b) => b.qualityScore.compareTo(a.qualityScore));
     return recommended;
+  }
+
+  /// Returns the catalog filtered to channels known to be working, based on
+  /// the cached reachability snapshot.
+  ///
+  /// Fast and offline-first: it reads cached probe results and never blocks on
+  /// a fresh probe. If the cached snapshot is unavailable or stale, call
+  /// [refreshWorkingStatus] to re-probe.
+  Future<List<FreeTvChannel>> getWorkingCatalog({
+    bool forceRefresh = false,
+  }) async {
+    final catalog = await getCatalog(forceRefresh: forceRefresh);
+    await _ensureBoxesOpen();
+
+    // If the snapshot is stale (or being force-refreshed), don't serve it —
+    // the caller should re-probe via [refreshWorkingStatus].
+    if (forceRefresh || !workingCacheIsFresh()) return const [];
+
+    final workingIds = _loadWorkingIds();
+    if (workingIds.isEmpty) return const [];
+
+    final workingSet = workingIds;
+    return catalog
+        .where((c) => workingSet.contains(c.id))
+        .map((c) => c.isWorking == true ? c : c.copyWith(isWorking: true))
+        .toList();
+  }
+
+  /// Whether the cached reachability snapshot is fresh enough to serve.
+  bool workingCacheIsFresh() {
+    if (_reachabilityBox == null) return false;
+    final checkedAtMs = _reachabilityBox!.get(kKeyWorkingCheckedAt);
+    if (checkedAtMs is! int) return false;
+    final checkedAt = DateTime.fromMillisecondsSinceEpoch(checkedAtMs);
+    return DateTime.now().difference(checkedAt) <= kReachabilityTtl;
+  }
+
+  /// Probes [channels] for reachability with a bounded concurrency pool,
+  /// persists the results to the Hive cache, and returns the probed channels
+  /// (each with `isWorking` set). Results are persisted incrementally so a
+  /// partial probe survives an app restart.
+  Future<List<FreeTvChannel>> refreshWorkingStatus(
+    List<FreeTvChannel> channels, {
+    int concurrency = 16,
+    Duration timeout = const Duration(seconds: 5),
+    int? maxChannels,
+  }) async {
+    await _ensureBoxesOpen();
+
+    final candidates = maxChannels != null && maxChannels > 0
+        ? channels.take(maxChannels).toList()
+        : channels;
+
+    _logger.info(
+      'Probing reachability for ${candidates.length} Free TV channels '
+      '(concurrency: $concurrency)...',
+      tag: 'FreeTvRepository',
+    );
+
+    final workingIds = _loadWorkingIds().toSet();
+
+    final probed = await _reachability.probeMany(
+      candidates,
+      concurrency: concurrency,
+      timeout: timeout,
+      onProbed: (ch) {
+        if (ch.isWorking == true) {
+          workingIds.add(ch.id);
+        } else {
+          workingIds.remove(ch.id);
+        }
+        _persistWorkingIds(workingIds, checkedAt: DateTime.now());
+      },
+    );
+
+    final workingCount = probed.where((c) => c.isWorking == true).length;
+    _logger.info(
+      'Reachability probe complete: $workingCount/${probed.length} working.',
+      tag: 'FreeTvRepository',
+    );
+    return probed;
+  }
+
+  List<String> _loadWorkingIds() {
+    if (_reachabilityBox == null) return const [];
+    final raw = _reachabilityBox!.get(kKeyWorkingIds);
+    if (raw is List) {
+      return raw.map((e) => e.toString()).toList();
+    }
+    return const [];
+  }
+
+  Future<void> _persistWorkingIds(
+    Set<String> workingIds, {
+    DateTime? checkedAt,
+  }) async {
+    if (_reachabilityBox == null) return;
+    try {
+      await _reachabilityBox!.put(kKeyWorkingIds, workingIds.toList());
+      if (checkedAt != null) {
+        await _reachabilityBox!.put(
+          kKeyWorkingCheckedAt,
+          checkedAt.millisecondsSinceEpoch,
+        );
+      }
+    } catch (e) {
+      _logger.warning('Failed to persist reachability cache: $e',
+          tag: 'FreeTvRepository');
+    }
   }
 
   List<FreeTvChannel>? _loadFromCache(Set<String> favorites,

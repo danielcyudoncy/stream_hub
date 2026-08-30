@@ -186,6 +186,8 @@ provider or subscription, while preserving all provider-based features.
 - [x] Cross-source deduplication (SD + HD variants merge into one channel with multi-stream)
 - [x] `FreeTvRepository` — Hive caching (`free_tv_catalog` + TTL), favorites (`free_tv_favorites`), recent history (`free_tv_recent`, capped at 20); `getRecommended()` convenience
 - [x] Region enrichment (`FreeTvRegions` country-code → Africa/Americas/Asia/Europe/Oceania/Middle East)
+- [x] Reachability service (`FreeTvReachabilityService` reusing `HttpProbe`) + `isWorking` field
+- [x] Reachability cache (`free_tv_reachability` Hive box) + `getWorkingCatalog()`/`refreshWorkingStatus()` in `FreeTvRepository`
 
 ### Presentation Layer
 
@@ -193,6 +195,7 @@ provider or subscription, while preserving all provider-based features.
 - [x] Sticky embedded player with automatic multi-stream failover (Stream 1 ➔ 2 ➔ 3)
 - [x] Curated home: Featured carousel + Recommended default browse surface
 - [x] Curated Category / Country / Region quick-chip bar (+ Region filter, full-catalog search/filter fallback)
+- [x] "Working Only" quick-chip: cached reachability filter + background probe of the curated tier
 - [x] Responsive grid / list with search (debounced), sorting, favorites toggle
 - [x] Skeleton shimmer, empty states, error banners, pull-to-refresh
 - [x] Fullscreen, landscape 2-pane, and TV focus support
@@ -204,7 +207,7 @@ provider or subscription, while preserving all provider-based features.
 - [x] `AppScaffold` bottom navigation + `NavigationRail` (Search/Settings moved to AppBar)
 - [x] `TvScaffold` expandable sidebar with D-pad focus
 - [x] Home Quick Actions + feature chip shortcuts
-- [x] 27 Free TV tests passing (model, service/M3U pipeline, repository, controller, page)
+- [x] 39 Free TV tests passing (model, service/M3U pipeline, reachability, repository, controller, page)
 
 ---
 
