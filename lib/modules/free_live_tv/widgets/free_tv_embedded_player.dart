@@ -244,163 +244,168 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
         ),
       ),
       padding: const EdgeInsets.all(AppSpacing.sm),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Top Bar (Channel Title & Actions)
-          Row(
-            children: [
-              if (widget.isFullscreen)
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-                  onPressed: widget.controller.exitFullscreen,
-                ),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      channel.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14.0,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      '${channel.country} • Free Live TV',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Multi-stream indicator chip
-              if (channel.streamUrls.length > 1)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  margin: const EdgeInsets.only(right: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(4),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Top Bar (Channel Title & Actions)
+            Row(
+              children: [
+                if (widget.isFullscreen)
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                    onPressed: widget.controller.exitFullscreen,
                   ),
-                  child: Text(
-                    'Stream ${widget.controller.activeStreamIndex.value + 1}/${channel.streamUrls.length}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                    ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        channel.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14.0,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${channel.country} • Free Live TV',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 10.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
-              // Stop button
-              IconButton(
-                icon: const Icon(Icons.close_rounded, color: Colors.white),
-                onPressed: widget.controller.stopInlinePlayer,
-                tooltip: 'Stop Player',
-              ),
-            ],
-          ),
-
-          // Center Play / Pause toggle
-          Center(
-            child: IconButton(
-              iconSize: 44,
-              icon: Icon(
-                isPlaying
-                    ? Icons.pause_circle_filled_rounded
-                    : Icons.play_circle_filled_rounded,
-                color: Colors.white,
-              ),
-              onPressed: () {
-                _showControlsTemporarily();
-                if (isPlaying) {
-                  playerCtrl.playbackController.engine.pause();
-                } else {
-                  playerCtrl.playbackController.engine.resume();
-                }
-              },
-            ),
-          ),
-
-          // Bottom Bar (Fullscreen toggle, favorite)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              // Live badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.fiber_manual_record_rounded,
-                      color: Colors.white,
-                      size: 8,
+                // Multi-stream indicator chip
+                if (channel.streamUrls.length > 1)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    margin: const EdgeInsets.only(right: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.white24,
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    SizedBox(width: 4),
-                    Text(
-                      'LIVE',
-                      style: TextStyle(
+                    child: Text(
+                      'Stream ${widget.controller.activeStreamIndex.value + 1}/${channel.streamUrls.length}',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 9.5,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
+                  ),
+
+                // Stop button
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white),
+                  onPressed: widget.controller.stopInlinePlayer,
+                  tooltip: 'Stop Player',
+                ),
+              ],
+            ),
+
+            // Center Play / Pause toggle
+            const SizedBox(height: AppSpacing.xs),
+            Center(
+              child: IconButton(
+                iconSize: 44,
+                icon: Icon(
+                  isPlaying
+                      ? Icons.pause_circle_filled_rounded
+                      : Icons.play_circle_filled_rounded,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  _showControlsTemporarily();
+                  if (isPlaying) {
+                    playerCtrl.playbackController.engine.pause();
+                  } else {
+                    playerCtrl.playbackController.engine.resume();
+                  }
+                },
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+
+            // Bottom Bar (Fullscreen toggle, favorite)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Live badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEF4444),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.fiber_manual_record_rounded,
+                        color: Colors.white,
+                        size: 8,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'LIVE',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Row(
+                  children: [
+                    // Favorite button
+                    IconButton(
+                      icon: Icon(
+                        channel.isFavorite
+                            ? Icons.star_rounded
+                            : Icons.star_outline_rounded,
+                        color: channel.isFavorite ? Colors.amber : Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        _showControlsTemporarily();
+                        widget.controller.toggleFavorite(channel);
+                      },
+                    ),
+
+                    // Fullscreen toggle
+                    IconButton(
+                      icon: Icon(
+                        widget.isFullscreen
+                            ? Icons.fullscreen_exit_rounded
+                            : Icons.fullscreen_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                      onPressed: () {
+                        if (widget.isFullscreen) {
+                          widget.controller.exitFullscreen();
+                        } else {
+                          widget.controller.enterFullscreen();
+                        }
+                      },
                     ),
                   ],
                 ),
-              ),
-
-              Row(
-                children: [
-                  // Favorite button
-                  IconButton(
-                    icon: Icon(
-                      channel.isFavorite
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      color: channel.isFavorite ? Colors.amber : Colors.white,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      _showControlsTemporarily();
-                      widget.controller.toggleFavorite(channel);
-                    },
-                  ),
-
-                  // Fullscreen toggle
-                  IconButton(
-                    icon: Icon(
-                      widget.isFullscreen
-                          ? Icons.fullscreen_exit_rounded
-                          : Icons.fullscreen_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    onPressed: () {
-                      if (widget.isFullscreen) {
-                        widget.controller.exitFullscreen();
-                      } else {
-                        widget.controller.enterFullscreen();
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
