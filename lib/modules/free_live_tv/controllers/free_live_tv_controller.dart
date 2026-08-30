@@ -345,6 +345,15 @@ class FreeLiveTvController extends GetxController {
     }
 
     _initInlinePlayer();
+
+    // Stop any currently-playing stream BEFORE resolving the new channel.
+    // Otherwise a failing new stream would surface an error overlay on top of
+    // the previous channel's still-active playback. Clearing the status message
+    // here also prevents a stale error/fallback banner from lingering across
+    // channel switches or fallback attempts.
+    if (activePlayingChannel.value != null) {
+      await inlinePlayerController?.stop();
+    }
     activePlayingChannel.value = channel;
     activeStreamIndex.value = streamIndex;
     playbackStatusMessage.value = '';
