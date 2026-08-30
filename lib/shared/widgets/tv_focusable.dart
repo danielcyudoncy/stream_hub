@@ -36,7 +36,10 @@ class _TvFocusableState extends State<TvFocusable> {
 
   @override
   Widget build(BuildContext context) {
-    if (PlatformHelper.isMobile && !PlatformHelper.isTVDevice && !widget.autofocus && widget.focusNode == null) {
+    if (PlatformHelper.isMobile &&
+        !PlatformHelper.isTVDevice &&
+        !widget.autofocus &&
+        widget.focusNode == null) {
       return GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
@@ -55,12 +58,16 @@ class _TvFocusableState extends State<TvFocusable> {
         if (mounted && _hasFocus != hasKeyboardFocus) {
           setState(() => _hasFocus = hasKeyboardFocus);
           if (hasKeyboardFocus) {
-            Scrollable.ensureVisible(
-              context,
-              alignment: 0.5,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-            );
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
           }
           widget.onFocusChange?.call(hasKeyboardFocus);
         }
@@ -69,12 +76,16 @@ class _TvFocusableState extends State<TvFocusable> {
         if (mounted && _hasFocus != show) {
           setState(() => _hasFocus = show);
           if (show) {
-            Scrollable.ensureVisible(
-              context,
-              alignment: 0.5,
-              duration: const Duration(milliseconds: 250),
-              curve: Curves.easeOutCubic,
-            );
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
           }
           widget.onFocusChange?.call(show);
         }

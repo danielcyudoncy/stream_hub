@@ -18,6 +18,7 @@ class FavoritesPage extends GetView<FavoritesController> {
   Widget build(BuildContext context) {
     return AppScaffold(
       title: 'Favorites',
+      showBackButton: true,
       actions: [
         TvFocusable(
           scale: 1.0,
@@ -59,7 +60,7 @@ class FavoritesPage extends GetView<FavoritesController> {
             description:
                 'Mark channels as favorites to see them here.',
             actionLabel: 'Browse Channels',
-            onAction: () => Get.toNamed('/live-tv'),
+            onAction: () => Get.toNamed(AppRoutes.liveTV),
           );
         }
 

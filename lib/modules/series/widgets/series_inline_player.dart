@@ -221,16 +221,23 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
       child: Row(
         children: [
           // Back / Close button
-          IconButton(
-            icon: Icon(
-              widget.isFullscreen ? Icons.arrow_back_rounded : Icons.close_rounded,
-              color: Colors.white70,
-              size: 20.0,
-            ),
-            tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Close Video',
-            onPressed: () => widget.isFullscreen
+          TvFocusable(
+            onTap: () => widget.isFullscreen
                 ? widget.controller.exitFullscreen()
                 : widget.controller.stopInlinePlayback(),
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(8),
+            child: IconButton(
+              icon: Icon(
+                widget.isFullscreen ? Icons.arrow_back_rounded : Icons.close_rounded,
+                color: Colors.white70,
+                size: 20.0,
+              ),
+              tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Close Video',
+              onPressed: () => widget.isFullscreen
+                  ? widget.controller.exitFullscreen()
+                  : widget.controller.stopInlinePlayback(),
+            ),
           ),
           const SizedBox(width: 4.0),
           Expanded(
@@ -245,26 +252,41 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
             ),
           ),
           // Subtitle Selector Button
-          IconButton(
-            icon: const Icon(Icons.subtitles_rounded, color: Colors.white, size: 19.0),
-            tooltip: 'Subtitles',
-            onPressed: () => _openSubtitlePicker(context, playerCtrl),
+          TvFocusable(
+            onTap: () => _openSubtitlePicker(context, playerCtrl),
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(8),
+            child: IconButton(
+              icon: const Icon(Icons.subtitles_rounded, color: Colors.white, size: 19.0),
+              tooltip: 'Subtitles',
+              onPressed: () => _openSubtitlePicker(context, playerCtrl),
+            ),
           ),
           // Audio Track Selector Button
-          IconButton(
-            icon: const Icon(Icons.audiotrack_rounded, color: Colors.white, size: 19.0),
-            tooltip: 'Audio Tracks',
-            onPressed: () => _openAudioTrackPicker(context, playerCtrl),
+          TvFocusable(
+            onTap: () => _openAudioTrackPicker(context, playerCtrl),
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(8),
+            child: IconButton(
+              icon: const Icon(Icons.audiotrack_rounded, color: Colors.white, size: 19.0),
+              tooltip: 'Audio Tracks',
+              onPressed: () => _openAudioTrackPicker(context, playerCtrl),
+            ),
           ),
           // Fullscreen Toggle Button
-          IconButton(
-            icon: Icon(
-              widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-              color: Colors.white,
-              size: 22.0,
+          TvFocusable(
+            onTap: () => widget.controller.toggleFullscreen(),
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(8),
+            child: IconButton(
+              icon: Icon(
+                widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                color: Colors.white,
+                size: 22.0,
+              ),
+              tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+              onPressed: () => widget.controller.toggleFullscreen(),
             ),
-            tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
-            onPressed: () => widget.controller.toggleFullscreen(),
           ),
         ],
       ),
@@ -279,24 +301,41 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Skip Previous Episode
-          IconButton(
-            icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 28.0),
-            tooltip: 'Previous Episode',
-            onPressed: () {
+          TvFocusable(
+            onTap: () {
               widget.controller.playPreviousEpisode();
               _startControlsTimer();
             },
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(8),
+            child: IconButton(
+              icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 28.0),
+              tooltip: 'Previous Episode',
+              onPressed: () {
+                widget.controller.playPreviousEpisode();
+                _startControlsTimer();
+              },
+            ),
           ),
           AppSpacing.widthSM,
           // Replay 10s
-          IconButton(
-            icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 28.0),
-            tooltip: 'Rewind 10s',
-            onPressed: () {
+          TvFocusable(
+            onTap: () {
               final pos = playerCtrl.playbackController.engine.positionRx.value;
               playerCtrl.seek(pos - const Duration(seconds: 10));
               _startControlsTimer();
             },
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(8),
+            child: IconButton(
+              icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 28.0),
+              tooltip: 'Rewind 10s',
+              onPressed: () {
+                final pos = playerCtrl.playbackController.engine.positionRx.value;
+                playerCtrl.seek(pos - const Duration(seconds: 10));
+                _startControlsTimer();
+              },
+            ),
           ),
           AppSpacing.widthMD,
           // Play / Pause Circle
@@ -331,24 +370,41 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
           ),
           AppSpacing.widthMD,
           // Forward 10s
-          IconButton(
-            icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 28.0),
-            tooltip: 'Forward 10s',
-            onPressed: () {
+          TvFocusable(
+            onTap: () {
               final pos = playerCtrl.playbackController.engine.positionRx.value;
               playerCtrl.seek(pos + const Duration(seconds: 10));
               _startControlsTimer();
             },
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(8),
+            child: IconButton(
+              icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 28.0),
+              tooltip: 'Forward 10s',
+              onPressed: () {
+                final pos = playerCtrl.playbackController.engine.positionRx.value;
+                playerCtrl.seek(pos + const Duration(seconds: 10));
+                _startControlsTimer();
+              },
+            ),
           ),
           AppSpacing.widthSM,
           // Skip Next Episode
-          IconButton(
-            icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 28.0),
-            tooltip: 'Next Episode',
-            onPressed: () {
+          TvFocusable(
+            onTap: () {
               widget.controller.playNextEpisode();
               _startControlsTimer();
             },
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(8),
+            child: IconButton(
+              icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 28.0),
+              tooltip: 'Next Episode',
+              onPressed: () {
+                widget.controller.playNextEpisode();
+                _startControlsTimer();
+              },
+            ),
           ),
         ],
       );
@@ -428,8 +484,12 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                GestureDetector(
+                TvFocusable(
                   onTap: () => widget.controller.toggleFullscreen(),
+                  scale: 1.05,
+                  borderRadius: BorderRadius.circular(6),
+                  child: GestureDetector(
+                    onTap: () => widget.controller.toggleFullscreen(),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -449,6 +509,7 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
                       ),
                     ],
                   ),
+                ),
                 ),
               ],
             ),
@@ -545,9 +606,14 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
                           ),
                         ),
                         const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
-                          onPressed: () => Navigator.pop(ctx),
+                        TvFocusable(
+                          onTap: () => Navigator.pop(ctx),
+                          scale: 1.05,
+                          borderRadius: BorderRadius.circular(6),
+                          child: IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                            onPressed: () => Navigator.pop(ctx),
+                          ),
                         ),
                       ],
                     ),

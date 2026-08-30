@@ -86,7 +86,6 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       SystemUiMode.manual,
       overlays: SystemUiOverlay.values,
     );
-    _controller.stop();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -152,9 +151,10 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isExternal = _controller.playbackController.engine.adapter
-              is NativeActivityPlayerAdapter ||
-          _controller.playbackController.engine.adapter is IjkPlayerAdapter;
+    final isExternal =
+        _controller.playbackController.engine.adapter
+            is NativeActivityPlayerAdapter ||
+        _controller.playbackController.engine.adapter is IjkPlayerAdapter;
 
     if (isExternal) {
       return PopScope(
@@ -210,9 +210,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   Widget _buildSkipIntroOverlay() {
     return Obx(() {
       if (_controller.showSkipIntroRx.value) {
-        return SkipIntroButton(
-          onSkip: _controller.skipIntro,
-        );
+        return SkipIntroButton(onSkip: _controller.skipIntro);
       }
       return const SizedBox.shrink();
     });
@@ -253,8 +251,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   Widget _buildStateOverlay() {
     return Obx(() {
       final state = _controller.playbackController.engine.stateRx.value;
-      if (state == PlaybackState.loading ||
-          state == PlaybackState.buffering) {
+      if (state == PlaybackState.loading || state == PlaybackState.buffering) {
         return Positioned.fill(
           child: Container(
             color: Colors.black54,
@@ -277,8 +274,8 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         );
       }
       if (state == PlaybackState.error) {
-        final errorMessage = _controller
-            .playbackController.engine.errorMessageRx.value;
+        final errorMessage =
+            _controller.playbackController.engine.errorMessageRx.value;
         return Positioned.fill(
           child: Container(
             color: Colors.black87,
@@ -305,17 +302,17 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                   AppSpacing.heightMD,
-                   TvFocusable(
-                     onTap: () => _controller.retry(),
-                     scale: 1.08,
-                     borderRadius: BorderRadius.circular(12),
-                     child: ElevatedButton.icon(
-                       onPressed: () => _controller.retry(),
-                       icon: const Icon(AppIcons.refresh),
-                       label: const Text('Retry'),
-                     ),
-                   ),
+                  AppSpacing.heightMD,
+                  TvFocusable(
+                    onTap: () => _controller.retry(),
+                    scale: 1.08,
+                    borderRadius: BorderRadius.circular(12),
+                    child: ElevatedButton.icon(
+                      onPressed: () => _controller.retry(),
+                      icon: const Icon(AppIcons.refresh),
+                      label: const Text('Retry'),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -375,49 +372,48 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                 ],
               ),
             ),
-             child: Row(
-               children: [
-                 TvFocusable(
-                   onTap: _handleBack,
-                   scale: 1.15,
-                   borderRadius: BorderRadius.circular(24),
-                   child: IconButton(
-                     icon: const Icon(AppIcons.back, color: Colors.white),
-                     onPressed: _handleBack,
-                   ),
-                 ),
-                 Expanded(
-                   child: Obx(() {
-                     final title =
-                         _controller.sessionRx.value?.metadata.title ?? 'Player';
-                     return Text(
-                       title,
-                       style: AppTypography.getBody(color: Colors.white).copyWith(
-                         fontSize: 13,
-                         fontWeight: FontWeight.w600,
-                       ),
-                       maxLines: 2,
-                       overflow: TextOverflow.ellipsis,
-                     );
-                   }),
-                 ),
-                 Obx(() {
-                   final isFav = _controller.isFavoriteRx.value;
-                   return TvFocusable(
-                     onTap: _controller.toggleFavorite,
-                     scale: 1.15,
-                     borderRadius: BorderRadius.circular(24),
-                     child: IconButton(
-                       icon: Icon(
-                         isFav ? Icons.favorite : Icons.favorite_border,
-                         color: isFav ? Colors.red : Colors.white70,
-                       ),
-                       onPressed: _controller.toggleFavorite,
-                     ),
-                   );
-                 }),
-               ],
-             ),
+            child: Row(
+              children: [
+                TvFocusable(
+                  onTap: _handleBack,
+                  scale: 1.15,
+                  borderRadius: BorderRadius.circular(24),
+                  child: IconButton(
+                    icon: const Icon(AppIcons.back, color: Colors.white),
+                    onPressed: _handleBack,
+                  ),
+                ),
+                Expanded(
+                  child: Obx(() {
+                    final title =
+                        _controller.sessionRx.value?.metadata.title ?? 'Player';
+                    return Text(
+                      title,
+                      style: AppTypography.getBody(
+                        color: Colors.white,
+                      ).copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  }),
+                ),
+                Obx(() {
+                  final isFav = _controller.isFavoriteRx.value;
+                  return TvFocusable(
+                    onTap: _controller.toggleFavorite,
+                    scale: 1.15,
+                    borderRadius: BorderRadius.circular(24),
+                    child: IconButton(
+                      icon: Icon(
+                        isFav ? Icons.favorite : Icons.favorite_border,
+                        color: isFav ? Colors.red : Colors.white70,
+                      ),
+                      onPressed: _controller.toggleFavorite,
+                    ),
+                  );
+                }),
+              ],
+            ),
           ),
         ),
       ),
@@ -437,10 +433,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withValues(alpha: 0.6),
-            ],
+            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
           ),
         ),
         child: Row(
@@ -485,7 +478,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   }
 
   void _handleBack() {
-    _controller.stopAndClose();
+    Get.back();
   }
 
   void _toggleControls() {

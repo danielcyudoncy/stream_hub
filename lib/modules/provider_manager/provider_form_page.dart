@@ -15,22 +15,28 @@ import 'package:stream_hub/shared/widgets/section_header.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
+import 'package:stream_hub/modules/provider_manager/widgets/pairing_dialog.dart';
 import 'provider_manager_controller.dart';
 
 class ProviderFormPage extends GetView<ProviderManagerController> {
   final ProviderModel? provider;
 
-  ProviderFormPage({super.key, this.provider}) {
-    _nameController = TextEditingController(text: provider?.name ?? '');
+  ProviderFormPage({super.key, ProviderModel? provider})
+      : provider = provider ??
+            (Get.arguments is ProviderModel
+                ? Get.arguments as ProviderModel
+                : null) {
+    final effective = this.provider;
+    _nameController = TextEditingController(text: effective?.name ?? '');
     _serverUrlController = TextEditingController(
-      text: provider?.serverUrl ?? '',
+      text: effective?.serverUrl ?? '',
     );
-    _usernameController = TextEditingController(text: provider?.username ?? '');
-    _passwordController = TextEditingController(text: provider?.password ?? '');
-    _macController = TextEditingController(text: provider?.macAddress ?? '');
-    _xmltvController = TextEditingController(text: provider?.xmltvUrl ?? '');
-    _notesController = TextEditingController(text: provider?.notes ?? '');
-    _selectedType = (provider?.providerType ?? ProviderType.m3u).obs;
+    _usernameController = TextEditingController(text: effective?.username ?? '');
+    _passwordController = TextEditingController(text: effective?.password ?? '');
+    _macController = TextEditingController(text: effective?.macAddress ?? '');
+    _xmltvController = TextEditingController(text: effective?.xmltvUrl ?? '');
+    _notesController = TextEditingController(text: effective?.notes ?? '');
+    _selectedType = (effective?.providerType ?? ProviderType.m3u).obs;
     _serverUrlController.addListener(_handleServerUrlChanged);
   }
 
@@ -240,17 +246,38 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
             AppSpacing.heightLG,
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TvFocusable(
-                  onTap: () => Get.back(),
-                  borderRadius: AppRadius.medium,
-                  scale: 1.05,
-                  child: const OutlinedButton(
-                    onPressed: null,
-                    child: Text('Cancel'),
-                  ),
-                ),
-                AppSpacing.widthMD,
+               children: [
+                 TvFocusable(
+                   onTap: () => Get.back(),
+                   borderRadius: AppRadius.medium,
+                   scale: 1.05,
+                   child: const OutlinedButton(
+                     onPressed: null,
+                     child: Text('Cancel'),
+                   ),
+                 ),
+                 AppSpacing.widthMD,
+                 if (!isEditing)
+                   TvFocusable(
+                     onTap: _showPairingDialog,
+                     borderRadius: AppRadius.medium,
+                     scale: 1.05,
+                     child: OutlinedButton(
+                       onPressed: _showPairingDialog,
+                       style: OutlinedButton.styleFrom(
+                         foregroundColor: Theme.of(context).colorScheme.primary,
+                       ),
+                       child: const Row(
+                         mainAxisSize: MainAxisSize.min,
+                         children: [
+                           Icon(Icons.qr_code_scanner, size: 18),
+                           SizedBox(width: 6),
+                           Text('Scan to Add'),
+                         ],
+                       ),
+                     ),
+                   ),
+                 if (!isEditing) AppSpacing.widthMD,
                 AppButton(
                   text: isEditing ? 'Save Changes' : 'Add Link',
                   onPressed: () {
@@ -320,10 +347,55 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
     );
   }
 
-  String _randomSuffix() {
+   String _randomSuffix() {
     final random = DateTime.now().microsecond % 10000;
     return random.toString().padLeft(4, '0');
   }
+
+  void _showPairingDialog() {
+    PairingDialog.show(
+      context: Get.context!,
+      providerType: _selectedType.value,
+      onDataReceived: _applyPairingData,
+    );
+  }
+
+  void _applyPairingData(Map<String, dynamic> formData) {
+    _nameController.text = (formData['name'] as String?)?.trim() ?? '';
+    if (formData['serverUrl'] != null) {
+      _serverUrlController.text = (formData['serverUrl'] as String).trim();
+    }
+    if (formData['username'] != null) {
+      _usernameController.text = (formData['username'] as String).trim();
+    }
+    if (formData['password'] != null) {
+      _passwordController.text = (formData['password'] as String).trim();
+    }
+    if (formData['macAddress'] != null) {
+      _macController.text = (formData['macAddress'] as String).trim();
+    }
+    if (formData['xmltvUrl'] != null) {
+      _xmltvController.text = (formData['xmltvUrl'] as String).trim();
+    }
+    if (formData['notes'] != null) {
+      _notesController.text = (formData['notes'] as String).trim();
+    }
+    final typeStr = formData['providerType'] as String?;
+    if (typeStr != null) {
+      final newType = ProviderType.values.firstWhere(
+        (t) => t.name == typeStr,
+        orElse: () => _selectedType.value,
+      );
+      _selectedType.value = newType;
+    }
+    Get.snackbar(
+      'Provider Data Received',
+      'Form auto-filled from your phone. Review and save.',
+      backgroundColor: Colors.green.withValues(alpha: 0.15),
+      colorText: Colors.white,
+    );
+  }
+
 
   /// When an Xtream panel export URL (e.g. `get.php?username=X&password=Y`)
   /// is entered, switch to the Xtream provider type and extract the

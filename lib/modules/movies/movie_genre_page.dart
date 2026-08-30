@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/search_bar.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'movie_genre_controller.dart';
 import 'widgets/movie_grid.dart';
 
@@ -21,18 +23,22 @@ class MovieGenrePage extends GetView<MovieGenreController> {
       () => AppScaffold(
         title: '${controller.genreTitle.value} Movies',
         showNavigation: false,
-        actions: [
-          IconButton(
-            icon: Icon(
-              controller.favoritesOnly.value
-                  ? Icons.favorite
-                  : AppIcons.favorites,
-              color: controller.favoritesOnly.value
-                  ? AppColors.darkError
-                  : colorScheme.onSurface,
+         actions: [
+          TvFocusable(
+            onTap: controller.toggleFavoritesOnly,
+            borderRadius: AppRadius.medium,
+            child: IconButton(
+              icon: Icon(
+                controller.favoritesOnly.value
+                    ? Icons.favorite
+                    : AppIcons.favorites,
+                color: controller.favoritesOnly.value
+                    ? AppColors.darkError
+                    : colorScheme.onSurface,
+              ),
+              tooltip: 'Favorites Only',
+              onPressed: controller.toggleFavoritesOnly,
             ),
-            tooltip: 'Favorites Only',
-            onPressed: controller.toggleFavoritesOnly,
           ),
           _buildSortMenu(context),
         ],
@@ -100,7 +106,10 @@ class MovieGenrePage extends GetView<MovieGenreController> {
   Widget _buildSortMenu(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return PopupMenuButton<MovieGenreSortOption>(
+    return TvFocusable(
+      onTap: () {},
+      borderRadius: AppRadius.medium,
+      child: PopupMenuButton<MovieGenreSortOption>(
       icon: const Icon(AppIcons.sort),
       tooltip: 'Sort Movies',
       onSelected: controller.setSort,
@@ -127,6 +136,8 @@ class MovieGenrePage extends GetView<MovieGenreController> {
             ),
           ),
       ],
-    );
-  }
+    ),
+  );
 }
+}
+

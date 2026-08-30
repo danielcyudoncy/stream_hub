@@ -1,0 +1,25 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pairing documents are ephemeral (5-minute TTL) and contain no sensitive account data.
+    // The TV creates the pending pairing, and phone browsers (scanned via QR) read the schema
+    // and submit the provider formData without requiring user login or anonymous auth.
+    match /pairings/{code} {
+      // Public read of unexpired pending pairings
+      allow read: if resource.data.expiresAt > request.time;
+
+      // Allow creating a pending pairing with matching code and valid TTL
+      allow create: if request.resource.data.status == 'pending'
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.code == code;
+
+      // Public phone submission completes the pending pairing with formData
+      allow update: if resource.data.status == 'pending'
+        && resource.data.expiresAt > request.time
+        && request.resource.data.status == 'completed';
+
+      // TV app cleans up pairing on complete, cancel, or timeout
+      allow delete: if true;
+    }
+  }
+}

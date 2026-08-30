@@ -522,7 +522,8 @@ class TVGuidePage extends GetView<GuideController> {
                       controller.setProvider(newProviderId);
                       providerRepo?.setActiveProviderId(newProviderId);
                     },
-                    isCompact: false,
+                    sheetTitle: 'TV Guide Provider',
+                    isCompact: true,
                   ),
                 );
               }),
