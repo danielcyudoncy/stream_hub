@@ -179,15 +179,20 @@ provider or subscription, while preserving all provider-based features.
 ### Data & Domain Layer
 
 - [x] `FreeTvChannel` — strongly-typed immutable model with `toMediaItem()` conversion
-- [x] `FreeTvService` — fetches IPTV-org `channels.json`, `streams.json`, `countries.json`, `categories.json` with timeout & DoH resilience
-- [x] Ingestion pipeline (stream-channel matching, NSFW exclusion, invalid record exclusion, URL deduplication, country/category enrichment)
-- [x] `FreeTvRepository` — Hive caching (`free_tv_catalog` + TTL), favorites (`free_tv_favorites`), recent history (`free_tv_recent`, capped at 20)
+- [x] `FreeTvSources` — centralized config of 15 public IPTV-org M3U playlists (global, country, region, category)
+- [x] `FreeTvCatalogBuilder` — concurrent multi-source fetch/parse/normalize/aggregate pipeline with per-source fault isolation + diagnostics
+- [x] `FreeTvM3uNormalizer` — extracts channel identity + country from `tvg-id`, cleans names, splits `group-title`
+- [x] `FreeTvQualityService` — hard eligibility (NSFW, invalid, junk/test) + deterministic score + `recommended`/`valid` tiers
+- [x] Cross-source deduplication (SD + HD variants merge into one channel with multi-stream)
+- [x] `FreeTvRepository` — Hive caching (`free_tv_catalog` + TTL), favorites (`free_tv_favorites`), recent history (`free_tv_recent`, capped at 20); `getRecommended()` convenience
+- [x] Region enrichment (`FreeTvRegions` country-code → Africa/Americas/Asia/Europe/Oceania/Middle East)
 
 ### Presentation Layer
 
 - [x] `FreeLiveTvBinding`, `FreeLiveTvController`, `FreeLiveTvPage`
 - [x] Sticky embedded player with automatic multi-stream failover (Stream 1 ➔ 2 ➔ 3)
-- [x] Category / Country / Language filter bar with prominent Nigeria discovery
+- [x] Curated home: Featured carousel + Recommended default browse surface
+- [x] Curated Category / Country / Region quick-chip bar (+ Region filter, full-catalog search/filter fallback)
 - [x] Responsive grid / list with search (debounced), sorting, favorites toggle
 - [x] Skeleton shimmer, empty states, error banners, pull-to-refresh
 - [x] Fullscreen, landscape 2-pane, and TV focus support
@@ -199,7 +204,7 @@ provider or subscription, while preserving all provider-based features.
 - [x] `AppScaffold` bottom navigation + `NavigationRail` (Search/Settings moved to AppBar)
 - [x] `TvScaffold` expandable sidebar with D-pad focus
 - [x] Home Quick Actions + feature chip shortcuts
-- [x] 18 Free TV tests passing (model, service, repository, controller, page)
+- [x] 27 Free TV tests passing (model, service/M3U pipeline, repository, controller, page)
 
 ---
 

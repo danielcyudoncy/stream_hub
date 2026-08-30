@@ -102,6 +102,16 @@ class FreeTvRepository {
     return const [];
   }
 
+  /// Returns the curated (recommended) subset of the catalog.
+  Future<List<FreeTvChannel>> getRecommended({bool forceRefresh = false}) async {
+    final catalog = await getCatalog(forceRefresh: forceRefresh);
+    final recommended = catalog
+        .where((c) => c.qualityTier == FreeTvQualityTier.recommended)
+        .toList();
+    recommended.sort((a, b) => b.qualityScore.compareTo(a.qualityScore));
+    return recommended;
+  }
+
   List<FreeTvChannel>? _loadFromCache(Set<String> favorites,
       {bool ignoreExpiry = false}) {
     if (_catalogBox == null) return null;

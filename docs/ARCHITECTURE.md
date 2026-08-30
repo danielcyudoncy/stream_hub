@@ -220,10 +220,14 @@ coexisting with provider-based IPTV.
 
 | Concern | Implementation |
 |---------|----------------|
-| Fetch | `FreeTvService` — pulls IPTV-org `channels.json`, `streams.json`, `countries.json` concurrently with timeout and DoH resilience |
-| Normalize | Matches streams to channels (`stream.channel == channel.id`), excludes `is_nsfw`, drops malformed records, deduplicates URLs, enriches country/category names |
-| Model | `FreeTvChannel` → canonical `MediaItem` via `toMediaItem()` (consumed by `PlaybackEngine` / `PlayerController`) |
-| Cache | `FreeTvRepository` — Hive boxes `free_tv_catalog` (TTL 12h), `free_tv_favorites`, `free_tv_recent` (capped at 20) |
+| Sources | `FreeTvSources` — centralized config of 15 public IPTV-org M3U playlists (global `index.m3u`, 6 country, 3 region, 5 category) as `FreeTvSource` records |
+| Fetch | `FreeTvCatalogBuilder` — fetches all sources concurrently via `createDohAwareHttpClient()` with per-source timeout; a single failing source is isolated and never drops the rest |
+| Parse | Reuses `M3UParser` → `M3UChannel` records |
+| Normalize | `FreeTvM3uNormalizer` — extracts stable channel identity + country from `tvg-id` (`<channel>.<cc>@<SD\|HD>`), strips resolution/geoblock markers from names, splits multi-value `group-title` |
+| Deduplicate | Aggregates by stable channel ID across sources, uniting categories/languages and deduplicating stream URLs (SD + HD variants merge into one channel) |
+| Quality | `FreeTvQualityService` — hard eligibility (NSFW, missing id/name, non-http stream, junk/test names) plus a deterministic 0–100 score; tiers `recommended` / `valid` |
+| Model | `FreeTvChannel` → canonical `MediaItem` via `toMediaItem()` (consumed by `PlaybackEngine` / `PlayerController`); carries `qualityScore` / `qualityTier` / `region` |
+| Cache | `FreeTvRepository` — Hive boxes `free_tv_catalog` (TTL 12h), `free_tv_favorites`, `free_tv_recent` (capped at 20); mirrors quality fields via `toJson`/`fromJson` |
 | Playback | Inline embedded player with automatic multi-stream failover (Stream 1 ➔ 2 ➔ 3) |
 | Session | `CustomProviderSessionFactory` — registered for `MediaSourceType.custom`; builds a credential-free `ProviderSession` from the direct stream URL, so Free TV flows through the standard Stream Engine pipeline (resolver → normalize → validate → `PlayableSession`) without any provider |
 
@@ -231,6 +235,13 @@ Key invariants:
 
 - **Subscription independence** — never checks for active providers or
   subscriptions; remains usable offline via the local catalog cache.
+- **Multi-source aggregation** — the catalog is built from many IPTV-org
+  playlists (global, country, region, category) and merged into a single
+  deduplicated whole; SD/HD duplicates become one channel with multiple streams.
+- **Curated quality layer** — the raw IPTV-org catalog is never shown
+  wholesale. `FreeTvQualityService` applies conservative exclusions and a
+  deterministic score, exposing `recommended` / `valid` tiers; the home surface
+  defaults to the curated `recommended` subset.
 - **Provider-independent playback** — channels map to `MediaItem` (via
   `toMediaItem()` using `MediaSourceType.custom`) and reuse the existing
   `PlaybackEngine` / `PlayerController` and embedded-player architecture. The

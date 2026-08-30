@@ -2,7 +2,25 @@ import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 
-/// Represents a public free-to-air live TV channel from the IPTV-org catalog.
+/// Curated catalog tier assigned to a free channel by the quality layer.
+enum FreeTvQualityTier {
+  /// Highest-quality, broadly useful channels (News, Sports, entertainment,
+  /// kids, documentaries, etc.) surfaced on the curated home.
+  recommended,
+
+  /// Valid channels that are not as broadly useful but pass eligibility.
+  valid;
+
+  static FreeTvQualityTier fromName(String? name) {
+    return FreeTvQualityTier.values.firstWhere(
+      (t) => t.name == name,
+      orElse: () => FreeTvQualityTier.valid,
+    );
+  }
+}
+
+/// Represents a public free-to-air live TV channel built from the IPTV-org
+/// catalog (M3U playlists).
 class FreeTvChannel {
   final String id;
   final String name;
@@ -10,6 +28,7 @@ class FreeTvChannel {
   final String? network;
   final String country;
   final String countryCode;
+  final String? region;
   final String? subdivision;
   final String? city;
   final List<String> broadcastArea;
@@ -22,6 +41,13 @@ class FreeTvChannel {
   final bool isFavorite;
   final DateTime? lastWatched;
 
+  /// Internal catalog-quality heuristic score (0–100). Not an official
+  /// popularity metric.
+  final int qualityScore;
+
+  /// Curated tier assigned by the quality layer.
+  final FreeTvQualityTier qualityTier;
+
   const FreeTvChannel({
     required this.id,
     required this.name,
@@ -29,6 +55,7 @@ class FreeTvChannel {
     this.network,
     required this.country,
     required this.countryCode,
+    this.region,
     this.subdivision,
     this.city,
     this.broadcastArea = const [],
@@ -40,6 +67,8 @@ class FreeTvChannel {
     this.streamUrls = const [],
     this.isFavorite = false,
     this.lastWatched,
+    this.qualityScore = 0,
+    this.qualityTier = FreeTvQualityTier.valid,
   });
 
   /// Primary stream URL to play first.
@@ -56,6 +85,7 @@ class FreeTvChannel {
     String? network,
     String? country,
     String? countryCode,
+    String? region,
     String? subdivision,
     String? city,
     List<String>? broadcastArea,
@@ -67,6 +97,8 @@ class FreeTvChannel {
     List<String>? streamUrls,
     bool? isFavorite,
     DateTime? lastWatched,
+    int? qualityScore,
+    FreeTvQualityTier? qualityTier,
   }) {
     return FreeTvChannel(
       id: id ?? this.id,
@@ -75,6 +107,7 @@ class FreeTvChannel {
       network: network ?? this.network,
       country: country ?? this.country,
       countryCode: countryCode ?? this.countryCode,
+      region: region ?? this.region,
       subdivision: subdivision ?? this.subdivision,
       city: city ?? this.city,
       broadcastArea: broadcastArea ?? this.broadcastArea,
@@ -86,6 +119,8 @@ class FreeTvChannel {
       streamUrls: streamUrls ?? this.streamUrls,
       isFavorite: isFavorite ?? this.isFavorite,
       lastWatched: lastWatched ?? this.lastWatched,
+      qualityScore: qualityScore ?? this.qualityScore,
+      qualityTier: qualityTier ?? this.qualityTier,
     );
   }
 
@@ -113,6 +148,7 @@ class FreeTvChannel {
       metadata: {
         'channelId': id,
         'countryCode': countryCode,
+        'region': region ?? '',
         'streamUrl': primaryStreamUrl ?? '',
         'streamUrls': streamUrls,
         'isFreeTv': true,
@@ -134,6 +170,7 @@ class FreeTvChannel {
       if (network != null) 'network': network,
       'country': country,
       'country_code': countryCode,
+      if (region != null) 'region': region,
       if (subdivision != null) 'subdivision': subdivision,
       if (city != null) 'city': city,
       'broadcast_area': broadcastArea,
@@ -144,6 +181,8 @@ class FreeTvChannel {
       if (logo != null) 'logo': logo,
       'stream_urls': streamUrls,
       'is_favorite': isFavorite,
+      'quality_score': qualityScore,
+      'quality_tier': qualityTier.name,
       if (lastWatched != null)
         'last_watched': lastWatched!.toIso8601String(),
     };
@@ -199,6 +238,14 @@ class FreeTvChannel {
       lastWatched = DateTime.tryParse(json['last_watched'].toString());
     }
 
+    final region = json['region']?.toString();
+    final qualityScore = (json['quality_score'] is num)
+        ? (json['quality_score'] as num).toInt()
+        : 0;
+    final qualityTier = FreeTvQualityTier.fromName(
+      json['quality_tier']?.toString(),
+    );
+
     return FreeTvChannel(
       id: (json['id'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
@@ -206,6 +253,7 @@ class FreeTvChannel {
       network: json['network']?.toString(),
       country: resolvedCountry,
       countryCode: countryCode,
+      region: region,
       subdivision: json['subdivision']?.toString(),
       city: json['city']?.toString(),
       broadcastArea: broadcastArea,
@@ -219,6 +267,8 @@ class FreeTvChannel {
           .toList(),
       isFavorite: isFavorite ?? json['is_favorite'] == true,
       lastWatched: lastWatched,
+      qualityScore: qualityScore,
+      qualityTier: qualityTier,
     );
   }
 }
