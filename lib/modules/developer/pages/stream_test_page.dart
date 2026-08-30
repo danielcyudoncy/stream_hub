@@ -7,6 +7,7 @@ import 'package:stream_hub/modules/developer/pages/stream_test_controller.dart';
 import 'package:stream_hub/modules/developer/widgets/diagnostics_report_view.dart';
 import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class StreamTestPage extends GetView<StreamTestController> {
   const StreamTestPage({super.key});
@@ -63,10 +64,15 @@ class StreamTestPage extends GetView<StreamTestController> {
                     runSpacing: AppSpacing.xs,
                     children: [
                       for (final type in controller.providerTypes)
-                        ChoiceChip(
-                          label: Text(type.displayName),
-                          selected: controller.providerType == type,
-                          onSelected: (_) => controller.setProviderType(type),
+                        TvFocusable(
+                          onTap: () => controller.setProviderType(type),
+                          borderRadius: BorderRadius.circular(20),
+                          scale: 1.05,
+                          child: ChoiceChip(
+                            label: Text(type.displayName),
+                            selected: controller.providerType == type,
+                            onSelected: (_) => controller.setProviderType(type),
+                          ),
                         ),
                     ],
                   ),
@@ -87,13 +93,18 @@ class StreamTestPage extends GetView<StreamTestController> {
                 ),
                 AppSpacing.heightSM,
                 Obx(
-                  () => FilledButton.icon(
-                    onPressed: controller.isRunning ? null : controller.run,
-                    icon: Icon(
-                      controller.isRunning ? AppIcons.pause : AppIcons.play,
-                    ),
-                    label: Text(
-                      controller.isRunning ? 'Running…' : 'Run Test',
+                  () => TvFocusable(
+                    onTap: controller.isRunning ? null : controller.run,
+                    borderRadius: BorderRadius.circular(8),
+                    focusColor: colorScheme.primary,
+                    child: FilledButton.icon(
+                      onPressed: controller.isRunning ? null : controller.run,
+                      icon: Icon(
+                        controller.isRunning ? AppIcons.pause : AppIcons.play,
+                      ),
+                      label: Text(
+                        controller.isRunning ? 'Running…' : 'Run Test',
+                      ),
                     ),
                   ),
                 ),

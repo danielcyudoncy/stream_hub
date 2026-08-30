@@ -3,6 +3,7 @@ import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
 import '../../data/models/category.dart';
+import 'tv_focusable.dart';
 
 class CategoryChip extends StatelessWidget {
   final Category category;
@@ -21,8 +22,10 @@ class CategoryChip extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
+      borderRadius: AppRadius.pill,
+      scale: 1.05,
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,

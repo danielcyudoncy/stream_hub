@@ -6,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:media_kit/media_kit.dart';
 import 'core/bindings/app_binding.dart';
 import 'core/constants/app_constants.dart';
+import 'core/helpers/platform_helper.dart';
 import 'core/localization/app_translations.dart';
 import 'core/logging/logging_service.dart';
 import 'core/network/app_http_overrides.dart';
@@ -22,6 +23,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   HttpOverrides.global = AppHttpOverrides();
   MediaKit.ensureInitialized();
+  await PlatformHelper.initialize();
   await Hive.initFlutter();
   Hive.registerAdapter(ProviderModelAdapter());
   Hive.registerAdapter(ProfileModelAdapter());

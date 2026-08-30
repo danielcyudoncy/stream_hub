@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class TimelineHeader extends StatelessWidget {
   final DateTime windowStart;
@@ -41,13 +42,18 @@ class TimelineHeader extends StatelessWidget {
           ),
           const Spacer(),
           if (onNowTap != null)
-            OutlinedButton.icon(
-              onPressed: onNowTap,
-              icon: const Icon(Icons.now_widgets, size: 18),
-              label: const Text('Now'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: colorScheme.primary,
-                side: BorderSide(color: colorScheme.primary),
+            TvFocusable(
+              onTap: onNowTap,
+              borderRadius: BorderRadius.circular(8),
+              focusColor: colorScheme.primary,
+              child: OutlinedButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.now_widgets, size: 18),
+                label: const Text('Now'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.primary,
+                  side: BorderSide(color: colorScheme.primary),
+                ),
               ),
             ),
         ],

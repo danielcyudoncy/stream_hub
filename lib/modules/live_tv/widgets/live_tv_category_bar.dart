@@ -109,6 +109,14 @@ class _CategoryChipState extends State<_CategoryChip> {
           setState(() => _isFocused = show);
         }
       },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) => widget.onTap(),
+        ),
+        ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+          onInvoke: (_) => widget.onTap(),
+        ),
+      },
       mouseCursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,

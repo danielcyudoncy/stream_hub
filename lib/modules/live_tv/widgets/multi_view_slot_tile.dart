@@ -5,6 +5,7 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import '../controllers/multi_view_controller.dart';
 
 class MultiViewSlotTile extends StatelessWidget {
@@ -219,9 +220,10 @@ class MultiViewSlotTile extends StatelessWidget {
                 ] else ...[
                   // Empty Slot Tile
                   Center(
-                    child: InkWell(
+                    child: TvFocusable(
                       onTap: onSelectChannel,
                       borderRadius: AppRadius.medium,
+                      scale: 1.08,
                       child: Padding(
                         padding: const EdgeInsets.all(AppSpacing.xs),
                         child: FittedBox(

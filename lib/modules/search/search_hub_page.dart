@@ -175,10 +175,10 @@ class SearchHubPage extends GetView<SearchHubController> {
                       if (controller.textController.text.isEmpty) {
                         return const SizedBox.shrink();
                       }
-                      return GestureDetector(
-                        key: const ValueKey('search_clear_button'),
-                        behavior: HitTestBehavior.opaque,
+                      return TvFocusable(
                         onTap: controller.clearSearch,
+                        scale: 1.15,
+                        borderRadius: BorderRadius.circular(16),
                         child: Padding(
                           padding: const EdgeInsets.all(AppSpacing.xs),
                           child: Icon(
@@ -216,9 +216,10 @@ class SearchHubPage extends GetView<SearchHubController> {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           children: [
             // Provider Filter Button
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
+            TvFocusable(
               onTap: () => _showProviderPicker(context, colorScheme),
+              borderRadius: AppRadius.large,
+              scale: 1.05,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.md,
@@ -283,9 +284,10 @@ class SearchHubPage extends GetView<SearchHubController> {
 
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
+                child: TvFocusable(
                   onTap: () => controller.setFilter(filter),
+                  borderRadius: AppRadius.large,
+                  scale: 1.05,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md,
@@ -377,9 +379,14 @@ class SearchHubPage extends GetView<SearchHubController> {
                         style: AppTypography.getTitle(color: colorScheme.onSurface)
                             .copyWith(fontWeight: FontWeight.bold),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
+                      TvFocusable(
+                        onTap: () => Navigator.pop(context),
+                        scale: 1.0,
+                        borderRadius: AppRadius.medium,
+                        child: const IconButton(
+                          icon: Icon(Icons.close),
+                          onPressed: null,
+                        ),
                       ),
                     ],
                   ),
@@ -487,12 +494,17 @@ class SearchHubPage extends GetView<SearchHubController> {
               ),
               child: SectionHeader(
                 title: 'Recent Searches',
-                trailing: GestureDetector(
+                trailing: TvFocusable(
                   onTap: controller.clearRecentSearches,
-                  child: Text(
-                    'Clear All',
-                    style: AppTypography.getCaption(
-                      color: colorScheme.primary,
+                  borderRadius: AppRadius.small,
+                  scale: 1.05,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                    child: Text(
+                      'Clear All',
+                      style: AppTypography.getCaption(
+                        color: colorScheme.primary,
+                      ),
                     ),
                   ),
                 ),
@@ -558,9 +570,10 @@ class SearchHubPage extends GetView<SearchHubController> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  TvFocusable(
                     onTap: () => controller.selectQuery(search),
+                    borderRadius: AppRadius.medium,
+                    scale: 1.05,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -580,13 +593,17 @@ class SearchHubPage extends GetView<SearchHubController> {
                     ),
                   ),
                   AppSpacing.widthXS,
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                  TvFocusable(
                     onTap: () => controller.removeRecentSearch(search),
-                    child: Icon(
-                      Icons.close,
-                      size: 14.0,
-                      color: colorScheme.onSurfaceVariant,
+                    borderRadius: BorderRadius.circular(10.0),
+                    scale: 1.15,
+                    child: Padding(
+                      padding: const EdgeInsets.all(2.0),
+                      child: Icon(
+                        Icons.close,
+                        size: 14.0,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ],
@@ -630,9 +647,10 @@ class SearchHubPage extends GetView<SearchHubController> {
     String query,
     ColorScheme colorScheme,
   ) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return TvFocusable(
       onTap: () => controller.selectQuery(query),
+      borderRadius: AppRadius.large,
+      scale: 1.05,
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,

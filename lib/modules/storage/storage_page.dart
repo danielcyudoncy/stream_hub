@@ -6,6 +6,7 @@ import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/section_header.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class StoragePage extends StatelessWidget {
   const StoragePage({super.key});
@@ -41,19 +42,27 @@ class StoragePage extends StatelessWidget {
             AppCard(
               child: Column(
                 children: [
-                  ListTile(
-                    leading: Icon(Icons.cleaning_services_outlined, color: colorScheme.primary),
-                    title: Text('Clear Cache', style: AppTypography.getBody(color: colorScheme.onSurface)),
-                    subtitle: Text('Delete temporary files and cached images', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  TvFocusable(
+                    borderRadius: AppRadius.medium,
+                    scale: 1.02,
                     onTap: () => _showClearCacheDialog(context),
+                    child: ListTile(
+                      leading: Icon(Icons.cleaning_services_outlined, color: colorScheme.primary),
+                      title: Text('Clear Cache', style: AppTypography.getBody(color: colorScheme.onSurface)),
+                      subtitle: Text('Delete temporary files and cached images', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    ),
                   ),
-                  ListTile(
-                    leading: Icon(Icons.storage_outlined, color: colorScheme.primary),
-                    title: Text('Optimize Storage', style: AppTypography.getBody(color: colorScheme.onSurface)),
-                    subtitle: Text('Compact database and remove orphaned records', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  TvFocusable(
+                    borderRadius: AppRadius.medium,
+                    scale: 1.02,
                     onTap: () => _showOptimizeDialog(context),
+                    child: ListTile(
+                      leading: Icon(Icons.storage_outlined, color: colorScheme.primary),
+                      title: Text('Optimize Storage', style: AppTypography.getBody(color: colorScheme.onSurface)),
+                      subtitle: Text('Compact database and remove orphaned records', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    ),
                   ),
                 ],
               ),
@@ -64,19 +73,27 @@ class StoragePage extends StatelessWidget {
             AppCard(
               child: Column(
                 children: [
-                  ListTile(
-                    leading: Icon(Icons.upload_file_outlined, color: colorScheme.primary),
-                    title: Text('Export Settings', style: AppTypography.getBody(color: colorScheme.onSurface)),
-                    subtitle: Text('Export app settings to a file', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  TvFocusable(
+                    borderRadius: AppRadius.medium,
+                    scale: 1.02,
                     onTap: () => _showExportDialog(context),
+                    child: ListTile(
+                      leading: Icon(Icons.upload_file_outlined, color: colorScheme.primary),
+                      title: Text('Export Settings', style: AppTypography.getBody(color: colorScheme.onSurface)),
+                      subtitle: Text('Export app settings to a file', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    ),
                   ),
-                  ListTile(
-                    leading: Icon(Icons.download_for_offline_outlined, color: colorScheme.primary),
-                    title: Text('Import Settings', style: AppTypography.getBody(color: colorScheme.onSurface)),
-                    subtitle: Text('Import settings from a file', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
-                    trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                  TvFocusable(
+                    borderRadius: AppRadius.medium,
+                    scale: 1.02,
                     onTap: () => _showImportDialog(context),
+                    child: ListTile(
+                      leading: Icon(Icons.download_for_offline_outlined, color: colorScheme.primary),
+                      title: Text('Import Settings', style: AppTypography.getBody(color: colorScheme.onSurface)),
+                      subtitle: Text('Import settings from a file', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                    ),
                   ),
                 ],
               ),

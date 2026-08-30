@@ -75,10 +75,29 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
         : (widget.isPlaying ? 0.45 : 0.0);
 
     return FocusableActionDetector(
+      onFocusChange: (hasKeyboardFocus) {
+        if (mounted && _isFocused != hasKeyboardFocus) {
+          setState(() => _isFocused = hasKeyboardFocus);
+        }
+      },
       onShowFocusHighlight: (show) {
         if (mounted && _isFocused != show) {
           setState(() => _isFocused = show);
         }
+      },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<Intent>(
+          onInvoke: (Intent intent) {
+            widget.onTap?.call();
+            return null;
+          },
+        ),
+        ButtonActivateIntent: CallbackAction<Intent>(
+          onInvoke: (Intent intent) {
+            widget.onTap?.call();
+            return null;
+          },
+        ),
       },
       mouseCursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -392,10 +411,29 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
         : '';
 
     return FocusableActionDetector(
+      onFocusChange: (hasKeyboardFocus) {
+        if (mounted && _isFocused != hasKeyboardFocus) {
+          setState(() => _isFocused = hasKeyboardFocus);
+        }
+      },
       onShowFocusHighlight: (show) {
         if (mounted && _isFocused != show) {
           setState(() => _isFocused = show);
         }
+      },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<Intent>(
+          onInvoke: (Intent intent) {
+            widget.onTap?.call();
+            return null;
+          },
+        ),
+        ButtonActivateIntent: CallbackAction<Intent>(
+          onInvoke: (Intent intent) {
+            widget.onTap?.call();
+            return null;
+          },
+        ),
       },
       mouseCursor: SystemMouseCursors.click,
       child: GestureDetector(

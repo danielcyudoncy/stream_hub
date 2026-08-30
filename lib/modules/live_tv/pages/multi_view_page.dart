@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/provider_selector_button.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import '../controllers/multi_view_controller.dart';
 import '../models/multi_view_layout_mode.dart';
 import '../widgets/multi_view_slot_tile.dart';
@@ -339,8 +340,10 @@ class MultiViewPage extends GetView<MultiViewController> {
                         itemBuilder: (context, idx) {
                           final cat = categories[idx];
                           final isSelected = selectedCategory.value == cat;
-                          return GestureDetector(
+                          return TvFocusable(
                             onTap: () => selectedCategory.value = cat,
+                            borderRadius: AppRadius.pill,
+                            scale: 1.08,
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.symmetric(
@@ -471,62 +474,66 @@ class MultiViewPage extends GetView<MultiViewController> {
                           final logoUrl = ImageUrlFormatter.format(rawLogo, item: ch);
                           final chCat = controller.getChannelCategoryName(ch);
 
-                          return ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: 2.0,
-                            ),
-                            leading: logoUrl != null && logoUrl.isNotEmpty
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(4.0),
-                                    child: Image.network(
-                                      logoUrl,
-                                      width: 38.0,
-                                      height: 38.0,
-                                      fit: BoxFit.contain,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          const Icon(Icons.live_tv, size: 24.0, color: Colors.white54),
-                                    ),
-                                  )
-                                : const Icon(Icons.live_tv, size: 24.0, color: Colors.white54),
-                            title: Text(
-                              ch.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 14.0,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: chCat != null && chCat.isNotEmpty
-                                ? Text(
-                                    chCat,
-                                    style: const TextStyle(
-                                      color: Colors.white54,
-                                      fontSize: 11.5,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  )
-                                : (ch.subtitle != null
-                                    ? Text(
-                                        ch.subtitle!,
-                                        style: const TextStyle(
-                                          color: Colors.white54,
-                                          fontSize: 11.5,
-                                        ),
-                                      )
-                                    : null),
-                            trailing: const Icon(
-                              Icons.play_circle_outline_rounded,
-                              color: AppColors.primary,
-                              size: 24.0,
-                            ),
+                          return TvFocusable(
                             onTap: () {
                               controller.setChannelForSlot(slotIndex, ch);
                               Navigator.of(ctx).pop();
                             },
+                            borderRadius: AppRadius.small,
+                            scale: 1.02,
+                            child: ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: 2.0,
+                              ),
+                              leading: logoUrl != null && logoUrl.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(4.0),
+                                      child: Image.network(
+                                        logoUrl,
+                                        width: 38.0,
+                                        height: 38.0,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Icon(Icons.live_tv, size: 24.0, color: Colors.white54),
+                                      ),
+                                    )
+                                  : const Icon(Icons.live_tv, size: 24.0, color: Colors.white54),
+                              title: Text(
+                                ch.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14.0,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              subtitle: chCat != null && chCat.isNotEmpty
+                                  ? Text(
+                                      chCat,
+                                      style: const TextStyle(
+                                        color: Colors.white54,
+                                        fontSize: 11.5,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : (ch.subtitle != null
+                                      ? Text(
+                                          ch.subtitle!,
+                                          style: const TextStyle(
+                                            color: Colors.white54,
+                                            fontSize: 11.5,
+                                          ),
+                                        )
+                                      : null),
+                              trailing: const Icon(
+                                Icons.play_circle_outline_rounded,
+                                color: AppColors.primary,
+                                size: 24.0,
+                              ),
+                            ),
                           );
                         },
                       );

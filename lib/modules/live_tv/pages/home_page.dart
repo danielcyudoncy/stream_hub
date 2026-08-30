@@ -14,6 +14,7 @@ import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/media_section.dart';
 import '../../../shared/widgets/category_chip.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class HomePage extends GetView<LiveTVHomeController> {
   const HomePage({super.key});
@@ -174,11 +175,13 @@ class HomePage extends GetView<LiveTVHomeController> {
   }
 
   Widget _buildContinueWatchingItem(BuildContext context, MediaItem item) {
-    return GestureDetector(
+    return TvFocusable(
       onTap: () => Get.toNamed(
         AppRoutes.channelDetails,
         parameters: {'channelId': item.id},
       ),
+      borderRadius: AppRadius.medium,
+      scale: 1.05,
       child: Container(
         width: 200,
         padding: const EdgeInsets.all(AppSpacing.sm),
@@ -333,8 +336,10 @@ class HomePage extends GetView<LiveTVHomeController> {
     required VoidCallback onTap,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
+      borderRadius: AppRadius.medium,
+      scale: 1.08,
       child: Container(
         width: 100,
         padding: const EdgeInsets.all(AppSpacing.md),

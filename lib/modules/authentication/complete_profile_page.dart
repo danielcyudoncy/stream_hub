@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import '../../../shared/widgets/app_text_field.dart';
 import 'auth_controller.dart';
 
@@ -36,9 +37,14 @@ class CompleteProfilePage extends GetView<AuthController> {
                 children: [
                   Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(AppIcons.back),
-                        onPressed: () => Get.back(),
+                      TvFocusable(
+                        onTap: () => Get.back(),
+                        scale: 1.0,
+                        borderRadius: AppRadius.medium,
+                        child: const IconButton(
+                          icon: Icon(AppIcons.back),
+                          onPressed: null,
+                        ),
                       ),
                       AppSpacing.widthSM,
                       Text(

@@ -10,6 +10,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import './constants/auth_constants.dart';
 import 'auth_controller.dart';
 import '../../../core/logging/logging_service.dart';
@@ -75,9 +76,14 @@ class RegisterPage extends GetView<AuthController> {
                 children: [
                   Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(AppIcons.back),
-                        onPressed: () => Get.back(),
+                      TvFocusable(
+                        onTap: () => Get.back(),
+                        scale: 1.0,
+                        borderRadius: AppRadius.medium,
+                        child: const IconButton(
+                          icon: Icon(AppIcons.back),
+                          onPressed: null,
+                        ),
                       ),
                       AppSpacing.widthSM,
                       Text(
@@ -227,49 +233,57 @@ class RegisterPage extends GetView<AuthController> {
                         ),
                         AppSpacing.heightMD,
                         Obx(
-                          () => Row(
-                            children: [
-                              Checkbox(
-                                value: acceptedTerms.value,
-                                onChanged: (value) {
-                                  acceptedTerms.value = value ?? false;
-                                },
-                              ),
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () {
-                                    acceptedTerms.value = !acceptedTerms.value;
+                          () => TvFocusable(
+                            onTap: () {
+                              acceptedTerms.value = !acceptedTerms.value;
+                            },
+                            borderRadius: AppRadius.medium,
+                            scale: 1.0,
+                            child: Row(
+                              children: [
+                                Checkbox(
+                                  value: acceptedTerms.value,
+                                  onChanged: (value) {
+                                    acceptedTerms.value = value ?? false;
                                   },
-                                  child: RichText(
-                                    text: TextSpan(
-                                      style: AppTypography.getCaption(
-                                        color: colorScheme.onSurface,
+                                ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      acceptedTerms.value =
+                                          !acceptedTerms.value;
+                                    },
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: AppTypography.getCaption(
+                                          color: colorScheme.onSurface,
+                                        ),
+                                        children: [
+                                          const TextSpan(text: 'I agree to the '),
+                                          TextSpan(
+                                            text: 'Terms of Service',
+                                            style: const TextStyle(
+                                              color: AppColors.darkPrimary,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                          const TextSpan(text: ' and '),
+                                          TextSpan(
+                                            text: 'Privacy Policy',
+                                            style: const TextStyle(
+                                              color: AppColors.darkPrimary,
+                                              decoration:
+                                                  TextDecoration.underline,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      children: [
-                                        const TextSpan(text: 'I agree to the '),
-                                        TextSpan(
-                                          text: 'Terms of Service',
-                                          style: const TextStyle(
-                                            color: AppColors.darkPrimary,
-                                            decoration:
-                                                TextDecoration.underline,
-                                          ),
-                                        ),
-                                        const TextSpan(text: ' and '),
-                                        TextSpan(
-                                          text: 'Privacy Policy',
-                                          style: const TextStyle(
-                                            color: AppColors.darkPrimary,
-                                            decoration:
-                                                TextDecoration.underline,
-                                          ),
-                                        ),
-                                      ],
                                     ),
                                   ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                         AppSpacing.heightLG,
@@ -335,13 +349,18 @@ class RegisterPage extends GetView<AuthController> {
                                 color: colorScheme.onSurfaceVariant,
                               ),
                             ),
-                            TextButton(
-                              onPressed: () => Get.toNamed(AppRoutes.login),
-                              child: Text(
-                                'Sign In',
-                                style: AppTypography.getCaption(
-                                  color: colorScheme.primary,
-                                ).copyWith(fontWeight: FontWeight.w600),
+                            TvFocusable(
+                              onTap: () => Get.toNamed(AppRoutes.login),
+                              borderRadius: AppRadius.medium,
+                              scale: 1.05,
+                              child: TextButton(
+                                onPressed: null,
+                                child: Text(
+                                  'Sign In',
+                                  style: AppTypography.getCaption(
+                                    color: colorScheme.primary,
+                                  ).copyWith(fontWeight: FontWeight.w600),
+                                ),
                               ),
                             ),
                           ],

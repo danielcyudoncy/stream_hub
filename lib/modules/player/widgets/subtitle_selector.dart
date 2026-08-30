@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class SubtitleSelector extends StatelessWidget {
   final List<dynamic> tracks;
@@ -270,25 +271,25 @@ class _TrackOptionTile extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Material(
-        color: isSelected
-            ? colorScheme.primary.withValues(alpha: 0.15)
-            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(
+      child: TvFocusable(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        scale: 1.02,
+        child: Container(
+          decoration: BoxDecoration(
             color: isSelected
-                ? colorScheme.primary
-                : colorScheme.outline.withValues(alpha: 0.15),
-            width: isSelected ? 1.5 : 1.0,
+                ? colorScheme.primary.withValues(alpha: 0.15)
+                : colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected
+                  ? colorScheme.primary
+                  : colorScheme.outline.withValues(alpha: 0.15),
+              width: isSelected ? 1.5 : 1.0,
+            ),
           ),
-        ),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(10),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
               children: [
                 Icon(
                   icon,
@@ -350,7 +351,6 @@ class _TrackOptionTile extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }

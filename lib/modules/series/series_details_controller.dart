@@ -729,17 +729,24 @@ class SeriesDetailsController extends GetxController {
     inlinePlayerController!.onInit();
   }
 
+  void _activateInlinePlayer() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isClosed) {
+        isInlinePlayerActive.value = true;
+      }
+    });
+  }
+
   /// Starts inline playback for a specific episode.
   Future<void> startEpisodePlayback(
     MediaItem episode, {
     Duration? resumePosition,
   }) async {
     activeEpisode.value = episode;
-    isInlinePlayerActive.value = true;
+    _activateInlinePlayer();
 
     _initInlinePlayer();
     if (inlinePlayerController == null) return;
-
     final allSeasonEps = selectedSeason?.episodes ?? seasons.expand((s) => s.episodes).toList();
     final itemsToPass = allSeasonEps.isNotEmpty ? allSeasonEps : [episode];
     inlinePlayerController?.setChannelList(itemsToPass, currentId: episode.id);

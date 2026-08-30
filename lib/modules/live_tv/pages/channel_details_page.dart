@@ -10,12 +10,14 @@ import '../../../core/media/enums/media_type.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/program.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/channel_logo.dart';
 import '../../../shared/widgets/live_badge.dart';
 import '../../../shared/widgets/program_banner.dart';
 import '../../../shared/widgets/metadata_row.dart';
 import '../../../shared/widgets/favorite_button.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class ChannelDetailsPage extends GetView<LiveTVController> {
   const ChannelDetailsPage({super.key});
@@ -27,8 +29,9 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
+    return AppScaffold(
+      title: 'Channel Details',
+      showNavigation: false,
       body: Obx(() {
         final channel = controller.channels.firstWhereOrNull(
           (c) => c.id == channelId,
@@ -78,9 +81,15 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
       expandedHeight: 200.0,
       pinned: true,
       backgroundColor: colorScheme.surface,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back),
-        onPressed: () => Get.back(),
+      leading: TvFocusable(
+        onTap: () => Get.back(),
+        scale: 1.0,
+        borderRadius: BorderRadius.circular(8),
+        child: const IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: null,
+          tooltip: 'Back',
+        ),
       ),
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
@@ -110,12 +119,17 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
           onTap: () => controller.toggleFavorite(channel),
         ),
         const SizedBox(width: AppSpacing.sm),
-        IconButton(
-          icon: const Icon(Icons.share_outlined),
-          onPressed: () {
+        TvFocusable(
+          onTap: () {
             /* Placeholder for share */
           },
-          tooltip: 'Share',
+          scale: 1.0,
+          borderRadius: BorderRadius.circular(8),
+          child: const IconButton(
+            icon: Icon(Icons.share_outlined),
+            onPressed: null,
+            tooltip: 'Share',
+          ),
         ),
         const SizedBox(width: AppSpacing.sm),
       ],
@@ -352,23 +366,35 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
       child: Row(
         children: [
           Expanded(
-            child: FilledButton.icon(
-              onPressed: () => controller.openChannel(channel),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Play'),
-              style: FilledButton.styleFrom(
-                disabledBackgroundColor:
-                    colorScheme.primary.withValues(alpha: 0.3),
+            child: TvFocusable(
+              autofocus: true,
+              onTap: () => controller.openChannel(channel),
+              borderRadius: AppRadius.medium,
+              focusColor: colorScheme.primary,
+              child: FilledButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('Play'),
+                style: FilledButton.styleFrom(
+                  disabledBackgroundColor:
+                      colorScheme.primary.withValues(alpha: 0.3),
+                ),
               ),
             ),
           ),
           const SizedBox(width: AppSpacing.md),
-          OutlinedButton.icon(
-            onPressed: () {
-              /* Share placeholder */
-            },
-            icon: const Icon(Icons.share_outlined),
-            label: const Text('Share'),
+          Expanded(
+            child: TvFocusable(
+              onTap: () {
+                /* Share placeholder */
+              },
+              borderRadius: AppRadius.medium,
+              child: OutlinedButton.icon(
+                onPressed: null,
+                icon: const Icon(Icons.share_outlined),
+                label: const Text('Share'),
+              ),
+            ),
           ),
         ],
       ),

@@ -10,6 +10,7 @@ import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/section_header.dart';
 import 'package:stream_hub/shared/widgets/settings_tile.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/shared/dialogs/confirmation_dialog.dart';
 import 'settings_controller.dart';
 
@@ -315,37 +316,45 @@ class SettingsPage extends GetView<SettingsController> {
                 ),
               ),
               Obx(
-                () => SwitchListTile(
-                  title: Text(
-                    'Autoplay Next Episode',
-                    style: AppTypography.getBody(color: colorScheme.onSurface),
-                  ),
-                  subtitle: Text(
-                    'Automatically countdown and play the next episode in a series',
-                    style: AppTypography.getCaption(
-                      color: colorScheme.onSurfaceVariant,
+                () => TvFocusable(
+                  borderRadius: AppRadius.medium,
+                  scale: 1.01,
+                  child: SwitchListTile(
+                    title: Text(
+                      'Autoplay Next Episode',
+                      style: AppTypography.getBody(color: colorScheme.onSurface),
                     ),
+                    subtitle: Text(
+                      'Automatically countdown and play the next episode in a series',
+                      style: AppTypography.getCaption(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    value: controller.autoplayNextEpisode.value,
+                    onChanged: controller.toggleAutoplayNextEpisode,
+                    secondary: const Icon(Icons.playlist_play),
                   ),
-                  value: controller.autoplayNextEpisode.value,
-                  onChanged: controller.toggleAutoplayNextEpisode,
-                  secondary: const Icon(Icons.playlist_play),
                 ),
               ),
               Obx(
-                () => SwitchListTile(
-                  title: Text(
-                    'Auto-Skip Intro',
-                    style: AppTypography.getBody(color: colorScheme.onSurface),
-                  ),
-                  subtitle: Text(
-                    'Automatically skip episode intro when timestamp is available',
-                    style: AppTypography.getCaption(
-                      color: colorScheme.onSurfaceVariant,
+                () => TvFocusable(
+                  borderRadius: AppRadius.medium,
+                  scale: 1.01,
+                  child: SwitchListTile(
+                    title: Text(
+                      'Auto-Skip Intro',
+                      style: AppTypography.getBody(color: colorScheme.onSurface),
                     ),
+                    subtitle: Text(
+                      'Automatically skip episode intro when timestamp is available',
+                      style: AppTypography.getCaption(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    value: controller.autoSkipIntro.value,
+                    onChanged: controller.toggleAutoSkipIntro,
+                    secondary: const Icon(Icons.fast_forward_outlined),
                   ),
-                  value: controller.autoSkipIntro.value,
-                  onChanged: controller.toggleAutoSkipIntro,
-                  secondary: const Icon(Icons.fast_forward_outlined),
                 ),
               ),
             ],
@@ -369,19 +378,23 @@ class SettingsPage extends GetView<SettingsController> {
         ),
         AppSpacing.heightXS,
         AppCard(
-          child: SwitchListTile(
-            title: Text(
-              'Enable Notifications',
-              style: AppTypography.getBody(color: colorScheme.onSurface),
-            ),
-            subtitle: Text(
-              'Receive updates about your providers',
-              style: AppTypography.getCaption(
-                color: colorScheme.onSurface.withValues(alpha: 0.6),
+          child: TvFocusable(
+            borderRadius: AppRadius.medium,
+            scale: 1.01,
+            child: SwitchListTile(
+              title: Text(
+                'Enable Notifications',
+                style: AppTypography.getBody(color: colorScheme.onSurface),
               ),
+              subtitle: Text(
+                'Receive updates about your providers',
+                style: AppTypography.getCaption(
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              value: controller.notificationsEnabled.value,
+              onChanged: (value) => controller.toggleNotifications(value),
             ),
-            value: controller.notificationsEnabled.value,
-            onChanged: (value) => controller.toggleNotifications(value),
           ),
         ),
       ],
@@ -400,25 +413,29 @@ class SettingsPage extends GetView<SettingsController> {
         AppCard(
           child: Column(
             children: [
-              SwitchListTile(
-                title: Text(
-                  'Parental Lock',
-                  style: AppTypography.getBody(color: colorScheme.onSurface),
-                ),
-                subtitle: Text(
-                  'Restrict access to certain content',
-                  style: AppTypography.getCaption(
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
+              TvFocusable(
+                borderRadius: AppRadius.medium,
+                scale: 1.01,
+                child: SwitchListTile(
+                  title: Text(
+                    'Parental Lock',
+                    style: AppTypography.getBody(color: colorScheme.onSurface),
                   ),
+                  subtitle: Text(
+                    'Restrict access to certain content',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  value: controller.parentalLockEnabled.value,
+                  onChanged: (value) {
+                    if (value) {
+                      _showParentalPinDialog(context);
+                    } else {
+                      controller.toggleParentalLock(false);
+                    }
+                  },
                 ),
-                value: controller.parentalLockEnabled.value,
-                onChanged: (value) {
-                  if (value) {
-                    _showParentalPinDialog(context);
-                  } else {
-                    controller.toggleParentalLock(false);
-                  }
-                },
               ),
               SettingsTile(
                 title: 'Manage Categories & Visibility',
@@ -577,11 +594,17 @@ class SettingsPage extends GetView<SettingsController> {
                   children: PlaybackEnginePreference.values.map((preference) {
                     final selected =
                         controller.preferredPlayer.value == preference;
-                    return InkWell(
-                      onTap: () => controller.changePreferredPlayer(preference),
+                    return TvFocusable(
+                      onTap: () {
+                        controller.changePreferredPlayer(preference);
+                        Get.back();
+                      },
+                      borderRadius: AppRadius.medium,
+                      scale: 1.02,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           vertical: AppSpacing.xs,
+                          horizontal: AppSpacing.xs,
                         ),
                         child: Row(
                           children: [
@@ -672,14 +695,17 @@ class SettingsPage extends GetView<SettingsController> {
                 child: Column(
                   children: bufferOptions.map((opt) {
                     final selected = controller.bufferSizeSeconds.value == opt.$1;
-                    return InkWell(
+                    return TvFocusable(
                       onTap: () {
                         controller.changeBufferSize(opt.$1);
                         Get.back();
                       },
+                      borderRadius: AppRadius.medium,
+                      scale: 1.02,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           vertical: AppSpacing.xs,
+                          horizontal: AppSpacing.xs,
                         ),
                         child: Row(
                           children: [
@@ -747,19 +773,30 @@ class SettingsPage extends GetView<SettingsController> {
               child: Column(
                 children: ThemeMode.values
                     .map(
-                      (mode) => InkWell(
-                        onTap: () => controller.changeThemeMode(mode),
-                        child: Row(
-                          children: [
-                            Radio<ThemeMode>(value: mode),
-                            AppSpacing.widthXS,
-                            Text(
-                              _themeLabel(mode),
-                              style: AppTypography.getBody(
-                                color: colorScheme.onSurface,
+                      (mode) => TvFocusable(
+                        onTap: () {
+                          controller.changeThemeMode(mode);
+                          Get.back();
+                        },
+                        borderRadius: AppRadius.medium,
+                        scale: 1.02,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.xs,
+                            horizontal: AppSpacing.xs,
+                          ),
+                          child: Row(
+                            children: [
+                              Radio<ThemeMode>(value: mode),
+                              AppSpacing.widthXS,
+                              Text(
+                                _themeLabel(mode),
+                                style: AppTypography.getBody(
+                                  color: colorScheme.onSurface,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     )

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
+import 'tv_focusable.dart';
 
 class SettingsTile extends StatelessWidget {
   final String title;
@@ -26,16 +27,20 @@ class SettingsTile extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    Widget content = ListTile(
-      leading: leadingIcon != null
-          ? Icon(leadingIcon, color: iconColor ?? colorScheme.primary)
-          : null,
-      title: Text(title, style: AppTypography.getBody(color: colorScheme.onSurface)),
-      subtitle: subtitle != null
-          ? Text(subtitle!, style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6)))
-          : null,
-      trailing: trailing,
+    Widget content = TvFocusable(
       onTap: onTap,
+      scale: 1.01,
+      borderRadius: BorderRadius.circular(8),
+      child: ListTile(
+        leading: leadingIcon != null
+            ? Icon(leadingIcon, color: iconColor ?? colorScheme.primary)
+            : null,
+        title: Text(title, style: AppTypography.getBody(color: colorScheme.onSurface)),
+        subtitle: subtitle != null
+            ? Text(subtitle!, style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6)))
+            : null,
+        trailing: trailing,
+      ),
     );
 
     if (!showDivider) return content;
@@ -54,3 +59,4 @@ class SettingsTile extends StatelessWidget {
     );
   }
 }
+

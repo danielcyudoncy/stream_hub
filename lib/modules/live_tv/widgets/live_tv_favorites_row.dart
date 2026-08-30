@@ -139,6 +139,14 @@ class _FavoriteQuickCardState extends State<_FavoriteQuickCard> {
           setState(() => _isFocused = show);
         }
       },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) => widget.onTap(),
+        ),
+        ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+          onInvoke: (_) => widget.onTap(),
+        ),
+      },
       mouseCursor: SystemMouseCursors.click,
       child: GestureDetector(
         onTap: widget.onTap,

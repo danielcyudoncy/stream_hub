@@ -6,6 +6,7 @@ import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/shared/widgets/live_badge.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class ProgramCard extends StatelessWidget {
   final EPGProgram program;
@@ -26,8 +27,10 @@ class ProgramCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return GestureDetector(
+    return TvFocusable(
       onTap: onTap,
+      borderRadius: AppRadius.large,
+      scale: 1.05,
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.surface,

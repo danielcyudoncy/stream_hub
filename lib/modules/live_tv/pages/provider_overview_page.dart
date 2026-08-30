@@ -7,9 +7,11 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/theme/app_radius.dart';
 import '../controllers/provider_controller.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class ProviderOverviewPage extends GetView<ProviderController> {
   const ProviderOverviewPage({super.key});
@@ -19,11 +21,9 @@ class ProviderOverviewPage extends GetView<ProviderController> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
 
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Providers'),
-      ),
+    return AppScaffold(
+      title: 'Providers',
+      showNavigation: false,
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(
@@ -64,8 +64,10 @@ class ProviderOverviewPage extends GetView<ProviderController> {
                   (context, index) {
                     final providerName = controller.getProviderNames()[index];
                     final count = controller.getProviderCount(providerName);
-                    return GestureDetector(
+                    return TvFocusable(
                       onTap: () => controller.selectProvider(providerName),
+                      borderRadius: AppRadius.medium,
+                      scale: 1.05,
                       child: Container(
                         padding: const EdgeInsets.all(AppSpacing.md),
                         decoration: BoxDecoration(
@@ -113,9 +115,14 @@ class ProviderOverviewPage extends GetView<ProviderController> {
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: SectionHeader(
                     title: 'Channels (${controller.selectedProvider.value})',
-                    trailing: TextButton(
-                      onPressed: () => controller.selectProvider(''),
-                      child: const Text('Back'),
+                    trailing: TvFocusable(
+                      onTap: () => controller.selectProvider(''),
+                      borderRadius: AppRadius.medium,
+                      scale: 1.05,
+                      child: const TextButton(
+                        onPressed: null,
+                        child: Text('Back'),
+                      ),
                     ),
                   ),
                 ),

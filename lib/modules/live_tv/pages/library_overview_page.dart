@@ -7,9 +7,11 @@ import '../../../core/utils/responsive_helper.dart';
 
 import '../../../core/routes/app_routes.dart';
 import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/channel_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import '../../../modules/movies/widgets/movie_card.dart';
 import '../../../modules/series/widgets/series_card.dart';
 
@@ -18,15 +20,14 @@ class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return Scaffold(
-      backgroundColor: colorScheme.surface,
-      appBar: AppBar(
-        title: const Text('Library'),
-        actions: [
-          PopupMenuButton<String>(
+    return AppScaffold(
+      title: 'Library',
+      showNavigation: false,
+      actions: [
+        TvFocusable(
+          scale: 1.0,
+          borderRadius: BorderRadius.circular(8),
+          child: PopupMenuButton<String>(
             onSelected: (value) => controller.setFilter(value),
             itemBuilder: (context) => [
               const PopupMenuItem(
@@ -60,8 +61,8 @@ class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
             ],
             icon: const Icon(Icons.filter_list),
           ),
-        ],
-      ),
+        ),
+      ],
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(

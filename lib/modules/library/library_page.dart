@@ -13,6 +13,7 @@ import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../modules/movies/widgets/movie_card.dart';
 import '../../../modules/series/widgets/series_card.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'library_controller.dart';
 
 class LibraryPage extends GetView<LibraryController> {
@@ -136,9 +137,14 @@ class LibraryPage extends GetView<LibraryController> {
         children: [
           SectionHeader(
             title: 'Movies',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
+            trailing: TvFocusable(
+              onTap: () {},
+              borderRadius: AppRadius.medium,
+              scale: 1.05,
+              child: const TextButton(
+                onPressed: null,
+                child: Text('See All'),
+              ),
             ),
           ),
           AppSpacing.heightXS,
@@ -180,9 +186,14 @@ class LibraryPage extends GetView<LibraryController> {
         children: [
           SectionHeader(
             title: 'Series',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
+            trailing: TvFocusable(
+              onTap: () {},
+              borderRadius: AppRadius.medium,
+              scale: 1.05,
+              child: const TextButton(
+                onPressed: null,
+                child: Text('See All'),
+              ),
             ),
           ),
           AppSpacing.heightXS,
@@ -224,9 +235,14 @@ class LibraryPage extends GetView<LibraryController> {
         children: [
           SectionHeader(
             title: 'Favorites',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
+            trailing: TvFocusable(
+              onTap: () {},
+              borderRadius: AppRadius.medium,
+              scale: 1.05,
+              child: const TextButton(
+                onPressed: null,
+                child: Text('See All'),
+              ),
             ),
           ),
           AppSpacing.heightXS,
@@ -265,9 +281,14 @@ class LibraryPage extends GetView<LibraryController> {
         children: [
           SectionHeader(
             title: 'Continue Watching',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
+            trailing: TvFocusable(
+              onTap: () {},
+              borderRadius: AppRadius.medium,
+              scale: 1.05,
+              child: const TextButton(
+                onPressed: null,
+                child: Text('See All'),
+              ),
             ),
           ),
           AppSpacing.heightXS,
@@ -303,9 +324,14 @@ class LibraryPage extends GetView<LibraryController> {
         children: [
           SectionHeader(
             title: 'Downloads',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
+            trailing: TvFocusable(
+              onTap: () {},
+              borderRadius: AppRadius.medium,
+              scale: 1.05,
+              child: const TextButton(
+                onPressed: null,
+                child: Text('See All'),
+              ),
             ),
           ),
           AppSpacing.heightXS,
@@ -341,9 +367,14 @@ class LibraryPage extends GetView<LibraryController> {
         children: [
           SectionHeader(
             title: 'History',
-            trailing: TextButton(
-              onPressed: () {},
-              child: const Text('See All'),
+            trailing: TvFocusable(
+              onTap: () {},
+              borderRadius: AppRadius.medium,
+              scale: 1.05,
+              child: const TextButton(
+                onPressed: null,
+                child: Text('See All'),
+              ),
             ),
           ),
           AppSpacing.heightXS,
@@ -417,8 +448,10 @@ class LibraryPage extends GetView<LibraryController> {
     final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
         ? formattedPoster
         : rawPoster;
-    return GestureDetector(
+    return TvFocusable(
       onTap: () => _openItem(item),
+      borderRadius: AppRadius.medium,
+      scale: 1.05,
       child: Container(
         width: width,
         margin: const EdgeInsets.only(right: AppSpacing.md),

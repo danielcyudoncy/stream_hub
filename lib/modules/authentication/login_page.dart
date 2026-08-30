@@ -9,6 +9,7 @@ import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/app_text_field.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'auth_controller.dart';
 
 class LoginPage extends GetView<AuthController> {
@@ -48,9 +49,14 @@ class LoginPage extends GetView<AuthController> {
                 children: [
                   Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(AppIcons.back),
-                        onPressed: () => Get.back(),
+                      TvFocusable(
+                        onTap: () => Get.back(),
+                        scale: 1.0,
+                        borderRadius: AppRadius.medium,
+                        child: const IconButton(
+                          icon: Icon(AppIcons.back),
+                          onPressed: null,
+                        ),
                       ),
                       AppSpacing.widthSM,
                       Text(
@@ -114,12 +120,21 @@ class LoginPage extends GetView<AuthController> {
                           AppSpacing.heightSM,
                           Row(
                             children: [
-                              Obx(() => Checkbox(
-                                    value: controller.rememberMe.value,
-                                    onChanged: (value) {
-                                      controller.rememberMe.value = value ?? false;
-                                    },
-                                  )),
+                              TvFocusable(
+                                scale: 1.0,
+                                borderRadius: AppRadius.medium,
+                                onTap: () {
+                                  controller.rememberMe.value =
+                                      !controller.rememberMe.value;
+                                },
+                                child: Obx(() => Checkbox(
+                                      value: controller.rememberMe.value,
+                                      onChanged: (value) {
+                                        controller.rememberMe.value =
+                                            value ?? false;
+                                      },
+                                    )),
+                              ),
                               Text(
                                 'Remember Me',
                                 style: AppTypography.getCaption(
@@ -127,12 +142,18 @@ class LoginPage extends GetView<AuthController> {
                                 ),
                               ),
                               const Spacer(),
-                              TextButton(
-                                onPressed: () => Get.toNamed(AppRoutes.forgotPassword),
-                                child: Text(
-                                  'Forgot Password?',
-                                  style: AppTypography.getCaption(
-                                    color: colorScheme.primary,
+                              TvFocusable(
+                                onTap: () =>
+                                    Get.toNamed(AppRoutes.forgotPassword),
+                                borderRadius: AppRadius.medium,
+                                scale: 1.05,
+                                child: TextButton(
+                                  onPressed: null,
+                                  child: Text(
+                                    'Forgot Password?',
+                                    style: AppTypography.getCaption(
+                                      color: colorScheme.primary,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -195,13 +216,18 @@ class LoginPage extends GetView<AuthController> {
                                   color: colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              TextButton(
-                                onPressed: () => Get.toNamed(AppRoutes.register),
-                                child: Text(
-                                  'Sign Up',
-                                  style: AppTypography.getCaption(
-                                    color: colorScheme.primary,
-                                  ).copyWith(fontWeight: FontWeight.w600),
+                              TvFocusable(
+                                onTap: () => Get.toNamed(AppRoutes.register),
+                                borderRadius: AppRadius.medium,
+                                scale: 1.05,
+                                child: TextButton(
+                                  onPressed: null,
+                                  child: Text(
+                                    'Sign Up',
+                                    style: AppTypography.getCaption(
+                                      color: colorScheme.primary,
+                                    ).copyWith(fontWeight: FontWeight.w600),
+                                  ),
                                 ),
                               ),
                             ],

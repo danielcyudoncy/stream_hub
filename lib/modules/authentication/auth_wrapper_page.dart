@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_button.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import './constants/auth_constants.dart';
 import './account_loading_page.dart';
 import './complete_profile_page.dart';
@@ -98,11 +100,21 @@ class AuthWrapperPage extends GetView<AuthController> {
                       ),
                     ),
                     AppSpacing.heightLG,
-                    TextButton(
-                      onPressed: () => Get.toNamed(AppRoutes.login, arguments: {'anonymous': true}),
-                      child: Text(
-                        'Continue as Guest',
-                        style: AppTypography.getLabel(color: colorScheme.onSurfaceVariant),
+                    TvFocusable(
+                      onTap: () => Get.toNamed(
+                        AppRoutes.login,
+                        arguments: {'anonymous': true},
+                      ),
+                      borderRadius: AppRadius.medium,
+                      scale: 1.05,
+                      child: TextButton(
+                        onPressed: null,
+                        child: Text(
+                          'Continue as Guest',
+                          style: AppTypography.getLabel(
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
                     ),
                   ],

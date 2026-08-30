@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import 'tv_focusable.dart';
 
 class GreetingHeader extends StatelessWidget {
   final String greeting;
@@ -26,8 +27,10 @@ class GreetingHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
       child: Row(
         children: [
-          GestureDetector(
+          TvFocusable(
             onTap: onProfileTap,
+            borderRadius: BorderRadius.circular(28.0),
+            scale: 1.1,
             child: CircleAvatar(
               radius: 28.0,
               backgroundColor: colorScheme.primaryContainer,

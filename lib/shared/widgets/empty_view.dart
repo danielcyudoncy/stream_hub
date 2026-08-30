@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import 'tv_focusable.dart';
 
 class EmptyView extends StatelessWidget {
   final String title;
@@ -56,10 +58,41 @@ class EmptyView extends StatelessWidget {
             ],
             if (actionLabel != null && onAction != null) ...[
               AppSpacing.heightMD,
-              FilledButton.icon(
-                onPressed: onAction,
-                icon: Icon(AppIcons.add, size: 18),
-                label: Text(actionLabel!),
+              TvFocusable(
+                onTap: onAction,
+                borderRadius: BorderRadius.circular(20.0),
+                scale: 1.08,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: AppColors.primaryGradient,
+                    ),
+                    borderRadius: BorderRadius.circular(20.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 12.0,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(AppIcons.add, size: 18, color: Colors.white),
+                      AppSpacing.widthXS,
+                      Text(
+                        actionLabel!,
+                        style: AppTypography.getButton(color: Colors.white)
+                            .copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ],
           ],

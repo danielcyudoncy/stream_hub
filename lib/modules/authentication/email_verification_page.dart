@@ -8,6 +8,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'auth_controller.dart';
 
 class EmailVerificationPage extends GetView<AuthController> {
@@ -33,9 +34,14 @@ class EmailVerificationPage extends GetView<AuthController> {
                 children: [
                   Row(
                     children: [
-                      IconButton(
-                        icon: const Icon(AppIcons.back),
-                        onPressed: () => Get.back(),
+                      TvFocusable(
+                        onTap: () => Get.back(),
+                        scale: 1.0,
+                        borderRadius: AppRadius.medium,
+                        child: const IconButton(
+                          icon: Icon(AppIcons.back),
+                          onPressed: null,
+                        ),
                       ),
                       AppSpacing.widthSM,
                       Text(
@@ -104,12 +110,17 @@ class EmailVerificationPage extends GetView<AuthController> {
                             onPressed: controller.continueAfterVerification,
                           ),
                           AppSpacing.heightLG,
-                          TextButton(
-                            onPressed: () => Get.offAllNamed(AppRoutes.login),
-                            child: Text(
-                              'Back to Login',
-                              style: AppTypography.getCaption(
-                                color: colorScheme.onSurfaceVariant,
+                          TvFocusable(
+                            onTap: () => Get.offAllNamed(AppRoutes.login),
+                            borderRadius: AppRadius.medium,
+                            scale: 1.05,
+                            child: TextButton(
+                              onPressed: null,
+                              child: Text(
+                                'Back to Login',
+                                style: AppTypography.getCaption(
+                                  color: colorScheme.onSurfaceVariant,
+                                ),
                               ),
                             ),
                           ),

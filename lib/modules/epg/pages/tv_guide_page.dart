@@ -39,13 +39,23 @@ class TVGuidePage extends GetView<GuideController> {
       return AppScaffold(
         title: 'TV Guide',
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: controller.refreshGuide,
+          TvFocusable(
+            onTap: controller.refreshGuide,
+            scale: 1.0,
+            borderRadius: BorderRadius.circular(8),
+            child: const IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: null,
+            ),
           ),
-          IconButton(
-            icon: const Icon(Icons.search),
-            onPressed: () => Get.toNamed(AppRoutes.guideSearch),
+          TvFocusable(
+            onTap: () => Get.toNamed(AppRoutes.guideSearch),
+            scale: 1.0,
+            borderRadius: BorderRadius.circular(8),
+            child: const IconButton(
+              icon: Icon(Icons.search),
+              onPressed: null,
+            ),
           ),
         ],
         body: Column(
@@ -224,18 +234,28 @@ class TVGuidePage extends GetView<GuideController> {
                         );
                       }),
                     AppSpacing.widthSM,
-                    IconButton(
-                      icon: const Icon(Icons.search),
-                      color: AppColors.textSecondary,
-                      focusColor: AppColors.primaryContainer.withValues(alpha: 0.3),
-                      onPressed: () => Get.toNamed(AppRoutes.guideSearch),
+                    TvFocusable(
+                      onTap: () => Get.toNamed(AppRoutes.guideSearch),
+                      scale: 1.15,
+                      borderRadius: BorderRadius.circular(24),
+                      child: IconButton(
+                        icon: const Icon(Icons.search),
+                        color: AppColors.textSecondary,
+                        focusColor: AppColors.primaryContainer.withValues(alpha: 0.3),
+                        onPressed: () => Get.toNamed(AppRoutes.guideSearch),
+                      ),
                     ),
                     AppSpacing.widthSM,
-                    IconButton(
-                      icon: const Icon(Icons.refresh),
-                      color: AppColors.textSecondary,
-                      focusColor: AppColors.primaryContainer.withValues(alpha: 0.3),
-                      onPressed: () => controller.refreshGuide(),
+                    TvFocusable(
+                      onTap: () => controller.refreshGuide(),
+                      scale: 1.15,
+                      borderRadius: BorderRadius.circular(24),
+                      child: IconButton(
+                        icon: const Icon(Icons.refresh),
+                        color: AppColors.textSecondary,
+                        focusColor: AppColors.primaryContainer.withValues(alpha: 0.3),
+                        onPressed: () => controller.refreshGuide(),
+                      ),
                     ),
                   ],
                 ),

@@ -16,9 +16,13 @@ import '../widgets/live_tv_channel_card.dart';
 import '../widgets/live_tv_embedded_player.dart';
 import '../widgets/live_tv_skeleton.dart';
 import '../../epg/pages/tv_guide_page.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class LiveTVPage extends GetView<LiveTVController> {
   const LiveTVPage({super.key});
+
+  static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
+      GlobalKey();
 
   @override
   Widget build(BuildContext context) {
@@ -452,92 +456,122 @@ class LiveTVPage extends GetView<LiveTVController> {
           ),
 
           // View Mode Toggle (Grid vs List)
-          IconButton(
-            padding: const EdgeInsets.all(6.0),
-            constraints: const BoxConstraints(),
-            icon: Icon(
-              isList
-                  ? Icons.grid_view_rounded
-                  : Icons.view_agenda_rounded,
-              size: 18.0,
-            ),
-            color: isList ? AppColors.primary : Colors.white,
-            tooltip: isList ? 'Switch to Grid View' : 'Switch to List View',
-            onPressed: () {
+          TvFocusable(
+            onTap: () {
               controller.setView(isList ? 'grid' : 'list');
             },
+            scale: 1.15,
+            borderRadius: BorderRadius.circular(24),
+            child: IconButton(
+              padding: const EdgeInsets.all(6.0),
+              constraints: const BoxConstraints(),
+              icon: Icon(
+                isList
+                    ? Icons.grid_view_rounded
+                    : Icons.view_agenda_rounded,
+                size: 18.0,
+              ),
+              color: isList ? AppColors.primary : Colors.white,
+              tooltip: isList ? 'Switch to Grid View' : 'Switch to List View',
+              onPressed: () {
+                controller.setView(isList ? 'grid' : 'list');
+              },
+            ),
           ),
 
           // Sort Menu
-          PopupMenuButton<String>(
-            padding: const EdgeInsets.all(6.0),
-            constraints: const BoxConstraints(),
-            icon: const Icon(
-              Icons.sort_rounded,
-              size: 18.0,
-              color: Colors.white,
+          TvFocusable(
+            onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
+            scale: 1.15,
+            borderRadius: BorderRadius.circular(24),
+            child: PopupMenuButton<String>(
+              key: _sortPopupKey,
+              padding: const EdgeInsets.all(6.0),
+              constraints: const BoxConstraints(),
+              icon: const Icon(
+                Icons.sort_rounded,
+                size: 18.0,
+                color: Colors.white,
+              ),
+              tooltip: 'Sort Channels',
+              color: AppColors.darkSurface,
+              shape: RoundedRectangleBorder(
+                borderRadius: AppRadius.medium,
+                side: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.1),
+                ),
+              ),
+              initialValue: controller.selectedSort.value,
+              onSelected: (val) => controller.setSort(val),
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'alphabetical',
+                  child: Text('A - Z (Alphabetical)'),
+                ),
+                const PopupMenuItem(
+                  value: 'recentlyAdded',
+                  child: Text('Recently Added'),
+                ),
+                const PopupMenuItem(
+                  value: 'provider',
+                  child: Text('By Source / Provider'),
+                ),
+                const PopupMenuItem(
+                  value: 'country',
+                  child: Text('By Country'),
+                ),
+              ],
             ),
-            tooltip: 'Sort Channels',
-            color: AppColors.darkSurface,
-            shape: RoundedRectangleBorder(
-              borderRadius: AppRadius.medium,
-              side: BorderSide(
-                color: Colors.white.withValues(alpha: 0.1),
-              ),
-            ),
-            initialValue: controller.selectedSort.value,
-            onSelected: (val) => controller.setSort(val),
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'alphabetical',
-                child: Text('A - Z (Alphabetical)'),
-              ),
-              const PopupMenuItem(
-                value: 'recentlyAdded',
-                child: Text('Recently Added'),
-              ),
-              const PopupMenuItem(
-                value: 'provider',
-                child: Text('By Source / Provider'),
-              ),
-              const PopupMenuItem(
-                value: 'country',
-                child: Text('By Country'),
-              ),
-            ],
           ),
 
           // Multi-View (2-4 Concurrent Screens)
-          IconButton(
-            padding: const EdgeInsets.all(6.0),
-            constraints: const BoxConstraints(),
-            icon: const Icon(
-              Icons.grid_view_rounded,
-              size: 18.0,
-              color: Colors.white,
-            ),
-            tooltip: 'Multi-View (Multi-Screen)',
-            onPressed: () async {
+          TvFocusable(
+            onTap: () async {
               final activeChannel = controller.activePlayingChannel.value ??
                   controller.featuredChannel.value;
               controller.stopInlinePlayer();
               await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
             },
+            scale: 1.15,
+            borderRadius: BorderRadius.circular(24),
+            child: IconButton(
+              padding: const EdgeInsets.all(6.0),
+              constraints: const BoxConstraints(),
+              icon: const Icon(
+                Icons.grid_view_rounded,
+                size: 18.0,
+                color: Colors.white,
+              ),
+              tooltip: 'Multi-View (Multi-Screen)',
+              onPressed: () async {
+                final activeChannel = controller.activePlayingChannel.value ??
+                    controller.featuredChannel.value;
+                controller.stopInlinePlayer();
+                await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
+              },
+            ),
           ),
 
           // Search Guide
-          IconButton(
-            padding: const EdgeInsets.all(6.0),
-            constraints: const BoxConstraints(),
-            icon: const Icon(
-              Icons.search_rounded,
-              size: 18.0,
-              color: Colors.white,
-            ),
-            tooltip: 'Search Channels',
-            onPressed: () {
+          TvFocusable(
+            onTap: () {
               Get.toNamed(AppRoutes.guideSearch);
             },
+            scale: 1.15,
+            borderRadius: BorderRadius.circular(24),
+            child: IconButton(
+              padding: const EdgeInsets.all(6.0),
+              constraints: const BoxConstraints(),
+              icon: const Icon(
+                Icons.search_rounded,
+                size: 18.0,
+                color: Colors.white,
+              ),
+              tooltip: 'Search Channels',
+              onPressed: () {
+                Get.toNamed(AppRoutes.guideSearch);
+               },
+            ),
           ),
         ],
       ),

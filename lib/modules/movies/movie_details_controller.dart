@@ -307,12 +307,20 @@ class MovieDetailsController extends GetxController {
     inlinePlayerController!.onInit();
   }
 
+  void _activateInlinePlayer() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!isClosed) {
+        isInlinePlayerActive.value = true;
+      }
+    });
+  }
+
   Future<void> startInlinePlayback() async {
     final item = movie;
     if (item == null) return;
 
     _initInlinePlayer();
-    isInlinePlayerActive.value = true;
+    _activateInlinePlayer();
 
     Duration? startPosition;
     if (playAction.value == MoviePlayAction.resume) {

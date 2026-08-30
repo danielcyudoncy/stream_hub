@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/constants/app_constants.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
+import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/core/utils/validators.dart';
@@ -11,6 +12,7 @@ import 'package:stream_hub/shared/widgets/app_button.dart';
 import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/section_header.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
 import 'provider_manager_controller.dart';
@@ -55,7 +57,12 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(AppSpacing.lg),
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg,
+            AppSpacing.lg + MediaQuery.of(context).viewInsets.bottom,
+          ),
           children: [
             SectionHeader(
               title: isEditing ? 'Edit Provider Details' : 'New Provider',
@@ -98,14 +105,20 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                   Obx(
                     () => Wrap(
                       spacing: AppSpacing.xs,
+                      runSpacing: AppSpacing.xs,
                       children: ProviderType.values.map((pt) {
                         final isSelected = _selectedType.value == pt;
-                        return ChoiceChip(
-                          label: Text(pt.displayName),
-                          selected: isSelected,
-                          onSelected: (selected) {
-                            if (selected) _selectedType.value = pt;
-                          },
+                        return TvFocusable(
+                          onTap: () => _selectedType.value = pt,
+                          borderRadius: AppRadius.pill,
+                          scale: 1.05,
+                          child: ChoiceChip(
+                            label: Text(pt.displayName),
+                            selected: isSelected,
+                            onSelected: (selected) {
+                              if (selected) _selectedType.value = pt;
+                            },
+                          ),
                         );
                       }).toList(),
                     ),
@@ -228,9 +241,14 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                OutlinedButton(
-                  onPressed: () => Get.back(),
-                  child: const Text('Cancel'),
+                TvFocusable(
+                  onTap: () => Get.back(),
+                  borderRadius: AppRadius.medium,
+                  scale: 1.05,
+                  child: const OutlinedButton(
+                    onPressed: null,
+                    child: Text('Cancel'),
+                  ),
                 ),
                 AppSpacing.widthMD,
                 AppButton(
@@ -331,16 +349,20 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
   }
 
   Widget _buildPasteButton(TextEditingController controller) {
-    return IconButton(
-      icon: const Icon(AppIcons.paste, size: 20),
-      tooltip: 'Paste',
-      onPressed: () async {
-        final data = await Clipboard.getData(Clipboard.kTextPlain);
-        final text = data?.text;
-        if (text != null && text.trim().isNotEmpty) {
-          controller.text = text.trim();
-        }
-      },
+    return TvFocusable(
+      borderRadius: AppRadius.small,
+      scale: 1.0,
+      child: IconButton(
+        icon: const Icon(AppIcons.paste, size: 20),
+        tooltip: 'Paste',
+        onPressed: () async {
+          final data = await Clipboard.getData(Clipboard.kTextPlain);
+          final text = data?.text;
+          if (text != null && text.trim().isNotEmpty) {
+            controller.text = text.trim();
+          }
+        },
+      ),
     );
   }
 }
