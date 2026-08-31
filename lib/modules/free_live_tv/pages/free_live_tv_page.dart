@@ -92,6 +92,21 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
         );
       }
 
+      // TV / Large-Screen View: Mirrors the Live TV Guide design with a
+      // prominent 16:9 mini-player on the right of a top showcase.
+      if (isTV || isDesktop) {
+        return _buildTVLayout(
+          context,
+          filtered,
+          isList,
+          crossAxisCount,
+          favoritesOnly,
+          selectedCountry,
+          selectedCat,
+          query,
+        );
+      }
+
       // Landscape 2-Pane Side-by-Side View
       if (isLandscape && !isDesktop && !isTV) {
         return AppScaffold(
@@ -243,6 +258,607 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
         ),
       );
     });
+  }
+
+  Widget _buildTVLayout(
+    BuildContext context,
+    List<FreeTvChannel> filtered,
+    bool isList,
+    int crossAxisCount,
+    bool favoritesOnly,
+    String selectedCountry,
+    String selectedCat,
+    String query,
+  ) {
+    return AppScaffold(
+      title: 'Free Live TV',
+      showAppBar: false,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 1. Top Showcase: Channel Info on Left, Large 16:9 Live Mini-Player on Right
+          _buildTopShowcase(context),
+
+          // 2. Full-Width Category Rail Below the Player
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.xl,
+              vertical: AppSpacing.xs,
+            ),
+            child: FreeTvCategoryBar(
+              categories: controller.categories,
+              selectedCategory: controller.selectedCategory.value,
+              countries: controller.countries,
+              selectedCountry: controller.selectedCountry.value,
+              regions: controller.regions,
+              selectedRegion: controller.selectedRegion.value,
+              showFavoritesOnly: controller.showFavoritesOnly.value,
+              favoritesCount: controller.favorites.length,
+              showWorkingOnly: controller.showWorkingOnly.value,
+              workingCount: controller.workingCount.value,
+              isCheckingWorking: controller.isCheckingWorking.value,
+              onCategorySelected: controller.setCategory,
+              onCountrySelected: controller.setCountry,
+              onRegionSelected: controller.setRegion,
+              onFavoritesToggle: controller.setFavoritesOnly,
+              onWorkingToggle: controller.setWorkingOnly,
+            ),
+          ),
+
+          AppSpacing.heightXS,
+
+          // 3. Header Summary Row
+          _buildHeaderSummaryRow(
+            favoritesOnly,
+            selectedCountry,
+            selectedCat,
+            filtered.length,
+          ),
+
+          const SizedBox(height: 2.0),
+
+          // 4. Channel Catalog Grid / List
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              child: RefreshIndicator(
+                onRefresh: controller.refresh,
+                child: _buildChannelListView(
+                  filtered,
+                  isList,
+                  true,
+                  crossAxisCount,
+                  query,
+                  favoritesOnly,
+                ),
+              ),
+            ),
+          ),
+
+          // 5. TV Remote D-Pad Navigation Legend Bar
+          _buildRemoteLegendBar(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopShowcase(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.sm,
+        AppSpacing.xl,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Left Pane: Header + Active Channel Information Showcase
+          Expanded(
+            child: _buildShowcaseInfo(context),
+          ),
+
+          AppSpacing.widthLG,
+
+          // Right Pane: Prominent 16:9 Live Mini-Player (440x248 on TV)
+          Container(
+            width: 440,
+            height: 248,
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.primary.withValues(alpha: 0.35),
+                width: 2.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: FreeTvEmbeddedPlayer(
+                key: controller.embeddedPlayerKey,
+                controller: controller,
+                isFullscreen: false,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildShowcaseInfo(BuildContext context) {
+    return Obx(() {
+      final active = controller.activePlayingChannel.value ??
+          controller.featuredChannel.value ??
+          (controller.filteredChannels.isNotEmpty
+              ? controller.filteredChannels.first
+              : null);
+      final isList = controller.selectedView.value == 'list';
+      final featured = controller.featuredChannel.value;
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 1. Top Action Row: Title, "FREE" Badge, View Mode Toggle, Search, Refresh
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  'Free Live TV',
+                  style: AppTypography.getDisplay(
+                    color: AppColors.primary,
+                  ).copyWith(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 26,
+                    shadows: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.4),
+                        blurRadius: 8.0,
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              AppSpacing.widthMD,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surface.withValues(alpha: 0.8),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                ),
+                child: Text(
+                  'FREE',
+                  style: AppTypography.getLabel(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              TvFocusable(
+                onTap: () => controller.setView(isList ? 'grid' : 'list'),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isList
+                            ? Icons.grid_view_rounded
+                            : Icons.view_agenda_rounded,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isList ? 'Grid View' : 'List View',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              AppSpacing.widthSM,
+              TvFocusable(
+                onTap: () => _showSearchDialog(context),
+                scale: 1.15,
+                borderRadius: BorderRadius.circular(24),
+                child: IconButton(
+                  icon: const Icon(Icons.search),
+                  color: AppColors.textSecondary,
+                  focusColor: AppColors.primaryContainer.withValues(
+                    alpha: 0.3,
+                  ),
+                  onPressed: () => _showSearchDialog(context),
+                ),
+              ),
+              AppSpacing.widthSM,
+              TvFocusable(
+                onTap: controller.refresh,
+                scale: 1.15,
+                borderRadius: BorderRadius.circular(24),
+                child: IconButton(
+                  icon: const Icon(Icons.refresh),
+                  color: AppColors.textSecondary,
+                  focusColor: AppColors.primaryContainer.withValues(
+                    alpha: 0.3,
+                  ),
+                  onPressed: controller.refresh,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 10),
+
+          // 2. Active Playing / Focused Channel Showcase Card
+          Container(
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: AppColors.surface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+            child: active != null
+                ? _buildChannelShowcase(active)
+                : _buildFreeShowcase(featured),
+          ),
+        ],
+      );
+    });
+  }
+
+  Widget _buildChannelShowcase(FreeTvChannel channel) {
+    final categoryName = channel.categories.isNotEmpty
+        ? channel.categories.first
+        : 'Free TV';
+    final description = channel.network != null &&
+            channel.network!.isNotEmpty
+        ? 'Network: ${channel.network}'
+        : (channel.country.isNotEmpty
+            ? '${channel.country} • Public Free Stream'
+            : 'Public Free Stream');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Channel Logo or Avatar
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Center(
+                child: (channel.logo != null && channel.logo!.isNotEmpty)
+                    ? Image.network(
+                        channel.logo!,
+                        width: 38,
+                        height: 38,
+                        errorBuilder: (_, _, _) =>
+                            const Icon(Icons.tv, color: Colors.white),
+                      )
+                    : Text(
+                        channel.name.isNotEmpty
+                            ? channel.name.substring(0, 1).toUpperCase()
+                            : 'TV',
+                        style: AppTypography.getTitle(
+                          color: AppColors.primary,
+                        ),
+                      ),
+              ),
+            ),
+            AppSpacing.widthMD,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          channel.name,
+                          style: AppTypography.getHeadline(
+                            color: Colors.white,
+                          ).copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 20,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryContainer.withValues(
+                            alpha: 0.4,
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        child: Text(
+                          channel.qualityTier == FreeTvQualityTier.recommended
+                              ? 'RECOMMENDED'
+                              : 'HD',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    '$categoryName • ${channel.country}',
+                    style: AppTypography.getLabel(
+                      color: AppColors.textSecondary,
+                    ).copyWith(fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Stream / Network / Working Info
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                description,
+                style: AppTypography.getBody(
+                  color: Colors.white.withValues(alpha: 0.9),
+                ).copyWith(fontSize: 13),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (channel.streamUrls.length > 1)
+              Text(
+                '${channel.streamUrls.length} streams',
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            if (channel.isWorking == true)
+              _showcaseChip(
+                Icons.check_circle_rounded,
+                'WORKING',
+                Colors.greenAccent,
+              ),
+            if (channel.isWorking == false) ...[
+              const SizedBox(width: 8),
+              _showcaseChip(
+                Icons.cancel_rounded,
+                'OFFLINE',
+                AppColors.error,
+              ),
+            ],
+            const Spacer(),
+            TvFocusable(
+              onTap: () => controller.openChannel(channel),
+              borderRadius: AppRadius.pill,
+              child: FilledButton.icon(
+                onPressed: () => controller.openChannel(channel),
+                icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                label: const Text('Watch Channel'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _showcaseChip(IconData icon, String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: AppRadius.pill,
+        border: Border.all(color: color.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 9.5,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFreeShowcase(FreeTvChannel? featured) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.tv_rounded, color: AppColors.primary, size: 28),
+            AppSpacing.widthMD,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Free Live TV',
+                    style: AppTypography.getTitle(
+                      color: Colors.white,
+                    ).copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Thousands of free global channels. No provider required.',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 11.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        if (featured != null) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  featured.name,
+                  style: AppTypography.getHeadline(
+                    color: Colors.white,
+                  ).copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: 12),
+              TvFocusable(
+                onTap: () => controller.openChannel(featured),
+                borderRadius: AppRadius.pill,
+                child: FilledButton.icon(
+                  onPressed: () => controller.openChannel(featured),
+                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
+                  label: const Text('Watch Featured'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.black,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildRemoteLegendBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: 10,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.6),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
+          AppSpacing.widthLG,
+          _legendItem(Icons.star_rounded, 'STAR: Favorite Channel'),
+          AppSpacing.widthLG,
+          _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Filters'),
+          AppSpacing.widthLG,
+          _legendItem(Icons.grid_view_rounded, 'View: Toggle Grid / List'),
+        ],
+      ),
+    );
+  }
+
+  Widget _legendItem(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: AppColors.primary),
+        const SizedBox(width: 5),
+        Text(
+          text,
+          style: const TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildHeaderSummaryRow(

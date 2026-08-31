@@ -69,6 +69,15 @@ class FreeLiveTvController extends GetxController {
   final RxInt activeStreamIndex = 0.obs;
   final RxString playbackStatusMessage = ''.obs;
 
+  /// Loading progress (0–100) shown while a channel resolves and buffers.
+  /// Drifts up toward ~90% as loading continues and jumps to 100 on playback.
+  final RxDouble loadProgress = 0.0.obs;
+
+  /// Whether the inline player is currently resolving/opening a channel. Set as
+  /// soon as a channel load begins (during stream resolution) so the player can
+  /// show the loading spinner even before the engine enters a loading state.
+  final RxBool isPlayerLoading = false.obs;
+
   final RxBool isFullscreenMode = false.obs;
   DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -78,6 +87,7 @@ class FreeLiveTvController extends GetxController {
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _playerStateSubscription;
   Timer? _searchDebounceTimer;
+  Timer? _loadProgressTimer;
 
   @override
   void onInit() {
@@ -92,7 +102,17 @@ class FreeLiveTvController extends GetxController {
     _searchDebounceTimer?.cancel();
     _favoritesSubscription?.cancel();
     _playerStateSubscription?.cancel();
-    inlinePlayerController?.dispose();
+    _loadProgressTimer?.cancel();
+    // Tear down the inline player engine so audio stops when the screen is
+    // left. `dispose()` only clears GetX notifier lists; `stop()` + `onClose()`
+    // actually stop playback and release the underlying player backend. Without
+    // this, audio keeps playing after navigating away and re-entering, and a
+    // stale engine from a previous controller instance can start a second
+    // player that doubles the audio.
+    if (inlinePlayerController != null) {
+      inlinePlayerController!.stop();
+      inlinePlayerController!.onClose();
+    }
     super.onClose();
   }
 
@@ -559,11 +579,51 @@ class FreeLiveTvController extends GetxController {
         .playbackController.engine.stateRx
         .listen((state) {
       if (state == PlaybackState.error) {
+        _stopPlayerLoading(complete: false);
         _handlePlaybackError();
       } else if (state == PlaybackState.playing) {
+        _stopPlayerLoading(complete: true);
         playbackStatusMessage.value = '';
+      } else if (state == PlaybackState.loading ||
+          state == PlaybackState.buffering) {
+        _startPlayerProgress();
+      } else if (state.isStoppedLike) {
+        _stopPlayerLoading(complete: false);
       }
     });
+  }
+
+  void _startPlayerLoading() {
+    isPlayerLoading.value = true;
+    _startPlayerProgress();
+  }
+
+  /// Animates [loadProgress] from its current value toward ~90% so the user
+  /// gets a smooth, honest-feeling indicator while a channel resolves and
+  /// buffers. Live streams rarely expose a reliable buffered fraction, so the
+  /// percentage here is a staged estimate: it approaches but never reaches 100
+  /// until playback actually starts.
+  void _startPlayerProgress() {
+    _loadProgressTimer?.cancel();
+    if (loadProgress.value <= 0) loadProgress.value = 8;
+    _loadProgressTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      final current = loadProgress.value;
+      final next = current < 70
+          ? current + 4
+          : current < 90
+              ? current + 1
+              : 90;
+      loadProgress.value = next.clamp(0, 100).toDouble();
+      if (next >= 90) {
+        _loadProgressTimer?.cancel();
+      }
+    });
+  }
+
+  void _stopPlayerLoading({required bool complete}) {
+    _loadProgressTimer?.cancel();
+    isPlayerLoading.value = false;
+    loadProgress.value = complete ? 100 : 0;
   }
 
   /// Plays the channel with automatic multi-stream fallback.
@@ -586,6 +646,8 @@ class FreeLiveTvController extends GetxController {
     activePlayingChannel.value = channel;
     activeStreamIndex.value = streamIndex;
     playbackStatusMessage.value = '';
+    _stopPlayerLoading(complete: false);
+    _startPlayerLoading();
 
     // Record to recently watched
     repository.recordWatch(channel);
@@ -635,6 +697,7 @@ class FreeLiveTvController extends GetxController {
     inlinePlayerController?.stop();
     activePlayingChannel.value = null;
     playbackStatusMessage.value = '';
+    _stopPlayerLoading(complete: false);
   }
 
   void enterFullscreen() {
