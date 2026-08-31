@@ -61,6 +61,7 @@ macos/Runner/GoogleService-Info.plist
 **/GoogleService-Info.plist
 **/google-services.json
 **/firebase_options.dart
+web/pair.html
 
 # Credentials and keys
 .env
