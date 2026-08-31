@@ -207,7 +207,8 @@ provider or subscription, while preserving all provider-based features.
 - [x] `AppScaffold` bottom navigation + `NavigationRail` (Search/Settings moved to AppBar)
 - [x] `TvScaffold` expandable sidebar with D-pad focus
 - [x] Home Quick Actions + feature chip shortcuts
-- [x] 39 Free TV tests passing (model, service/M3U pipeline, reachability, repository, controller, page)
+- [x] Free TV JSON data layer upgrade powered by `dearbulut/iptv` (stream-level health, deduplication, quality scoring)
+- [x] 44 Free TV tests passing (model, DTOs, JSON pipeline, mapper, reachability, repository, controller, page)
 
 ---
 

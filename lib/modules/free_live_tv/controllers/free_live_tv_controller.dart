@@ -246,7 +246,14 @@ class FreeLiveTvController extends GetxController {
 
     final sortedCountries = countrySet.toList()..sort();
     // Move selected curated countries to the top for prominent discovery.
-    const priorityCountries = ['Nigeria', 'United Kingdom', 'United States'];
+    const priorityCountries = [
+      'Nigeria',
+      'South Africa',
+      'United Kingdom',
+      'United States',
+      'France',
+      'Germany',
+    ];
     for (final c in priorityCountries.reversed) {
       if (sortedCountries.contains(c)) {
         sortedCountries.remove(c);

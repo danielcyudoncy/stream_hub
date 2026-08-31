@@ -1,31 +1,28 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:stream_hub/core/logging/logging_service.dart';
-import 'package:stream_hub/core/network/doh_http_client.dart';
+import 'package:stream_hub/data/models/dearbulut_dtos.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
-import 'package:stream_hub/data/models/m3u_models.dart';
-import 'package:stream_hub/data/parsers/m3u_parser.dart';
-import 'package:stream_hub/data/services/free_tv_m3u_normalizer.dart';
+import 'package:stream_hub/data/models/free_tv_stream.dart';
+import 'package:stream_hub/data/parsers/free_tv_mapper.dart';
+import 'package:stream_hub/data/remote/free_tv_remote_data_source.dart';
 import 'package:stream_hub/data/services/free_tv_quality_service.dart';
-import 'package:stream_hub/data/sources/free_tv_sources.dart';
+import 'package:stream_hub/data/sources/free_tv_api_config.dart';
 
-/// Per-source fetch/diagnostics.
+/// Per-source fetch/diagnostics result.
 class FreeTvSourceFetchResult {
-  final FreeTvSource source;
+  final String sourceName;
   final bool succeeded;
   final int rawRecords;
   final String? error;
 
   const FreeTvSourceFetchResult({
-    required this.source,
+    required this.sourceName,
     required this.succeeded,
     required this.rawRecords,
     this.error,
   });
 }
 
-/// Aggregate pipeline diagnostics (used during development / admin review).
+/// Aggregate pipeline diagnostics.
 class FreeTvCatalogDiagnostics {
   final List<FreeTvSourceFetchResult> sources;
   final int rawRecords;
@@ -34,6 +31,7 @@ class FreeTvCatalogDiagnostics {
   final int junkRecords;
   final int noStreamRecords;
   final int nsfwRecords;
+  final int nonEnglishRecords;
   final int duplicatesRemoved;
   final int recommendedCount;
   final int allValidCount;
@@ -46,6 +44,7 @@ class FreeTvCatalogDiagnostics {
     this.junkRecords = 0,
     this.noStreamRecords = 0,
     this.nsfwRecords = 0,
+    this.nonEnglishRecords = 0,
     this.duplicatesRemoved = 0,
     this.recommendedCount = 0,
     this.allValidCount = 0,
@@ -69,89 +68,121 @@ class FreeTvCatalogResult {
   });
 }
 
-/// Orchestrates the Free Live TV ingestion pipeline:
+/// Orchestrates the Free Live TV JSON ingestion pipeline:
 ///
 /// ```text
-/// IPTV-org sources (global, countries, regions, categories)
-///   → parallel fetch
-///   → M3U parse
-///   → normalize
-///   → aggregate (merge same channel across sources)
-///   → dedupe streams
-///   → hard eligibility filtering
-///   → quality scoring + tier assignment
+/// dearbulut/iptv JSON API
+///   → fetch online channels & countries metadata
+///   → parse DTOs
+///   → normalize with FreeTvMapper
+///   → aggregate & deduplicate by stable channel ID
+///   → merge multi-stream metadata
+///   → hard eligibility filtering (FreeTvQualityService)
+///   → quality scoring + tier assignment (Recommended vs Valid)
 ///   → unified catalog
 /// ```
 class FreeTvCatalogBuilder {
-  final HttpClient _httpClient;
-  final LoggingService _logger;
-  final M3UParser _m3uParser;
-  final FreeTvM3uNormalizer _normalizer;
+  final FreeTvRemoteDataSource _remoteDataSource;
+  final FreeTvMapper _mapper;
   final FreeTvQualityService _quality;
+  final LoggingService _logger;
 
   FreeTvCatalogBuilder({
-    HttpClient? httpClient,
-    LoggingService? logger,
-    M3UParser? parser,
-    FreeTvM3uNormalizer? normalizer,
+    FreeTvRemoteDataSource? remoteDataSource,
+    FreeTvMapper? mapper,
     FreeTvQualityService? quality,
-  })  : _httpClient = httpClient ?? createDohAwareHttpClient(),
-        _logger = logger ?? LoggingService(),
-        _m3uParser = parser ?? M3UParser(),
-        _normalizer = normalizer ?? FreeTvM3uNormalizer(),
-        _quality = quality ?? FreeTvQualityService();
+    LoggingService? logger,
+  })  : _remoteDataSource = remoteDataSource ?? DearbulutFreeTvRemoteDataSource(),
+        _mapper = mapper ?? FreeTvMapper(),
+        _quality = quality ?? FreeTvQualityService(),
+        _logger = logger ?? LoggingService();
 
-  /// Fetches and processes every configured source. A single source failure is
-  /// isolated so the rest of the catalog still builds.
+  /// Fetches and processes the online channel catalog from dearbulut/iptv.
   Future<FreeTvCatalogResult> build({
-    List<FreeTvSource> sources = FreeTvSources.all,
-    Duration timeout = const Duration(seconds: 30),
+    Duration timeout = FreeTvApiConfig.defaultTimeout,
   }) async {
-    final sourceResults = await Future.wait(
-      sources.map(
-        (s) => _fetchAndParseSource(s, timeout).then<_FreeSourceResult>(
-          (r) => r,
-          onError: (Object e) => _FreeSourceResult(error: '$e'),
-        ),
-      ),
-    );
+    final sourcesResults = <FreeTvSourceFetchResult>[];
+    List<DearbulutChannelDto> rawDtos = [];
+    Map<String, String> countryNameLookup = {};
 
-    final fetchResults = <FreeTvSourceFetchResult>[];
-    final aggregated = <String, FreeTvChannel>{};
+    // 1. Fetch countries metadata for accurate country naming
+    try {
+      final countries = await _remoteDataSource.fetchCountries(timeout: timeout);
+      for (final c in countries) {
+        if (c.code.isNotEmpty && c.name.isNotEmpty) {
+          countryNameLookup[c.code] = c.name;
+        }
+      }
+    } catch (e) {
+      _logger.warning('Failed to fetch country metadata: $e', tag: 'FreeTvCatalogBuilder');
+    }
 
-    var rawTotal = 0;
-    for (var i = 0; i < sources.length; i++) {
-      final source = sources[i];
-      final raw = sourceResults[i];
-      fetchResults.add(FreeTvSourceFetchResult(
-        source: source,
-        succeeded: raw.channels != null && raw.error == null,
-        rawRecords: raw.channels?.length ?? 0,
-        error: raw.error,
+    // 2. Fetch online channels
+    try {
+      rawDtos = await _remoteDataSource.fetchOnlineChannels(timeout: timeout);
+      sourcesResults.add(FreeTvSourceFetchResult(
+        sourceName: 'dearbulut/channels.online',
+        succeeded: true,
+        rawRecords: rawDtos.length,
       ));
-      rawTotal += raw.channels?.length ?? 0;
-      if (raw.channels == null) continue;
-      for (final m3u in raw.channels!) {
-        final normalized = _normalizer.toChannel(
-          m3u,
-          sourceCountryCode: source.countryCode,
-          sourceCategory: source.kind == FreeTvSourceKind.category
-              ? source.categoryName
-              : null,
-        );
-        if (normalized == null) continue;
-        _mergeInto(aggregated, normalized);
+    } catch (e) {
+      _logger.error('Failed to fetch online channels from dearbulut: $e',
+          tag: 'FreeTvCatalogBuilder');
+      sourcesResults.add(FreeTvSourceFetchResult(
+        sourceName: 'dearbulut/channels.online',
+        succeeded: false,
+        rawRecords: 0,
+        error: '$e',
+      ));
+      rethrow;
+    }
+
+    final aggregated = <String, FreeTvChannel>{};
+    var nsfwCount = 0;
+    var invalidCount = 0;
+    var nonEnglishCount = 0;
+    var duplicatesRemoved = 0;
+
+    // 3. Normalize & Deduplicate
+    for (final dto in rawDtos) {
+      if (dto.isNsfw) {
+        nsfwCount++;
+        continue;
+      }
+      if (dto.id.trim().isEmpty || dto.name.trim().isEmpty) {
+        invalidCount++;
+        continue;
+      }
+
+      final normalized = _mapper.fromDearbulutDto(
+        dto,
+        countryNameLookup: countryNameLookup,
+      );
+
+      final existing = aggregated[normalized.id];
+      if (existing == null) {
+        aggregated[normalized.id] = normalized;
+      } else {
+        duplicatesRemoved++;
+        aggregated[normalized.id] = _mergeChannels(existing, normalized);
       }
     }
 
-    // Apply eligibility + scoring + tiering.
+    // 4. Apply eligibility + scoring + tier assignment
     final eligible = <FreeTvChannel>[];
-    final invalid = <FreeTvChannel>[];
     for (final ch in aggregated.values) {
       if (_quality.isEligible(ch)) {
         eligible.add(_quality.assignTier(ch));
       } else {
-        invalid.add(ch);
+        final isEnglish = ch.languages.any((l) {
+          final lower = l.trim().toLowerCase();
+          return lower == 'english' || lower == 'eng' || lower == 'en';
+        });
+        if (!isEnglish) {
+          nonEnglishCount++;
+        } else {
+          invalidCount++;
+        }
       }
     }
 
@@ -162,12 +193,13 @@ class FreeTvCatalogBuilder {
     final allValid = eligible.toList()..sort(_compareByQualityThenName);
 
     final diagnostics = FreeTvCatalogDiagnostics(
-      sources: fetchResults,
-      rawRecords: rawTotal,
+      sources: sourcesResults,
+      rawRecords: rawDtos.length,
       uniqueChannels: aggregated.length,
-      duplicatesRemoved:
-          rawTotal - aggregated.length - invalid.length,
-      invalidRecords: invalid.length,
+      duplicatesRemoved: duplicatesRemoved,
+      invalidRecords: invalidCount,
+      nsfwRecords: nsfwCount,
+      nonEnglishRecords: nonEnglishCount,
       recommendedCount: recommended.length,
       allValidCount: allValid.length,
     );
@@ -180,91 +212,34 @@ class FreeTvCatalogBuilder {
     );
   }
 
-  Future<_FreeSourceResult> _fetchAndParseSource(
-    FreeTvSource source,
-    Duration timeout,
-  ) async {
-    try {
-      final text = await _downloadText(source.url, timeout);
-      final parsed = _m3uParser.parse(text);
-      _logger.info(
-        'Free TV source "${source.name}": ${parsed.channels.length} records '
-        '(${parsed.invalidEntries} invalid).',
-        tag: 'FreeTvCatalogBuilder',
-      );
-      return _FreeSourceResult(channels: parsed.channels);
-    } catch (e) {
-      _logger.warning(
-        'Free TV source "${source.name}" failed: $e',
-        tag: 'FreeTvCatalogBuilder',
-      );
-      return _FreeSourceResult(error: '$e');
-    }
-  }
-
-  Future<String> _downloadText(String url, Duration timeout) async {
-    final uri = Uri.parse(url);
-    final request = await _httpClient.getUrl(uri).timeout(timeout);
-    request.headers.set('User-Agent', 'StreamHubPro/1.0 (FreeLiveTV)');
-    request.headers.set('Accept', '*/*');
-    final response = await request.close().timeout(timeout);
-    if (response.statusCode != HttpStatus.ok) {
-      throw HttpException(
-        'HTTP ${response.statusCode} while fetching $url',
-        uri: uri,
-      );
-    }
-    final bytes = await response
-        .fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
-    return utf8.decode(bytes, allowMalformed: true);
-  }
-
-  /// Merges [incoming] into [map] under its stable channel ID, unioning
-  /// metadata and deduplicating stream URLs.
-  void _mergeInto(Map<String, FreeTvChannel> map, FreeTvChannel incoming) {
-    final existing = map[incoming.id];
-    if (existing == null) {
-      map[incoming.id] = incoming;
-      return;
-    }
-
-    final merged = _mergeChannels(existing, incoming);
-    map[incoming.id] = merged;
-  }
-
   FreeTvChannel _mergeChannels(FreeTvChannel a, FreeTvChannel b) {
-    final streamUrls = <String>[
-      ...a.streamUrls,
-      ...b.streamUrls.where((u) => !a.streamUrls.contains(u)),
-    ];
+    final mergedStreams = <FreeTvStream>[...a.streams];
+    final existingUrls = a.streams.map((s) => s.url).toSet();
 
+    for (final s in b.streams) {
+      if (!existingUrls.contains(s.url)) {
+        mergedStreams.add(s);
+        existingUrls.add(s.url);
+      }
+    }
+
+    final streamUrls = mergedStreams.map((s) => s.url).toList();
     final categories = {...a.categories, ...b.categories}.toList();
     final languages = {...a.languages, ...b.languages}.toList();
 
     return a.copyWith(
-      name: _preferName(a.name, b.name),
-      logo: a.logo?.isNotEmpty == true ? a.logo : b.logo,
-      country: _preferKnownCountry(a.country, b.country),
+      name: a.name.isNotEmpty ? a.name : b.name,
+      logo: (a.logo?.isNotEmpty == true) ? a.logo : b.logo,
+      country: (a.country.isNotEmpty && a.country != 'International') ? a.country : b.country,
       countryCode: a.countryCode.isNotEmpty ? a.countryCode : b.countryCode,
       region: a.region?.isNotEmpty == true ? a.region : b.region,
       network: a.network?.isNotEmpty == true ? a.network : b.network,
       website: a.website?.isNotEmpty == true ? a.website : b.website,
       categories: categories,
       languages: languages,
+      streams: mergedStreams,
       streamUrls: streamUrls,
     );
-  }
-
-  static String _preferName(String a, String b) {
-    if (a.isEmpty) return b;
-    if (b.isEmpty) return a;
-    return a.toLowerCase() == b.toLowerCase() ? a : a;
-  }
-
-  static String _preferKnownCountry(String a, String b) {
-    if (a.isEmpty || a == 'Unknown') return b;
-    if (b.isEmpty || b == 'Unknown') return a;
-    return a;
   }
 
   static int _compareByQualityThenName(FreeTvChannel a, FreeTvChannel b) {
@@ -274,25 +249,21 @@ class FreeTvCatalogBuilder {
   }
 
   void _logDiagnostics(FreeTvCatalogDiagnostics d) {
-    final buffer = StringBuffer('Free TV Catalog Summary\n');
+    final buffer = StringBuffer('Free TV dearbulut JSON Catalog Summary\n');
     for (final s in d.sources) {
       buffer.writeln(
-        '  ${s.source.name}: ${s.rawRecords} raw '
-        '${s.succeeded ? '' : '(FAILED: ${s.error})'}',
+        '  ${s.sourceName}: ${s.rawRecords} records '
+        '${s.succeeded ? '✓' : '(FAILED: ${s.error})'}',
       );
     }
     buffer.writeln('  Raw records: ${d.rawRecords}');
     buffer.writeln('  Unique channels: ${d.uniqueChannels}');
     buffer.writeln('  Recommended: ${d.recommendedCount}');
     buffer.writeln('  All valid: ${d.allValidCount}');
-    buffer.writeln('  Excluded/duplicates: ${d.duplicatesRemoved + d.invalidRecords}');
+    buffer.writeln('  Duplicates merged: ${d.duplicatesRemoved}');
+    buffer.writeln('  NSFW excluded: ${d.nsfwRecords}');
+    buffer.writeln('  Non-English excluded: ${d.nonEnglishRecords}');
+    buffer.writeln('  Invalid excluded: ${d.invalidRecords}');
     _logger.info(buffer.toString(), tag: 'FreeTvCatalogBuilder');
   }
-}
-
-class _FreeSourceResult {
-  final List<M3UChannel>? channels;
-  final String? error;
-
-  _FreeSourceResult({this.channels, this.error});
 }

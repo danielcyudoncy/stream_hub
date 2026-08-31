@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:hive/hive.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
+import 'package:stream_hub/data/services/free_tv_catalog_builder.dart';
 import 'package:stream_hub/data/services/free_tv_reachability_service.dart';
 import 'package:stream_hub/data/services/free_tv_service.dart';
 
@@ -342,6 +343,9 @@ class FreeTvRepository {
     }
     return const [];
   }
+
+  /// Diagnostics metrics from the most recent catalog build.
+  FreeTvCatalogDiagnostics? get lastDiagnostics => _service.lastDiagnostics;
 
   Future<void> recordWatch(FreeTvChannel channel) async {
     await _ensureBoxesOpen();

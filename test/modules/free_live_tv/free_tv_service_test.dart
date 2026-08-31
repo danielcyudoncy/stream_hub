@@ -1,182 +1,135 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:stream_hub/data/models/dearbulut_dtos.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
-import 'package:stream_hub/data/models/m3u_models.dart';
+import 'package:stream_hub/data/parsers/free_tv_mapper.dart';
+import 'package:stream_hub/data/remote/free_tv_remote_data_source.dart';
 import 'package:stream_hub/data/services/free_tv_catalog_builder.dart';
-import 'package:stream_hub/data/services/free_tv_m3u_normalizer.dart';
 import 'package:stream_hub/data/services/free_tv_service.dart';
-import 'package:stream_hub/data/sources/free_tv_sources.dart';
 
-/// Fake HttpClient that returns pre-baked M3U text (UTF-8) per URL so the
-/// catalog builder can run its real fetch → parse → normalize pipeline without
-/// touching the network. A `null` body yields an HTTP 404.
-class _FakeHttpClient implements HttpClient {
-  final Map<String, String?> responses;
+class _FakeRemoteDataSource implements FreeTvRemoteDataSource {
+  final List<DearbulutChannelDto> channels;
+  final List<DearbulutCountryDto> countries;
 
-  _FakeHttpClient(this.responses);
+  _FakeRemoteDataSource({
+    this.channels = const [],
+    this.countries = const [],
+  });
 
   @override
-  Future<HttpClientRequest> getUrl(Uri url) async {
-    return _FakeHttpClientRequest(url, responses[url.toString()]);
+  Future<List<DearbulutChannelDto>> fetchOnlineChannels({Duration? timeout}) async {
+    return channels;
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeHttpClientRequest implements HttpClientRequest {
-  @override
-  final Uri uri;
-  final String? body;
-  @override
-  final HttpHeaders headers = _FakeHttpHeaders();
-
-  _FakeHttpClientRequest(this.uri, this.body);
-
-  @override
-  Future<HttpClientResponse> close() async {
-    if (body == null) {
-      return _FakeHttpClientResponse(404);
-    }
-    return _FakeHttpClientResponse(HttpStatus.ok, body: body);
+  Future<List<DearbulutCountryDto>> fetchCountries({Duration? timeout}) async {
+    return countries;
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeHttpHeaders implements HttpHeaders {
-  @override
-  void set(String name, Object value, {bool preserveHeaderCase = false}) {}
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeHttpClientResponse extends Stream<List<int>>
-    implements HttpClientResponse {
-  final int status;
-  final String? body;
-
-  _FakeHttpClientResponse(this.status, {this.body});
-
-  @override
-  int get statusCode => status;
-
-  @override
-  StreamSubscription<List<int>> listen(
-    void Function(List<int> event)? onData, {
-    Function? onError,
-    void Function()? onDone,
-    bool? cancelOnError,
-  }) {
-    return Stream.value(utf8.encode(body ?? '')).listen(
-      onData,
-      onError: onError,
-      onDone: onDone,
-      cancelOnError: cancelOnError,
-    );
+  Future<List<DearbulutCategoryDto>> fetchCategories({Duration? timeout}) async {
+    return const [];
   }
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
+  Future<List<DearbulutChannelDto>> fetchChannelsByCountry(String countryCode, {Duration? timeout}) async {
+    return channels.where((c) => c.country?.toUpperCase() == countryCode.toUpperCase()).toList();
+  }
 
-const _m3uHeader = '#EXTM3U\n';
-
-String _entry({
-  required String name,
-  required String tvgId,
-  String? country,
-  String group = 'News;Public',
-  String url = 'https://cdn.example.com/live.m3u8',
-  String? logo,
-}) {
-  final attrs = <String>[
-    if (tvgId.isNotEmpty) 'tvg-id="$tvgId"',
-    if (country != null) 'country="$country"',
-    'group-title="$group"',
-    if (logo != null) 'tvg-logo="$logo"',
-  ];
-  return '#EXTINF:-1,${attrs.join(' ')},$name\n$url\n';
+  @override
+  Future<List<DearbulutChannelDto>> fetchChannelsByCategory(String categoryId, {Duration? timeout}) async {
+    return channels.where((c) => c.categories.contains(categoryId)).toList();
+  }
 }
 
 void main() {
-  group('FreeTvService M3U pipeline', () {
-    test('normalizer derives identity, country, category, and cleans names',
-        () {
-      final normalizer = FreeTvM3uNormalizer();
-      final m3u = const M3UChannel(
-        id: 'm3u-1',
-        title: 'BBC News (1080p)',
-        tvgId: 'BBCNews.GB@SD',
-        group: 'News;Public',
-        language: 'eng',
+  group('FreeTvService JSON pipeline', () {
+    test('normalizer derives identity, country, category, and cleans names', () {
+      final mapper = FreeTvMapper();
+      const dto = DearbulutChannelDto(
+        id: 'BBCNews.uk',
+        name: 'BBC News',
+        country: 'GB',
+        categories: ['news', 'general'],
+        languages: ['eng'],
         logo: 'https://logo.com/bbc.png',
-        streamUrl: 'https://bbc.stream/live.m3u8',
+        streams: [
+          DearbulutStreamDto(
+            url: 'https://bbc.stream/live.m3u8',
+            quality: '1080p',
+            health: DearbulutHealthDto(status: 'online', score: 100),
+          )
+        ],
       );
-      final ch = normalizer.toChannel(m3u);
-      expect(ch, isNotNull);
-      expect(ch!.id, 'BBCNews');
+
+      final ch = mapper.fromDearbulutDto(dto, countryNameLookup: {'GB': 'United Kingdom'});
+      expect(ch.id, 'BBCNews.uk');
       expect(ch.countryCode, 'GB');
       expect(ch.country, 'United Kingdom');
       expect(ch.region, 'Europe');
       expect(ch.name, 'BBC News');
-      expect(ch.categories, containsAll(['News', 'Public']));
+      expect(ch.categories, containsAll(['News', 'General']));
+      expect(ch.languages, contains('English'));
       expect(ch.streamUrls.single, 'https://bbc.stream/live.m3u8');
     });
 
-    test('builds a unified deduplicated catalog across multiple sources', () async {
-      final indianGlobal = _m3uHeader +
-          _entry(
-            name: 'Times Now HD',
-            tvgId: 'TimesNow.IN@HD',
-            group: 'News',
-            url: 'https://timesnow.stream/live.m3u8',
-          );
-      final ngGlobal = _m3uHeader +
-          _entry(
+    test('builds a unified deduplicated catalog across multiple channel records', () async {
+      final fakeDs = _FakeRemoteDataSource(
+        countries: const [
+          DearbulutCountryDto(name: 'Nigeria', code: 'NG'),
+          DearbulutCountryDto(name: 'India', code: 'IN'),
+        ],
+        channels: const [
+          DearbulutChannelDto(
+            id: 'ChannelsTV.ng',
             name: 'Channels TV',
-            tvgId: 'ChannelsTV.NG@SD',
             country: 'NG',
-            group: 'News',
-            url: 'https://channelstv.stream/live.m3u8',
-          );
-      final ngCountry = _m3uHeader +
-          _entry(
+            categories: ['news'],
+            languages: ['eng'],
+            score: 95,
+            online: true,
+            streams: [
+              DearbulutStreamDto(url: 'https://channelstv.stream/live.m3u8', quality: '720p')
+            ],
+          ),
+          DearbulutChannelDto(
+            id: 'ChannelsTV.ng',
             name: 'Channels TV HD',
-            tvgId: 'ChannelsTV.NG@HD',
             country: 'NG',
-            group: 'News;Local',
-            url: 'https://channelstv-hd.stream/live.m3u8',
-          );
-
-      final client = _FakeHttpClient({
-        FreeTvSources.global.url: indianGlobal + ngGlobal,
-        FreeTvSources.nigeria.url: ngCountry,
-      });
-
-      final builder = FreeTvCatalogBuilder(
-        httpClient: client,
+            categories: ['news', 'general'],
+            languages: ['eng'],
+            score: 98,
+            online: true,
+            streams: [
+              DearbulutStreamDto(url: 'https://channelstv-hd.stream/live.m3u8', quality: '1080p')
+            ],
+          ),
+          DearbulutChannelDto(
+            id: 'TimesNow.in',
+            name: 'Times Now HD',
+            country: 'IN',
+            categories: ['news'],
+            languages: ['eng'],
+            score: 92,
+            online: true,
+            streams: [
+              DearbulutStreamDto(url: 'https://timesnow.stream/live.m3u8')
+            ],
+          ),
+        ],
       );
 
-      final result = await builder.build(sources: [
-        FreeTvSources.global,
-        FreeTvSources.nigeria,
-      ]);
+      final builder = FreeTvCatalogBuilder(
+        remoteDataSource: fakeDs,
+      );
 
-      // Channels TV appears in both sources (SD + HD) with different URLs. It
-      // must be merged into ONE channel (stable id `ChannelsTV`) with both
-      // streams deduplicated.
-      final channelsTv = result.allValid
-          .where((c) => c.id == 'ChannelsTV')
-          .toList();
+      final result = await builder.build();
+
+      // Channels TV duplicate record is merged into 1 channel with 2 streams
+      final channelsTv = result.allValid.where((c) => c.id == 'ChannelsTV.ng').toList();
       expect(channelsTv.length, 1);
       expect(channelsTv.single.countryCode, 'NG');
-      expect(channelsTv.single.streamUrls.length, 2);
+      expect(channelsTv.single.country, 'Nigeria');
+      expect(channelsTv.single.streams.length, 2);
       expect(
         channelsTv.single.streamUrls,
         containsAll([
@@ -184,143 +137,137 @@ void main() {
           'https://channelstv-hd.stream/live.m3u8',
         ]),
       );
-      // Categories unioned across sources.
-      expect(channelsTv.single.categories, containsAll(['News', 'Local']));
+      expect(channelsTv.single.categories, containsAll(['News', 'General']));
 
-      // Both channels survive in the unified catalog.
+      // 2 unique channels total
       expect(result.allValid.length, 2);
-      expect(
-        result.allValid.map((c) => c.id),
-        containsAll(['ChannelsTV', 'TimesNow']),
-      );
+      expect(result.diagnostics.duplicatesRemoved, 1);
     });
 
     test('filters out NSFW, invalid-URL, and junk-named entries', () async {
-      final global = _m3uHeader +
-          _entry(
+      final fakeDs = _FakeRemoteDataSource(
+        channels: const [
+          DearbulutChannelDto(
+            id: 'NewsOK.us',
             name: 'News OK',
-            tvgId: 'NewsOK.US@HD',
-            group: 'News',
-            url: 'https://ok.stream/live.m3u8',
-          ) +
+            country: 'US',
+            categories: ['news'],
+            languages: ['eng'],
+            streams: [DearbulutStreamDto(url: 'https://ok.stream/live.m3u8')],
+          ),
+          // NSFW
+          DearbulutChannelDto(
+            id: 'Adult.us',
+            name: 'Adult Channel',
+            isNsfw: true,
+            country: 'US',
+            languages: ['eng'],
+            streams: [DearbulutStreamDto(url: 'https://adult.stream/live.m3u8')],
+          ),
           // Invalid URL scheme
-          _entry(
+          DearbulutChannelDto(
+            id: 'Invalid.us',
             name: 'Invalid Url',
-            tvgId: 'Invalid.US@SD',
-            group: 'News',
-            url: 'ftp://bad.example/live',
-          ) +
-          // Junk/test name
-          _entry(
-            name: 'Test Channel',
-            tvgId: 'TestChannel.US@SD',
-            group: 'News',
-            url: 'https://test.stream/live.m3u8',
-          );
+            country: 'US',
+            languages: ['eng'],
+            streams: [DearbulutStreamDto(url: 'ftp://bad.example/live')],
+          ),
+          // Junk token
+          DearbulutChannelDto(
+            id: 'TestChannel.us',
+            name: 'Test Channel Demo',
+            country: 'US',
+            languages: ['eng'],
+            streams: [DearbulutStreamDto(url: 'https://test.stream/live.m3u8')],
+          ),
+        ],
+      );
 
-      final client = _FakeHttpClient({
-        FreeTvSources.global.url: global,
-      });
-
-      final builder = FreeTvCatalogBuilder(httpClient: client);
-      final result = await builder.build(sources: [FreeTvSources.global]);
+      final builder = FreeTvCatalogBuilder(remoteDataSource: fakeDs);
+      final result = await builder.build();
 
       final ids = result.allValid.map((c) => c.id).toList();
-      expect(ids, contains('NewsOK'));
-      expect(ids, isNot(contains('Invalid')));
-      expect(ids, isNot(contains('TestChannel')));
+      expect(ids, contains('NewsOK.us'));
+      expect(ids, isNot(contains('Adult.us')));
+      expect(ids, isNot(contains('Invalid.us')));
+      expect(ids, isNot(contains('TestChannel.us')));
+      expect(result.diagnostics.nsfwRecords, 1);
     });
 
-    test('assigns recommended tier to rich, preferred-category channels',
-        () async {
-      final global = _m3uHeader +
-          _entry(
+    test('assigns recommended tier to rich, preferred-category channels', () async {
+      final fakeDs = _FakeRemoteDataSource(
+        channels: const [
+          DearbulutChannelDto(
+            id: 'DocCh.de',
             name: 'Documentary Channel',
-            tvgId: 'DocCh.DE@HD',
-            group: 'Documentary',
             country: 'DE',
+            categories: ['documentary'],
+            languages: ['eng'],
             logo: 'https://logo.com/doc.png',
-            url: 'https://doc.stream/live1.m3u8',
-          ) +
-          _entry(
+            score: 95,
+            online: true,
+            streams: [
+              DearbulutStreamDto(url: 'https://doc.stream/live1.m3u8', quality: '1080p')
+            ],
+          ),
+          DearbulutChannelDto(
+            id: 'MinCh.pl',
             name: 'Minimal Channel 2',
-            tvgId: 'MinCh.PL@SD',
-            group: 'ObscureGroup',
-            country: 'PL',
-            url: 'https://min.stream/live.m3u8',
-          );
+            country: '',
+            categories: ['other'],
+            languages: ['eng'],
+            score: 10,
+            online: false,
+            streams: [
+              DearbulutStreamDto(url: 'https://min.stream/live.m3u8')
+            ],
+          ),
+        ],
+      );
 
-      final client = _FakeHttpClient({
-        FreeTvSources.global.url: global,
-      });
+      final builder = FreeTvCatalogBuilder(remoteDataSource: fakeDs);
+      final result = await builder.build();
 
-      final builder = FreeTvCatalogBuilder(httpClient: client);
-      final result = await builder.build(sources: [FreeTvSources.global]);
-
-      final docCh = result.allValid.firstWhere((c) => c.id == 'DocCh');
+      final docCh = result.allValid.firstWhere((c) => c.id == 'DocCh.de');
       expect(docCh.qualityTier, FreeTvQualityTier.recommended);
       expect(docCh.qualityScore, greaterThanOrEqualTo(55));
 
-      final minCh = result.allValid.firstWhere((c) => c.id == 'MinCh');
+      final minCh = result.allValid.firstWhere((c) => c.id == 'MinCh.pl');
       expect(minCh.qualityTier, FreeTvQualityTier.valid);
 
-      // Recommended only contains the curated tier.
-      expect(result.recommended.map((c) => c.id), contains('DocCh'));
-    });
-
-    test('isolates a failing source without dropping the rest', () async {
-      final good = _m3uHeader +
-          _entry(
-            name: 'UK News',
-            tvgId: 'UKNews.UK@HD',
-            group: 'News',
-            url: 'https://uk.stream/live.m3u8',
-          );
-
-      // uk source will 404, global will succeed.
-      final client = _FakeHttpClient({
-        FreeTvSources.global.url: good,
-        FreeTvSources.unitedKingdom.url: null,
-      });
-
-      final builder = FreeTvCatalogBuilder(httpClient: client);
-      final result = await builder.build(sources: [
-        FreeTvSources.global,
-        FreeTvSources.unitedKingdom,
-      ]);
-
-      expect(result.allValid.map((c) => c.id), contains('UKNews'));
-      final ukFetch = result.diagnostics.sources
-          .firstWhere((s) => s.source.id == 'united_kingdom');
-      expect(ukFetch.succeeded, isFalse);
-      expect(ukFetch.error, isNotNull);
+      expect(result.recommended.map((c) => c.id), contains('DocCh.de'));
     });
 
     test('FreeTvService exposes curated recommended subset', () async {
-      final global = _m3uHeader +
-          _entry(
+      final fakeDs = _FakeRemoteDataSource(
+        channels: const [
+          DearbulutChannelDto(
+            id: 'BigNews.us',
             name: 'Big News',
-            tvgId: 'BigNews.US@HD',
-            group: 'News',
             country: 'US',
+            categories: ['news'],
+            languages: ['eng'],
             logo: 'https://logo.com/big.png',
-            url: 'https://big.stream/live.m3u8',
-          );
-
-      final client = _FakeHttpClient({
-        FreeTvSources.global.url: global,
-      });
+            score: 95,
+            online: true,
+            streams: [
+              DearbulutStreamDto(url: 'https://big.stream/live.m3u8', quality: '1080p')
+            ],
+          )
+        ],
+      );
 
       final service = FreeTvService(
-        builder: FreeTvCatalogBuilder(httpClient: client),
+        builder: FreeTvCatalogBuilder(remoteDataSource: fakeDs),
       );
+
       final catalog = await service.fetchCatalog();
       expect(catalog.length, 1);
-      expect(catalog.single.id, 'BigNews');
+      expect(catalog.single.id, 'BigNews.us');
       expect(catalog.single.qualityTier, FreeTvQualityTier.recommended);
 
       final recommended = await service.fetchRecommended();
-      expect(recommended.map((c) => c.id), contains('BigNews'));
+      expect(recommended.map((c) => c.id), contains('BigNews.us'));
     });
   });
 }
