@@ -4,16 +4,37 @@ import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
+/// Curated quick-access groupings surfaced at the start of the Free TV browse
+/// bar so users can jump straight into curated category/country/region views.
+class FreeTvCuratedChips {
+  final List<String> categories;
+  final List<String> countries;
+  final List<String> regions;
+
+  const FreeTvCuratedChips({
+    this.categories = const [],
+    this.countries = const [],
+    this.regions = const [],
+  });
+}
+
 class FreeTvCategoryBar extends StatelessWidget {
   final List<String> categories;
   final String selectedCategory;
   final List<String> countries;
   final String selectedCountry;
+  final List<String> regions;
+  final String selectedRegion;
   final bool showFavoritesOnly;
   final int favoritesCount;
+  final bool showWorkingOnly;
+  final int workingCount;
+  final bool isCheckingWorking;
   final ValueChanged<String> onCategorySelected;
   final ValueChanged<String> onCountrySelected;
+  final ValueChanged<String> onRegionSelected;
   final ValueChanged<bool> onFavoritesToggle;
+  final ValueChanged<bool> onWorkingToggle;
 
   const FreeTvCategoryBar({
     super.key,
@@ -21,33 +42,50 @@ class FreeTvCategoryBar extends StatelessWidget {
     required this.selectedCategory,
     required this.countries,
     required this.selectedCountry,
+    this.regions = const [],
+    this.selectedRegion = 'All Regions',
     required this.showFavoritesOnly,
     required this.favoritesCount,
+    this.showWorkingOnly = false,
+    this.workingCount = 0,
+    this.isCheckingWorking = false,
     required this.onCategorySelected,
     required this.onCountrySelected,
+    required this.onRegionSelected,
     required this.onFavoritesToggle,
+    required this.onWorkingToggle,
   });
 
   @override
   Widget build(BuildContext context) {
+    final curated = FreeTvCuratedChips(
+      categories: const ['News', 'Sports', 'Entertainment', 'Kids', 'Documentary'],
+      countries: const ['Nigeria', 'South Africa', 'United Kingdom', 'United States', 'France', 'Germany'],
+      regions: const ['Africa', 'Americas', 'Asia'],
+    );
+
     return Container(
-      height: 48.0,
+      height: 96.0,
       margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
         children: [
-          // "All Categories" chip
+          // Ground state: curated Recommended home + All Channels
           _CategoryChip(
-            label: 'All Channels',
-            icon: Icons.grid_view_rounded,
+            label: 'Recommended',
+            icon: Icons.auto_awesome_rounded,
             isSelected: !showFavoritesOnly &&
+                !showWorkingOnly &&
                 selectedCategory == 'All Categories' &&
-                selectedCountry == 'All Countries',
+                selectedCountry == 'All Countries' &&
+                selectedRegion == 'All Regions',
             onTap: () {
               if (showFavoritesOnly) onFavoritesToggle(false);
+              if (showWorkingOnly) onWorkingToggle(false);
               onCategorySelected('All Categories');
               onCountrySelected('All Countries');
+              onRegionSelected('All Regions');
             },
           ),
           const SizedBox(width: AppSpacing.xs),
@@ -64,16 +102,92 @@ class FreeTvCategoryBar extends StatelessWidget {
             const SizedBox(width: AppSpacing.xs),
           ],
 
-          // Quick Nigerian Discovery Chip
+          // "Working Only" chip
           _CategoryChip(
-            label: '🇳🇬 Nigeria',
-            isSelected: !showFavoritesOnly && selectedCountry == 'Nigeria',
+            label: isCheckingWorking
+                ? 'Checking working...'
+                : workingCount > 0
+                    ? 'Working ($workingCount)'
+                    : 'Working',
+            icon: Icons.check_circle_rounded,
+            iconColor: Colors.greenAccent,
+            isSelected: showWorkingOnly,
             onTap: () {
               if (showFavoritesOnly) onFavoritesToggle(false);
-              onCountrySelected(selectedCountry == 'Nigeria' ? 'All Countries' : 'Nigeria');
+              onWorkingToggle(!showWorkingOnly);
             },
           ),
           const SizedBox(width: AppSpacing.xs),
+
+          // Curated Country chips (prominent, right after ground state)
+          ...curated.countries.map(
+            (country) {
+              final isSelected =
+                  !showFavoritesOnly && selectedCountry == country;
+              return Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.xs),
+                child: _CategoryChip(
+                  label: _countryFlag(country) + country,
+                  isSelected: isSelected,
+                  onTap: () {
+                    if (showFavoritesOnly) onFavoritesToggle(false);
+                    onCountrySelected(isSelected
+                        ? 'All Countries'
+                        : country);
+                  },
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(width: AppSpacing.xs),
+          _chipDivider(),
+          const SizedBox(width: AppSpacing.xs),
+
+          // Curated Region chips
+          ...curated.regions.map(
+            (region) {
+              final isSelected =
+                  !showFavoritesOnly && selectedRegion == region;
+              return Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.xs),
+                child: _CategoryChip(
+                  label: region,
+                  icon: Icons.public_rounded,
+                  isSelected: isSelected,
+                  onTap: () {
+                    if (showFavoritesOnly) onFavoritesToggle(false);
+                    onRegionSelected(isSelected ? 'All Regions' : region);
+                  },
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(width: AppSpacing.xs),
+          _chipDivider(),
+          const SizedBox(width: AppSpacing.xs),
+
+          // Curated Category chips
+          ...curated.categories.map(
+            (category) {
+              final isSelected =
+                  !showFavoritesOnly && selectedCategory == category;
+              return Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.xs),
+                child: _CategoryChip(
+                  label: category,
+                  isSelected: isSelected,
+                  onTap: () {
+                    if (showFavoritesOnly) onFavoritesToggle(false);
+                    onCategorySelected(isSelected
+                        ? 'All Categories'
+                        : category);
+                  },
+                ),
+              );
+            },
+          ),
 
           // Dynamic Category chips from loaded channels
           ...categories.where((c) => c != 'All Categories').map(
@@ -87,7 +201,8 @@ class FreeTvCategoryBar extends StatelessWidget {
                   isSelected: isSelected,
                   onTap: () {
                     if (showFavoritesOnly) onFavoritesToggle(false);
-                    onCategorySelected(isSelected ? 'All Categories' : category);
+                    onCategorySelected(
+                        isSelected ? 'All Categories' : category);
                   },
                 ),
               );
@@ -95,6 +210,34 @@ class FreeTvCategoryBar extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  static String _countryFlag(String country) {
+    switch (country) {
+      case 'Nigeria':
+        return '🇳🇬 ';
+      case 'South Africa':
+        return '🇿🇦 ';
+      case 'United Kingdom':
+        return '🇬🇧 ';
+      case 'United States':
+        return '🇺🇸 ';
+      case 'France':
+        return '🇫🇷 ';
+      case 'Germany':
+        return '🇩🇪 ';
+      default:
+        return '';
+    }
+  }
+
+  Widget _chipDivider() {
+    return Container(
+      width: 1.0,
+      height: 24.0,
+      margin: const EdgeInsets.symmetric(horizontal: 2.0),
+      color: Colors.white.withValues(alpha: 0.12),
     );
   }
 }

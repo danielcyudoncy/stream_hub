@@ -106,6 +106,11 @@ void main() {
 
       // Category bar
       expect(find.byType(FreeTvCategoryBar), findsOneWidget);
+
+      // The category bar scrolls horizontally; curated country chips may be
+      // beyond the initially-built viewport in the landscape two-pane layout,
+      // so drag the category bar until the Nigeria chip is visible.
+      await _revealCategoryChip(tester, find.text('🇳🇬 Nigeria'));
       expect(find.text('🇳🇬 Nigeria'), findsOneWidget);
 
       // Channel Cards
@@ -159,6 +164,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Tap Nigeria chip
+      await _revealCategoryChip(tester, find.text('🇳🇬 Nigeria'));
       await tester.tap(find.text('🇳🇬 Nigeria'));
       await tester.pumpAndSettle();
 
@@ -202,4 +208,19 @@ void main() {
       );
     });
   });
+}
+
+/// Horizontally drags the category bar until [finder] is built and visible.
+/// The category bar sits inside a narrow pane in the landscape two-pane layout,
+/// so chips beyond the initially-built viewport are lazily not present.
+Future<void> _revealCategoryChip(WidgetTester tester, Finder finder) async {
+  final bar = find.byType(FreeTvCategoryBar);
+  if (bar.evaluate().isEmpty) return;
+  var attempts = 0;
+  while (finder.evaluate().isEmpty && attempts < 8) {
+    // Drag left to reveal chips to the right of the visible viewport.
+    await tester.drag(bar, const Offset(-250, 0));
+    await tester.pumpAndSettle();
+    attempts++;
+  }
 }
