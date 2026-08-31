@@ -213,36 +213,34 @@ MediaCatalog updated
 
 ### Free Live TV Adapter
 
-Free Live TV is a **provider-free** source built on the public IPTV-org open
-catalog. It requires no M3U/Xtream/Stalker provider, no subscription, and no
-stream via the Stream Engine. It functions independently and offline-first,
-coexisting with provider-based IPTV.
+Free Live TV is a **provider-free** source built on the normalized, live-verified
+JSON API from `dearbulut/iptv` (IPTV Nexus). It requires no M3U/Xtream/Stalker
+provider, no subscription, and no stream via the Stream Engine. It functions
+independently and offline-first, coexisting with provider-based IPTV.
 
 | Concern | Implementation |
 |---------|----------------|
-| Sources | `FreeTvSources` — centralized config of 15 public IPTV-org M3U playlists (global `index.m3u`, 6 country, 3 region, 5 category) as `FreeTvSource` records |
-| Fetch | `FreeTvCatalogBuilder` — fetches all sources concurrently via `createDohAwareHttpClient()` with per-source timeout; a single failing source is isolated and never drops the rest |
-| Parse | Reuses `M3UParser` → `M3UChannel` records |
-| Normalize | `FreeTvM3uNormalizer` — extracts stable channel identity + country from `tvg-id` (`<channel>.<cc>@<SD\|HD>`), strips resolution/geoblock markers from names, splits multi-value `group-title` |
-| Deduplicate | Aggregates by stable channel ID across sources, uniting categories/languages and deduplicating stream URLs (SD + HD variants merge into one channel) |
-| Quality | `FreeTvQualityService` — hard eligibility (NSFW, missing id/name, non-http stream, junk/test names) plus a deterministic 0–100 score; tiers `recommended` / `valid` |
-| Model | `FreeTvChannel` → canonical `MediaItem` via `toMediaItem()` (consumed by `PlaybackEngine` / `PlayerController`); carries `qualityScore` / `qualityTier` / `region` |
-| Cache | `FreeTvRepository` — Hive boxes `free_tv_catalog` (TTL 12h), `free_tv_favorites`, `free_tv_recent` (capped at 20); mirrors quality fields via `toJson`/`fromJson` |
-| Reachability | `FreeTvReachabilityService` — reuses the Stream Engine's `HttpProbe` (`DartHttpProbe`) with a bounded concurrency pool to mark each channel `isWorking`; `FreeTvRepository` caches working channel ids in a `free_tv_reachability` Hive box; the controller exposes a "Working Only" filter |
-| Playback | Inline embedded player with automatic multi-stream failover (Stream 1 ➔ 2 ➔ 3) |
+| Endpoints | `FreeTvApiConfig` — centralized endpoint constants pointing to `https://dearbulut.github.io/iptv/api/v1/` (`channels.online.json`, `countries.json`, `categories.json`) with gzip support |
+| Remote Data | `FreeTvRemoteDataSource` / `DearbulutFreeTvRemoteDataSource` — Gzip-aware HTTP data source fetching online-verified channels, countries, and categories |
+| DTOs & Models | `DearbulutChannelDto`, `DearbulutStreamDto`, `DearbulutHealthDto`, `FreeTvStream`, and `FreeTvChannel` |
+| Normalizer / Mapper | `FreeTvMapper` — translates DTOs to canonical `FreeTvChannel` entities with localized country/region names, friendly category groupings, and stream health scores |
+| Ingestion Pipeline | `FreeTvCatalogBuilder` — ingests JSON catalog, deduplicates multi-stream variants, unions categories/languages, and records pipeline diagnostics |
+| Quality | `FreeTvQualityService` — excludes NSFW/junk/broken channels and assigns deterministic quality scores (0–100) with `recommended` (score ≥ 55) vs `valid` tiers |
+| Model | `FreeTvChannel` → canonical `MediaItem` via `toMediaItem()` (consumed by `PlaybackEngine` / `PlayerController`); carries `streams`, `qualityScore` / `qualityTier` / `region` |
+| Cache | `FreeTvRepository` — Hive boxes `free_tv_catalog` (TTL 12h), `free_tv_favorites`, `free_tv_recent` (capped at 20), `free_tv_reachability` (TTL 24h) |
+| Reachability | Background live health data pre-populated from `dearbulut/iptv` and refined on-demand via `FreeTvReachabilityService` |
+| Playback | Inline embedded player with automatic multi-stream fallback (Stream 1 ➔ 2 ➔ 3) |
 | Session | `CustomProviderSessionFactory` — registered for `MediaSourceType.custom`; builds a credential-free `ProviderSession` from the direct stream URL, so Free TV flows through the standard Stream Engine pipeline (resolver → normalize → validate → `PlayableSession`) without any provider |
 
 Key invariants:
 
 - **Subscription independence** — never checks for active providers or
   subscriptions; remains usable offline via the local catalog cache.
-- **Multi-source aggregation** — the catalog is built from many IPTV-org
-  playlists (global, country, region, category) and merged into a single
-  deduplicated whole; SD/HD duplicates become one channel with multiple streams.
-- **Curated quality layer** — the raw IPTV-org catalog is never shown
-  wholesale. `FreeTvQualityService` applies conservative exclusions and a
-  deterministic score, exposing `recommended` / `valid` tiers; the home surface
-  defaults to the curated `recommended` subset.
+- **JSON-first pipeline** — uses structured JSON data with stream-level health
+  checks instead of heavy client-side M3U downloads and parsing.
+- **Curated quality layer** — raw channels are never shown unfiltered.
+  `FreeTvQualityService` applies strict exclusions and deterministic scoring,
+  separating curated `recommended` channels (default) from `valid` channels.
 - **Provider-independent playback** — channels map to `MediaItem` (via
   `toMediaItem()` using `MediaSourceType.custom`) and reuse the existing
   `PlaybackEngine` / `PlayerController` and embedded-player architecture. The

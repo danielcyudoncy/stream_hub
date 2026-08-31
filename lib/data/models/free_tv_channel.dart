@@ -1,5 +1,6 @@
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
+import 'package:stream_hub/data/models/free_tv_stream.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 
 /// Curated catalog tier assigned to a free channel by the quality layer.
@@ -19,8 +20,8 @@ enum FreeTvQualityTier {
   }
 }
 
-/// Represents a public free-to-air live TV channel built from the IPTV-org
-/// catalog (M3U playlists).
+/// Represents a public free-to-air live TV channel normalized from upstream
+/// sources (dearbulut / IPTV Nexus).
 class FreeTvChannel {
   final String id;
   final String name;
@@ -38,10 +39,12 @@ class FreeTvChannel {
   final String? website;
   final String? logo;
   final List<String> streamUrls;
+  final List<FreeTvStream> streams;
+  final String source;
   final bool isFavorite;
   final DateTime? lastWatched;
 
-  /// Reachability state determined by a live stream probe.
+  /// Reachability state determined by a live stream probe or upstream health.
   ///
   /// Tri-state:
   ///   - `true`  : at least one stream URL was reachable on the last probe.
@@ -73,6 +76,8 @@ class FreeTvChannel {
     this.website,
     this.logo,
     this.streamUrls = const [],
+    this.streams = const [],
+    this.source = 'dearbulut',
     this.isFavorite = false,
     this.lastWatched,
     this.isWorking,
@@ -81,11 +86,20 @@ class FreeTvChannel {
   });
 
   /// Primary stream URL to play first.
-  String? get primaryStreamUrl =>
-      streamUrls.isNotEmpty ? streamUrls.first : null;
+  String? get primaryStreamUrl {
+    if (streams.isNotEmpty) {
+      final onlineStream = streams.firstWhere(
+        (s) => s.isOnline,
+        orElse: () => streams.first,
+      );
+      return onlineStream.url;
+    }
+    return streamUrls.isNotEmpty ? streamUrls.first : null;
+  }
 
   /// Returns true if this channel has at least one valid stream URL.
-  bool get hasStream => streamUrls.isNotEmpty;
+  bool get hasStream =>
+      streams.isNotEmpty || streamUrls.isNotEmpty;
 
   FreeTvChannel copyWith({
     String? id,
@@ -104,6 +118,8 @@ class FreeTvChannel {
     String? website,
     String? logo,
     List<String>? streamUrls,
+    List<FreeTvStream>? streams,
+    String? source,
     bool? isFavorite,
     DateTime? lastWatched,
     bool? isWorking,
@@ -127,6 +143,8 @@ class FreeTvChannel {
       website: website ?? this.website,
       logo: logo ?? this.logo,
       streamUrls: streamUrls ?? this.streamUrls,
+      streams: streams ?? this.streams,
+      source: source ?? this.source,
       isFavorite: isFavorite ?? this.isFavorite,
       lastWatched: lastWatched ?? this.lastWatched,
       isWorking: isWorking ?? this.isWorking,
@@ -139,6 +157,11 @@ class FreeTvChannel {
   /// PlaybackEngine and PlayerController.
   MediaItem toMediaItem() {
     final now = DateTime.now();
+    final primary = primaryStreamUrl ?? '';
+    final urls = streamUrls.isNotEmpty
+        ? streamUrls
+        : streams.map((s) => s.url).toList();
+
     return MediaItem(
       id: 'free_tv_$id',
       providerId: 'free_live_tv',
@@ -160,8 +183,9 @@ class FreeTvChannel {
         'channelId': id,
         'countryCode': countryCode,
         'region': region ?? '',
-        'streamUrl': primaryStreamUrl ?? '',
-        'streamUrls': streamUrls,
+        'streamUrl': primary,
+        'streamUrls': urls,
+        'source': source,
         'isFreeTv': true,
         'languages': languages,
         'categories': categories,
@@ -174,6 +198,10 @@ class FreeTvChannel {
   }
 
   Map<String, dynamic> toJson() {
+    final urls = streamUrls.isNotEmpty
+        ? streamUrls
+        : streams.map((s) => s.url).toList();
+
     return {
       'id': id,
       'name': name,
@@ -190,7 +218,9 @@ class FreeTvChannel {
       'is_nsfw': isNsfw,
       if (website != null) 'website': website,
       if (logo != null) 'logo': logo,
-      'stream_urls': streamUrls,
+      'stream_urls': urls,
+      'streams': streams.map((s) => s.toJson()).toList(),
+      'source': source,
       'is_favorite': isFavorite,
       'is_working': isWorking,
       'quality_score': qualityScore,
@@ -225,12 +255,22 @@ class FreeTvChannel {
         ? rawBroadcastArea.map((e) => e.toString()).toList()
         : const [];
 
+    final rawStreamsList = json['streams'];
+    final List<FreeTvStream> parsedStreams = [];
+    if (rawStreamsList is List) {
+      for (final item in rawStreamsList) {
+        if (item is Map) {
+          parsedStreams.add(FreeTvStream.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+    }
+
     final rawStreams = streamUrls ??
         (json['stream_urls'] is List
             ? (json['stream_urls'] as List).map((e) => e.toString()).toList()
             : (json['stream_url'] != null
                 ? [json['stream_url'].toString()]
-                : const <String>[]));
+                : parsedStreams.map((s) => s.url).toList()));
 
     final rawCountry = json['country']?.toString();
     final rawCountryCode = json['country_code']?.toString();
@@ -257,6 +297,11 @@ class FreeTvChannel {
     final qualityTier = FreeTvQualityTier.fromName(
       json['quality_tier']?.toString(),
     );
+    final source = json['source']?.toString() ?? 'dearbulut';
+
+    final effectiveStreamUrls = rawStreams
+        .where((s) => s.trim().isNotEmpty && s.startsWith('http'))
+        .toList();
 
     return FreeTvChannel(
       id: (json['id'] ?? '').toString(),
@@ -274,9 +319,13 @@ class FreeTvChannel {
       isNsfw: json['is_nsfw'] == true || json['is_nsfw'] == 1,
       website: json['website']?.toString(),
       logo: json['logo']?.toString(),
-      streamUrls: rawStreams
-          .where((s) => s.trim().isNotEmpty && s.startsWith('http'))
-          .toList(),
+      streamUrls: effectiveStreamUrls,
+      streams: parsedStreams.isNotEmpty
+          ? parsedStreams
+          : effectiveStreamUrls
+              .map((u) => FreeTvStream(url: u, isOnline: true))
+              .toList(),
+      source: source,
       isFavorite: isFavorite ?? json['is_favorite'] == true,
       lastWatched: lastWatched,
       isWorking: json['is_working'] is bool
