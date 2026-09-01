@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/helpers/platform_helper.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
@@ -82,8 +81,6 @@ class FreeLiveTvController extends GetxController {
   final RxBool isFullscreenMode = false.obs;
   DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
 
-  final GlobalKey embeddedPlayerKey =
-      GlobalKey(debugLabel: 'free_tv_embedded_player');
   PlayerController? inlinePlayerController;
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _playerStateSubscription;

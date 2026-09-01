@@ -86,7 +86,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
               width: double.infinity,
               height: double.infinity,
               child: SeriesInlinePlayer(
-                key: _controller.embeddedPlayerKey,
+                key: const ValueKey('series_fullscreen_player'),
                 controller: _controller,
                 isFullscreen: true,
               ),
@@ -193,7 +193,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                       child: ClipRRect(
                         borderRadius: AppRadius.medium,
                         child: SeriesInlinePlayer(
-                          key: _controller.embeddedPlayerKey,
+                          key: const ValueKey('series_wide_player'),
                           controller: _controller,
                           isFullscreen: false,
                         ),
@@ -296,7 +296,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: SeriesInlinePlayer(
-                          key: _controller.embeddedPlayerKey,
+                          key: const ValueKey('series_landscape_player'),
                           controller: _controller,
                           isFullscreen: false,
                         ),

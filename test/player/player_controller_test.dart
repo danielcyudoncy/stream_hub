@@ -167,6 +167,12 @@ class _FakePlayerAdapter implements PlayerAdapter {
 
   @override
   Stream<String> get subtitleStream => const Stream.empty();
+
+  @override
+  Future<void> enterPictureInPicture() async {}
+
+  @override
+  bool get isInPip => false;
 }
 
 class _FakeStreamRepository implements StreamRepository {

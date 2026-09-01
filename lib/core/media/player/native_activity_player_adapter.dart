@@ -93,6 +93,7 @@ class NativeActivityPlayerAdapter implements PlayerAdapter, StructuredErrorRepor
   bool get hasVideoFrames => _videoWidth > 0 && _videoHeight > 0;
 
   /// True when the native player is currently in Picture-in-Picture mode.
+  @override
   bool get isInPip => _inPip;
 
   Stream<bool> get pipStream => _pipController.stream;
@@ -361,6 +362,7 @@ class NativeActivityPlayerAdapter implements PlayerAdapter, StructuredErrorRepor
   Future<void> previous() => _invoke('previousChannel');
 
   /// Triggers Picture-in-Picture mode on Android 8.0+.
+  @override
   Future<void> enterPictureInPicture() => _invoke('enterPip');
 
   /// Switches to a specific channel index in the native player.

@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
@@ -68,7 +67,6 @@ class LiveTVController extends GetxController {
   final RxBool isLoading = true.obs;
   final Rxn<MediaItem> featuredChannel = Rxn<MediaItem>();
   final Rxn<MediaItem> activePlayingChannel = Rxn<MediaItem>();
-  final GlobalKey embeddedPlayerKey = GlobalKey(debugLabel: 'live_tv_embedded_player');
   PlayerController? inlinePlayerController;
 
   StreamSubscription? _favoriteSubscription;

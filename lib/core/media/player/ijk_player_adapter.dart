@@ -326,6 +326,12 @@ class IjkPlayerAdapter implements PlayerAdapter, StructuredErrorReporter {
   Future<void> setSubtitleTrack(String trackId) async {}
 
   @override
+  Future<void> enterPictureInPicture() async {}
+
+  @override
+  bool get isInPip => false;
+
+  @override
   Future<void> setSpeed(PlaybackSpeed speed) async {
     _currentSpeed = speed;
     await _invoke('setSpeed', {'speed': speed.value});

@@ -83,7 +83,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
               width: double.infinity,
               height: double.infinity,
               child: FreeTvEmbeddedPlayer(
-                key: controller.embeddedPlayerKey,
+                key: const ValueKey('free_tv_fullscreen_player'),
                 controller: controller,
                 isFullscreen: true,
               ),
@@ -123,7 +123,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
                     _buildTopAppBar(context, isList),
                     Expanded(
                       child: FreeTvEmbeddedPlayer(
-                        key: controller.embeddedPlayerKey,
+                        key: const ValueKey('free_tv_landscape_player'),
                         controller: controller,
                         isFullscreen: false,
                       ),
@@ -202,7 +202,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
 
             // 2. Embedded Player / Hero
             FreeTvEmbeddedPlayer(
-              key: controller.embeddedPlayerKey,
+              key: const ValueKey('free_tv_portrait_player'),
               controller: controller,
               isFullscreen: false,
             ),
@@ -382,7 +382,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: FreeTvEmbeddedPlayer(
-                key: controller.embeddedPlayerKey,
+                key: const ValueKey('free_tv_tv_mini_player'),
                 controller: controller,
                 isFullscreen: false,
               ),

@@ -527,6 +527,12 @@ class PlaybackEngine {
     mutedRx.value = muted;
   }
 
+  Future<void> enterPictureInPicture() async {
+    await adapter.enterPictureInPicture();
+  }
+
+  bool get isInPip => adapter.isInPip;
+
   void addStateListener(void Function(PlaybackState) listener) {
     _stateListeners.add(listener);
   }

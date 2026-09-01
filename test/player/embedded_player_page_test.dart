@@ -271,4 +271,10 @@ class _SurfaceTrackingAdapter implements PlayerAdapter {
 
   @override
   Stream<String> get subtitleStream => const Stream<String>.empty();
+
+  @override
+  Future<void> enterPictureInPicture() async {}
+
+  @override
+  bool get isInPip => false;
 }

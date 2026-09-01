@@ -51,7 +51,7 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
               width: double.infinity,
               height: double.infinity,
               child: MovieInlinePlayer(
-                key: controller.embeddedPlayerKey,
+                key: const ValueKey('movie_fullscreen_player'),
                 controller: controller,
                 isFullscreen: true,
               ),
@@ -140,7 +140,7 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
                         AppSpacing.sm,
                       ),
                       child: MovieInlinePlayer(
-                        key: controller.embeddedPlayerKey,
+                        key: const ValueKey('movie_wide_player'),
                         controller: controller,
                       ),
                     ),
@@ -225,7 +225,7 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
                       aspectRatio: 16 / 9,
                       child: isPlaying
                           ? MovieInlinePlayer(
-                              key: controller.embeddedPlayerKey,
+                              key: const ValueKey('movie_landscape_player'),
                               controller: controller,
                             )
                           : _buildLandscapeHeroPoster(context, movie),

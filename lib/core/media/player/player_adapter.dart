@@ -82,4 +82,7 @@ abstract class PlayerAdapter {
   Stream<Duration> get bufferStream;
   Stream<String> get errorStream;
   Stream<String> get subtitleStream;
+
+  Future<void> enterPictureInPicture();
+  bool get isInPip;
 }

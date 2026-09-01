@@ -34,7 +34,6 @@ class MovieDetailsController extends GetxController {
 
   PlayerController? inlinePlayerController;
   final RxBool isInlinePlayerActive = false.obs;
-  final GlobalKey embeddedPlayerKey = GlobalKey();
 
   final Rx<MediaItem?> movieRx = Rx<MediaItem?>(null);
   final RxBool isLoading = true.obs;

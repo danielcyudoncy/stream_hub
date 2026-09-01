@@ -81,7 +81,6 @@ class SeriesDetailsController extends GetxController {
   final RxList<CastMember> castMembers = <CastMember>[].obs;
 
   PlayerController? inlinePlayerController;
-  final GlobalKey embeddedPlayerKey = GlobalKey();
   final RxBool isInlinePlayerActive = false.obs;
   final Rx<MediaItem?> activeEpisode = Rx<MediaItem?>(null);
   final RxBool isFullscreenMode = false.obs;

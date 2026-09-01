@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
@@ -74,130 +75,173 @@ class PlayerControls extends StatelessWidget {
               horizontal: isFullscreen ? AppSpacing.lg : AppSpacing.md,
               vertical: AppSpacing.sm,
             ),
-            child: Row(
-              children: [
-                _ControlButton(
-                  icon: AppIcons.previous,
-                  onPressed: controller.previous,
-                  size: isFullscreen ? 32 : 24,
-                ),
-                _ControlButton(
-                  icon: AppIcons.rewind,
-                  onPressed: () => controller.seek(
-                    controller.position - const Duration(seconds: 10),
-                  ),
-                  size: isFullscreen ? 32 : 24,
-                ),
-                Obx(() {
-                  final state = controller.stateRx.value;
-                  final isPlaying = state == PlaybackState.playing;
-                  return _ControlButton(
-                    icon: isPlaying ? AppIcons.pause : AppIcons.play,
-                    onPressed: isPlaying ? controller.pause : controller.play,
-                    size: isFullscreen ? 48 : 36,
-                  );
-                }),
-                _ControlButton(
-                  icon: AppIcons.stop,
-                  onPressed: controller.stopAndClose,
-                  size: isFullscreen ? 32 : 24,
-                ),
-                _ControlButton(
-                  icon: AppIcons.forward,
-                  onPressed: () => controller.seek(
-                    controller.position + const Duration(seconds: 10),
-                  ),
-                  size: isFullscreen ? 32 : 24,
-                ),
-                _ControlButton(
-                  icon: AppIcons.next,
-                  onPressed: controller.next,
-                  size: isFullscreen ? 32 : 24,
-                ),
-                const Spacer(),
-                Flexible(
-                  flex: 2,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _PopupMenuButton<AspectRatioMode>(
-                          icon: AppIcons.aspectRatio,
-                          items: AspectRatioMode.values,
-                          labelBuilder: (mode) => Text(mode.displayName),
-                          onSelected: (mode) =>
-                              controller.setAspectRatio(mode),
-                        ),
-                        _PopupMenuButton<PlaybackSpeed>(
-                          icon: AppIcons.speed,
-                          items: PlaybackSpeed.values,
-                          labelBuilder: (speed) => Text(speed.label),
-                          onSelected: (speed) => controller.setSpeed(speed),
-                        ),
-                        if (isFullscreen) ...[
-                          _PopupMenuButton<PlayerQuality>(
-                            icon: AppIcons.quality,
-                            items: PlayerQuality.values,
-                            labelBuilder: (q) => Text(q.displayName),
-                            onSelected: (q) => controller.setQuality(q),
-                          ),
-                          TvFocusable(
-                            onTap: () => _showSubtitlesSheet(context),
-                            scale: 1.15,
-                            borderRadius: BorderRadius.circular(24),
-                            child: IconButton(
-                              onPressed: () => _showSubtitlesSheet(context),
-                              icon: const Icon(AppIcons.subtitles,
-                                  color: Colors.white),
-                              tooltip: 'Subtitles',
-                            ),
-                          ),
-                          TvFocusable(
-                            onTap: () => _showAudioTracksSheet(context),
-                            scale: 1.15,
-                            borderRadius: BorderRadius.circular(24),
-                            child: IconButton(
-                              onPressed: () => _showAudioTracksSheet(context),
-                              icon: const Icon(AppIcons.audioTrack,
-                                  color: Colors.white),
-                              tooltip: 'Audio Tracks',
-                            ),
-                          ),
-                          if (onPiPPressed != null)
-                            TvFocusable(
-                              onTap: onPiPPressed,
-                              scale: 1.15,
-                              borderRadius: BorderRadius.circular(24),
-                              child: IconButton(
-                                onPressed: onPiPPressed,
-                                icon: const Icon(Icons.picture_in_picture_alt,
-                                    color: Colors.white),
-                                tooltip: 'Picture-in-Picture',
-                              ),
-                            ),
-                          TvFocusable(
-                            onTap: () => _toggleFullscreen(context),
-                            scale: 1.15,
-                            borderRadius: BorderRadius.circular(24),
-                            child: IconButton(
-                              onPressed: () => _toggleFullscreen(context),
-                              icon: const Icon(AppIcons.fullscreenExit,
-                                  color: Colors.white),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: _buildControlsRow(context),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildControlsRow(BuildContext context) {
+    final leftButtons = <Widget>[
+      _ControlButton(
+        icon: AppIcons.previous,
+        onPressed: controller.previous,
+        size: isFullscreen ? 32 : 24,
+      ),
+      _ControlButton(
+        icon: AppIcons.rewind,
+        onPressed: () => controller.seek(
+          controller.position - const Duration(seconds: 10),
+        ),
+        size: isFullscreen ? 32 : 24,
+      ),
+      Obx(() {
+        final state = controller.stateRx.value;
+        final isPlaying = state == PlaybackState.playing;
+        return _ControlButton(
+          icon: isPlaying ? AppIcons.pause : AppIcons.play,
+          onPressed: isPlaying ? controller.pause : controller.play,
+          size: isFullscreen ? 48 : 36,
+        );
+      }),
+      _ControlButton(
+        icon: AppIcons.stop,
+        onPressed: controller.stopAndClose,
+        size: isFullscreen ? 32 : 24,
+      ),
+      _ControlButton(
+        icon: AppIcons.forward,
+        onPressed: () => controller.seek(
+          controller.position + const Duration(seconds: 10),
+        ),
+        size: isFullscreen ? 32 : 24,
+      ),
+      _ControlButton(
+        icon: AppIcons.next,
+        onPressed: controller.next,
+        size: isFullscreen ? 32 : 24,
+      ),
+    ];
+
+    final rightButtons = <Widget>[
+      _PopupMenuButton<AspectRatioMode>(
+        icon: AppIcons.aspectRatio,
+        items: AspectRatioMode.values,
+        labelBuilder: (mode) => Text(mode.displayName),
+        onSelected: (mode) => controller.setAspectRatio(mode),
+      ),
+      _PopupMenuButton<PlaybackSpeed>(
+        icon: AppIcons.speed,
+        items: PlaybackSpeed.values,
+        labelBuilder: (speed) => Text(speed.label),
+        onSelected: (speed) => controller.setSpeed(speed),
+      ),
+      if (isFullscreen) ...[
+        _PopupMenuButton<PlayerQuality>(
+          icon: AppIcons.quality,
+          items: PlayerQuality.values,
+          labelBuilder: (q) => Text(q.displayName),
+          onSelected: (q) => controller.setQuality(q),
+        ),
+        TvFocusable(
+          onTap: () => _showSubtitlesSheet(context),
+          scale: 1.15,
+          borderRadius: BorderRadius.circular(24),
+          child: IconButton(
+            onPressed: () => _showSubtitlesSheet(context),
+            icon: const Icon(AppIcons.subtitles,
+                color: Colors.white),
+            tooltip: 'Subtitles',
+          ),
+        ),
+        TvFocusable(
+          onTap: () => _showAudioTracksSheet(context),
+          scale: 1.15,
+          borderRadius: BorderRadius.circular(24),
+          child: IconButton(
+            onPressed: () => _showAudioTracksSheet(context),
+            icon: const Icon(AppIcons.audioTrack,
+                color: Colors.white),
+            tooltip: 'Audio Tracks',
+          ),
+        ),
+        if (onPiPPressed != null || Platform.isAndroid)
+          TvFocusable(
+            onTap: onPiPPressed ??
+                () => controller.enterPictureInPicture(),
+            scale: 1.15,
+            borderRadius: BorderRadius.circular(24),
+            child: IconButton(
+              onPressed: onPiPPressed ??
+                  () => controller.enterPictureInPicture(),
+              icon: const Icon(Icons.picture_in_picture_alt,
+                  color: Colors.white),
+              tooltip: 'Picture-in-Picture',
+            ),
+          ),
+        TvFocusable(
+          onTap: () => _toggleFullscreen(context),
+          scale: 1.15,
+          borderRadius: BorderRadius.circular(24),
+          child: IconButton(
+            onPressed: () => _toggleFullscreen(context),
+            icon: const Icon(AppIcons.fullscreenExit,
+                color: Colors.white),
+          ),
+        ),
+      ],
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final leftWidth = leftButtons.fold<double>(
+          0,
+          (sum, w) => sum + (_estimateButtonWidth(w) ?? 0),
+        );
+        final rightWidth = rightButtons.fold<double>(
+          0,
+          (sum, w) => sum + (_estimateButtonWidth(w) ?? 0),
+        );
+        final minGap = 12.0;
+
+        if (availableWidth > leftWidth + rightWidth + minGap + 40) {
+          return Row(
+            children: [
+              ...leftButtons,
+              const Spacer(),
+              ...rightButtons,
+            ],
+          );
+        }
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+            child: Row(
+            children: [
+              ...leftButtons,
+              SizedBox(width: minGap),
+              ...rightButtons,
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  double? _estimateButtonWidth(Widget widget) {
+    if (widget is _ControlButton) {
+      return widget.size + 20;
+    }
+    if (widget is _PopupMenuButton) {
+      return 44;
+    }
+    if (widget is IconButton) {
+      return 48;
+    }
+    return 44;
   }
 
   void _showSubtitlesSheet(BuildContext context) async {
