@@ -78,6 +78,7 @@ class M3UPlaylistResult {
   final List<String> warnings;
   final String? encoding;
   final bool hasValidHeader;
+  final String? epgUrl;
 
   const M3UPlaylistResult({
     this.channels = const [],
@@ -91,6 +92,7 @@ class M3UPlaylistResult {
     this.warnings = const [],
     this.encoding,
     this.hasValidHeader = false,
+    this.epgUrl,
   });
 }
 

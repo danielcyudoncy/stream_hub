@@ -59,13 +59,26 @@ class FreeTvCategoryBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final curated = FreeTvCuratedChips(
-      categories: const ['News', 'Sports', 'Entertainment', 'Kids', 'Documentary'],
-      countries: const ['Nigeria', 'South Africa', 'United Kingdom', 'United States', 'France', 'Germany'],
+      categories: const [
+        'News',
+        'Sports',
+        'Entertainment',
+        'Kids',
+        'Documentary',
+      ],
+      countries: const [
+        'Nigeria',
+        'South Africa',
+        'United Kingdom',
+        'United States',
+        'France',
+        'Germany',
+      ],
       regions: const ['Africa', 'Americas', 'Asia'],
     );
 
     return Container(
-      height: 96.0,
+      height: 40.0,
       margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: ListView(
         scrollDirection: Axis.horizontal,
@@ -75,7 +88,8 @@ class FreeTvCategoryBar extends StatelessWidget {
           _CategoryChip(
             label: 'Recommended',
             icon: Icons.auto_awesome_rounded,
-            isSelected: !showFavoritesOnly &&
+            isSelected:
+                !showFavoritesOnly &&
                 !showWorkingOnly &&
                 selectedCategory == 'All Categories' &&
                 selectedCountry == 'All Countries' &&
@@ -107,8 +121,8 @@ class FreeTvCategoryBar extends StatelessWidget {
             label: isCheckingWorking
                 ? 'Checking working...'
                 : workingCount > 0
-                    ? 'Working ($workingCount)'
-                    : 'Working',
+                ? 'Working ($workingCount)'
+                : 'Working',
             icon: Icons.check_circle_rounded,
             iconColor: Colors.greenAccent,
             isSelected: showWorkingOnly,
@@ -120,94 +134,79 @@ class FreeTvCategoryBar extends StatelessWidget {
           const SizedBox(width: AppSpacing.xs),
 
           // Curated Country chips (prominent, right after ground state)
-          ...curated.countries.map(
-            (country) {
-              final isSelected =
-                  !showFavoritesOnly && selectedCountry == country;
-              return Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.xs),
-                child: _CategoryChip(
-                  label: _countryFlag(country) + country,
-                  isSelected: isSelected,
-                  onTap: () {
-                    if (showFavoritesOnly) onFavoritesToggle(false);
-                    onCountrySelected(isSelected
-                        ? 'All Countries'
-                        : country);
-                  },
-                ),
-              );
-            },
-          ),
+          ...curated.countries.map((country) {
+            final isSelected = !showFavoritesOnly && selectedCountry == country;
+            return Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: _CategoryChip(
+                label: _countryFlag(country) + country,
+                isSelected: isSelected,
+                onTap: () {
+                  if (showFavoritesOnly) onFavoritesToggle(false);
+                  onCountrySelected(isSelected ? 'All Countries' : country);
+                },
+              ),
+            );
+          }),
 
           const SizedBox(width: AppSpacing.xs),
           _chipDivider(),
           const SizedBox(width: AppSpacing.xs),
 
           // Curated Region chips
-          ...curated.regions.map(
-            (region) {
-              final isSelected =
-                  !showFavoritesOnly && selectedRegion == region;
-              return Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.xs),
-                child: _CategoryChip(
-                  label: region,
-                  icon: Icons.public_rounded,
-                  isSelected: isSelected,
-                  onTap: () {
-                    if (showFavoritesOnly) onFavoritesToggle(false);
-                    onRegionSelected(isSelected ? 'All Regions' : region);
-                  },
-                ),
-              );
-            },
-          ),
+          ...curated.regions.map((region) {
+            final isSelected = !showFavoritesOnly && selectedRegion == region;
+            return Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: _CategoryChip(
+                label: region,
+                icon: Icons.public_rounded,
+                isSelected: isSelected,
+                onTap: () {
+                  if (showFavoritesOnly) onFavoritesToggle(false);
+                  onRegionSelected(isSelected ? 'All Regions' : region);
+                },
+              ),
+            );
+          }),
 
           const SizedBox(width: AppSpacing.xs),
           _chipDivider(),
           const SizedBox(width: AppSpacing.xs),
 
           // Curated Category chips
-          ...curated.categories.map(
-            (category) {
-              final isSelected =
-                  !showFavoritesOnly && selectedCategory == category;
-              return Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.xs),
-                child: _CategoryChip(
-                  label: category,
-                  isSelected: isSelected,
-                  onTap: () {
-                    if (showFavoritesOnly) onFavoritesToggle(false);
-                    onCategorySelected(isSelected
-                        ? 'All Categories'
-                        : category);
-                  },
-                ),
-              );
-            },
-          ),
+          ...curated.categories.map((category) {
+            final isSelected =
+                !showFavoritesOnly && selectedCategory == category;
+            return Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: _CategoryChip(
+                label: category,
+                isSelected: isSelected,
+                onTap: () {
+                  if (showFavoritesOnly) onFavoritesToggle(false);
+                  onCategorySelected(isSelected ? 'All Categories' : category);
+                },
+              ),
+            );
+          }),
 
           // Dynamic Category chips from loaded channels
-          ...categories.where((c) => c != 'All Categories').map(
-            (category) {
-              final isSelected =
-                  !showFavoritesOnly && selectedCategory == category;
-              return Padding(
-                padding: const EdgeInsets.only(right: AppSpacing.xs),
-                child: _CategoryChip(
-                  label: category,
-                  isSelected: isSelected,
-                  onTap: () {
-                    if (showFavoritesOnly) onFavoritesToggle(false);
-                    onCategorySelected(
-                        isSelected ? 'All Categories' : category);
-                  },
-                ),
-              );
-            },
-          ),
+          ...categories.where((c) => c != 'All Categories').map((category) {
+            final isSelected =
+                !showFavoritesOnly && selectedCategory == category;
+            return Padding(
+              padding: const EdgeInsets.only(right: AppSpacing.xs),
+              child: _CategoryChip(
+                label: category,
+                isSelected: isSelected,
+                onTap: () {
+                  if (showFavoritesOnly) onFavoritesToggle(false);
+                  onCategorySelected(isSelected ? 'All Categories' : category);
+                },
+              ),
+            );
+          }),
         ],
       ),
     );
@@ -264,13 +263,13 @@ class _CategoryChip extends StatelessWidget {
 
     return TvFocusable(
       onTap: onTap,
-      scale: 1.05,
+      scale: 1.02,
       borderRadius: AppRadius.pill,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs,
+          horizontal: 12.0,
+          vertical: 6.0,
         ),
         decoration: BoxDecoration(
           color: isSelected
@@ -309,7 +308,7 @@ class _CategoryChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                fontSize: 12.5,
+                fontSize: 12.0,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 color: isSelected ? Colors.black : colorScheme.onSurface,
               ),

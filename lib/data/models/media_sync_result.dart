@@ -5,6 +5,7 @@ class MediaSyncResult {
   final int updated;
   final int removed;
   final String? error;
+  final String? epgUrl;
   final DateTime completedAt;
 
   const MediaSyncResult({
@@ -14,6 +15,7 @@ class MediaSyncResult {
     this.updated = 0,
     this.removed = 0,
     this.error,
+    this.epgUrl,
     required this.completedAt,
   });
 }

@@ -203,6 +203,23 @@ class ProviderSyncService extends GetxService {
             accountMaxConnections: account?.maxConnections,
           ),
         );
+
+        // Orchestrate XMLTV Sync if epgUrl is present
+        if (result.epgUrl != null && result.epgUrl!.isNotEmpty) {
+          try {
+            final epgSourceId = '${provider.id}_epg';
+            final xmltvSource = _sourceFactory.create(
+              epgSourceId,
+              MediaSourceType.xmltv,
+              {'sourceUrl': result.epgUrl!},
+            );
+            await _sourceRepo.register(xmltvSource);
+            await _catalogRepo.syncSource(epgSourceId);
+          } catch (e) {
+            _logger.warning('EPG sync failed for provider ${provider.id}', tag: 'ProviderSyncService', error: e);
+          }
+        }
+
         return ProviderSyncResult(provider: provider, success: true);
       } else {
         await _repository.updateProvider(

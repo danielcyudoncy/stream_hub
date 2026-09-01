@@ -60,8 +60,13 @@ class StalkerPortalException implements Exception {
   });
 
   @override
-  String toString() =>
-      'StalkerPortalException: $message (action: ${action ?? 'unknown'})';
+  String toString() {
+    final base = 'StalkerPortalException: $message (action: ${action ?? 'unknown'})';
+    if (originalError != null) {
+      return '$base\nCaused by: $originalError';
+    }
+    return base;
+  }
 }
 
 /// Low-level client for the Stalker Portal (MAG/STB middleware) HTTP API.
@@ -780,6 +785,8 @@ class StalkerPortalClient {
     final request = await _httpClient.getUrl(requestUri).timeout(_kRequestTimeout);
     request.headers.set(HttpHeaders.userAgentHeader, _kUserAgent);
     request.headers.set('X-User-Agent', 'Model: MAG250; Link: WiFi');
+    request.headers.set(HttpHeaders.acceptHeader, '*/*');
+    request.headers.set(HttpHeaders.acceptLanguageHeader, 'en-US,en;q=0.9');
     request.headers.set(HttpHeaders.cookieHeader, _cookieHeader());
     if (_token != null && _token!.isNotEmpty) {
       request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $_token');

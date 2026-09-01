@@ -174,31 +174,43 @@ class LiveTVController extends GetxController {
     super.onClose();
   }
 
-  @override
-  void onReady() {
-    super.onReady();
-    handleNavigationArguments();
+  /// Extracts a [MediaItem] from GetX navigation arguments, or returns null
+  /// when no channel argument was provided.
+  MediaItem? _extractChannelArg(dynamic args) {
+    if (args is Map) {
+      if (args['channel'] is MediaItem) return args['channel'] as MediaItem;
+      if (args['item'] is MediaItem) return args['item'] as MediaItem;
+    } else if (args is MediaItem) {
+      return args;
+    }
+    return null;
   }
 
   void handleNavigationArguments() {
-    final args = Get.arguments;
-    MediaItem? targetChannel;
-    if (args is Map) {
-      if (args['channel'] is MediaItem) {
-        targetChannel = args['channel'] as MediaItem;
-      } else if (args['item'] is MediaItem) {
-        targetChannel = args['item'] as MediaItem;
-      }
-    } else if (args is MediaItem) {
-      targetChannel = args;
-    }
+    final targetChannel = _extractChannelArg(Get.arguments);
+    if (targetChannel == null) return;
 
-    if (targetChannel != null) {
-      final matched = _allChannels
-              .firstWhereOrNull((c) => c.id == targetChannel!.id) ??
-          targetChannel;
-      if (activePlayingChannel.value?.id != matched.id) {
-        openChannel(matched);
+    // Prefer the fully-loaded Channel instance from _allChannels (which has
+    // streamUrl, correct metadata, etc.) over the raw MediaItem passed from
+    // search results, which may be missing URL metadata.
+    final matched = _allChannels.firstWhereOrNull((c) => c.id == targetChannel.id)
+        ?? targetChannel;
+
+    if (activePlayingChannel.value?.id != matched.id) {
+      openChannel(matched);
+      final matchCategory = matched.genres.isNotEmpty
+          ? matched.genres.first
+          : (matched.metadata['category_name']?.toString() ??
+             matched.metadata['groupTitle']?.toString() ??
+             matched.metadata['group']?.toString() ??
+             '');
+
+      if (matchCategory.isNotEmpty) {
+        final targetCat = matchCategory.trim().toLowerCase();
+        final foundCat = categories.firstWhereOrNull(
+          (c) => c.toLowerCase() == targetCat,
+        );
+        if (foundCat != null) setCategory(foundCat);
       }
     }
   }
@@ -244,23 +256,13 @@ class LiveTVController extends GetxController {
       await _loadRecentChannels();
       _updateCategoriesAndFilters(favIds);
 
-      final args = Get.arguments;
-      MediaItem? targetChannel;
-      if (args is Map) {
-        if (args['channel'] is MediaItem) {
-          targetChannel = args['channel'] as MediaItem;
-        } else if (args['item'] is MediaItem) {
-          targetChannel = args['item'] as MediaItem;
-        }
-      } else if (args is MediaItem) {
-        targetChannel = args;
-      }
-
-      if (targetChannel != null) {
-        final matched = _allChannels
-                .firstWhereOrNull((c) => c.id == targetChannel!.id) ??
-            targetChannel;
-        openChannel(matched);
+      // Process any channel passed via navigation arguments now that
+      // _allChannels is fully loaded, so firstWhereOrNull finds the correct
+      // Channel instance (with streamUrl) instead of falling back to the raw
+      // MediaItem from the search results.
+      final hasChannelArg = _extractChannelArg(Get.arguments) != null;
+      if (hasChannelArg) {
+        handleNavigationArguments();
       } else {
         // Restore last-watched channel from history if available
         final historyRepo = historyRepository ??
@@ -713,23 +715,28 @@ class LiveTVController extends GetxController {
   }
 
   void openChannel(MediaItem channel) {
-    _initInlinePlayer();
     activePlayingChannel.value = channel;
     featuredChannel.value = channel;
 
-    // Record last played channel in history
-    final historyRepo = historyRepository ??
-        (Get.isRegistered<HistoryRepository>()
-            ? Get.find<HistoryRepository>()
-            : null);
-    if (historyRepo != null) {
-      historyRepo.add(channel).then((_) => _loadRecentChannels());
-    }
+    // Defer heavy player initialization and state setup to the next frame
+    // to allow the UI to immediately paint the active (glowing) channel state
+    Future.delayed(Duration.zero, () {
+      _initInlinePlayer();
 
-    final itemsToPass = filteredChannels.isNotEmpty
-        ? filteredChannels.toList()
-        : (channels.isNotEmpty ? channels.toList() : [channel]);
-    inlinePlayerController?.setChannelList(itemsToPass, currentId: channel.id);
+      // Record last played channel in history
+      final historyRepo = historyRepository ??
+          (Get.isRegistered<HistoryRepository>()
+              ? Get.find<HistoryRepository>()
+              : null);
+      if (historyRepo != null) {
+        historyRepo.add(channel).then((_) => _loadRecentChannels());
+      }
+
+      final itemsToPass = filteredChannels.isNotEmpty
+          ? filteredChannels.toList()
+          : (channels.isNotEmpty ? channels.toList() : [channel]);
+      inlinePlayerController?.setChannelList(itemsToPass, currentId: channel.id);
+    });
   }
 
   final RxBool isFullscreenMode = false.obs;

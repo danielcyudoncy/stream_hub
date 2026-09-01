@@ -165,33 +165,39 @@ class TVGuidePage extends GetView<GuideController> {
                 // 1. Top Action Row: Title, Today Badge, View Mode Switch, Search, Refresh
                 Row(
                   children: [
-                    Text(
-                      'Live TV Guide',
-                      style: AppTypography.getDisplay(color: AppColors.primary).copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 26,
-                        shadows: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.4),
-                            blurRadius: 8.0,
+                    Expanded(
+                      child: Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 16,
+                        children: [
+                          Text(
+                            'Live TV Guide',
+                            style: AppTypography.getDisplay(color: AppColors.primary).copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 26,
+                              shadows: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(alpha: 0.4),
+                                  blurRadius: 8.0,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                            ),
+                            child: Text(
+                              'Live',
+                              style: AppTypography.getLabel(color: AppColors.textSecondary),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    AppSpacing.widthMD,
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-                      ),
-                      child: Text(
-                        'Live',
-                        style: AppTypography.getLabel(color: AppColors.textSecondary),
-                      ),
-                    ),
-                    const Spacer(),
 
                     // Dual View Mode Toggle Button (Grid ↔ Timeline)
                     if (liveCtrl != null)

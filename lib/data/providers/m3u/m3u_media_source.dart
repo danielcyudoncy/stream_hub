@@ -301,6 +301,7 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
         added: totalItems,
         updated: 0,
         removed: 0,
+        epgUrl: playlist.epgUrl,
         completedAt: DateTime.now(),
       );
     } catch (e) {

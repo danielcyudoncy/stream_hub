@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../core/helpers/platform_helper.dart';
+
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_shadows.dart';
 
@@ -36,16 +36,6 @@ class _TvFocusableState extends State<TvFocusable> {
 
   @override
   Widget build(BuildContext context) {
-    if (PlatformHelper.isMobile &&
-        !PlatformHelper.isTVDevice &&
-        !widget.autofocus &&
-        widget.focusNode == null) {
-      return GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: widget.child,
-      );
-    }
 
     final colorScheme = Theme.of(context).colorScheme;
     final focusColor = widget.focusColor ?? colorScheme.primary;

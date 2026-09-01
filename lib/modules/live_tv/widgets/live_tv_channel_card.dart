@@ -64,8 +64,14 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final GuideController? guideController =
         Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
     final now = DateTime.now();
+    final String tvgId = widget.channel.metadata['tvgId']?.toString() ?? '';
+    final String channelTitle = widget.channel.title;
+    
     final EPGProgram? currentProgram = guideController?.programs
-        .firstWhereOrNull((p) => p.channelId == widget.channel.id && p.isCurrentlyPlaying);
+        .firstWhereOrNull((p) => 
+          (p.channelId == tvgId || p.channelId == channelTitle || p.channelId == widget.channel.id) 
+          && p.isCurrentlyPlaying
+        );
 
     final double progress = currentProgram != null
         ? (now.difference(currentProgram.startTime).inSeconds /
@@ -79,11 +85,35 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
       onFocusChange: (hasKeyboardFocus) {
         if (mounted && _isFocused != hasKeyboardFocus) {
           setState(() => _isFocused = hasKeyboardFocus);
+          if (hasKeyboardFocus) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          }
         }
       },
       onShowFocusHighlight: (show) {
         if (mounted && _isFocused != show) {
           setState(() => _isFocused = show);
+          if (show) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          }
         }
       },
       actions: <Type, Action<Intent>>{
@@ -394,8 +424,14 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final GuideController? guideController =
         Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
     final now = DateTime.now();
+    final String tvgId = widget.channel.metadata['tvgId']?.toString() ?? '';
+    final String channelTitle = widget.channel.title;
+    
     final EPGProgram? currentProgram = guideController?.programs
-        .firstWhereOrNull((p) => p.channelId == widget.channel.id && p.isCurrentlyPlaying);
+        .firstWhereOrNull((p) => 
+          (p.channelId == tvgId || p.channelId == channelTitle || p.channelId == widget.channel.id) 
+          && p.isCurrentlyPlaying
+        );
 
     final double progress = currentProgram != null
         ? (now.difference(currentProgram.startTime).inSeconds /
@@ -420,11 +456,35 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
       onFocusChange: (hasKeyboardFocus) {
         if (mounted && _isFocused != hasKeyboardFocus) {
           setState(() => _isFocused = hasKeyboardFocus);
+          if (hasKeyboardFocus) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          }
         }
       },
       onShowFocusHighlight: (show) {
         if (mounted && _isFocused != show) {
           setState(() => _isFocused = show);
+          if (show) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          }
         }
       },
       actions: <Type, Action<Intent>>{
