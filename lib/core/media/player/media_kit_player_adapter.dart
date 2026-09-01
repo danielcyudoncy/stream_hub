@@ -33,7 +33,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   double _currentVolume = 1.0;
   bool _currentMuted = false;
   PlaybackSpeed _currentSpeed = PlaybackSpeed.speed1_0;
-  AspectRatioMode _currentAspectRatio = AspectRatioMode.ratio16x9;
+  final ValueNotifier<AspectRatioMode> _aspectRatioNotifier = ValueNotifier(AspectRatioMode.ratio16x9);
   PlayerQuality _currentQuality = PlayerQuality.auto;
 
   StreamSubscription<Duration>? _positionSub;
@@ -82,22 +82,28 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   Widget buildPlayerWidget() {
     final controller = _videoController;
     if (controller == null) return const SizedBox.shrink();
-    return Video(
-      controller: controller,
-      controls: NoVideoControls,
-      subtitleViewConfiguration: const SubtitleViewConfiguration(
-        style: TextStyle(
-          height: 1.4,
-          fontSize: 22.0,
-          letterSpacing: 0.0,
-          wordSpacing: 0.0,
-          color: Color(0xffffffff),
-          fontWeight: FontWeight.w600,
-          backgroundColor: Color(0x99000000),
-        ),
-        textAlign: TextAlign.center,
-        padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-      ),
+    return ValueListenableBuilder<AspectRatioMode>(
+      valueListenable: _aspectRatioNotifier,
+      builder: (context, aspectMode, child) {
+        return Video(
+          controller: controller,
+          fit: aspectMode.toBoxFit(),
+          controls: NoVideoControls,
+          subtitleViewConfiguration: const SubtitleViewConfiguration(
+            style: TextStyle(
+              height: 1.4,
+              fontSize: 22.0,
+              letterSpacing: 0.0,
+              wordSpacing: 0.0,
+              color: Color(0xffffffff),
+              fontWeight: FontWeight.w600,
+              backgroundColor: Color(0x99000000),
+            ),
+            textAlign: TextAlign.center,
+            padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          ),
+        );
+      },
     );
   }
 
@@ -425,7 +431,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   PlaybackSpeed get speed => _currentSpeed;
 
   @override
-  AspectRatioMode get aspectRatio => _currentAspectRatio;
+  AspectRatioMode get aspectRatio => _aspectRatioNotifier.value;
 
   @override
   PlayerQuality get currentQuality => _currentQuality;
@@ -537,7 +543,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
 
   @override
   Future<void> setAspectRatio(AspectRatioMode mode) async {
-    _currentAspectRatio = mode;
+    _aspectRatioNotifier.value = mode;
   }
 
   @override

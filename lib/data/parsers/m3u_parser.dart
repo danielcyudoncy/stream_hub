@@ -29,6 +29,7 @@ class M3UParser {
 
     String? encoding;
     bool hasValidHeader = false;
+    String? epgUrl;
 
     // Strip UTF-8 BOM if present
     if (content.startsWith('﻿')) {
@@ -40,6 +41,7 @@ class M3UParser {
         channels: const [],
         warnings: ['Playlist exceeds maximum size of ${kMaxPlaylistSizeBytes ~/ (1024 * 1024)}MB'],
         hasValidHeader: content.startsWith(_extm3u),
+        epgUrl: epgUrl,
       );
     }
 
@@ -52,6 +54,10 @@ class M3UParser {
         final encMatch = RegExp(r'charset="?([^"\s]+)"?').firstMatch(header);
         if (encMatch != null) {
           encoding = encMatch.group(1)?.toLowerCase();
+        }
+        final epgMatch = RegExp(r'(?:url-tvg|x-tvg-url)="?([^"\s]+)"?').firstMatch(header);
+        if (epgMatch != null) {
+          epgUrl = epgMatch.group(1);
         }
       }
     }
@@ -163,16 +169,17 @@ class M3UParser {
 
     return M3UPlaylistResult(
       channels: channels,
-      groups: groups.toList()..sort(),
-      languages: languages.toList()..sort(),
-      countries: countries.toList()..sort(),
-      totalEntries: channels.length,
+      groups: groups.toList(growable: false),
+      languages: languages.toList(growable: false),
+      countries: countries.toList(growable: false),
+      totalEntries: validEntries + invalidEntries + duplicateEntries,
       validEntries: validEntries,
       invalidEntries: invalidEntries,
       duplicateEntries: duplicateEntries,
       warnings: warnings,
       encoding: encoding,
       hasValidHeader: hasValidHeader,
+      epgUrl: epgUrl,
     );
   }
 

@@ -70,6 +70,25 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
     _startControlsTimer();
   }
 
+  IconData _getAspectRatioIcon(AspectRatioMode mode) {
+    switch (mode) {
+      case AspectRatioMode.fit:
+        return Icons.fit_screen_rounded;
+      case AspectRatioMode.fill:
+        return Icons.crop_free_rounded;
+      case AspectRatioMode.ratio16x9:
+        return Icons.crop_16_9_rounded;
+      case AspectRatioMode.ratio4x3:
+        return Icons.crop_5_4_rounded;
+      case AspectRatioMode.stretch:
+        return Icons.aspect_ratio_rounded;
+      case AspectRatioMode.zoom:
+        return Icons.zoom_out_map_rounded;
+      case AspectRatioMode.original:
+        return Icons.crop_original_rounded;
+    }
+  }
+
   void _showHudToast(String message) {
     _hudToastTimer?.cancel();
     setState(() => _hudToastText = message);
@@ -130,14 +149,16 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                     ],
                   ),
                   const Divider(color: Colors.white24, height: 24),
-                  AudioTrackSelector(
-                    tracks: tracks,
-                    selectedTrackId: selected,
-                    onSelected: (trackId) {
-                      playerCtrl.setAudioTrack(trackId);
-                      _showHudToast('Audio: $trackId');
-                      Navigator.of(ctx).pop();
-                    },
+                  Flexible(
+                    child: AudioTrackSelector(
+                      tracks: tracks,
+                      selectedTrackId: selected,
+                      onSelected: (trackId) {
+                        playerCtrl.setAudioTrack(trackId);
+                        _showHudToast('Audio: $trackId');
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -189,14 +210,16 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                     ],
                   ),
                   const Divider(color: Colors.white24, height: 24),
-                  SubtitleSelector(
-                    tracks: tracks,
-                    selectedTrackId: selected,
-                    onSelected: (trackId) {
-                      playerCtrl.setSubtitleTrack(trackId);
-                      _showHudToast('Subtitles: $trackId');
-                      Navigator.of(ctx).pop();
-                    },
+                  Flexible(
+                    child: SubtitleSelector(
+                      tracks: tracks,
+                      selectedTrackId: selected,
+                      onSelected: (trackId) {
+                        playerCtrl.setSubtitleTrack(trackId);
+                        _showHudToast('Subtitles: $trackId');
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -635,10 +658,14 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                   child: SafeArea(
                     top: isFullscreen,
                     bottom: false,
-                    child: Row(
-                      children: [
-                        const SizedBox(width: AppSpacing.xs),
-                        // Red Live Badge
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final bool isCompact = constraints.maxWidth < 350;
+                        
+                        return Row(
+                          children: [
+                            const SizedBox(width: AppSpacing.xs),
+                            // Red Live Badge
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6.0,
@@ -692,7 +719,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                         ),
 
                         // Multi-Stream Indicator
-                        if (channel.streamUrls.length > 1) ...[
+                        if (!isCompact && channel.streamUrls.length > 1) ...[
                           Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 6.0,
@@ -716,10 +743,11 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                         ],
 
                         // Category Tag
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 80.0),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
+                        if (!isCompact)
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 80.0),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
                               horizontal: 6.0,
                               vertical: 2.0,
                             ),
@@ -745,7 +773,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4.0),
+                        if (!isCompact) const SizedBox(width: 4.0),
 
                         // Stop & Close Button
                         TvFocusable(
@@ -790,12 +818,14 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
           ),
+        ),
+      ),
 
           // 4. Bottom Controls Overlay & Fullscreen Expand Button
           IgnorePointer(
@@ -824,8 +854,12 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                   child: SafeArea(
                     top: false,
                     bottom: isFullscreen,
-                    child: Row(
-                      children: [
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final bool isCompact = constraints.maxWidth < 350;
+                        
+                        return Row(
+                          children: [
                         // Play/Pause Icon Button
                         Obx(() {
                           final state = playerCtrl
@@ -859,9 +893,10 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                             ),
                           );
                         }),
-                        const SizedBox(width: 4.0),
+                        if (!isCompact) const SizedBox(width: 4.0),
 
                         // Stop Button
+                        if (!isCompact)
                         TvFocusable(
                           onTap: () {
                             _showControlsTemporarily();
@@ -884,7 +919,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 6.0),
+                        if (!isCompact) const SizedBox(width: 6.0),
 
                         // Channel Info Text
                         Expanded(
@@ -902,9 +937,10 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 4.0),
+                        if (!isCompact) const SizedBox(width: 4.0),
 
                         // Favorite Toggle
+                        if (!isCompact)
                         Obx(() {
                           final isFav =
                               widget.controller.favorites.any(
@@ -938,7 +974,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                             ),
                           );
                         }),
-                        const SizedBox(width: 2.0),
+                        if (!isCompact) const SizedBox(width: 2.0),
 
                         if (isFullscreen) ...[
                           // Aspect Ratio Cycle Button
@@ -954,11 +990,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                               child: IconButton(
                                 padding: const EdgeInsets.all(4.0),
                                 constraints: const BoxConstraints(),
-                                icon: const Icon(
-                                  Icons.aspect_ratio_rounded,
-                                  color: Colors.white,
-                                  size: 22.0,
-                                ),
+                                icon: Obx(() {
+                                  final aspectMode =
+                                      playerCtrl.playbackController.engine.aspectRatioRx.value;
+                                  return Icon(
+                                    _getAspectRatioIcon(aspectMode),
+                                    color: Colors.white,
+                                    size: 22.0,
+                                  );
+                                }),
                                 onPressed: () {
                                   _showControlsTemporarily();
                                   _cycleAspectRatio(playerCtrl);
@@ -1096,12 +1136,14 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
           ),
+        ),
+      ),
 
           // 5. On-Screen HUD Toast Notification
           if (_hudToastText != null)

@@ -978,15 +978,17 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
         itemCount: filtered.length,
         itemBuilder: (context, index) {
           final item = filtered[index];
-          final isPlaying =
-              controller.activePlayingChannel.value?.id == item.id;
-          return FreeTvChannelCard(
-            channel: item,
-            isList: true,
-            isPlaying: isPlaying,
-            onTap: () => controller.openChannel(item),
-            onFavorite: () => controller.toggleFavorite(item),
-          );
+          return Obx(() {
+            final isPlaying =
+                controller.activePlayingChannel.value?.id == item.id;
+            return FreeTvChannelCard(
+              channel: item,
+              isList: true,
+              isPlaying: isPlaying,
+              onTap: () => controller.openChannel(item),
+              onFavorite: () => controller.toggleFavorite(item),
+            );
+          });
         },
       );
     }
@@ -1003,15 +1005,17 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
       itemCount: filtered.length,
       itemBuilder: (context, index) {
         final item = filtered[index];
-        final isPlaying =
-            controller.activePlayingChannel.value?.id == item.id;
-        return FreeTvChannelCard(
-          channel: item,
-          isList: false,
-          isPlaying: isPlaying,
-          onTap: () => controller.openChannel(item),
-          onFavorite: () => controller.toggleFavorite(item),
-        );
+        return Obx(() {
+          final isPlaying =
+              controller.activePlayingChannel.value?.id == item.id;
+          return FreeTvChannelCard(
+            channel: item,
+            isList: false,
+            isPlaying: isPlaying,
+            onTap: () => controller.openChannel(item),
+            onFavorite: () => controller.toggleFavorite(item),
+          );
+        });
       },
     );
   }

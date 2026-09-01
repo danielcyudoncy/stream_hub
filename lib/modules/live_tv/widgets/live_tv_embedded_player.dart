@@ -72,6 +72,25 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     _startControlsTimer();
   }
 
+  IconData _getAspectRatioIcon(AspectRatioMode mode) {
+    switch (mode) {
+      case AspectRatioMode.fit:
+        return Icons.fit_screen_rounded;
+      case AspectRatioMode.fill:
+        return Icons.crop_free_rounded;
+      case AspectRatioMode.ratio16x9:
+        return Icons.crop_16_9_rounded;
+      case AspectRatioMode.ratio4x3:
+        return Icons.crop_5_4_rounded;
+      case AspectRatioMode.stretch:
+        return Icons.aspect_ratio_rounded;
+      case AspectRatioMode.zoom:
+        return Icons.zoom_out_map_rounded;
+      case AspectRatioMode.original:
+        return Icons.crop_original_rounded;
+    }
+  }
+
   void _showHudToast(String message) {
     _hudToastTimer?.cancel();
     setState(() => _hudToastText = message);
@@ -132,14 +151,16 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                     ],
                   ),
                   const Divider(color: Colors.white24, height: 24),
-                  AudioTrackSelector(
-                    tracks: tracks,
-                    selectedTrackId: selected,
-                    onSelected: (trackId) {
-                      playerCtrl.setAudioTrack(trackId);
-                      _showHudToast('Audio: $trackId');
-                      Navigator.of(ctx).pop();
-                    },
+                  Flexible(
+                    child: AudioTrackSelector(
+                      tracks: tracks,
+                      selectedTrackId: selected,
+                      onSelected: (trackId) {
+                        playerCtrl.setAudioTrack(trackId);
+                        _showHudToast('Audio: $trackId');
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -191,14 +212,16 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                     ],
                   ),
                   const Divider(color: Colors.white24, height: 24),
-                  SubtitleSelector(
-                    tracks: tracks,
-                    selectedTrackId: selected,
-                    onSelected: (trackId) {
-                      playerCtrl.setSubtitleTrack(trackId);
-                      _showHudToast('Subtitles: $trackId');
-                      Navigator.of(ctx).pop();
-                    },
+                  Flexible(
+                    child: SubtitleSelector(
+                      tracks: tracks,
+                      selectedTrackId: selected,
+                      onSelected: (trackId) {
+                        playerCtrl.setSubtitleTrack(trackId);
+                        _showHudToast('Subtitles: $trackId');
+                        Navigator.of(ctx).pop();
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -945,11 +968,15 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                               child: IconButton(
                                 padding: const EdgeInsets.all(4.0),
                                 constraints: const BoxConstraints(),
-                                icon: const Icon(
-                                  Icons.aspect_ratio_rounded,
-                                  color: Colors.white,
-                                  size: 22.0,
-                                ),
+                                icon: Obx(() {
+                                  final aspectMode =
+                                      playerCtrl.playbackController.engine.aspectRatioRx.value;
+                                  return Icon(
+                                    _getAspectRatioIcon(aspectMode),
+                                    color: Colors.white,
+                                    size: 22.0,
+                                  );
+                                }),
                                 onPressed: () {
                                   _showControlsTemporarily();
                                   _cycleAspectRatio(playerCtrl);

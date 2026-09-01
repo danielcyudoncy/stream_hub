@@ -505,10 +505,17 @@ class HomePage extends GetView<HomeController> {
   }
 
   void _playChannel(MediaItem item) {
-    Get.toNamed(
-      AppRoutes.liveTV,
-      arguments: {'channel': item},
-    );
+    if (item.providerId == 'free_live_tv') {
+      Get.toNamed(
+        AppRoutes.freeLiveTV,
+        arguments: {'channel': item},
+      );
+    } else {
+      Get.toNamed(
+        AppRoutes.liveTV,
+        arguments: {'channel': item},
+      );
+    }
   }
 
   Future<void> _resumeContinueWatching(MediaItem item) async {

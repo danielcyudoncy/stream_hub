@@ -41,12 +41,19 @@ import 'package:stream_hub/modules/authentication/services/auth_local_storage_se
 import 'package:stream_hub/modules/authentication/repositories/auth_repository.dart';
 import 'package:stream_hub/modules/authentication/auth_controller.dart';
 
+import 'package:stream_hub/data/engines/epg_engine.dart';
+import 'package:stream_hub/data/engines/timeline_engine.dart';
+import 'package:stream_hub/data/services/xmltv_download_service.dart';
+import 'package:stream_hub/data/services/xmltv_cache_service.dart';
+import 'package:stream_hub/modules/epg/bindings/epg_binding.dart';
+
 class AppBinding extends Bindings {
   @override
   void dependencies() {
     StreamEngineBinding().dependencies();
     IptvCoreBinding().dependencies();
     MediaBinding().dependencies();
+    EPGBinding().dependencies();
     Get.find<DatabaseService>();
     final settingsRepo = SettingsRepository();
     final profileRepo = ProfileRepository();
@@ -60,10 +67,16 @@ class AppBinding extends Bindings {
     Get.put<ProfileService>(ProfileService(profileRepo), permanent: true);
     Get.put<ProviderStorageService>(ProviderStorageService(providerRepo), permanent: true);
     Get.put<CacheService>(CacheService(settingsRepo), permanent: true);
+    
+    Get.put<EPGEngine>(EPGEngine(), permanent: true);
+    Get.put<TimelineEngine>(TimelineEngine(), permanent: true);
+    
+    final loggingService = Get.find<LoggingService>();
+    Get.put<XMLTVDownloadService>(XMLTVDownloadService(loggingService), permanent: true);
+    Get.put<XMLTVCacheService>(XMLTVCacheService(loggingService), permanent: true);
 
     final mediaCatalog = Get.find<MediaCatalog>();
     final mediaSourceManager = Get.find<MediaSourceManager>();
-    final loggingService = Get.find<LoggingService>();
     Get.find<MediaSourceRepository>();
 
     final catalogRepo = CatalogRepositoryImpl(

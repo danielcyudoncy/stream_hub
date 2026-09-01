@@ -111,7 +111,6 @@ class DearbulutFreeTvRemoteDataSource implements FreeTvRemoteDataSource {
     final request = await _httpClient.getUrl(uri).timeout(timeout);
     request.headers.set('User-Agent', 'StreamHubPro/1.0 (FreeLiveTV)');
     request.headers.set('Accept', 'application/json, */*');
-    request.headers.set('Accept-Encoding', 'gzip, deflate');
 
     final response = await request.close().timeout(timeout);
     if (response.statusCode != HttpStatus.ok) {
@@ -121,15 +120,10 @@ class DearbulutFreeTvRemoteDataSource implements FreeTvRemoteDataSource {
       );
     }
 
-    final isGzip = response.headers.value(HttpHeaders.contentEncodingHeader)?.contains('gzip') ?? false;
-    Stream<List<int>> stream = response;
-    if (isGzip) {
-      stream = response.transform(gzip.decoder);
-    }
-
-    final bytes = await stream.fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
+    final bytes = await response.fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
     final decodedText = utf8.decode(bytes, allowMalformed: true);
     final dynamic parsed = jsonDecode(decodedText);
+    
     if (parsed is List) {
       return parsed;
     }

@@ -44,10 +44,47 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
     final isTV = PlatformHelper.isTV;
 
     return FocusableActionDetector(
+      onFocusChange: (hasKeyboardFocus) {
+        if (mounted && _isFocused != hasKeyboardFocus) {
+          setState(() => _isFocused = hasKeyboardFocus);
+          if (hasKeyboardFocus) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          }
+        }
+      },
       onShowFocusHighlight: (show) {
         if (mounted && _isFocused != show) {
           setState(() => _isFocused = show);
+          if (show) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Scrollable.ensureVisible(
+                  context,
+                  alignment: 0.5,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                );
+              }
+            });
+          }
         }
+      },
+      actions: <Type, Action<Intent>>{
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) => widget.onWatch?.call(),
+        ),
+        ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+          onInvoke: (_) => widget.onWatch?.call(),
+        ),
       },
       mouseCursor: SystemMouseCursors.click,
       child: GestureDetector(

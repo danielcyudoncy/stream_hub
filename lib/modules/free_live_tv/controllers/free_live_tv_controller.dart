@@ -12,6 +12,7 @@ import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
 import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
+import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/repositories/free_tv_repository.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/settings/settings_controller.dart';
@@ -155,6 +156,32 @@ class FreeLiveTvController extends GetxController {
                 recommended.first)
             : _allChannels.first;
         featuredChannel.value = heroCandidate;
+      }
+
+      final args = Get.arguments;
+      MediaItem? targetChannel;
+      if (args is Map) {
+        if (args['channel'] is MediaItem) {
+          targetChannel = args['channel'] as MediaItem;
+        } else if (args['item'] is MediaItem) {
+          targetChannel = args['item'] as MediaItem;
+        }
+      } else if (args is MediaItem) {
+          targetChannel = args;
+      }
+
+      if (targetChannel != null) {
+        final matched = _allChannels.firstWhereOrNull((c) => c.toMediaItem().id == targetChannel!.id);
+        if (matched != null) {
+          openChannel(matched, streamIndex: 0);
+          if (matched.categories.isNotEmpty) {
+            final targetCat = matched.categories.first.trim().toLowerCase();
+            final foundCat = categories.firstWhereOrNull((c) => c.toLowerCase() == targetCat);
+            if (foundCat != null) {
+              setCategory(foundCat);
+            }
+          }
+        }
       }
     } catch (e, stack) {
       _logger.error('Error loading Free Live TV catalog',
@@ -640,17 +667,21 @@ class FreeLiveTvController extends GetxController {
       return;
     }
 
+    // Update active channel instantly so the UI glows right away
+    activePlayingChannel.value = channel;
+    
+    // Defer heavy player initialization/stopping to the next frame to ensure the UI paints immediately
+    await Future.delayed(Duration.zero);
+    
     _initInlinePlayer();
-
     // Stop any currently-playing stream BEFORE resolving the new channel.
     // Otherwise a failing new stream would surface an error overlay on top of
     // the previous channel's still-active playback. Clearing the status message
     // here also prevents a stale error/fallback banner from lingering across
     // channel switches or fallback attempts.
-    if (activePlayingChannel.value != null) {
+    if (inlinePlayerController != null) {
       await inlinePlayerController?.stop();
     }
-    activePlayingChannel.value = channel;
     activeStreamIndex.value = streamIndex;
     playbackStatusMessage.value = '';
     _stopPlayerLoading(complete: false);
