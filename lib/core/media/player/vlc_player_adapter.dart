@@ -479,6 +479,12 @@ class VlcPlayerAdapter implements PlayerAdapter {
   }
 
   @override
+  Future<void> enterPictureInPicture() async {}
+
+  @override
+  bool get isInPip => false;
+
+  @override
   Future<void> setSpeed(PlaybackSpeed speed) async {
     _currentSpeed = speed;
     final controller = _controller;

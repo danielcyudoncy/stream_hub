@@ -841,6 +841,9 @@ class PlayerController extends GetxController {
   Future<void> setVolume(double volume) =>
       playbackController.setVolume(volume);
   Future<void> setMuted(bool muted) => playbackController.setMuted(muted);
+  Future<void> enterPictureInPicture() =>
+      playbackController.enterPictureInPicture();
+  bool get isInPip => playbackController.isInPip;
 
   Future<void> toggleFavorite() async {
     final item = currentItem;

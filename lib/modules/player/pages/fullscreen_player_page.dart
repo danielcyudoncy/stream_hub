@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:floating/floating.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
+import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
+import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
@@ -29,6 +31,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   final PlayerController _controller = Get.find<PlayerController>();
   Floating? _floating;
   StreamSubscription<PlaybackState>? _stateSub;
+  StreamSubscription<PlaybackEngineKind>? _engineKindSub;
   bool _controlsVisible = true;
   Timer? _controlsTimer;
 
@@ -40,17 +43,21 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
     super.initState();
     if (_isPiPSupported) {
       _floating = Floating();
+      _injectFloatingIntoAdapter();
     }
     _setupPlayer();
+  }
+
+  void _injectFloatingIntoAdapter() {
+    final a = _controller.playbackController.engine.adapter;
+    if (a is MediaKitPlayerAdapter && _floating != null) {
+      a.setFloating(_floating!);
+    }
   }
 
   void _setupPlayer() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _stateSub = _controller.playbackController.engine.stateRx.listen((state) {
-      // NOTE: Do NOT call setState() here. The Obx widgets in the tree
-      // already reactively rebuild for state/engine changes. A full
-      // StatefulWidget rebuild can destabilize the MediaKit Video surface
-      // causing the video to vanish while audio continues.
       if (state == PlaybackState.playing) {
         _autoHideControls();
       } else if (state == PlaybackState.stopped &&
@@ -58,13 +65,14 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                   is NativeActivityPlayerAdapter ||
               _controller.playbackController.engine.adapter
                   is IjkPlayerAdapter)) {
-        // The native Activity finished (e.g. user pressed back on the TV remote
-        // inside the native player UI). Pop the fullscreen page so the app
-        // returns to the previous screen.
         _stateSub?.cancel();
         _stateSub = null;
         Get.back();
       }
+    });
+    _engineKindSub = _controller.playbackController.engine.engineKindRx.stream
+        .listen((_) {
+      _injectFloatingIntoAdapter();
     });
     _autoHideControls();
   }
@@ -81,6 +89,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   @override
   void dispose() {
     _stateSub?.cancel();
+    _engineKindSub?.cancel();
     _controlsTimer?.cancel();
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.manual,
@@ -337,9 +346,6 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
             PlayerControls(
               controller: _controller,
               isFullscreen: true,
-              onPiPPressed: _isPiPSupported && _floating != null
-                  ? () => _floating!.enable(ImmediatePiP())
-                  : null,
             ),
           ],
         ),

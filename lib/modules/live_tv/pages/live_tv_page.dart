@@ -87,7 +87,7 @@ class LiveTVPage extends GetView<LiveTVController> {
               width: double.infinity,
               height: double.infinity,
               child: LiveTvEmbeddedPlayer(
-                key: controller.embeddedPlayerKey,
+                key: const ValueKey('live_tv_fullscreen_player'),
                 controller: controller,
                 isFullscreen: true,
               ),
@@ -112,7 +112,7 @@ class LiveTVPage extends GetView<LiveTVController> {
                     _buildTopAppBar(context, isList),
                     Expanded(
                       child: LiveTvEmbeddedPlayer(
-                        key: controller.embeddedPlayerKey,
+                        key: const ValueKey('live_tv_landscape_player'),
                         controller: controller,
                         isFullscreen: false,
                       ),
@@ -218,7 +218,7 @@ class LiveTVPage extends GetView<LiveTVController> {
 
             // 2. Fixed Pinned Top Player (Never scrolls away!)
             LiveTvEmbeddedPlayer(
-              key: controller.embeddedPlayerKey,
+              key: const ValueKey('live_tv_portrait_player'),
               controller: controller,
               isFullscreen: false,
             ),

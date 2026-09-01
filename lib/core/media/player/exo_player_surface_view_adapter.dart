@@ -493,6 +493,12 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
       _invoke('setSubtitleTrack', {'trackId': trackId});
 
   @override
+  Future<void> enterPictureInPicture() async {}
+
+  @override
+  bool get isInPip => false;
+
+  @override
   Future<void> setSpeed(PlaybackSpeed speed) async {
     _currentSpeed = speed;
     await _invoke('setSpeed', {'speed': speed.value});

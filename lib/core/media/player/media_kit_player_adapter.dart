@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:floating/floating.dart';
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart' as mk;
 import 'package:media_kit_video/media_kit_video.dart';
@@ -52,6 +53,9 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
   int _videoHeight = 0;
 
   final bool _hardwareDecode;
+
+  Floating? _floating;
+  bool _inPip = false;
 
   MediaKitPlayerAdapter({
     LoggingService? logger,
@@ -551,6 +555,10 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     _currentQuality = quality;
   }
 
+  void setFloating(Floating floating) {
+    _floating = floating;
+  }
+
   @override
   Future<void> setVolume(double volume) async {
     _currentVolume = volume.clamp(0.0, 1.0);
@@ -594,4 +602,14 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
 
   @override
   Stream<String> get subtitleStream => _subtitleController.stream;
+
+  @override
+  Future<void> enterPictureInPicture() async {
+    if (_floating == null) return;
+    _inPip = true;
+    await _floating!.enable(ImmediatePiP());
+  }
+
+  @override
+  bool get isInPip => _inPip;
 }

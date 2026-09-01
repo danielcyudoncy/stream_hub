@@ -107,6 +107,8 @@ class PlaybackController extends GetxController {
   Future<void> setAudioTrack(String trackId) => engine.setAudioTrack(trackId);
   Future<void> setVolume(double volume) => engine.setVolume(volume);
   Future<void> setMuted(bool muted) => engine.setMuted(muted);
+  Future<void> enterPictureInPicture() => engine.enterPictureInPicture();
+  bool get isInPip => engine.isInPip;
 
   void addStateListener(void Function(PlaybackState) listener) =>
       engine.addStateListener(listener);
