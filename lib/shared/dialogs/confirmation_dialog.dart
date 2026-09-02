@@ -65,7 +65,11 @@ class DeleteDialog extends StatelessWidget {
       message: message,
       confirmText: 'Delete',
       isDestructive: true,
-      onConfirm: onConfirm,
+      onCancel: () => Navigator.of(context).pop(false),
+      onConfirm: () {
+        onConfirm?.call();
+        Navigator.of(context).pop(true);
+      },
     );
   }
 }

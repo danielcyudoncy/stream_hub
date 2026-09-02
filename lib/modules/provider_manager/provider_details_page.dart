@@ -181,12 +181,24 @@ class ProviderDetailsPage extends GetView<ProviderManagerController> {
     return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 
-  void _showDeleteDialog(BuildContext context, ProviderModel provider) {
-    Get.dialog(DeleteDialog(
-      title: 'Delete Provider',
-      message: 'Are you sure you want to delete "${provider.name}"? This action cannot be undone.',
-      onConfirm: () => controller.deleteProvider(provider.id),
-    ));
+  Future<void> _showDeleteDialog(BuildContext context, ProviderModel provider) async {
+    final confirmed = await Get.dialog<bool>(
+      DeleteDialog(
+        title: 'Delete Provider',
+        message: 'Are you sure you want to delete "${provider.name}"? This action cannot be undone.',
+      ),
+    );
+    if (confirmed != true) return;
+    final deleted = await controller.deleteProvider(provider.id);
+    if (!deleted) return;
+    // Navigate back before showing the snackbar: in GetX, showing a snackbar
+    // and then calling Get.back() immediately swallows the back navigation.
+    if (context.mounted) {
+      Navigator.of(context).pop();
+    } else {
+      Get.back();
+    }
+    controller.showDeletedSnackbar(provider.name);
   }
 }
 

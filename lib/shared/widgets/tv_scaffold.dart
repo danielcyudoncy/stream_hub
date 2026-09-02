@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import '../../core/media/enums/playback_state.dart';
@@ -29,6 +30,7 @@ class _TvScaffoldState extends State<TvScaffold> {
   bool _isExpanded = false;
   Timer? _clockTimer;
   DateTime _currentTime = DateTime.now();
+  final FocusNode _sidebarFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -43,6 +45,7 @@ class _TvScaffoldState extends State<TvScaffold> {
   @override
   void dispose() {
     _clockTimer?.cancel();
+    _sidebarFocusNode.dispose();
     super.dispose();
   }
 
@@ -92,6 +95,22 @@ class _TvScaffoldState extends State<TvScaffold> {
     AppRoutes.settings, // 8
   ];
 
+  /// Allows the D-pad Left key to move focus from the main content into the
+  /// sidebar. The sidebar and body are siblings in a [Stack], so Flutter's
+  /// default widget-order focus traversal cannot reach across them. Explicitly
+  /// transferring focus to the sidebar avoids the sidebar becoming unreachable
+  /// on TV / 10-foot navigation.
+  KeyEventResult _handleBodyKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    final isLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
+    if (!isLeft) return KeyEventResult.ignored;
+    if (_sidebarFocusNode.canRequestFocus) {
+      _sidebarFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   void _onItemTapped(int index) {
     if (index < 0 || index >= _rootRoutes.length) return;
     final targetRoute = _rootRoutes[index];
@@ -112,6 +131,7 @@ class _TvScaffoldState extends State<TvScaffold> {
             left: 96.0,
             child: Focus(
               autofocus: true,
+              onKeyEvent: _handleBodyKeyEvent,
               child: Column(
                 children: [
                   const SyncProgressBar(),
@@ -140,6 +160,7 @@ class _TvScaffoldState extends State<TvScaffold> {
             top: 0,
             bottom: 0,
             child: Focus(
+              focusNode: _sidebarFocusNode,
               onFocusChange: (hasFocus) {
                 if (mounted && _isExpanded != hasFocus) {
                   setState(() => _isExpanded = hasFocus);

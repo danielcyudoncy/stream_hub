@@ -135,26 +135,39 @@ class ProviderManagerController extends GetxController {
     }
   }
 
-  Future<void> deleteProvider(String id) async {
+  Future<bool> deleteProvider(String id) async {
     try {
       isLoading.value = true;
       errorMessage.value = '';
-      final provider = providers.firstWhereOrNull((p) => p.id == id);
       await _repository.deleteProvider(id);
       await loadProviders();
+      return true;
+    } on ApplicationException catch (e) {
+      errorMessage.value = e.message;
+      return false;
+    } catch (e) {
+      errorMessage.value = 'Failed to delete provider.';
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  /// Shows the deletion confirmation snackbar. Kept separate from
+  /// [deleteProvider] so the caller can navigate away first: in GetX, showing a
+  /// snackbar and then calling `Get.back()` immediately swallows the back
+  /// navigation, leaving the app stuck on the removed provider's page.
+  void showDeletedSnackbar(String name) {
+    try {
       Get.snackbar(
         'Deleted',
-        'Provider "${provider?.name ?? id}" removed.',
+        'Provider "$name" removed.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
         colorText: Get.theme.colorScheme.onSurface,
       );
-    } on ApplicationException catch (e) {
-      errorMessage.value = e.message;
-    } catch (e) {
-      errorMessage.value = 'Failed to delete provider.';
-    } finally {
-      isLoading.value = false;
+    } catch (_) {
+      // Intentionally ignored; the snackbar is purely cosmetic.
     }
   }
 

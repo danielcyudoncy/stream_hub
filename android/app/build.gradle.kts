@@ -43,7 +43,17 @@ android {
             // flutter_vlc_player ships large libvlc .so files per ABI; keep
             // them uncompressed so Android can load them at runtime.
             useLegacyPackaging = true
-            excludes += setOf("**/x86_64/**", "**/x86/**")
+            // Only exclude VLC's own native binaries, not entire ABI dirs —
+            // excluding x86/x86_64 would strip Flutter's libflutter.so and break
+            // x86 emulator runs.
+            excludes += setOf(
+                "**/libvlc.so",
+                "**/libvlcjni.so",
+                "**/libxcompat.so",
+                "**/libxloop.so",
+                "**/libxloop2.so",
+                "**/libxmp.so",
+            )
         }
     }
 }
