@@ -401,6 +401,12 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
   /// is entered, switch to the Xtream provider type and extract the
   /// credentials and base server URL from the link.
   void _handleServerUrlChanged() {
+    // Only auto-convert Xtream panel export links when the user is actually
+    // configuring an Xtream provider. M3U links (which commonly end in
+    // get.php/player_api.php too) must be left untouched, otherwise the full
+    // playlist URL is stripped down to a bare server host and the provider
+    // cannot be added.
+    if (_selectedType.value != ProviderType.xtream) return;
     final text = _serverUrlController.text;
     final parts = XtreamUrlDetector.parse(text);
     if (parts == null) return;
