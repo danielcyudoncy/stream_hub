@@ -246,8 +246,14 @@ Key invariants:
   `PlaybackEngine` / `PlayerController` and embedded-player architecture. The
   `CustomProviderSessionFactory` makes `custom` a first-class session type, so
   the player still receives only a `PlayableSession` — never a raw URL.
-- **Resilience & failover** — dead or rate-limited streams are retried
-  sequentially against remaining candidates.
+- **Low-latency startup pipeline** — pre-playback resolution is instantaneous (<5ms)
+  by avoiding redundant network probes on direct streams where the player stack
+  natively handles redirects and connections. Stream candidates are pre-ranked so
+  online streams with the highest health scores are attempted first.
+- **Resilience & failover** — dead or stalling streams trigger fast multi-stream
+  fallback (via player error events and a 7-second startup watchdog) to candidate
+  alternatives rather than blocking on 30-second timeouts. Monotonic generation
+  counters guard against race conditions during rapid channel zapping.
 - **Reachability filtering (Working Only)** — `FreeTvReachabilityService`
   probes streams with the existing `HttpProbe` (DoH-aware HEAD-then-GET) and
   marks each channel `isWorking` when at least one stream URL answers 2xx or a

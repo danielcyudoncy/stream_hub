@@ -60,6 +60,12 @@ class FreeTvQualityService {
 
     if (_matchesJunkName(channel.name)) return false;
 
+    // Exclude channels that have no working or online streams
+    if (channel.isWorking == false) return false;
+    if (channel.streams.isNotEmpty && channel.streams.every((s) => !s.isOnline)) {
+      return false;
+    }
+
     // Enforce English-only channels if configured
     if (englishOnly) {
       final hasEnglish = channel.languages.any((l) {

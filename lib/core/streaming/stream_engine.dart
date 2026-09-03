@@ -189,12 +189,18 @@ class StreamEngine {
       );
     }
 
+    final isLiveStream = itemMetadata['isLive'] == true ||
+        providerSession.providerType == MediaSourceType.custom;
+
     final resolution = await resolver.resolve(
       StreamResolutionRequest(
         session: providerSession,
         sourceUrl: sourceUrl,
         mediaItemId: mediaItemId,
         itemMetadata: itemMetadata,
+        options: StreamResolutionOptions(
+          followRedirects: !isLiveStream,
+        ),
       ),
     );
 
@@ -238,6 +244,7 @@ class StreamEngine {
       headers: headers,
       cookies: cookies,
       userAgent: providerSession.userAgent,
+      extraMetadata: itemMetadata,
     );
 
     healthMonitor.startSession(playable.sessionId);
@@ -409,7 +416,9 @@ class StreamEngine {
   /// player surfaces any real failure during playback. Finite content (HLS,
   /// DASH, MP4, MKV) is still probed so 404/401 issues are caught early.
   bool _shouldProbeNetwork(PlayableSession playable) {
-    if (playable.providerType == MediaSourceType.stalker) {
+    if (playable.providerType == MediaSourceType.stalker ||
+        playable.providerType == MediaSourceType.custom ||
+        playable.metadata['isLive'] == true) {
       return false;
     }
     return playable.streamType != StreamType.mpegTs;

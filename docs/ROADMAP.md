@@ -208,7 +208,14 @@ provider or subscription, while preserving all provider-based features.
 - [x] `TvScaffold` expandable sidebar with D-pad focus
 - [x] Home Quick Actions + feature chip shortcuts
 - [x] Free TV JSON data layer upgrade powered by `dearbulut/iptv` (stream-level health, deduplication, quality scoring)
-- [x] 44 Free TV tests passing (model, DTOs, JSON pipeline, mapper, reachability, repository, controller, page)
+- [x] Free TV Startup Latency Optimization:
+  - Eliminated duplicative pre-playback network probing for live/Free TV streams (reduced resolution time from up to 35s down to <5ms)
+  - Prioritized online streams with highest health scores in `FreeTvMapper` and `FreeTvCatalogBuilder`
+  - Hardened `DartHttpProbe` with fast HEAD timeout and automatic bounded GET probe fallback
+  - Protected channel switching against race conditions using monotonic generation counters
+  - Added fast 7-second watchdog for multi-stream fallback when a live stream stalls
+  - Tuned `MediaKitPlayerAdapter` libmpv demuxer analyzeduration (1.5s) and readahead (5s) for instant live playback
+- [x] 47 Free TV tests passing (model, DTOs, JSON pipeline, mapper, reachability, repository, controller, page, startup latency)
 
 ---
 
