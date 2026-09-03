@@ -4,6 +4,7 @@ import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'series_hero_section.dart';
 
 class SeriesHeroCarousel extends StatefulWidget {
@@ -143,27 +144,96 @@ class _SeriesHeroCarouselState extends State<SeriesHeroCarousel> {
                 ),
               ),
 
-              // Page Indicator Dots
+              // Page Indicator & Remote Slide Chevrons
               Positioned(
                 right: AppSpacing.lg,
-                bottom: AppSpacing.md,
+                bottom: isTv ? AppSpacing.xl : AppSpacing.md,
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: List.generate(
-                    widget.series.length,
-                    (index) => AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: _currentPage == index ? 20.0 : 6.0,
-                      height: 6.0,
-                      decoration: BoxDecoration(
-                        color: _currentPage == index
-                            ? Theme.of(context).colorScheme.primary
-                            : Colors.white38,
+                  children: [
+                    if (widget.series.length > 1) ...[
+                      TvFocusable(
+                        onTap: () {
+                          _restartAutoPlay();
+                          final prev = (_currentPage - 1 + widget.series.length) % widget.series.length;
+                          _pageController.animateToPage(
+                            prev,
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOut,
+                          );
+                        },
                         borderRadius: AppRadius.pill,
+                        child: Container(
+                          padding: const EdgeInsets.all(4.0),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.chevron_left_rounded,
+                            color: Colors.white,
+                            size: 18.0,
+                          ),
+                        ),
                       ),
+                      const SizedBox(width: 6.0),
+                    ],
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(widget.series.length, (index) {
+                        final isActive = index == _currentPage;
+                        return GestureDetector(
+                          onTap: () {
+                            _restartAutoPlay();
+                            _pageController.animateToPage(
+                              index,
+                              duration: const Duration(milliseconds: 400),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 3.0),
+                            height: 6.0,
+                            width: isActive ? 22.0 : 6.0,
+                            decoration: BoxDecoration(
+                              color: isActive
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.35),
+                              borderRadius: AppRadius.pill,
+                            ),
+                          ),
+                        );
+                      }),
                     ),
-                  ),
+                    if (widget.series.length > 1) ...[
+                      const SizedBox(width: 6.0),
+                      TvFocusable(
+                        onTap: () {
+                          _restartAutoPlay();
+                          final next = (_currentPage + 1) % widget.series.length;
+                          _pageController.animateToPage(
+                            next,
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.easeInOut,
+                          );
+                        },
+                        borderRadius: AppRadius.pill,
+                        child: Container(
+                          padding: const EdgeInsets.all(4.0),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.45),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.white,
+                            size: 18.0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

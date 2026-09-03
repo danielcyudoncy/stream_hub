@@ -8,6 +8,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../../../shared/widgets/tv_player_keyboard_hint.dart';
 import '../../player/controllers/player_controller.dart';
 import '../../player/widgets/audio_track_selector.dart';
 import '../../player/widgets/player_touch_gesture_overlay.dart';
@@ -47,6 +48,14 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
         setState(() => _controlsVisible = false);
       }
     });
+  }
+
+  void _showControlsTemporarily() {
+    if (!mounted) return;
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
+    _startControlsTimer();
   }
 
   void _toggleControls() {
@@ -112,20 +121,47 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
               _buildVideoSurface(playerCtrl),
 
               // 2. Touch Gestures & Controls Layer
-              PlayerTouchGestureOverlay(
-                onTap: _toggleControls,
-                initialVolume: playerCtrl.playbackController.engine.volumeRx.value,
-                onVolumeChanged: (vol) => playerCtrl.setVolume(vol),
-                controls: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Loading / Buffering Indicator
-                    _buildBufferingIndicator(playerCtrl),
+              TvPlayerKeyboard(
+                onAnyKey: _showControlsTemporarily,
+                onToggleControls: _toggleControls,
+                onPlayPause: () {
+                  playerCtrl.togglePlayPause();
+                  _showControlsTemporarily();
+                },
+                onStop: () {
+                  widget.controller.stopInlinePlayback();
+                },
+                onChannelUp: () {
+                  final pos = playerCtrl.playbackController.engine.positionRx.value;
+                  playerCtrl.seek(pos + const Duration(seconds: 10));
+                  _showControlsTemporarily();
+                },
+                onChannelDown: () {
+                  final pos = playerCtrl.playbackController.engine.positionRx.value;
+                  playerCtrl.seek(pos - const Duration(seconds: 10));
+                  _showControlsTemporarily();
+                },
+                onBack: () {
+                  if (widget.isFullscreen) {
+                    widget.controller.exitFullscreen();
+                    return true;
+                  }
+                  return false;
+                },
+                child: PlayerTouchGestureOverlay(
+                  onTap: _toggleControls,
+                  initialVolume: playerCtrl.playbackController.engine.volumeRx.value,
+                  onVolumeChanged: (vol) => playerCtrl.setVolume(vol),
+                  controls: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Loading / Buffering Indicator
+                      _buildBufferingIndicator(playerCtrl),
 
-                    // Controls Overlay (when visible)
-                    if (_controlsVisible)
+                      // Controls Overlay
                       _buildControlsOverlay(context, playerCtrl, movie),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -188,13 +224,31 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 10.0),
-                FilledButton.icon(
-                  onPressed: () => widget.controller.startInlinePlayback(),
-                  icon: const Icon(Icons.refresh, size: 16.0),
-                  label: const Text('Retry', style: TextStyle(fontSize: 12.0)),
-                  style: FilledButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: AppColors.primary,
+                TvFocusable(
+                  onTap: () => widget.controller.startInlinePlayback(),
+                  borderRadius: AppRadius.pill,
+                  scale: 1.05,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      borderRadius: AppRadius.pill,
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh_rounded, size: 16.0, color: Colors.white),
+                        SizedBox(width: 6.0),
+                        Text(
+                          'Retry',
+                          style: TextStyle(
+                            fontSize: 12.0,
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -211,36 +265,42 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
     PlayerController playerCtrl,
     MediaItem movie,
   ) {
-    return AnimatedOpacity(
-      opacity: _controlsVisible ? 1.0 : 0.0,
-      duration: const Duration(milliseconds: 200),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withValues(alpha: 0.75),
-              Colors.transparent,
-              Colors.transparent,
-              Colors.black.withValues(alpha: 0.85),
-            ],
-            stops: const [0.0, 0.25, 0.7, 1.0],
-          ),
-        ),
-        child: Column(
-          children: [
-            // Top Bar
-            _buildTopBar(context, playerCtrl, movie),
-
-            // Center Play / Pause & Skip Buttons
-            Expanded(
-              child: _buildCenterControls(playerCtrl),
+    return IgnorePointer(
+      ignoring: !_controlsVisible,
+      child: ExcludeFocus(
+        excluding: !_controlsVisible,
+        child: AnimatedOpacity(
+          opacity: _controlsVisible ? 1.0 : 0.0,
+          duration: const Duration(milliseconds: 200),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.75),
+                  Colors.transparent,
+                  Colors.transparent,
+                  Colors.black.withValues(alpha: 0.85),
+                ],
+                stops: const [0.0, 0.25, 0.7, 1.0],
+              ),
             ),
+            child: Column(
+              children: [
+                // Top Bar
+                _buildTopBar(context, playerCtrl, movie),
 
-            // Bottom Bar (Seekbar, Duration, Fullscreen)
-            _buildBottomBar(context, playerCtrl),
-          ],
+                // Center Play / Pause & Skip Buttons
+                Expanded(
+                  child: _buildCenterControls(playerCtrl),
+                ),
+
+                // Bottom Bar (Seekbar, Duration, Fullscreen)
+                _buildBottomBar(context, playerCtrl),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -256,16 +316,21 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
       child: Row(
         children: [
           // Back / Close button
-          IconButton(
-            icon: Icon(
-              widget.isFullscreen ? Icons.arrow_back_rounded : Icons.close_rounded,
-              color: Colors.white70,
-              size: 20.0,
-            ),
-            tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Close Video',
-            onPressed: () => widget.isFullscreen
+          TvFocusable(
+            onTap: () => widget.isFullscreen
                 ? widget.controller.exitFullscreen()
                 : widget.controller.stopInlinePlayback(),
+            borderRadius: AppRadius.pill,
+            scale: 1.1,
+            child: IconButton(
+              icon: Icon(
+                widget.isFullscreen ? Icons.arrow_back_rounded : Icons.close_rounded,
+                color: Colors.white70,
+                size: 20.0,
+              ),
+              tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Close Video',
+              onPressed: null,
+            ),
           ),
           const SizedBox(width: 4.0),
           Expanded(
@@ -280,26 +345,41 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
             ),
           ),
           // Subtitle Selector Button
-          IconButton(
-            icon: const Icon(Icons.subtitles_rounded, color: Colors.white, size: 19.0),
-            tooltip: 'Subtitles',
-            onPressed: () => _openSubtitlePicker(context, playerCtrl),
+          TvFocusable(
+            onTap: () => _openSubtitlePicker(context, playerCtrl),
+            borderRadius: AppRadius.pill,
+            scale: 1.1,
+            child: const IconButton(
+              icon: Icon(Icons.subtitles_rounded, color: Colors.white, size: 19.0),
+              tooltip: 'Subtitles',
+              onPressed: null,
+            ),
           ),
           // Audio Track Selector Button
-          IconButton(
-            icon: const Icon(Icons.audiotrack_rounded, color: Colors.white, size: 19.0),
-            tooltip: 'Audio Tracks',
-            onPressed: () => _openAudioTrackPicker(context, playerCtrl),
+          TvFocusable(
+            onTap: () => _openAudioTrackPicker(context, playerCtrl),
+            borderRadius: AppRadius.pill,
+            scale: 1.1,
+            child: const IconButton(
+              icon: Icon(Icons.audiotrack_rounded, color: Colors.white, size: 19.0),
+              tooltip: 'Audio Tracks',
+              onPressed: null,
+            ),
           ),
           // Fullscreen Toggle Button
-          IconButton(
-            icon: Icon(
-              widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-              color: Colors.white,
-              size: 22.0,
+          TvFocusable(
+            onTap: () => widget.controller.toggleFullscreen(),
+            borderRadius: AppRadius.pill,
+            scale: 1.1,
+            child: IconButton(
+              icon: Icon(
+                widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                color: Colors.white,
+                size: 22.0,
+              ),
+              tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
+              onPressed: null,
             ),
-            tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
-            onPressed: () => widget.controller.toggleFullscreen(),
           ),
         ],
       ),
@@ -314,14 +394,19 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Replay 10s
-          IconButton(
-            icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 28.0),
-            tooltip: 'Rewind 10s',
-            onPressed: () {
+          TvFocusable(
+            onTap: () {
               final pos = playerCtrl.playbackController.engine.positionRx.value;
               playerCtrl.seek(pos - const Duration(seconds: 10));
               _startControlsTimer();
             },
+            borderRadius: AppRadius.pill,
+            scale: 1.15,
+            child: const IconButton(
+              icon: Icon(Icons.replay_10_rounded, color: Colors.white, size: 28.0),
+              tooltip: 'Rewind 10s',
+              onPressed: null,
+            ),
           ),
           AppSpacing.widthMD,
           // Play / Pause Circle
@@ -356,14 +441,19 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
           ),
           AppSpacing.widthMD,
           // Forward 10s
-          IconButton(
-            icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 28.0),
-            tooltip: 'Forward 10s',
-            onPressed: () {
+          TvFocusable(
+            onTap: () {
               final pos = playerCtrl.playbackController.engine.positionRx.value;
               playerCtrl.seek(pos + const Duration(seconds: 10));
               _startControlsTimer();
             },
+            borderRadius: AppRadius.pill,
+            scale: 1.15,
+            child: const IconButton(
+              icon: Icon(Icons.forward_10_rounded, color: Colors.white, size: 28.0),
+              tooltip: 'Forward 10s',
+              onPressed: null,
+            ),
           ),
         ],
       );
@@ -443,26 +533,31 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                GestureDetector(
+                TvFocusable(
                   onTap: () => widget.controller.toggleFullscreen(),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
-                        color: Colors.white70,
-                        size: 18.0,
-                      ),
-                      const SizedBox(width: 4.0),
-                      Text(
-                        widget.isFullscreen ? 'Exit Full Screen' : 'Full Screen',
-                        style: const TextStyle(
+                  borderRadius: AppRadius.small,
+                  scale: 1.05,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
                           color: Colors.white70,
-                          fontSize: 11.0,
-                          fontWeight: FontWeight.w500,
+                          size: 18.0,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4.0),
+                        Text(
+                          widget.isFullscreen ? 'Exit Full Screen' : 'Full Screen',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11.0,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -560,9 +655,14 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
                           ),
                         ),
                         const Spacer(),
-                        IconButton(
-                          icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
-                          onPressed: () => Navigator.pop(ctx),
+                        TvFocusable(
+                          onTap: () => Navigator.pop(ctx),
+                          borderRadius: AppRadius.pill,
+                          scale: 1.1,
+                          child: const IconButton(
+                            icon: Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                            onPressed: null,
+                          ),
                         ),
                       ],
                     ),

@@ -3,11 +3,13 @@ import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/premium_media_card.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class MoviesCategoryPage extends StatelessWidget {
   const MoviesCategoryPage({super.key});
@@ -22,10 +24,14 @@ class MoviesCategoryPage extends StatelessWidget {
     return AppScaffold(
       title: title,
       actions: [
-        IconButton(
-          icon: const Icon(AppIcons.search),
-          onPressed: () => Get.toNamed(AppRoutes.search),
-          tooltip: 'Search',
+        TvFocusable(
+          onTap: () => Get.toNamed(AppRoutes.search),
+          borderRadius: AppRadius.medium,
+          child: const IconButton(
+            icon: Icon(AppIcons.search),
+            onPressed: null,
+            tooltip: 'Search',
+          ),
         ),
       ],
       body: items.isEmpty

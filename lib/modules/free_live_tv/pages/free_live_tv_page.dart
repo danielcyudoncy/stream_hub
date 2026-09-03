@@ -493,13 +493,10 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
                 onTap: () => _showSearchDialog(context),
                 scale: 1.15,
                 borderRadius: BorderRadius.circular(24),
-                child: IconButton(
-                  icon: const Icon(Icons.search),
+                child: const IconButton(
+                  icon: Icon(Icons.search),
                   color: AppColors.textSecondary,
-                  focusColor: AppColors.primaryContainer.withValues(
-                    alpha: 0.3,
-                  ),
-                  onPressed: () => _showSearchDialog(context),
+                  onPressed: null,
                 ),
               ),
               AppSpacing.widthSM,
@@ -507,13 +504,10 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
                 onTap: controller.refresh,
                 scale: 1.15,
                 borderRadius: BorderRadius.circular(24),
-                child: IconButton(
-                  icon: const Icon(Icons.refresh),
+                child: const IconButton(
+                  icon: Icon(Icons.refresh),
                   color: AppColors.textSecondary,
-                  focusColor: AppColors.primaryContainer.withValues(
-                    alpha: 0.3,
-                  ),
-                  onPressed: controller.refresh,
+                  onPressed: null,
                 ),
               ),
             ],
@@ -692,19 +686,37 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
             ],
             const Spacer(),
             TvFocusable(
-              onTap: () => controller.openChannel(channel),
+              onTap: () {
+                if (controller.activePlayingChannel.value?.id == channel.id) {
+                  controller.enterFullscreen();
+                } else {
+                  controller.openChannel(channel);
+                }
+              },
               borderRadius: AppRadius.pill,
-              child: FilledButton.icon(
-                onPressed: () => controller.openChannel(channel),
-                icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                label: const Text('Watch Channel'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.xs,
-                  ),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: AppRadius.pill,
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.play_arrow_rounded, size: 18, color: Colors.black),
+                    SizedBox(width: 6),
+                    Text(
+                      'Watch Channel',
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -798,14 +810,29 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
               TvFocusable(
                 onTap: () => controller.openChannel(featured),
                 borderRadius: AppRadius.pill,
-                child: FilledButton.icon(
-                  onPressed: () => controller.openChannel(featured),
-                  icon: const Icon(Icons.play_arrow_rounded, size: 18),
-                  label: const Text('Watch Featured'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.black,
-                    visualDensity: VisualDensity.compact,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: AppRadius.pill,
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.play_arrow_rounded, size: 16, color: Colors.black),
+                      SizedBox(width: 4),
+                      Text(
+                        'Watch Featured',
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -985,7 +1012,9 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
               channel: item,
               isList: true,
               isPlaying: isPlaying,
-              onTap: () => controller.openChannel(item),
+              onTap: isPlaying
+                  ? controller.enterFullscreen
+                  : () => controller.openChannel(item),
               onFavorite: () => controller.toggleFavorite(item),
             );
           });
@@ -1012,7 +1041,9 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
             channel: item,
             isList: false,
             isPlaying: isPlaying,
-            onTap: () => controller.openChannel(item),
+            onTap: isPlaying
+                ? controller.enterFullscreen
+                : () => controller.openChannel(item),
             onFavorite: () => controller.toggleFavorite(item),
           );
         });
@@ -1137,9 +1168,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
               ),
               color: isList ? AppColors.primary : Colors.white,
               tooltip: isList ? 'Switch to Grid View' : 'Switch to List View',
-              onPressed: () {
-                controller.setView(isList ? 'grid' : 'list');
-              },
+              onPressed: null,
             ),
           ),
 
@@ -1189,16 +1218,16 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
             onTap: () => _showSearchDialog(context),
             scale: 1.15,
             borderRadius: BorderRadius.circular(24),
-            child: IconButton(
-              padding: const EdgeInsets.all(6.0),
-              constraints: const BoxConstraints(),
-              icon: const Icon(
+            child: const IconButton(
+              padding: EdgeInsets.all(6.0),
+              constraints: BoxConstraints(),
+              icon: Icon(
                 Icons.search_rounded,
                 size: 18.0,
                 color: Colors.white,
               ),
               tooltip: 'Search Free Channels',
-              onPressed: () => _showSearchDialog(context),
+              onPressed: null,
             ),
           ),
         ],

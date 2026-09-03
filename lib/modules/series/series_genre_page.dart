@@ -3,42 +3,51 @@ import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'series_genre_controller.dart';
 import 'widgets/series_card.dart';
 
 class SeriesGenrePage extends GetView<SeriesGenreController> {
+  static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey = GlobalKey();
+
   const SeriesGenrePage({super.key});
 
   @override
   Widget build(BuildContext context) {
     final isTv = PlatformHelper.isTV;
 
-
     return Obx(
       () => AppScaffold(
         title: controller.genreName.value,
         showNavigation: false,
         actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.sort),
-            tooltip: 'Sort by',
-            onSelected: controller.setSortBy,
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'rating',
-                child: Text('Top Rated'),
-              ),
-              const PopupMenuItem(
-                value: 'recent',
-                child: Text('Recently Updated'),
-              ),
-              const PopupMenuItem(
-                value: 'title',
-                child: Text('Alphabetical (A–Z)'),
-              ),
-            ],
+          TvFocusable(
+            onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
+            borderRadius: AppRadius.medium,
+            scale: 1.05,
+            child: PopupMenuButton<String>(
+              key: _sortPopupKey,
+              icon: const Icon(Icons.sort),
+              tooltip: 'Sort by',
+              onSelected: controller.setSortBy,
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'rating',
+                  child: Text('Top Rated'),
+                ),
+                const PopupMenuItem(
+                  value: 'recent',
+                  child: Text('Recently Updated'),
+                ),
+                const PopupMenuItem(
+                  value: 'title',
+                  child: Text('Alphabetical (A–Z)'),
+                ),
+              ],
+            ),
           ),
         ],
         body: Obx(() {

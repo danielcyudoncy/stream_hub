@@ -15,6 +15,8 @@ import 'widgets/movie_grid.dart';
 class MovieGenrePage extends GetView<MovieGenreController> {
   const MovieGenrePage({super.key});
 
+  static final GlobalKey<PopupMenuButtonState<MovieGenreSortOption>> _sortPopupKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -37,7 +39,7 @@ class MovieGenrePage extends GetView<MovieGenreController> {
                     : colorScheme.onSurface,
               ),
               tooltip: 'Favorites Only',
-              onPressed: controller.toggleFavoritesOnly,
+              onPressed: null,
             ),
           ),
           _buildSortMenu(context),
@@ -107,12 +109,13 @@ class MovieGenrePage extends GetView<MovieGenreController> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return TvFocusable(
-      onTap: () {},
+      onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
       borderRadius: AppRadius.medium,
       child: PopupMenuButton<MovieGenreSortOption>(
-      icon: const Icon(AppIcons.sort),
-      tooltip: 'Sort Movies',
-      onSelected: controller.setSort,
+        key: _sortPopupKey,
+        icon: const Icon(AppIcons.sort),
+        tooltip: 'Sort Movies',
+        onSelected: controller.setSort,
       itemBuilder: (context) => [
         for (final option in MovieGenreSortOption.values)
           PopupMenuItem(

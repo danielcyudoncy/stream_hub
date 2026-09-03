@@ -30,11 +30,19 @@ class _TvScaffoldState extends State<TvScaffold> {
   bool _isExpanded = false;
   Timer? _clockTimer;
   DateTime _currentTime = DateTime.now();
-  final FocusNode _sidebarFocusNode = FocusNode();
+
+  final FocusNode _bodyFocusNode = FocusNode(debugLabel: 'TvScaffoldBody');
+  final FocusNode _sidebarContainerFocusNode = FocusNode(debugLabel: 'TvScaffoldSidebar');
+  final Map<int, FocusNode> _navFocusNodes = {};
+  final FocusNode _profileFocusNode = FocusNode(debugLabel: 'Nav_Profile');
+  FocusNode? _lastBodyFocusedNode;
 
   @override
   void initState() {
     super.initState();
+    for (int i = 0; i <= 8; i++) {
+      _navFocusNodes[i] = FocusNode(debugLabel: 'Nav_$i');
+    }
     _clockTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (mounted) {
         setState(() => _currentTime = DateTime.now());
@@ -45,7 +53,12 @@ class _TvScaffoldState extends State<TvScaffold> {
   @override
   void dispose() {
     _clockTimer?.cancel();
-    _sidebarFocusNode.dispose();
+    _bodyFocusNode.dispose();
+    _sidebarContainerFocusNode.dispose();
+    _profileFocusNode.dispose();
+    for (final node in _navFocusNodes.values) {
+      node.dispose();
+    }
     super.dispose();
   }
 
@@ -95,25 +108,78 @@ class _TvScaffoldState extends State<TvScaffold> {
     AppRoutes.settings, // 8
   ];
 
-  /// Allows the D-pad Left key to move focus from the main content into the
-  /// sidebar. The sidebar and body are siblings in a [Stack], so Flutter's
-  /// default widget-order focus traversal cannot reach across them. Explicitly
-  /// transferring focus to the sidebar avoids the sidebar becoming unreachable
-  /// on TV / 10-foot navigation.
+  /// Handles D-pad Left from the body into the sidebar.
+  /// First allows directional focus to move left inside the content (e.g. from
+  /// card 3 to card 2 to card 1). Only when focus has reached the leftmost
+  /// boundary of the page does it transition focus to the active sidebar nav item.
   KeyEventResult _handleBodyKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
     final isLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
     if (!isLeft) return KeyEventResult.ignored;
-    if (_sidebarFocusNode.canRequestFocus) {
-      _sidebarFocusNode.requestFocus();
+
+    final currentFocus = FocusManager.instance.primaryFocus;
+    if (currentFocus != null && currentFocus != node && currentFocus != _bodyFocusNode) {
+      _lastBodyFocusedNode = currentFocus;
+      final moved = currentFocus.focusInDirection(TraversalDirection.left);
+      if (moved) {
+        return KeyEventResult.handled;
+      }
+    }
+
+    // At the leftmost edge of the body: open sidebar with focused nav item
+    _openSidebarWithFocus();
+    return KeyEventResult.handled;
+  }
+
+  void _openSidebarWithFocus() {
+    final selectedIndex = _getSelectedIndex();
+    final targetNode = _navFocusNodes[selectedIndex] ?? _navFocusNodes[1];
+    if (mounted) {
+      setState(() => _isExpanded = true);
+    }
+    targetNode?.requestFocus();
+  }
+
+  /// Handles remote navigation out of the sidebar back to the body:
+  /// 1. D-pad Right arrow: closes sidebar and returns focus to body content.
+  /// 2. Back / Escape button: collapses sidebar and restores focus to body.
+  KeyEventResult _handleSidebarKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      _closeSidebarAndFocusBody();
       return KeyEventResult.handled;
     }
+
+    if (event.logicalKey == LogicalKeyboardKey.escape ||
+        event.logicalKey == LogicalKeyboardKey.goBack ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonB) {
+      if (_isExpanded) {
+        _closeSidebarAndFocusBody();
+        return KeyEventResult.handled;
+      }
+    }
+
     return KeyEventResult.ignored;
+  }
+
+  void _closeSidebarAndFocusBody() {
+    if (mounted) {
+      setState(() => _isExpanded = false);
+    }
+    if (_lastBodyFocusedNode != null && _lastBodyFocusedNode!.canRequestFocus) {
+      _lastBodyFocusedNode!.requestFocus();
+    } else {
+      _bodyFocusNode.requestFocus();
+    }
   }
 
   void _onItemTapped(int index) {
     if (index < 0 || index >= _rootRoutes.length) return;
     final targetRoute = _rootRoutes[index];
+    if (mounted) {
+      setState(() => _isExpanded = false);
+    }
     if (Get.currentRoute == targetRoute) return;
 
     Get.offAllNamed(targetRoute);
@@ -130,7 +196,7 @@ class _TvScaffoldState extends State<TvScaffold> {
           Positioned.fill(
             left: 96.0,
             child: Focus(
-              autofocus: true,
+              focusNode: _bodyFocusNode,
               onKeyEvent: _handleBodyKeyEvent,
               child: Column(
                 children: [
@@ -160,59 +226,60 @@ class _TvScaffoldState extends State<TvScaffold> {
             top: 0,
             bottom: 0,
             child: Focus(
-              focusNode: _sidebarFocusNode,
+              focusNode: _sidebarContainerFocusNode,
+              onKeyEvent: _handleSidebarKeyEvent,
               onFocusChange: (hasFocus) {
                 if (mounted && _isExpanded != hasFocus) {
                   setState(() => _isExpanded = hasFocus);
                 }
               },
               child: MouseRegion(
-                onEnter: (_) {
-                  if (mounted && !_isExpanded) {
-                    setState(() => _isExpanded = true);
-                  }
-                },
-                onExit: (_) {
-                  if (mounted && _isExpanded) {
-                    setState(() => _isExpanded = false);
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                  width: _isExpanded ? 270.0 : 96.0,
-                  decoration: BoxDecoration(
-                    color: const Color(0xEE0E1116),
-                    border: Border(
-                      right: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        width: 1,
+                  onEnter: (_) {
+                    if (mounted && !_isExpanded) {
+                      setState(() => _isExpanded = true);
+                    }
+                  },
+                  onExit: (_) {
+                    if (mounted && _isExpanded) {
+                      setState(() => _isExpanded = false);
+                    }
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    width: _isExpanded ? 270.0 : 96.0,
+                    decoration: BoxDecoration(
+                      color: const Color(0xEE0E1116),
+                      border: Border(
+                        right: BorderSide(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          width: 1,
+                        ),
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.6),
+                          blurRadius: 32,
+                          spreadRadius: -4,
+                          offset: const Offset(8, 0),
+                        ),
+                      ],
                     ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        blurRadius: 32,
-                        spreadRadius: -4,
-                        offset: const Offset(8, 0),
-                      ),
-                    ],
-                  ),
-                  child: ClipRect(
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
-                      child: SizedBox(
-                        width: _isExpanded ? 270.0 : 96.0,
-                        child: _buildSidebarContent(),
+                    child: ClipRect(
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
+                        child: SizedBox(
+                          width: _isExpanded ? 270.0 : 96.0,
+                          child: _buildSidebarContent(),
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
     );
   }
 
@@ -237,6 +304,7 @@ class _TvScaffoldState extends State<TvScaffold> {
             children: [
               // Search
               _buildNavItem(
+                index: 0,
                 icon: Icons.search_rounded,
                 label: 'Search',
                 isSelected: selectedIndex == 0,
@@ -246,6 +314,7 @@ class _TvScaffoldState extends State<TvScaffold> {
 
               // Home
               _buildNavItem(
+                index: 1,
                 icon: AppIcons.home,
                 label: 'Home',
                 isSelected: selectedIndex == 1,
@@ -255,6 +324,7 @@ class _TvScaffoldState extends State<TvScaffold> {
 
               // Live TV
               _buildNavItem(
+                index: 2,
                 icon: AppIcons.liveTv,
                 label: 'Live TV',
                 isSelected: selectedIndex == 2,
@@ -264,6 +334,7 @@ class _TvScaffoldState extends State<TvScaffold> {
 
               // Free Live TV
               _buildNavItem(
+                index: 3,
                 icon: Icons.tv_rounded,
                 label: 'Free TV',
                 isSelected: selectedIndex == 3,
@@ -273,6 +344,7 @@ class _TvScaffoldState extends State<TvScaffold> {
 
               // VOD Movies
               _buildNavItem(
+                index: 4,
                 icon: Icons.movie_creation_outlined,
                 label: 'VOD Movies',
                 isSelected: selectedIndex == 4,
@@ -282,6 +354,7 @@ class _TvScaffoldState extends State<TvScaffold> {
 
               // TV Series
               _buildNavItem(
+                index: 5,
                 icon: Icons.video_library_outlined,
                 label: 'Series',
                 isSelected: selectedIndex == 5,
@@ -291,6 +364,7 @@ class _TvScaffoldState extends State<TvScaffold> {
 
               // Favorites
               _buildNavItem(
+                index: 6,
                 icon: Icons.star_rounded,
                 label: 'Favorites',
                 isSelected: selectedIndex == 6,
@@ -301,6 +375,7 @@ class _TvScaffoldState extends State<TvScaffold> {
 
               // Multi-View
               _buildNavItem(
+                index: 7,
                 icon: Icons.grid_view_rounded,
                 label: 'Multi-View',
                 isSelected: selectedIndex == 7,
@@ -319,6 +394,7 @@ class _TvScaffoldState extends State<TvScaffold> {
         Padding(
           padding: const EdgeInsets.fromLTRB(10.0, 4.0, 10.0, 20.0),
           child: _buildNavItem(
+            index: 8,
             icon: AppIcons.settings,
             label: 'Settings',
             isSelected: selectedIndex == 8,
@@ -356,6 +432,7 @@ class _TvScaffoldState extends State<TvScaffold> {
             : 'IPTV Premium');
 
     return TvFocusable(
+      focusNode: _profileFocusNode,
       onTap: () => Get.toNamed(AppRoutes.profile),
       scale: 1.02,
       borderRadius: BorderRadius.circular(12),
@@ -575,6 +652,7 @@ class _TvScaffoldState extends State<TvScaffold> {
   }
 
   Widget _buildNavItem({
+    required int index,
     required IconData icon,
     required String label,
     required bool isSelected,
@@ -586,6 +664,7 @@ class _TvScaffoldState extends State<TvScaffold> {
     const selectedRedBorder = Color(0xFFFF4D5A);
 
     return TvFocusable(
+      focusNode: _navFocusNodes[index],
       onTap: onTap,
       scale: 1.04,
       borderRadius: BorderRadius.circular(10),

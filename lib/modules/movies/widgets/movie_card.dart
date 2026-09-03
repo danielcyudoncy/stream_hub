@@ -116,6 +116,7 @@ class _MovieCardState extends State<MovieCard> {
       height: widget.height,
       child: TvFocusable(
         onTap: widget.onTap,
+        onLongPress: widget.onToggleFavorite,
         borderRadius: AppRadius.medium,
         scale: 1.1,
         child: Column(
@@ -206,23 +207,25 @@ class _MovieCardState extends State<MovieCard> {
                       Positioned(
                         top: AppSpacing.xs,
                         right: AppSpacing.xs,
-                        child: GestureDetector(
-                          onTap: widget.onToggleFavorite,
-                          behavior: HitTestBehavior.opaque,
-                          child: Container(
-                            padding: const EdgeInsets.all(4.0),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              widget.item.favorite
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              color: widget.item.favorite
-                                  ? AppColors.darkError
-                                  : Colors.white,
-                              size: 14.0,
+                        child: ExcludeFocus(
+                          child: GestureDetector(
+                            onTap: widget.onToggleFavorite,
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              padding: const EdgeInsets.all(4.0),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                widget.item.favorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                color: widget.item.favorite
+                                    ? AppColors.darkError
+                                    : Colors.white,
+                                size: 14.0,
+                              ),
                             ),
                           ),
                         ),

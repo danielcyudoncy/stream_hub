@@ -36,7 +36,13 @@ class MainActivity : FlutterActivity() {
                     val isTvMode = uiModeManager?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
                     val hasLeanback = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_LEANBACK)
                     val hasTelevision = packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TELEVISION)
-                    val isTv = isTvMode || hasLeanback || hasTelevision
+                    val noTouch = !packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_TOUCHSCREEN)
+                    val modelLower = android.os.Build.MODEL.lowercase()
+                    val productLower = android.os.Build.PRODUCT.lowercase()
+                    val isTvBoxModel = modelLower.contains("tv") || modelLower.contains("box") ||
+                                       productLower.contains("tv") || productLower.contains("box") ||
+                                       productLower.contains("droidlogic") || productLower.contains("amlogic")
+                    val isTv = isTvMode || hasLeanback || hasTelevision || noTouch || isTvBoxModel
                     result.success(isTv)
                 }
                 "getDeviceHardwareInfo" -> {

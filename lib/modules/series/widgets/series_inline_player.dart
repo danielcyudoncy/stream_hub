@@ -8,6 +8,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../../../shared/widgets/tv_player_keyboard_hint.dart';
 import '../../player/controllers/player_controller.dart';
 import '../../player/widgets/audio_track_selector.dart';
 import '../../player/widgets/player_touch_gesture_overlay.dart';
@@ -60,6 +61,13 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
     }
   }
 
+  void _showControlsTemporarily() {
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
+    _startControlsTimer();
+  }
+
   @override
   void dispose() {
     _controlsTimer?.cancel();
@@ -108,21 +116,56 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
               // 1. Video Surface Layer
               _buildVideoSurface(playerCtrl),
 
-              // 2. Touch Gestures & Controls Layer
-              PlayerTouchGestureOverlay(
-                onTap: _toggleControls,
-                initialVolume: playerCtrl.playbackController.engine.volumeRx.value,
-                onVolumeChanged: (vol) => playerCtrl.setVolume(vol),
-                controls: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    // Loading / Buffering Indicator
-                    _buildBufferingIndicator(playerCtrl),
+              // 2. Touch Gestures, TV Remote & Controls Layer
+              TvPlayerKeyboard(
+                onAnyKey: _showControlsTemporarily,
+                onToggleControls: _toggleControls,
+                onPlayPause: () {
+                  playerCtrl.togglePlayPause();
+                  _showControlsTemporarily();
+                },
+                onStop: () {
+                  widget.controller.stopInlinePlayback();
+                },
+                onChannelUp: () {
+                  widget.controller.playNextEpisode();
+                  _showControlsTemporarily();
+                },
+                onChannelDown: () {
+                  widget.controller.playPreviousEpisode();
+                  _showControlsTemporarily();
+                },
+                onBack: () {
+                  if (widget.isFullscreen) {
+                    widget.controller.exitFullscreen();
+                    return true;
+                  }
+                  return false;
+                },
+                child: PlayerTouchGestureOverlay(
+                  onTap: _toggleControls,
+                  initialVolume: playerCtrl.playbackController.engine.volumeRx.value,
+                  onVolumeChanged: (vol) => playerCtrl.setVolume(vol),
+                  controls: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      // Loading / Buffering Indicator
+                      _buildBufferingIndicator(playerCtrl),
 
-                    // Controls Overlay (when visible)
-                    if (_controlsVisible)
-                      _buildControlsOverlay(context, playerCtrl, series, activeEp),
-                  ],
+                      // Controls Overlay (Smooth fade & No ghost focus)
+                      IgnorePointer(
+                        ignoring: !_controlsVisible,
+                        child: ExcludeFocus(
+                          excluding: !_controlsVisible,
+                          child: AnimatedOpacity(
+                            opacity: _controlsVisible ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 250),
+                            child: _buildControlsOverlay(context, playerCtrl, series, activeEp),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -234,9 +277,7 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
                 size: 20.0,
               ),
               tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Close Video',
-              onPressed: () => widget.isFullscreen
-                  ? widget.controller.exitFullscreen()
-                  : widget.controller.stopInlinePlayback(),
+              onPressed: null,
             ),
           ),
           const SizedBox(width: 4.0),
@@ -256,10 +297,10 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
             onTap: () => _openSubtitlePicker(context, playerCtrl),
             scale: 1.05,
             borderRadius: BorderRadius.circular(8),
-            child: IconButton(
-              icon: const Icon(Icons.subtitles_rounded, color: Colors.white, size: 19.0),
+            child: const IconButton(
+              icon: Icon(Icons.subtitles_rounded, color: Colors.white, size: 19.0),
               tooltip: 'Subtitles',
-              onPressed: () => _openSubtitlePicker(context, playerCtrl),
+              onPressed: null,
             ),
           ),
           // Audio Track Selector Button
@@ -267,10 +308,10 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
             onTap: () => _openAudioTrackPicker(context, playerCtrl),
             scale: 1.05,
             borderRadius: BorderRadius.circular(8),
-            child: IconButton(
-              icon: const Icon(Icons.audiotrack_rounded, color: Colors.white, size: 19.0),
+            child: const IconButton(
+              icon: Icon(Icons.audiotrack_rounded, color: Colors.white, size: 19.0),
               tooltip: 'Audio Tracks',
-              onPressed: () => _openAudioTrackPicker(context, playerCtrl),
+              onPressed: null,
             ),
           ),
           // Fullscreen Toggle Button
@@ -285,7 +326,7 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
                 size: 22.0,
               ),
               tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
-              onPressed: () => widget.controller.toggleFullscreen(),
+              onPressed: null,
             ),
           ),
         ],
@@ -308,13 +349,10 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
             },
             scale: 1.05,
             borderRadius: BorderRadius.circular(8),
-            child: IconButton(
-              icon: const Icon(Icons.skip_previous_rounded, color: Colors.white, size: 28.0),
+            child: const IconButton(
+              icon: Icon(Icons.skip_previous_rounded, color: Colors.white, size: 28.0),
               tooltip: 'Previous Episode',
-              onPressed: () {
-                widget.controller.playPreviousEpisode();
-                _startControlsTimer();
-              },
+              onPressed: null,
             ),
           ),
           AppSpacing.widthSM,
@@ -327,14 +365,10 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
             },
             scale: 1.05,
             borderRadius: BorderRadius.circular(8),
-            child: IconButton(
-              icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 28.0),
+            child: const IconButton(
+              icon: Icon(Icons.replay_10_rounded, color: Colors.white, size: 28.0),
               tooltip: 'Rewind 10s',
-              onPressed: () {
-                final pos = playerCtrl.playbackController.engine.positionRx.value;
-                playerCtrl.seek(pos - const Duration(seconds: 10));
-                _startControlsTimer();
-              },
+              onPressed: null,
             ),
           ),
           AppSpacing.widthMD,
@@ -378,14 +412,10 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
             },
             scale: 1.05,
             borderRadius: BorderRadius.circular(8),
-            child: IconButton(
-              icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 28.0),
+            child: const IconButton(
+              icon: Icon(Icons.forward_10_rounded, color: Colors.white, size: 28.0),
               tooltip: 'Forward 10s',
-              onPressed: () {
-                final pos = playerCtrl.playbackController.engine.positionRx.value;
-                playerCtrl.seek(pos + const Duration(seconds: 10));
-                _startControlsTimer();
-              },
+              onPressed: null,
             ),
           ),
           AppSpacing.widthSM,
@@ -397,13 +427,10 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
             },
             scale: 1.05,
             borderRadius: BorderRadius.circular(8),
-            child: IconButton(
-              icon: const Icon(Icons.skip_next_rounded, color: Colors.white, size: 28.0),
+            child: const IconButton(
+              icon: Icon(Icons.skip_next_rounded, color: Colors.white, size: 28.0),
               tooltip: 'Next Episode',
-              onPressed: () {
-                widget.controller.playNextEpisode();
-                _startControlsTimer();
-              },
+              onPressed: null,
             ),
           ),
         ],
@@ -488,8 +515,6 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
                   onTap: () => widget.controller.toggleFullscreen(),
                   scale: 1.05,
                   borderRadius: BorderRadius.circular(6),
-                  child: GestureDetector(
-                    onTap: () => widget.controller.toggleFullscreen(),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -509,7 +534,6 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
                       ),
                     ],
                   ),
-                ),
                 ),
               ],
             ),
@@ -610,9 +634,9 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
                           onTap: () => Navigator.pop(ctx),
                           scale: 1.05,
                           borderRadius: BorderRadius.circular(6),
-                          child: IconButton(
-                            icon: const Icon(Icons.close_rounded, color: Colors.white70, size: 20),
-                            onPressed: () => Navigator.pop(ctx),
+                          child: const IconButton(
+                            icon: Icon(Icons.close_rounded, color: Colors.white70, size: 20),
+                            onPressed: null,
                           ),
                         ),
                       ],

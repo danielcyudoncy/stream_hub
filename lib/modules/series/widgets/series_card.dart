@@ -45,6 +45,7 @@ class SeriesCard extends StatelessWidget {
       height: height,
       child: TvFocusable(
         onTap: onTap,
+        onLongPress: onToggleFavorite,
         borderRadius: AppRadius.medium,
         scale: 1.1,
         child: Column(
@@ -88,7 +89,7 @@ class SeriesCard extends StatelessWidget {
                         left: AppSpacing.xs,
                         child: GlassPanel(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6.0,
+                            horizontal: AppSpacing.xs,
                             vertical: 2.0,
                           ),
                           borderRadius: AppRadius.small,
@@ -140,19 +141,21 @@ class SeriesCard extends StatelessWidget {
                       Positioned(
                         top: AppSpacing.xs,
                         right: AppSpacing.xs,
-                        child: GestureDetector(
-                          onTap: onToggleFavorite,
-                          behavior: HitTestBehavior.opaque,
-                          child: Container(
-                            padding: const EdgeInsets.all(4.0),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.6),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              item.favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                              size: 14.0,
-                              color: item.favorite ? AppColors.darkError : Colors.white,
+                        child: ExcludeFocus(
+                          child: GestureDetector(
+                            onTap: onToggleFavorite,
+                            behavior: HitTestBehavior.opaque,
+                            child: Container(
+                              padding: const EdgeInsets.all(4.0),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                item.favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                size: 14.0,
+                                color: item.favorite ? AppColors.darkError : Colors.white,
+                              ),
                             ),
                           ),
                         ),

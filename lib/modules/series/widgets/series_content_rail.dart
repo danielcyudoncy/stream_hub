@@ -66,11 +66,31 @@ class SeriesContentRail extends StatelessWidget {
                 ),
               ),
               if (onSeeAll != null)
-                TextButton(
-                  onPressed: onSeeAll,
-                  child: Text(
-                    'See All →',
-                    style: AppTypography.getLabel(color: colorScheme.primary),
+                TvFocusable(
+                  onTap: onSeeAll,
+                  borderRadius: AppRadius.pill,
+                  scale: 1.05,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'See All',
+                          style: AppTypography.getLabel(color: colorScheme.primary)
+                              .copyWith(fontWeight: FontWeight.w600),
+                        ),
+                        const SizedBox(width: 4.0),
+                        Icon(
+                          AppIcons.forward,
+                          size: 14.0,
+                          color: colorScheme.primary,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
             ],
