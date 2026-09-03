@@ -29,21 +29,39 @@ class DartHttpProbe implements HttpProbe {
   }) async {
     final stopwatch = Stopwatch()..start();
     try {
-      final head = await _headProbe(
+      // Use a fast timeout for HEAD so servers that drop/hang on HEAD do not block for 10-15s
+      final headTimeout = timeout < const Duration(seconds: 3)
+          ? timeout
+          : const Duration(milliseconds: 2500);
+      try {
+        final head = await _headProbe(
+          url,
+          headers,
+          headTimeout,
+          stopwatch,
+          followRedirects,
+        );
+        if (head.isSuccess) return head;
+      } on TimeoutException {
+        // Server hung on HEAD; fall through to authoritative GET probe
+      } on HttpException {
+        // Fall through to authoritative GET probe
+      } on SocketException {
+        // Fall through to authoritative GET probe
+      }
+
+      final remaining = timeout - stopwatch.elapsed;
+      final getTimeout = remaining > const Duration(seconds: 1)
+          ? remaining
+          : const Duration(seconds: 5);
+
+      return await _getProbe(
         url,
         headers,
-        timeout,
+        getTimeout,
         stopwatch,
         followRedirects,
       );
-      if (head.isSuccess) return head;
-      return await _getProbe(url, headers, timeout, stopwatch, followRedirects);
-    } on HttpException {
-      return await _getProbe(url, headers, timeout, stopwatch, followRedirects);
-    } on SocketException {
-      // Some panels close the connection outright on HEAD (empty reply)
-      // rather than answering with 405. Treat it like "HEAD unsupported".
-      return await _getProbe(url, headers, timeout, stopwatch, followRedirects);
     } on TimeoutException {
       throw StreamTimeoutException(
         message: 'Timed out while probing stream URL.',

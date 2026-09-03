@@ -81,15 +81,23 @@ class FreeLiveTvController extends GetxController {
   final RxBool isFullscreenMode = false.obs;
   DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
 
-  PlayerController? inlinePlayerController;
+  final Rxn<PlayerController> _inlinePlayerController = Rxn<PlayerController>();
+  PlayerController? get inlinePlayerController => _inlinePlayerController.value;
+  set inlinePlayerController(PlayerController? ctrl) =>
+      _inlinePlayerController.value = ctrl;
+
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _playerStateSubscription;
+  StreamSubscription? _playbackPositionSubscription;
   Timer? _searchDebounceTimer;
   Timer? _loadProgressTimer;
+  Timer? _streamStartupWatchdogTimer;
+  int _openChannelGeneration = 0;
 
   @override
   void onInit() {
     super.onInit();
+    _initInlinePlayer();
     _loadCatalog();
     _favoritesSubscription =
         repository.watchFavorites().listen((_) => _syncFavoritesFromRepo());
@@ -100,7 +108,9 @@ class FreeLiveTvController extends GetxController {
     _searchDebounceTimer?.cancel();
     _favoritesSubscription?.cancel();
     _playerStateSubscription?.cancel();
+    _playbackPositionSubscription?.cancel();
     _loadProgressTimer?.cancel();
+    _streamStartupWatchdogTimer?.cancel();
     // Tear down the inline player engine so audio stops when the screen is
     // left. `dispose()` only clears GetX notifier lists; `stop()` + `onClose()`
     // actually stop playback and release the underlying player backend. Without
@@ -577,6 +587,7 @@ class FreeLiveTvController extends GetxController {
 
   void _initInlinePlayer() {
     if (inlinePlayerController != null) return;
+    if (!Get.isRegistered<StreamRepository>()) return;
 
     PlaybackEngineKind chosenEngine = PlaybackEngineKind.mediaKit;
     final settingsCtrl = Get.isRegistered<SettingsController>()
@@ -610,16 +621,55 @@ class FreeLiveTvController extends GetxController {
         .playbackController.engine.stateRx
         .listen((state) {
       if (state == PlaybackState.error) {
+        _streamStartupWatchdogTimer?.cancel();
+        _playbackPositionSubscription?.cancel();
         _stopPlayerLoading(complete: false);
         _handlePlaybackError();
       } else if (state == PlaybackState.playing) {
-        _stopPlayerLoading(complete: true);
-        playbackStatusMessage.value = '';
+        _streamStartupWatchdogTimer?.cancel();
+        _waitForPlaybackToActuallyRender(playerCtrl);
       } else if (state == PlaybackState.loading ||
           state == PlaybackState.buffering) {
         _startPlayerProgress();
       } else if (state.isStoppedLike) {
-        _stopPlayerLoading(complete: false);
+        _streamStartupWatchdogTimer?.cancel();
+        _playbackPositionSubscription?.cancel();
+        // Do not clear the loading indicator if we are in the middle of opening a channel
+        if (!isPlayerLoading.value) {
+          _stopPlayerLoading(complete: false);
+        }
+      }
+    });
+  }
+
+  void _waitForPlaybackToActuallyRender(PlayerController playerCtrl) {
+    _playbackPositionSubscription?.cancel();
+
+    // If the player is already actively decoding and has rendered past 0, complete immediately
+    final currentPos = playerCtrl.playbackController.engine.positionRx.value;
+    if (currentPos > Duration.zero) {
+      _stopPlayerLoading(complete: true);
+      playbackStatusMessage.value = '';
+      return;
+    }
+
+    // Keep the loading spinner active until the first video frame/position advances.
+    // Use a bounded fallback timer (2.5s) in case position updates are slow or stream is audio-only.
+    Timer? fallbackTimer;
+    fallbackTimer = Timer(const Duration(milliseconds: 2500), () {
+      _playbackPositionSubscription?.cancel();
+      _stopPlayerLoading(complete: true);
+      playbackStatusMessage.value = '';
+    });
+
+    _playbackPositionSubscription = playerCtrl
+        .playbackController.engine.positionRx
+        .listen((pos) {
+      if (pos > Duration.zero) {
+        fallbackTimer?.cancel();
+        _playbackPositionSubscription?.cancel();
+        _stopPlayerLoading(complete: true);
+        playbackStatusMessage.value = '';
       }
     });
   }
@@ -664,35 +714,40 @@ class FreeLiveTvController extends GetxController {
       return;
     }
 
-    // Update active channel instantly so the UI glows right away
-    activePlayingChannel.value = channel;
-    
-    // Defer heavy player initialization/stopping to the next frame to ensure the UI paints immediately
-    await Future.delayed(Duration.zero);
-    
+    final currentGen = ++_openChannelGeneration;
+    _streamStartupWatchdogTimer?.cancel();
+    _playbackPositionSubscription?.cancel();
+
     _initInlinePlayer();
-    // Stop any currently-playing stream BEFORE resolving the new channel.
+    // Stop any currently-playing stream BEFORE activating the new channel.
     // Otherwise a failing new stream would surface an error overlay on top of
-    // the previous channel's still-active playback. Clearing the status message
-    // here also prevents a stale error/fallback banner from lingering across
-    // channel switches or fallback attempts.
+    // the previous channel's still-active playback, or the previous stream's stop
+    // event would clear the new channel's loading indicator.
     if (inlinePlayerController != null) {
       await inlinePlayerController?.stop();
     }
+    if (currentGen != _openChannelGeneration) return;
+
+    // Update active channel and kick off loading spinner immediately
+    activePlayingChannel.value = channel;
     activeStreamIndex.value = streamIndex;
     playbackStatusMessage.value = '';
     _stopPlayerLoading(complete: false);
     _startPlayerLoading();
 
-    // Record to recently watched
-    repository.recordWatch(channel);
-    _loadRecentlyWatched();
+    // Record to recently watched in background without blocking player
+    unawaited(repository.recordWatch(channel).then((_) {
+      if (currentGen == _openChannelGeneration) {
+        _loadRecentlyWatched();
+      }
+    }));
 
     final currentStreamUrl = channel.streamUrls[streamIndex];
     final mediaItem = channel.toMediaItem().copyWith(
       metadata: {
         ...channel.toMediaItem().metadata,
         'streamUrl': currentStreamUrl,
+        'isLive': true,
       },
     );
 
@@ -700,6 +755,21 @@ class FreeLiveTvController extends GetxController {
       'Playing Free TV Channel "${channel.name}" (Stream ${streamIndex + 1}/${channel.streamUrls.length}): $currentStreamUrl',
       tag: 'FreeLiveTvController',
     );
+
+    // If backup streams exist, start a watchdog to fail over fast if the stream stalls/hangs
+    if (channel.streamUrls.length > 1 && streamIndex < channel.streamUrls.length - 1) {
+      _streamStartupWatchdogTimer = Timer(const Duration(seconds: 7), () {
+        if (currentGen == _openChannelGeneration &&
+            isPlayerLoading.value &&
+            activePlayingChannel.value?.id == channel.id) {
+          _logger.warning(
+            'Stream ${streamIndex + 1} for "${channel.name}" exceeded startup threshold (7s). Failing over to next stream...',
+            tag: 'FreeLiveTvController',
+          );
+          _handlePlaybackError();
+        }
+      });
+    }
 
     inlinePlayerController?.setChannelList([mediaItem], currentId: mediaItem.id);
   }
@@ -729,6 +799,9 @@ class FreeLiveTvController extends GetxController {
   }
 
   void stopInlinePlayer() {
+    _openChannelGeneration++;
+    _streamStartupWatchdogTimer?.cancel();
+    _playbackPositionSubscription?.cancel();
     inlinePlayerController?.stop();
     activePlayingChannel.value = null;
     playbackStatusMessage.value = '';

@@ -125,10 +125,10 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     if (_player is mk.NativePlayer) {
       final native = _player as mk.NativePlayer;
       try {
-        // Increase probe buffer so libmpv can recognise MPEG-TS/HLS formats
-        await native.setProperty('demuxer-lavf-probesize', '5000000');
-        await native.setProperty('demuxer-lavf-analyzeduration', '5000000');
-        // Network timeout (µs) — prevents hanging on slow/dead streams
+        // Optimize probe and analyze duration for fast live stream startup
+        await native.setProperty('demuxer-lavf-probesize', '2000000');
+        await native.setProperty('demuxer-lavf-analyzeduration', '1500000');
+        // Network timeout (seconds) — prevents hanging on slow/dead streams
         await native.setProperty('network-timeout', '10');
         // User-agent expected by many IPTV panels
         await native.setProperty(
@@ -138,8 +138,8 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
             'Chrome/120.0.0.0 Safari/537.36');
         // Disable youtube-dl; not needed for direct IPTV URLs
         await native.setProperty('ytdl', 'no');
-        // Increase read-ahead buffer for live streams
-        await native.setProperty('demuxer-readahead-secs', '20');
+        // Low read-ahead buffer so live playback starts as soon as initial segment arrives
+        await native.setProperty('demuxer-readahead-secs', '5');
         // Allow connecting to http sources from https context
         await native.setProperty('tls-verify', 'no');
         // Enable buffer scrubbing and suppress non-seekable live stream warnings

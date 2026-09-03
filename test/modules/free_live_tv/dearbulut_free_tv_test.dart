@@ -224,6 +224,24 @@ void main() {
         streamUrls: [],
       );
       expect(qualityService.isEligible(noStreamChannel), isFalse);
+
+      const offlineStreamChannel = FreeTvChannel(
+        id: 'offline-stream',
+        name: 'Offline TV',
+        country: 'US',
+        countryCode: 'US',
+        languages: ['English'],
+        isWorking: false,
+        streams: [
+          FreeTvStream(
+            url: 'https://stream.example/offline.m3u8',
+            isOnline: false,
+            healthScore: 0.0,
+          )
+        ],
+        streamUrls: ['https://stream.example/offline.m3u8'],
+      );
+      expect(qualityService.isEligible(offlineStreamChannel), isFalse);
     });
 
     test('FreeTvCatalogBuilder builds deduplicated catalog and provides diagnostics', () async {

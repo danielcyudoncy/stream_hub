@@ -94,6 +94,15 @@ class FreeTvMapper {
     }).where((l) => l.isNotEmpty).toList();
 
     final streams = dto.streams.map((s) => fromDearbulutStream(s)).toList();
+    // Prioritize verified online streams and higher health scores so primary stream is working
+    streams.sort((a, b) {
+      if (a.isOnline != b.isOnline) {
+        return a.isOnline ? -1 : 1;
+      }
+      final scoreA = a.healthScore ?? (a.isOnline ? 100.0 : 0.0);
+      final scoreB = b.healthScore ?? (b.isOnline ? 100.0 : 0.0);
+      return scoreB.compareTo(scoreA);
+    });
     final streamUrls = streams.map((s) => s.url).where((u) => u.isNotEmpty).toList();
 
     final hasWorkingStream = dto.online ||

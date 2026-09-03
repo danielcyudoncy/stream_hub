@@ -223,6 +223,15 @@ class FreeTvCatalogBuilder {
       }
     }
 
+    mergedStreams.sort((s1, s2) {
+      if (s1.isOnline != s2.isOnline) {
+        return s1.isOnline ? -1 : 1;
+      }
+      final scoreA = s1.healthScore ?? (s1.isOnline ? 100.0 : 0.0);
+      final scoreB = s2.healthScore ?? (s2.isOnline ? 100.0 : 0.0);
+      return scoreB.compareTo(scoreA);
+    });
+
     final streamUrls = mergedStreams.map((s) => s.url).toList();
     final categories = {...a.categories, ...b.categories}.toList();
     final languages = {...a.languages, ...b.languages}.toList();
