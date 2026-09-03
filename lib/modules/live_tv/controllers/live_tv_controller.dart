@@ -740,6 +740,34 @@ class LiveTVController extends GetxController {
   final RxBool isFullscreenMode = false.obs;
   DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// Plays the next channel in the filtered/active channel list for TV remote zapping.
+  void playNextChannel() {
+    final list = filteredChannels.isNotEmpty ? filteredChannels : channels;
+    if (list.isEmpty) return;
+    final current = activePlayingChannel.value;
+    if (current == null) {
+      openChannel(list.first);
+      return;
+    }
+    final currentIndex = list.indexWhere((c) => c.id == current.id);
+    final nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % list.length;
+    openChannel(list[nextIndex]);
+  }
+
+  /// Plays the previous channel in the filtered/active channel list for TV remote zapping.
+  void playPreviousChannel() {
+    final list = filteredChannels.isNotEmpty ? filteredChannels : channels;
+    if (list.isEmpty) return;
+    final current = activePlayingChannel.value;
+    if (current == null) {
+      openChannel(list.last);
+      return;
+    }
+    final currentIndex = list.indexWhere((c) => c.id == current.id);
+    final prevIndex = currentIndex <= 0 ? list.length - 1 : currentIndex - 1;
+    openChannel(list[prevIndex]);
+  }
+
   void stopInlinePlayer() {
     activePlayingChannel.value = null;
     isFullscreenMode.value = false;

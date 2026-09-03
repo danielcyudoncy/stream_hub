@@ -808,6 +808,34 @@ class FreeLiveTvController extends GetxController {
     _stopPlayerLoading(complete: false);
   }
 
+  /// Plays the next channel in the filtered/active channel list for TV remote zapping.
+  void playNextChannel() {
+    final list = filteredChannels;
+    if (list.isEmpty) return;
+    final current = activePlayingChannel.value;
+    if (current == null) {
+      openChannel(list.first);
+      return;
+    }
+    final currentIndex = list.indexWhere((c) => c.id == current.id);
+    final nextIndex = currentIndex < 0 ? 0 : (currentIndex + 1) % list.length;
+    openChannel(list[nextIndex]);
+  }
+
+  /// Plays the previous channel in the filtered/active channel list for TV remote zapping.
+  void playPreviousChannel() {
+    final list = filteredChannels;
+    if (list.isEmpty) return;
+    final current = activePlayingChannel.value;
+    if (current == null) {
+      openChannel(list.last);
+      return;
+    }
+    final currentIndex = list.indexWhere((c) => c.id == current.id);
+    final prevIndex = currentIndex <= 0 ? list.length - 1 : currentIndex - 1;
+    openChannel(list[prevIndex]);
+  }
+
   void enterFullscreen() {
     isFullscreenMode.value = true;
     lastFullscreenEntered = DateTime.now();

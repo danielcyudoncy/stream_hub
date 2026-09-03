@@ -360,7 +360,9 @@ class LiveTVPage extends GetView<LiveTVController> {
               channel: item,
               isList: true,
               isPlaying: isPlaying,
-              onTap: () => controller.openChannel(item),
+              onTap: isPlaying
+                  ? controller.expandToFullscreen
+                  : () => controller.openChannel(item),
               onFavorite: () => controller.toggleFavorite(item),
             );
           });
@@ -386,7 +388,9 @@ class LiveTVPage extends GetView<LiveTVController> {
             channel: item,
             isList: false,
             isPlaying: isPlaying,
-            onTap: () => controller.openChannel(item),
+            onTap: isPlaying
+                ? controller.expandToFullscreen
+                : () => controller.openChannel(item),
             onFavorite: () => controller.toggleFavorite(item),
           );
         });
@@ -477,9 +481,7 @@ class LiveTVPage extends GetView<LiveTVController> {
               ),
               color: isList ? AppColors.primary : Colors.white,
               tooltip: isList ? 'Switch to Grid View' : 'Switch to List View',
-              onPressed: () {
-                controller.setView(isList ? 'grid' : 'list');
-              },
+              onPressed: null,
             ),
           ),
 
@@ -538,21 +540,16 @@ class LiveTVPage extends GetView<LiveTVController> {
             },
             scale: 1.15,
             borderRadius: BorderRadius.circular(24),
-            child: IconButton(
-              padding: const EdgeInsets.all(6.0),
-              constraints: const BoxConstraints(),
-              icon: const Icon(
+            child: const IconButton(
+              padding: EdgeInsets.all(6.0),
+              constraints: BoxConstraints(),
+              icon: Icon(
                 Icons.grid_view_rounded,
                 size: 18.0,
                 color: Colors.white,
               ),
               tooltip: 'Multi-View (Multi-Screen)',
-              onPressed: () async {
-                final activeChannel = controller.activePlayingChannel.value ??
-                    controller.featuredChannel.value;
-                controller.stopInlinePlayer();
-                await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
-              },
+              onPressed: null,
             ),
           ),
 
@@ -563,18 +560,16 @@ class LiveTVPage extends GetView<LiveTVController> {
             },
             scale: 1.15,
             borderRadius: BorderRadius.circular(24),
-            child: IconButton(
-              padding: const EdgeInsets.all(6.0),
-              constraints: const BoxConstraints(),
-              icon: const Icon(
+            child: const IconButton(
+              padding: EdgeInsets.all(6.0),
+              constraints: BoxConstraints(),
+              icon: Icon(
                 Icons.search_rounded,
                 size: 18.0,
                 color: Colors.white,
               ),
               tooltip: 'Search Channels',
-              onPressed: () {
-                Get.toNamed(AppRoutes.guideSearch);
-               },
+              onPressed: null,
             ),
           ),
         ],

@@ -36,11 +36,15 @@ class MoviesPage extends GetView<MoviesController> {
             sheetTitle: 'Movies Provider',
           ),
         ),
-        IconButton(
-          icon: const Icon(AppIcons.search),
-          onPressed: () => Get.toNamed(AppRoutes.search),
-          tooltip: 'Search',
-          visualDensity: VisualDensity.compact,
+        TvFocusable(
+          onTap: () => Get.toNamed(AppRoutes.search),
+          borderRadius: AppRadius.medium,
+          child: const IconButton(
+            icon: Icon(AppIcons.search),
+            onPressed: null,
+            tooltip: 'Search',
+            visualDensity: VisualDensity.compact,
+          ),
         ),
       ],
       body: Obx(() {

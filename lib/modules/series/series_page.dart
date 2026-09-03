@@ -32,10 +32,15 @@ class SeriesPage extends GetView<SeriesController> {
             sheetTitle: 'Series Provider',
           ),
         ),
-        IconButton(
-          icon: const Icon(AppIcons.search),
-          onPressed: () => Get.toNamed(AppRoutes.search),
-          tooltip: 'Search',
+        TvFocusable(
+          onTap: () => Get.toNamed(AppRoutes.search),
+          borderRadius: AppRadius.medium,
+          scale: 1.05,
+          child: const IconButton(
+            icon: Icon(AppIcons.search),
+            onPressed: null,
+            tooltip: 'Search',
+          ),
         ),
       ],
       body: Obx(() {

@@ -16,10 +16,11 @@ class PlatformHelper {
 
   // Dynamic check for TV, refined during bootstrap
   static bool isTVDevice = false;
+  static bool forceTvMode = false;
 
-  static bool get isAppleTV => isIOS && isTVDevice;
-  static bool get isAndroidTV => isAndroid && isTVDevice;
-  static bool get isTV => isTVDevice || isAppleTV || isAndroidTV;
+  static bool get isAppleTV => isIOS && (isTVDevice || forceTvMode);
+  static bool get isAndroidTV => isAndroid && (isTVDevice || forceTvMode);
+  static bool get isTV => forceTvMode || isTVDevice || isAppleTV || isAndroidTV;
 
   /// Whether the platform supports 10-foot / D-Pad navigation (TV or Desktop with keyboard)
   static bool get supportsDPadNavigation => isTV || isDesktop;

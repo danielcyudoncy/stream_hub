@@ -41,6 +41,7 @@ class FreeTvChannelCard extends StatelessWidget {
 
     return TvFocusable(
       onTap: onTap,
+      onLongPress: onFavorite,
       borderRadius: AppRadius.medium,
       scale: 1.04,
       child: Container(
@@ -214,22 +215,24 @@ class FreeTvChannelCard extends StatelessWidget {
             Positioned(
               top: 4,
               right: 4,
-              child: Material(
-                color: Colors.transparent,
-                shape: const CircleBorder(),
-                child: IconButton(
-                  icon: Icon(
-                    channel.isFavorite
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    color: channel.isFavorite ? Colors.amber : Colors.white70,
-                    size: 20,
-                  ),
-                  onPressed: onFavorite,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 32,
-                    minHeight: 32,
+              child: ExcludeFocus(
+                child: Material(
+                  color: Colors.transparent,
+                  shape: const CircleBorder(),
+                  child: IconButton(
+                    icon: Icon(
+                      channel.isFavorite
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      color: channel.isFavorite ? Colors.amber : Colors.white70,
+                      size: 20,
+                    ),
+                    onPressed: onFavorite,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 32,
+                      minHeight: 32,
+                    ),
                   ),
                 ),
               ),
@@ -252,6 +255,7 @@ class FreeTvChannelCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: AppSpacing.xs),
       child: TvFocusable(
         onTap: onTap,
+        onLongPress: onFavorite,
         borderRadius: AppRadius.medium,
         scale: 1.02,
         child: Container(
@@ -351,15 +355,17 @@ class FreeTvChannelCard extends StatelessWidget {
                 ),
 
               // Favorite toggle
-              IconButton(
-                icon: Icon(
-                  channel.isFavorite
-                      ? Icons.star_rounded
-                      : Icons.star_outline_rounded,
-                  color: channel.isFavorite ? Colors.amber : colorScheme.onSurfaceVariant,
-                  size: 22,
+              ExcludeFocus(
+                child: IconButton(
+                  icon: Icon(
+                    channel.isFavorite
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    color: channel.isFavorite ? Colors.amber : colorScheme.onSurfaceVariant,
+                    size: 22,
+                  ),
+                  onPressed: onFavorite,
                 ),
-                onPressed: onFavorite,
               ),
             ],
           ),

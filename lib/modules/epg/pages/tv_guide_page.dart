@@ -244,11 +244,10 @@ class TVGuidePage extends GetView<GuideController> {
                       onTap: () => Get.toNamed(AppRoutes.guideSearch),
                       scale: 1.15,
                       borderRadius: BorderRadius.circular(24),
-                      child: IconButton(
-                        icon: const Icon(Icons.search),
+                      child: const IconButton(
+                        icon: Icon(Icons.search),
                         color: AppColors.textSecondary,
-                        focusColor: AppColors.primaryContainer.withValues(alpha: 0.3),
-                        onPressed: () => Get.toNamed(AppRoutes.guideSearch),
+                        onPressed: null,
                       ),
                     ),
                     AppSpacing.widthSM,
@@ -256,11 +255,10 @@ class TVGuidePage extends GetView<GuideController> {
                       onTap: () => controller.refreshGuide(),
                       scale: 1.15,
                       borderRadius: BorderRadius.circular(24),
-                      child: IconButton(
-                        icon: const Icon(Icons.refresh),
+                      child: const IconButton(
+                        icon: Icon(Icons.refresh),
                         color: AppColors.textSecondary,
-                        focusColor: AppColors.primaryContainer.withValues(alpha: 0.3),
-                        onPressed: () => controller.refreshGuide(),
+                        onPressed: null,
                       ),
                     ),
                   ],

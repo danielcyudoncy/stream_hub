@@ -27,9 +27,10 @@ class SeriesCategoryPage extends StatelessWidget {
         TvFocusable(
           onTap: () => Get.toNamed(AppRoutes.search),
           borderRadius: AppRadius.medium,
-          child: IconButton(
-            icon: const Icon(AppIcons.search),
-            onPressed: () => Get.toNamed(AppRoutes.search),
+          scale: 1.05,
+          child: const IconButton(
+            icon: Icon(AppIcons.search),
+            onPressed: null,
             tooltip: 'Search',
           ),
         ),

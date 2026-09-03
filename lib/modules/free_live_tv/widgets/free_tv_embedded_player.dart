@@ -310,65 +310,73 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                       : (ch.categories.isNotEmpty
                             ? ch.categories.first
                             : 'Free Live TV');
-                  return Material(
-                    color: isCurrent
-                        ? AppColors.primary.withValues(alpha: 0.25)
-                        : Colors.transparent,
-                    child: ListTile(
-                      dense: true,
-                      leading: logo != null && logo.isNotEmpty
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Image.network(
-                                logo,
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.contain,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(
-                                      Icons.live_tv,
-                                      size: 20,
-                                      color: Colors.white60,
-                                    ),
+                  return TvFocusable(
+                    onTap: () {
+                      widget.controller.openChannel(ch);
+                      _showHudToast('Channel: ${ch.name}');
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    scale: 1.02,
+                    child: Material(
+                      color: isCurrent
+                          ? AppColors.primary.withValues(alpha: 0.25)
+                          : Colors.transparent,
+                      child: ListTile(
+                        dense: true,
+                        leading: logo != null && logo.isNotEmpty
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.network(
+                                  logo,
+                                  width: 32,
+                                  height: 32,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(
+                                        Icons.live_tv,
+                                        size: 20,
+                                        color: Colors.white60,
+                                      ),
+                                ),
+                              )
+                            : const Icon(
+                                Icons.live_tv,
+                                size: 20,
+                                color: Colors.white60,
                               ),
-                            )
-                          : const Icon(
-                              Icons.live_tv,
-                              size: 20,
-                              color: Colors.white60,
-                            ),
-                      title: Text(
-                        ch.name,
-                        style: TextStyle(
-                          color: isCurrent ? AppColors.primary : Colors.white,
-                          fontWeight: isCurrent
-                              ? FontWeight.bold
-                              : FontWeight.normal,
-                          fontSize: 13,
+                        title: Text(
+                          ch.name,
+                          style: TextStyle(
+                            color: isCurrent ? AppColors.primary : Colors.white,
+                            fontWeight: isCurrent
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        subtitle,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 11,
+                        subtitle: Text(
+                          subtitle,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        trailing: isCurrent
+                            ? const Icon(
+                                Icons.play_circle_fill,
+                                color: AppColors.primary,
+                                size: 18,
+                              )
+                            : null,
+                        onTap: () {
+                          widget.controller.openChannel(ch);
+                          _showHudToast('Channel: ${ch.name}');
+                        },
                       ),
-                      trailing: isCurrent
-                          ? const Icon(
-                              Icons.play_circle_fill,
-                              color: AppColors.primary,
-                              size: 18,
-                            )
-                          : null,
-                      onTap: () {
-                        widget.controller.openChannel(ch);
-                        _showHudToast('Channel: ${ch.name}');
-                      },
                     ),
                   );
                 },
@@ -485,6 +493,38 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
     return TvPlayerKeyboard(
       onAnyKey: _showControlsTemporarily,
       onToggleControls: _toggleControls,
+      onPlayPause: () {
+        playerCtrl.togglePlayPause();
+        final isPlaying =
+            playerCtrl.playbackController.engine.stateRx.value ==
+                PlaybackState.playing;
+        _showHudToast(isPlaying ? 'Play' : 'Pause');
+      },
+      onStop: () {
+        widget.controller.stopInlinePlayer();
+        _showHudToast('Stop');
+      },
+      onChannelUp: () {
+        widget.controller.playNextChannel();
+        final current = widget.controller.activePlayingChannel.value;
+        if (current != null) {
+          _showHudToast('CH+ : ${current.name}');
+        }
+      },
+      onChannelDown: () {
+        widget.controller.playPreviousChannel();
+        final current = widget.controller.activePlayingChannel.value;
+        if (current != null) {
+          _showHudToast('CH- : ${current.name}');
+        }
+      },
+      onBack: () {
+        if (_quickZapperOpen) {
+          setState(() => _quickZapperOpen = false);
+          return true;
+        }
+        return false;
+      },
       child: PlayerTouchGestureOverlay(
         onTap: _toggleControls,
         onVolumeChanged: (vol) => playerCtrl.setVolume(vol),
@@ -592,48 +632,51 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             // 2. Center Glowing Play/Pause Button
             IgnorePointer(
               ignoring: !_controlsVisible,
-              child: AnimatedOpacity(
-                opacity: _controlsVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Center(
-                  child: Obx(() {
-                    final state =
-                        playerCtrl.playbackController.engine.stateRx.value;
-                    final isPlaying = state == PlaybackState.playing;
+              child: ExcludeFocus(
+                excluding: !_controlsVisible,
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Center(
+                    child: Obx(() {
+                      final state =
+                          playerCtrl.playbackController.engine.stateRx.value;
+                      final isPlaying = state == PlaybackState.playing;
 
-                    return TvFocusable(
-                      onTap: () {
-                        _showControlsTemporarily();
-                        playerCtrl.togglePlayPause();
-                      },
-                      scale: 1.08,
-                      borderRadius: BorderRadius.circular(999),
-                      child: Container(
-                        padding: const EdgeInsets.all(14.0),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.7),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.8),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.4),
-                              blurRadius: 18.0,
+                      return TvFocusable(
+                        onTap: () {
+                          _showControlsTemporarily();
+                          playerCtrl.togglePlayPause();
+                        },
+                        scale: 1.08,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.all(14.0),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.8),
+                              width: 1.5,
                             ),
-                          ],
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.4),
+                                blurRadius: 18.0,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: isFullscreen ? 40.0 : 30.0,
+                          ),
                         ),
-                        child: Icon(
-                          isPlaying
-                              ? Icons.pause_rounded
-                              : Icons.play_arrow_rounded,
-                          color: Colors.white,
-                          size: isFullscreen ? 40.0 : 30.0,
-                        ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ),
                 ),
               ),
             ),
@@ -641,203 +684,200 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             // 3. Top Gradient Bar & Channel Info
             IgnorePointer(
               ignoring: !_controlsVisible,
-              child: AnimatedOpacity(
-                opacity: _controlsVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: isFullscreen ? AppSpacing.md : 2.0,
-                    ),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.black87,
-                          Colors.black45,
-                          Colors.transparent,
-                        ],
+              child: ExcludeFocus(
+                excluding: !_controlsVisible,
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: isFullscreen ? AppSpacing.md : 2.0,
                       ),
-                    ),
-                    child: SafeArea(
-                      top: isFullscreen,
-                      bottom: false,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final bool isCompact = constraints.maxWidth < 350;
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black87,
+                            Colors.black45,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                      child: SafeArea(
+                        top: isFullscreen,
+                        bottom: false,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final bool isCompact = constraints.maxWidth < 350;
 
-                          return Row(
-                            children: [
-                              const SizedBox(width: AppSpacing.xs),
-                              // Red Live Badge
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6.0,
-                                  vertical: 2.5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(alpha: 0.9),
-                                  borderRadius: AppRadius.pill,
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 6.0,
-                                      height: 6.0,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.white,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4.0),
-                                    const Text(
-                                      'LIVE',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8.0),
-
-                              // Channel Title
-                              Expanded(
-                                child: Text(
-                                  channel.name,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13.5,
-                                    fontWeight: FontWeight.w700,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black87,
-                                        blurRadius: 4.0,
-                                      ),
-                                    ],
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-
-                              // Multi-Stream Indicator
-                              if (!isCompact &&
-                                  channel.streamUrls.length > 1) ...[
+                            return Row(
+                              children: [
+                                const SizedBox(width: AppSpacing.xs),
+                                // Red Live Badge
                                 Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 6.0,
-                                    vertical: 2.0,
+                                    vertical: 2.5,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.18),
-                                    borderRadius: BorderRadius.circular(4.0),
+                                    color: Colors.red.withValues(alpha: 0.9),
+                                    borderRadius: AppRadius.pill,
                                   ),
-                                  child: Text(
-                                    'Stream ${widget.controller.activeStreamIndex.value + 1}/${channel.streamUrls.length}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 9.5,
-                                      fontFamily: 'monospace',
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 6.0,
+                                        height: 6.0,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4.0),
+                                      const Text(
+                                        'LIVE',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.5,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                const SizedBox(width: 6.0),
-                              ],
+                                const SizedBox(width: 8.0),
 
-                              // Category Tag
-                              if (!isCompact)
-                                ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 80.0,
+                                // Channel Title
+                                Expanded(
+                                  child: Text(
+                                    channel.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.w700,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black87,
+                                          blurRadius: 4.0,
+                                        ),
+                                      ],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  child: Container(
+                                ),
+
+                                // Multi-Stream Indicator
+                                if (!isCompact &&
+                                    channel.streamUrls.length > 1) ...[
+                                  Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6.0,
                                       vertical: 2.0,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primaryContainer
-                                          .withValues(alpha: 0.4),
-                                      borderRadius: AppRadius.pill,
-                                      border: Border.all(
-                                        color: AppColors.primary.withValues(
-                                          alpha: 0.4,
-                                        ),
-                                        width: 0.8,
-                                      ),
+                                      color: Colors.white.withValues(alpha: 0.18),
+                                      borderRadius: BorderRadius.circular(4.0),
                                     ),
                                     child: Text(
-                                      categoryName.toUpperCase(),
+                                      'Stream ${widget.controller.activeStreamIndex.value + 1}/${channel.streamUrls.length}',
                                       style: const TextStyle(
-                                        color: AppColors.primary,
-                                        fontSize: 9.0,
+                                        color: Colors.white,
+                                        fontSize: 9.5,
+                                        fontFamily: 'monospace',
                                         fontWeight: FontWeight.w700,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                ),
-                              if (!isCompact) const SizedBox(width: 4.0),
+                                  const SizedBox(width: 6.0),
+                                ],
 
-                              // Stop & Close Button
-                              TvFocusable(
-                                onTap: () {
-                                  if (isFullscreen) {
-                                    widget.controller.exitFullscreen();
-                                  } else {
-                                    widget.controller.stopInlinePlayer();
-                                  }
-                                },
-                                scale: 1.05,
-                                borderRadius: BorderRadius.circular(20),
-                                child: IconButton(
-                                  padding: const EdgeInsets.all(4.0),
-                                  constraints: const BoxConstraints(),
-                                  icon: Container(
-                                    padding: const EdgeInsets.all(4.0),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.7,
-                                      ),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.3,
-                                        ),
-                                        width: 1.0,
-                                      ),
+                                // Category Tag
+                                if (!isCompact)
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 80.0,
                                     ),
-                                    child: const Icon(
-                                      Icons.close_rounded,
-                                      color: Colors.white,
-                                      size: 15.0,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6.0,
+                                        vertical: 2.0,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.primaryContainer
+                                            .withValues(alpha: 0.4),
+                                        borderRadius: AppRadius.pill,
+                                        border: Border.all(
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.4,
+                                          ),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        categoryName.toUpperCase(),
+                                        style: const TextStyle(
+                                          color: AppColors.primary,
+                                          fontSize: 9.0,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ),
                                   ),
-                                  tooltip: isFullscreen
-                                      ? 'Exit Fullscreen'
-                                      : 'Stop and Close',
-                                  onPressed: () {
+                                if (!isCompact) const SizedBox(width: 4.0),
+
+                                // Stop & Close Button
+                                TvFocusable(
+                                  onTap: () {
                                     if (isFullscreen) {
                                       widget.controller.exitFullscreen();
                                     } else {
                                       widget.controller.stopInlinePlayer();
                                     }
                                   },
+                                  scale: 1.05,
+                                  borderRadius: BorderRadius.circular(20),
+                                  child: IconButton(
+                                    padding: const EdgeInsets.all(4.0),
+                                    constraints: const BoxConstraints(),
+                                    icon: Container(
+                                      padding: const EdgeInsets.all(4.0),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.7,
+                                        ),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.3,
+                                          ),
+                                          width: 1.0,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.close_rounded,
+                                        color: Colors.white,
+                                        size: 15.0,
+                                      ),
+                                    ),
+                                    tooltip: isFullscreen
+                                        ? 'Exit Fullscreen'
+                                        : 'Stop and Close',
+                                    onPressed: null,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          );
-                        },
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -848,313 +888,267 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             // 4. Bottom Controls Overlay & Fullscreen Expand Button
             IgnorePointer(
               ignoring: !_controlsVisible,
-              child: AnimatedOpacity(
-                opacity: _controlsVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: isFullscreen ? AppSpacing.md : 2.0,
-                    ),
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.bottomCenter,
-                        end: Alignment.topCenter,
-                        colors: [
-                          Colors.black87,
-                          Colors.black45,
-                          Colors.transparent,
-                        ],
+              child: ExcludeFocus(
+                excluding: !_controlsVisible,
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: isFullscreen ? AppSpacing.md : 2.0,
                       ),
-                    ),
-                    child: SafeArea(
-                      top: false,
-                      bottom: isFullscreen,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final bool isCompact = constraints.maxWidth < 350;
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [
+                            Colors.black87,
+                            Colors.black45,
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                      child: SafeArea(
+                        top: false,
+                        bottom: isFullscreen,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final bool isCompact = constraints.maxWidth < 350;
 
-                          return Row(
-                            children: [
-                              // Play/Pause Icon Button
-                              Obx(() {
-                                final state = playerCtrl
-                                    .playbackController
-                                    .engine
-                                    .stateRx
-                                    .value;
-                                final isPlaying =
-                                    state == PlaybackState.playing;
-
-                                return TvFocusable(
-                                  onTap: () {
-                                    _showControlsTemporarily();
-                                    playerCtrl.togglePlayPause();
-                                  },
-                                  scale: 1.08,
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: IconButton(
-                                    padding: const EdgeInsets.all(4.0),
-                                    constraints: const BoxConstraints(),
-                                    icon: Icon(
-                                      isPlaying
-                                          ? Icons.pause_circle_filled_rounded
-                                          : Icons.play_circle_filled_rounded,
-                                      color: AppColors.primary,
-                                      size: 26.0,
-                                    ),
-                                    onPressed: () {
-                                      _showControlsTemporarily();
-                                      playerCtrl.togglePlayPause();
-                                    },
-                                  ),
-                                );
-                              }),
-                              if (!isCompact) const SizedBox(width: 4.0),
-
-                              // Stop Button
-                              if (!isCompact)
-                                TvFocusable(
-                                  onTap: () {
-                                    _showControlsTemporarily();
-                                    widget.controller.stopInlinePlayer();
-                                  },
-                                  scale: 1.05,
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: IconButton(
-                                    padding: const EdgeInsets.all(4.0),
-                                    constraints: const BoxConstraints(),
-                                    icon: const Icon(
-                                      Icons.stop_circle_outlined,
-                                      color: Colors.white70,
-                                      size: 24.0,
-                                    ),
-                                    tooltip: 'Stop Playback',
-                                    onPressed: () {
-                                      _showControlsTemporarily();
-                                      widget.controller.stopInlinePlayer();
-                                    },
-                                  ),
-                                ),
-                              if (!isCompact) const SizedBox(width: 6.0),
-
-                              // Channel Info Text
-                              Expanded(
-                                child: Text(
-                                  infoText,
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 11.0,
-                                    fontWeight: FontWeight.w500,
-                                    shadows: [
-                                      Shadow(
-                                        color: Colors.black87,
-                                        blurRadius: 4.0,
-                                      ),
-                                    ],
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (!isCompact) const SizedBox(width: 4.0),
-
-                              // Favorite Toggle
-                              if (!isCompact)
+                            return Row(
+                              children: [
+                                // Play/Pause Icon Button
                                 Obx(() {
-                                  final isFav =
-                                      widget.controller.favorites.any(
-                                        (f) => f.id == channel.id,
-                                      ) ||
-                                      channel.isFavorite;
+                                  final state = playerCtrl
+                                      .playbackController
+                                      .engine
+                                      .stateRx
+                                      .value;
+                                  final isPlaying =
+                                      state == PlaybackState.playing;
 
                                   return TvFocusable(
                                     onTap: () {
                                       _showControlsTemporarily();
-                                      widget.controller.toggleFavorite(channel);
+                                      playerCtrl.togglePlayPause();
                                     },
-                                    scale: 1.05,
+                                    scale: 1.08,
                                     borderRadius: BorderRadius.circular(20),
                                     child: IconButton(
                                       padding: const EdgeInsets.all(4.0),
                                       constraints: const BoxConstraints(),
                                       icon: Icon(
-                                        isFav
-                                            ? Icons.favorite_rounded
-                                            : Icons.favorite_border_rounded,
-                                        color: isFav
-                                            ? Colors.redAccent
-                                            : Colors.white70,
-                                        size: 20.0,
+                                        isPlaying
+                                            ? Icons.pause_circle_filled_rounded
+                                            : Icons.play_circle_filled_rounded,
+                                        color: AppColors.primary,
+                                        size: 26.0,
                                       ),
-                                      onPressed: () {
-                                        _showControlsTemporarily();
-                                        widget.controller.toggleFavorite(
-                                          channel,
-                                        );
-                                      },
+                                      onPressed: null,
                                     ),
                                   );
                                 }),
-                              if (!isCompact) const SizedBox(width: 2.0),
+                                if (!isCompact) const SizedBox(width: 4.0),
 
-                              if (isFullscreen) ...[
-                                // Aspect Ratio Cycle Button
-                                Tooltip(
-                                  message: 'Cycle Aspect Ratio',
-                                  child: TvFocusable(
+                                // Stop Button
+                                if (!isCompact)
+                                  TvFocusable(
                                     onTap: () {
                                       _showControlsTemporarily();
-                                      _cycleAspectRatio(playerCtrl);
+                                      widget.controller.stopInlinePlayer();
                                     },
                                     scale: 1.05,
                                     borderRadius: BorderRadius.circular(20),
-                                    child: IconButton(
-                                      padding: const EdgeInsets.all(4.0),
-                                      constraints: const BoxConstraints(),
-                                      icon: Obx(() {
-                                        final aspectMode = playerCtrl
-                                            .playbackController
-                                            .engine
-                                            .aspectRatioRx
-                                            .value;
-                                        return Icon(
-                                          _getAspectRatioIcon(aspectMode),
-                                          color: Colors.white,
-                                          size: 22.0,
-                                        );
-                                      }),
-                                      onPressed: () {
+                                    child: const IconButton(
+                                      padding: EdgeInsets.all(4.0),
+                                      constraints: BoxConstraints(),
+                                      icon: Icon(
+                                        Icons.stop_circle_outlined,
+                                        color: Colors.white70,
+                                        size: 24.0,
+                                      ),
+                                      tooltip: 'Stop Playback',
+                                      onPressed: null,
+                                    ),
+                                  ),
+                                if (!isCompact) const SizedBox(width: 6.0),
+
+                                // Channel Info Text
+                                Expanded(
+                                  child: Text(
+                                    infoText,
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 11.0,
+                                      fontWeight: FontWeight.w500,
+                                      shadows: [
+                                        Shadow(
+                                          color: Colors.black87,
+                                          blurRadius: 4.0,
+                                        ),
+                                      ],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (!isCompact) const SizedBox(width: 4.0),
+
+                                // Favorite Toggle
+                                if (!isCompact)
+                                  Obx(() {
+                                    final isFav =
+                                        widget.controller.favorites.any(
+                                          (f) => f.id == channel.id,
+                                        ) ||
+                                        channel.isFavorite;
+
+                                    return TvFocusable(
+                                      onTap: () {
+                                        _showControlsTemporarily();
+                                        widget.controller.toggleFavorite(channel);
+                                      },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: IconButton(
+                                        padding: const EdgeInsets.all(4.0),
+                                        constraints: const BoxConstraints(),
+                                        icon: Icon(
+                                          isFav
+                                              ? Icons.favorite_rounded
+                                              : Icons.favorite_border_rounded,
+                                          color: isFav
+                                              ? Colors.redAccent
+                                              : Colors.white70,
+                                          size: 20.0,
+                                        ),
+                                        onPressed: null,
+                                      ),
+                                    );
+                                  }),
+                                if (!isCompact) const SizedBox(width: 2.0),
+
+                                if (isFullscreen) ...[
+                                  // Aspect Ratio Cycle Button
+                                  Tooltip(
+                                    message: 'Cycle Aspect Ratio',
+                                    child: TvFocusable(
+                                      onTap: () {
                                         _showControlsTemporarily();
                                         _cycleAspectRatio(playerCtrl);
                                       },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: IconButton(
+                                        padding: const EdgeInsets.all(4.0),
+                                        constraints: const BoxConstraints(),
+                                        icon: Obx(() {
+                                          final aspectMode = playerCtrl
+                                              .playbackController
+                                              .engine
+                                              .aspectRatioRx
+                                              .value;
+                                          return Icon(
+                                            _getAspectRatioIcon(aspectMode),
+                                            color: Colors.white,
+                                            size: 22.0,
+                                          );
+                                        }),
+                                        onPressed: null,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 2.0),
+                                  const SizedBox(width: 2.0),
 
-                                // Audio Track Selector Button
-                                Tooltip(
-                                  message: 'Audio Tracks',
-                                  child: TvFocusable(
-                                    onTap: () {
-                                      _showControlsTemporarily();
-                                      _openAudioTrackSheet(context, playerCtrl);
-                                    },
-                                    scale: 1.05,
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: IconButton(
-                                      padding: const EdgeInsets.all(4.0),
-                                      constraints: const BoxConstraints(),
-                                      icon: const Icon(
-                                        Icons.audiotrack_rounded,
-                                        color: Colors.white,
-                                        size: 22.0,
-                                      ),
-                                      onPressed: () {
+                                  // Audio Track Selector Button
+                                  Tooltip(
+                                    message: 'Audio Tracks',
+                                    child: TvFocusable(
+                                      onTap: () {
                                         _showControlsTemporarily();
-                                        _openAudioTrackSheet(
-                                          context,
-                                          playerCtrl,
-                                        );
+                                        _openAudioTrackSheet(context, playerCtrl);
                                       },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: const IconButton(
+                                        padding: EdgeInsets.all(4.0),
+                                        constraints: BoxConstraints(),
+                                        icon: Icon(
+                                          Icons.audiotrack_rounded,
+                                          color: Colors.white,
+                                          size: 22.0,
+                                        ),
+                                        onPressed: null,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 2.0),
+                                  const SizedBox(width: 2.0),
 
-                                // Subtitles Selector Button
-                                Tooltip(
-                                  message: 'Subtitles',
-                                  child: TvFocusable(
-                                    onTap: () {
-                                      _showControlsTemporarily();
-                                      _openSubtitleSheet(context, playerCtrl);
-                                    },
-                                    scale: 1.05,
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: IconButton(
-                                      padding: const EdgeInsets.all(4.0),
-                                      constraints: const BoxConstraints(),
-                                      icon: const Icon(
-                                        Icons.subtitles_rounded,
-                                        color: Colors.white,
-                                        size: 22.0,
-                                      ),
-                                      onPressed: () {
+                                  // Subtitles Selector Button
+                                  Tooltip(
+                                    message: 'Subtitles',
+                                    child: TvFocusable(
+                                      onTap: () {
                                         _showControlsTemporarily();
                                         _openSubtitleSheet(context, playerCtrl);
                                       },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: const IconButton(
+                                        padding: EdgeInsets.all(4.0),
+                                        constraints: BoxConstraints(),
+                                        icon: Icon(
+                                          Icons.subtitles_rounded,
+                                          color: Colors.white,
+                                          size: 22.0,
+                                        ),
+                                        onPressed: null,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 2.0),
+                                  const SizedBox(width: 2.0),
 
-                                // Quick Channel Zapper Drawer Toggle
-                                Tooltip(
-                                  message: 'Quick Channel List',
-                                  child: TvFocusable(
-                                    onTap: () {
-                                      _showControlsTemporarily();
-                                      setState(() {
-                                        _quickZapperOpen = !_quickZapperOpen;
-                                      });
-                                    },
-                                    scale: 1.05,
-                                    borderRadius: BorderRadius.circular(20),
-                                    child: IconButton(
-                                      padding: const EdgeInsets.all(4.0),
-                                      constraints: const BoxConstraints(),
-                                      icon: Icon(
-                                        _quickZapperOpen
-                                            ? Icons.view_sidebar_rounded
-                                            : Icons.view_sidebar_outlined,
-                                        color: _quickZapperOpen
-                                            ? AppColors.primary
-                                            : Colors.white,
-                                        size: 22.0,
-                                      ),
-                                      onPressed: () {
+                                  // Quick Channel Zapper Drawer Toggle
+                                  Tooltip(
+                                    message: 'Quick Channel List',
+                                    child: TvFocusable(
+                                      onTap: () {
                                         _showControlsTemporarily();
                                         setState(() {
                                           _quickZapperOpen = !_quickZapperOpen;
                                         });
                                       },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: IconButton(
+                                        padding: const EdgeInsets.all(4.0),
+                                        constraints: const BoxConstraints(),
+                                        icon: Icon(
+                                          _quickZapperOpen
+                                              ? Icons.view_sidebar_rounded
+                                              : Icons.view_sidebar_outlined,
+                                          color: _quickZapperOpen
+                                              ? AppColors.primary
+                                              : Colors.white,
+                                          size: 22.0,
+                                        ),
+                                        onPressed: null,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 2.0),
-                              ],
+                                  const SizedBox(width: 2.0),
+                                ],
 
-                              // Fullscreen Expand Button
-                              Tooltip(
-                                message: isFullscreen
-                                    ? 'Exit Fullscreen'
-                                    : 'Expand to Fullscreen',
-                                child: TvFocusable(
-                                  onTap: () {
-                                    _showControlsTemporarily();
-                                    if (isFullscreen) {
-                                      widget.controller.exitFullscreen();
-                                    } else {
-                                      widget.controller.enterFullscreen();
-                                    }
-                                  },
-                                  scale: 1.05,
-                                  borderRadius: BorderRadius.circular(20),
-                                  child: IconButton(
-                                    padding: const EdgeInsets.all(4.0),
-                                    constraints: const BoxConstraints(),
-                                    icon: Icon(
-                                      isFullscreen
-                                          ? Icons.fullscreen_exit_rounded
-                                          : Icons.fullscreen_rounded,
-                                      color: Colors.white,
-                                      size: 26.0,
-                                    ),
-                                    onPressed: () {
+                                // Fullscreen Expand Button
+                                Tooltip(
+                                  message: isFullscreen
+                                      ? 'Exit Fullscreen'
+                                      : 'Expand to Fullscreen',
+                                  child: TvFocusable(
+                                    onTap: () {
                                       _showControlsTemporarily();
                                       if (isFullscreen) {
                                         widget.controller.exitFullscreen();
@@ -1162,12 +1156,26 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                         widget.controller.enterFullscreen();
                                       }
                                     },
+                                    scale: 1.05,
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: IconButton(
+                                      padding: const EdgeInsets.all(4.0),
+                                      constraints: const BoxConstraints(),
+                                      icon: Icon(
+                                        isFullscreen
+                                            ? Icons.fullscreen_exit_rounded
+                                            : Icons.fullscreen_rounded,
+                                        color: Colors.white,
+                                        size: 26.0,
+                                      ),
+                                      onPressed: null,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          );
-                        },
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ),
                   ),

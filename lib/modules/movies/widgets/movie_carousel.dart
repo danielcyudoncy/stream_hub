@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../../core/helpers/platform_helper.dart';
+import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 import 'movie_card.dart';
 
 class MovieCarousel extends StatelessWidget {
@@ -72,28 +74,32 @@ class MovieCarousel extends StatelessWidget {
                 ),
               ),
               if (onSeeAll != null)
-                TextButton(
-                  onPressed: onSeeAll,
-                  style: TextButton.styleFrom(
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'See All',
-                        style: AppTypography.getLabel(
+                TvFocusable(
+                  onTap: onSeeAll,
+                  borderRadius: AppRadius.pill,
+                  scale: 1.05,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xxs,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'See All',
+                          style: AppTypography.getLabel(
+                            color: colorScheme.primary,
+                          ),
+                        ),
+                        const SizedBox(width: 4.0),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18.0,
                           color: colorScheme.primary,
                         ),
-                      ),
-                      const SizedBox(width: 4.0),
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 18.0,
-                        color: colorScheme.primary,
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
             ],
