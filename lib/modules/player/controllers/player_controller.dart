@@ -817,8 +817,7 @@ class PlayerController extends GetxController {
       playbackController.setQuality(quality);
   Future<List<dynamic>> getAvailableSubtitleTracks() async {
     try {
-      final tracks = await playbackController.engine.adapter
-          .getAvailableSubtitleTracks();
+      final tracks = await playbackController.getAvailableSubtitleTracks();
       final active = tracks.firstWhere(
         (t) => t is Map && t['selected'] == true,
         orElse: () => null,
@@ -835,8 +834,7 @@ class PlayerController extends GetxController {
 
   Future<List<dynamic>> getAvailableAudioTracks() async {
     try {
-      final tracks = await playbackController.engine.adapter
-          .getAvailableAudioTracks();
+      final tracks = await playbackController.getAvailableAudioTracks();
       final active = tracks.firstWhere(
         (t) => t is Map && t['selected'] == true,
         orElse: () => null,

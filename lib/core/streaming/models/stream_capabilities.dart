@@ -13,6 +13,7 @@ class StreamCapabilities {
   final bool supportsAudioTracks;
   final bool supportsQualitySelection;
   final bool supportsResume;
+  final bool supportsPiP;
 
   const StreamCapabilities({
     this.supportsSeeking = false,
@@ -25,6 +26,7 @@ class StreamCapabilities {
     this.supportsAudioTracks = false,
     this.supportsQualitySelection = false,
     this.supportsResume = true,
+    this.supportsPiP = true,
   });
 
   const StreamCapabilities.live()
@@ -35,6 +37,7 @@ class StreamCapabilities {
         supportsDownload: false,
         supportsCatchup: false,
         supportsTimeshift: false,
+        supportsPiP: true,
       );
 
   const StreamCapabilities.vod()
@@ -47,6 +50,7 @@ class StreamCapabilities {
         supportsAudioTracks: true,
         supportsQualitySelection: true,
         supportsResume: true,
+        supportsPiP: true,
       );
 
   StreamCapabilities copyWith({
@@ -60,6 +64,7 @@ class StreamCapabilities {
     bool? supportsAudioTracks,
     bool? supportsQualitySelection,
     bool? supportsResume,
+    bool? supportsPiP,
   }) {
     return StreamCapabilities(
       supportsSeeking: supportsSeeking ?? this.supportsSeeking,
@@ -73,6 +78,7 @@ class StreamCapabilities {
       supportsQualitySelection:
           supportsQualitySelection ?? this.supportsQualitySelection,
       supportsResume: supportsResume ?? this.supportsResume,
+      supportsPiP: supportsPiP ?? this.supportsPiP,
     );
   }
 }

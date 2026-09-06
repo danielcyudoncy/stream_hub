@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_vlc_player/flutter_vlc_player.dart';
+import 'package:floating/floating.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
@@ -10,6 +11,7 @@ import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
+import 'package:stream_hub/core/media/player/pip_floating_capable.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
@@ -39,7 +41,7 @@ import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
 ///   tokens must be embedded in the stream URL by the Stream Engine.
 /// - Playback begins once the [VlcPlayer] widget mounts and the platform view
 ///   initializes; the controller is created lazily by [playSession].
-class VlcPlayerAdapter implements PlayerAdapter {
+class VlcPlayerAdapter implements PlayerAdapter, PipFloatingCapable {
   /// Whether VLC is available on the current platform.
   static bool get isSupported => Platform.isAndroid || Platform.isIOS;
 
@@ -47,6 +49,8 @@ class VlcPlayerAdapter implements PlayerAdapter {
   final LoggingService _logger;
 
   VlcPlayerController? _controller;
+  Floating? _floating;
+  bool _inPip = false;
 
   final _stateController = StreamController<PlaybackState>.broadcast();
   final _positionController = StreamController<Duration>.broadcast();
@@ -482,10 +486,25 @@ class VlcPlayerAdapter implements PlayerAdapter {
   }
 
   @override
-  Future<void> enterPictureInPicture() async {}
+  void setFloating(Floating floating) {
+    _floating = floating;
+  }
 
   @override
-  bool get isInPip => false;
+  Future<void> enterPictureInPicture() async {
+    if (_floating != null) {
+      _inPip = true;
+      await _floating!.enable(ImmediatePiP());
+    } else {
+      _logger.info(
+        'Floating controller not attached to VlcPlayerAdapter; PiP unavailable',
+        tag: 'Player',
+      );
+    }
+  }
+
+  @override
+  bool get isInPip => _inPip;
 
   @override
   Future<void> setSpeed(PlaybackSpeed speed) async {

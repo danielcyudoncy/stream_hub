@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
@@ -21,8 +22,7 @@ class ChannelLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final isLive = channel is Channel && (channel as Channel).isLive;
     final rawPoster = channel.poster ??
         channel.thumbnail ??
@@ -31,28 +31,32 @@ class ChannelLogo extends StatelessWidget {
         channel.metadata['logo'];
     final poster = ImageUrlFormatter.format(rawPoster, item: channel);
 
+    final placeholderWidget = ChannelPlaceholder(
+      iconSize: size * 0.35,
+      fontSize: (size * 0.16).clamp(8.0, 11.0),
+    );
+
     return Stack(
       children: [
-        Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
+        ClipRRect(
+          borderRadius: AppRadius.large,
+          child: Container(
+            width: size,
+            height: size,
             color: colorScheme.surfaceContainerHighest,
-            borderRadius: AppRadius.large,
-            image: poster != null
-                ? DecorationImage(
-                    image: NetworkImage(poster),
+            child: (poster != null && poster.isNotEmpty)
+                ? CachedNetworkImage(
+                    imageUrl: poster,
+                    width: size,
+                    height: size,
                     fit: BoxFit.cover,
-                    onError: (_, _) {},
+                    memCacheWidth: (size * 2).toInt(),
+                    memCacheHeight: (size * 2).toInt(),
+                    placeholder: (context, url) => placeholderWidget,
+                    errorWidget: (context, url, error) => placeholderWidget,
                   )
-                : null,
+                : placeholderWidget,
           ),
-          child: poster == null
-              ? ChannelPlaceholder(
-                  iconSize: size * 0.35,
-                  fontSize: (size * 0.16).clamp(8.0, 11.0),
-                )
-              : null,
         ),
         if (showLiveIndicator && isLive)
           Positioned(

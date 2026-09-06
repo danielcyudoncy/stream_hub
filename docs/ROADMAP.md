@@ -305,9 +305,9 @@ Full Xtream Codes panel support and VOD playback across providers.
 - [x] Favorites toggle from player
 - [x] Auto-record playback history for Continue Watching
 - [x] Resume playback position (VOD resume state & threshold calculation)
-- [ ] Picture-in-Picture
-- [ ] Audio tracks
-- [ ] Subtitles
+- [x] Picture-in-Picture
+- [x] Audio tracks
+- [x] Subtitles
 
 ---
 

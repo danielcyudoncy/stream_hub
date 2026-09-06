@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:floating/floating.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
@@ -12,6 +13,7 @@ import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
 import 'package:stream_hub/core/media/player/error_classification.dart';
+import 'package:stream_hub/core/media/player/pip_floating_capable.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
@@ -39,7 +41,7 @@ import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart'
 /// Channels
 /// - Control: `stream_hub/exo_surface_<viewId>` (MethodChannel).
 /// - Events: `stream_hub/exo_surface_events_<viewId>` (EventChannel).
-class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorReporter {
+class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorReporter, PipFloatingCapable {
   static const String _viewType = 'com.example.stream_hub/exo_surface';
   static const Duration _viewMountTimeout = Duration(seconds: 20);
 
@@ -54,6 +56,8 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
   StreamSubscription<dynamic>? _eventSub;
   final Completer<int> _viewReady = Completer<int>();
   final GlobalKey _platformViewKey = GlobalKey(debugLabel: 'exo_surface_view');
+  Floating? _floating;
+  bool _inPip = false;
   bool _initialized = false;
   bool _disposed = false;
 
@@ -494,10 +498,30 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
       _invoke('setSubtitleTrack', {'trackId': trackId});
 
   @override
-  Future<void> enterPictureInPicture() async {}
+  void setFloating(Floating floating) {
+    _floating = floating;
+  }
 
   @override
-  bool get isInPip => false;
+  Future<void> enterPictureInPicture() async {
+    if (_floating != null) {
+      _inPip = true;
+      await _floating!.enable(ImmediatePiP());
+      return;
+    }
+    try {
+      await _invoke('enterPip');
+      _inPip = true;
+    } catch (e) {
+      _logger.info(
+        'PiP not supported or channel unmounted on ExoPlayerSurfaceView',
+        tag: 'Player',
+      );
+    }
+  }
+
+  @override
+  bool get isInPip => _inPip;
 
   @override
   Future<void> setSpeed(PlaybackSpeed speed) async {

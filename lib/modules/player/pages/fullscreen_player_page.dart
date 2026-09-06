@@ -6,8 +6,8 @@ import 'package:get/get.dart';
 import 'package:floating/floating.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
-import 'package:stream_hub/core/media/player/media_kit_player_adapter.dart';
 import 'package:stream_hub/core/media/player/native_activity_player_adapter.dart';
+import 'package:stream_hub/core/media/player/pip_floating_capable.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
@@ -51,8 +51,9 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
 
   void _injectFloatingIntoAdapter() {
     final a = _controller.playbackController.engine.adapter;
-    if (a is MediaKitPlayerAdapter && _floating != null) {
-      a.setFloating(_floating!);
+    final f = _floating;
+    if (a is PipFloatingCapable && f != null) {
+      (a as PipFloatingCapable).setFloating(f);
     }
   }
 

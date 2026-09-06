@@ -325,11 +325,25 @@ class IjkPlayerAdapter implements PlayerAdapter, StructuredErrorReporter {
   @override
   Future<void> setSubtitleTrack(String trackId) async {}
 
-  @override
-  Future<void> enterPictureInPicture() async {}
+  bool _inPip = false;
 
   @override
-  bool get isInPip => false;
+  Future<void> enterPictureInPicture() async {
+    // IjkPlayer runs in an isolated native Android Activity (IjkPlayerActivity).
+    // Attempt delegation via the launch channel; log diagnostic details if unsupported.
+    try {
+      await _invoke('enterPip');
+      _inPip = true;
+    } catch (e) {
+      _logger.info(
+        'Picture-in-Picture is not supported by the IJK player backend on this device/platform.',
+        tag: 'Player',
+      );
+    }
+  }
+
+  @override
+  bool get isInPip => _inPip;
 
   @override
   Future<void> setSpeed(PlaybackSpeed speed) async {

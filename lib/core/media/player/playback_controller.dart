@@ -102,6 +102,10 @@ class PlaybackController extends GetxController {
       engine.setAspectRatio(mode);
   Future<void> setQuality(PlayerQuality quality) =>
       engine.setQuality(quality);
+  Future<List<dynamic>> getAvailableSubtitleTracks() =>
+      engine.getAvailableSubtitleTracks();
+  Future<List<dynamic>> getAvailableAudioTracks() =>
+      engine.getAvailableAudioTracks();
   Future<void> setSubtitleTrack(String trackId) =>
       engine.setSubtitleTrack(trackId);
   Future<void> setAudioTrack(String trackId) => engine.setAudioTrack(trackId);
