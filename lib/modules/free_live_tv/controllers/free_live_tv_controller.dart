@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/helpers/platform_helper.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
@@ -9,6 +10,7 @@ import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
 import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
 import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
+import 'package:stream_hub/core/services/screen_awake_service.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
 import 'package:stream_hub/data/models/media_item.dart';
@@ -80,11 +82,13 @@ class FreeLiveTvController extends GetxController {
 
   final RxBool isFullscreenMode = false.obs;
   DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
+  bool hasBeenLandscapeInFullscreen = false;
 
   final Rxn<PlayerController> _inlinePlayerController = Rxn<PlayerController>();
   PlayerController? get inlinePlayerController => _inlinePlayerController.value;
   set inlinePlayerController(PlayerController? ctrl) =>
       _inlinePlayerController.value = ctrl;
+  final GlobalKey playerKey = GlobalKey();
 
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _playerStateSubscription;
@@ -120,6 +124,10 @@ class FreeLiveTvController extends GetxController {
     if (inlinePlayerController != null) {
       inlinePlayerController!.stop();
       inlinePlayerController!.onClose();
+    }
+    if (Get.isRegistered<ScreenAwakeService>()) {
+      Get.find<ScreenAwakeService>()
+          .release(owner: 'FreeLiveTvController.onClose');
     }
     super.onClose();
   }
@@ -734,6 +742,11 @@ class FreeLiveTvController extends GetxController {
     playbackStatusMessage.value = '';
     _stopPlayerLoading(complete: false);
     _startPlayerLoading();
+    // Ensure the OS keeps the screen awake while this channel is open.
+    if (Get.isRegistered<ScreenAwakeService>()) {
+      Get.find<ScreenAwakeService>()
+          .acquire(owner: 'FreeLiveTvController.openChannel');
+    }
 
     // Record to recently watched in background without blocking player
     unawaited(repository.recordWatch(channel).then((_) {
@@ -802,8 +815,15 @@ class FreeLiveTvController extends GetxController {
     _openChannelGeneration++;
     _streamStartupWatchdogTimer?.cancel();
     _playbackPositionSubscription?.cancel();
-    inlinePlayerController?.stop();
+    // The engine's load-generation guard makes this safe to fire-and-forget:
+    // any load still in flight abandons its trailing play() the moment the
+    // engine reaches a stopped state.
+    unawaited(inlinePlayerController?.stop());
     activePlayingChannel.value = null;
+    if (Get.isRegistered<ScreenAwakeService>()) {
+      Get.find<ScreenAwakeService>()
+          .release(owner: 'FreeLiveTvController.stopInlinePlayer');
+    }
     playbackStatusMessage.value = '';
     _stopPlayerLoading(complete: false);
   }
@@ -839,6 +859,7 @@ class FreeLiveTvController extends GetxController {
   void enterFullscreen() {
     isFullscreenMode.value = true;
     lastFullscreenEntered = DateTime.now();
+    hasBeenLandscapeInFullscreen = false;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.landscapeLeft,
@@ -848,6 +869,7 @@ class FreeLiveTvController extends GetxController {
 
   void exitFullscreen() {
     isFullscreenMode.value = false;
+    hasBeenLandscapeInFullscreen = false;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     if (!PlatformHelper.isTV) {
       SystemChrome.setPreferredOrientations([

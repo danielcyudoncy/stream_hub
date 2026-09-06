@@ -302,6 +302,30 @@ Observations from on-device runs that are expected behavior, not defects:
   desktop and iOS only — there is no `android/` build. media_kit detects the
   missing native library and falls back to the Dart isolate event loop
   automatically. The warning is benign; playback is unaffected.
+- **`VideoOutput.getFlutterJNIReference` / `markTextureFrameAvailable`
+  NullPointerExceptions during engine teardown** (media_kit_video 1.2.5,
+  Android): while the FlutterActivity/engine is being detached and the app is
+  shutting down, a still-alive `VideoOutput` SurfaceTexture can keep producing
+  frames. The upstream `getFlutterJNIReference()` NPEs on `activity == null`,
+  `getAttachedFlutterEngine() == null` or the reflection lookup, and the
+  listener's `while (flutterJNI == null)` busy-wait then NPEs repeatedly on the
+  dead reference. The traces are swallowed (`catch (Throwable)`) and never
+  crash the app — this is teardown log noise, not a playback defect.
+  **Fix:** `media_kit_video` is vendored at `packages/media_kit_video` (see
+  `dependency_overrides` in `pubspec.yaml`) with a minimal patch to
+  `android/src/main/java/com/alexmercerind/media_kit_video/VideoOutput.java`:
+  null-safe `getFlutterJNIReference()` (returns null instead of throwing when
+  the activity/view/engine is gone), a `disposed` flag + cleared
+  `setOnFrameAvailableListener` in `dispose()`, and the listener now drops the
+  frame when the JNI reference is unavailable instead of spinning.
+  **Remove the override when:** upgrading to `media_kit >= 1.2.0` +
+  `media_kit_video >= 1.3.0` becomes possible. Upstream 1.3.x migrated the
+  Android render path to Flutter's `SurfaceProducer`, which deletes this
+  reflection mechanism entirely. That upgrade is currently blocked by a
+  dependency conflict: `media_kit >= 1.2.0` requires `web ^1.1.0`, incompatible
+  with the project's `firebase_messaging 14.x` / `firebase_core 2.x` chain
+  (which still resolve `web 0.5.x`). A coordinated Firebase v3 migration is
+  required before the media_kit upgrade can land.
 - **Xtream sync imports zero items**: an Xtream panel that rejects the
   credentials returns `[]` for every list endpoint while the app has no way to
   tell "empty account" from "wrong credentials" unless the panel's `user_info`

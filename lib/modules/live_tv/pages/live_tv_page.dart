@@ -39,9 +39,15 @@ class LiveTVPage extends GetView<LiveTVController> {
       return const TVGuidePage();
     }
 
-    // Auto-exit fullscreen if device is rotated back to portrait
+    // Track landscape state while in fullscreen to prevent premature auto-exit race
+    if (isLandscape && controller.isFullscreenMode.value) {
+      controller.hasBeenLandscapeInFullscreen = true;
+    }
+
+    // Auto-exit fullscreen only if device was actually in landscape and is now rotated back to portrait
     if (!isLandscape && controller.isFullscreenMode.value && !isTV && !isDesktop) {
-      if (DateTime.now().difference(controller.lastFullscreenEntered).inMilliseconds > 500) {
+      if (controller.hasBeenLandscapeInFullscreen &&
+          DateTime.now().difference(controller.lastFullscreenEntered).inMilliseconds > 800) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (controller.isFullscreenMode.value) {
             controller.exitFullscreen();
@@ -57,28 +63,30 @@ class LiveTVPage extends GetView<LiveTVController> {
       }
     });
 
-    return Obx(() {
-      if (controller.isLoading.value) {
-        return const Scaffold(
-          body: LiveTvSkeleton(),
-        );
-      }
+    return PopScope(
+      canPop: !controller.isFullscreenMode.value,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (controller.isFullscreenMode.value) {
+          controller.exitFullscreen();
+        }
+      },
+      child: Obx(() {
+        if (controller.isLoading.value) {
+          return const Scaffold(
+            body: LiveTvSkeleton(),
+          );
+        }
 
-      final filtered = controller.filteredChannels;
-      final isList = controller.selectedView.value == 'list';
-      final query = controller.searchQuery.value;
-      final favoritesOnly = controller.showFavoritesOnly.value;
-      final selectedCat = controller.selectedCategory.value;
+        final filtered = controller.filteredChannels;
+        final isList = controller.selectedView.value == 'list';
+        final query = controller.searchQuery.value;
+        final favoritesOnly = controller.showFavoritesOnly.value;
+        final selectedCat = controller.selectedCategory.value;
 
-      // Intentional Fullscreen Toggle Mode (Preserves stream continuously!)
-      if (controller.isFullscreenMode.value) {
-        return PopScope(
-          canPop: false,
-          onPopInvokedWithResult: (didPop, _) {
-            if (didPop) return;
-            controller.exitFullscreen();
-          },
-          child: AppScaffold(
+        // Intentional Fullscreen Toggle Mode (Preserves stream continuously!)
+        if (controller.isFullscreenMode.value) {
+          return AppScaffold(
             title: 'Live TV',
             showAppBar: false,
             showNavigation: false,
@@ -87,14 +95,13 @@ class LiveTVPage extends GetView<LiveTVController> {
               width: double.infinity,
               height: double.infinity,
               child: LiveTvEmbeddedPlayer(
-                key: const ValueKey('live_tv_fullscreen_player'),
+                key: controller.playerKey,
                 controller: controller,
                 isFullscreen: true,
               ),
             ),
-          ),
-        );
-      }
+          );
+        }
 
       // Landscape 2-Pane Side-by-Side View (Player on left, channels on right)
       if (isLandscape && !isDesktop) {
@@ -112,7 +119,7 @@ class LiveTVPage extends GetView<LiveTVController> {
                     _buildTopAppBar(context, isList),
                     Expanded(
                       child: LiveTvEmbeddedPlayer(
-                        key: const ValueKey('live_tv_landscape_player'),
+                        key: controller.playerKey,
                         controller: controller,
                         isFullscreen: false,
                       ),
@@ -218,7 +225,7 @@ class LiveTVPage extends GetView<LiveTVController> {
 
             // 2. Fixed Pinned Top Player (Never scrolls away!)
             LiveTvEmbeddedPlayer(
-              key: const ValueKey('live_tv_portrait_player'),
+              key: controller.playerKey,
               controller: controller,
               isFullscreen: false,
             ),
@@ -308,8 +315,9 @@ class LiveTVPage extends GetView<LiveTVController> {
           ],
         ),
       );
-    });
-  }
+    }),
+  );
+}
 
   Widget _buildChannelListView(
     List<MediaItem> filtered,

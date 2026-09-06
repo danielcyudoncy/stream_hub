@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../core/helpers/platform_helper.dart';
 import '../../core/media/enums/playback_state.dart';
@@ -10,6 +12,7 @@ import '../../core/utils/responsive_helper.dart';
 import '../../modules/player/controllers/player_controller.dart';
 import '../../modules/player/pages/floating_player_page.dart';
 import '../../modules/player/pages/mini_player_page.dart';
+import '../dialogs/confirmation_dialog.dart';
 import 'app_app_bar.dart';
 import 'sync_progress_bar.dart';
 import 'tv_scaffold.dart';
@@ -68,10 +71,40 @@ class AppScaffold extends StatelessWidget {
     Get.offAllNamed(targetRoute);
   }
 
+  /// Intercepts the system/remote Back on a root tab route (a route that has
+  /// nothing to pop) and asks for confirmation instead of exiting silently.
+  /// Non-root routes (details, player pages) keep their natural pop behavior.
+  bool get _isRootRoute => _rootRoutes.contains(Get.currentRoute);
+
+  void _confirmExit(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => ConfirmationDialog(
+        title: 'Exit StreamHub Pro?',
+        message: 'Playback and background downloads will be stopped.',
+        confirmText: 'Exit',
+        cancelText: 'Stay',
+        isDestructive: true,
+        autofocusCancel: true,
+        onCancel: () => Navigator.of(dialogContext).pop(),
+        onConfirm: () {
+          Navigator.of(dialogContext).pop();
+          // Android/iOS: finish the activity. Desktop platforms have no system
+          // back button to delegate to; the window is closed via the OS.
+          if (Platform.isAndroid || Platform.isIOS) {
+            SystemNavigator.pop();
+          }
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isPhone = MediaQuery.sizeOf(context).shortestSide < 600;
 
     final List<NavigationDestination> destinations = [
       const NavigationDestination(
@@ -106,7 +139,7 @@ class AppScaffold extends StatelessWidget {
       ),
     ];
 
-    return Scaffold(
+    final Widget scaffold = Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: floatingActionButton,
       body: LayoutBuilder(
@@ -120,8 +153,8 @@ class AppScaffold extends StatelessWidget {
             return TvScaffold(body: body);
           }
 
-          // Tablet — Navigation Rail
-          if (width >= 600 && showNavigation) {
+          // Tablet — Navigation Rail (exclude phones in landscape)
+          if (width >= 600 && showNavigation && !isPhone) {
             return FocusTraversalGroup(
               policy: WidgetOrderTraversalPolicy(),
               child: Row(
@@ -209,7 +242,7 @@ class AppScaffold extends StatelessWidget {
         builder: (context, constraints) {
           final isTvMode =
               PlatformHelper.isTV || ResponsiveHelper.isTV(context);
-          if (constraints.maxWidth >= 600 || isTvMode) {
+          if ((constraints.maxWidth >= 600 && !isPhone) || isTvMode) {
             return const SizedBox.shrink();
           }
 
@@ -295,5 +328,17 @@ class AppScaffold extends StatelessWidget {
         },
       ),
     );
+
+    if (_isRootRoute) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (!didPop) _confirmExit(context);
+        },
+        child: scaffold,
+      );
+    }
+
+    return scaffold;
   }
 }

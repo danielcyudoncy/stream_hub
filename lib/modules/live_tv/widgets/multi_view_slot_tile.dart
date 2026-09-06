@@ -5,6 +5,7 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
+import '../../../shared/widgets/keep_screen_on.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import '../controllers/multi_view_controller.dart';
 
@@ -62,14 +63,22 @@ class MultiViewSlotTile extends StatelessWidget {
                   Obx(() {
                     playerCtrl.playbackController.engine.engineKindRx.value;
                     final adapter = playerCtrl.playbackController.engine.adapter;
-                    return adapter.buildPlayerWidget();
+                    return KeepScreenOn(child: adapter.buildPlayerWidget());
                   }),
 
-                  // Tap anywhere to set audio focus
+                  // Remote/D-pad focusable slot: whole tile activates audio focus.
+                  // autofocus on slot 0 so the Multi-View screen starts navigable.
                   Positioned.fill(
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
+                    child: TvFocusable(
                       onTap: () => controller.setActiveAudioSlot(slotIndex),
+                      autofocus: slotIndex == 0,
+                      borderRadius: AppRadius.medium,
+                      scale: 1.0,
+                      descendantsAreFocusable: false,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => controller.setActiveAudioSlot(slotIndex),
+                      ),
                     ),
                   ),
 
@@ -78,86 +87,89 @@ class MultiViewSlotTile extends StatelessWidget {
                     top: AppSpacing.xs,
                     left: AppSpacing.xs,
                     right: AppSpacing.xs,
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          // Audio Focus Indicator Badge
-                          GestureDetector(
-                            onTap: () => controller.setActiveAudioSlot(slotIndex),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6.0,
-                                vertical: 3.0,
-                              ),
-                              decoration: BoxDecoration(
-                                color: isAudioActive
-                                    ? AppColors.primary
-                                    : Colors.black.withValues(alpha: 0.7),
-                                borderRadius: AppRadius.small,
-                                border: Border.all(
+                    child: IgnorePointer(
+                      ignoring: true,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Audio Focus Indicator Badge
+                            GestureDetector(
+                              onTap: () => controller.setActiveAudioSlot(slotIndex),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6.0,
+                                  vertical: 3.0,
+                                ),
+                                decoration: BoxDecoration(
                                   color: isAudioActive
-                                      ? Colors.white
-                                      : Colors.white24,
-                                  width: 1.0,
+                                      ? AppColors.primary
+                                      : Colors.black.withValues(alpha: 0.7),
+                                  borderRadius: AppRadius.small,
+                                  border: Border.all(
+                                    color: isAudioActive
+                                        ? Colors.white
+                                        : Colors.white24,
+                                    width: 1.0,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      isAudioActive
+                                          ? Icons.volume_up_rounded
+                                          : Icons.volume_off_rounded,
+                                      size: 13.0,
+                                      color: Colors.white,
+                                    ),
+                                    if (!isCompact) ...[
+                                      const SizedBox(width: 4.0),
+                                      Text(
+                                        isAudioActive ? 'AUDIO ON' : 'MUTED',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 9.5,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    isAudioActive
-                                        ? Icons.volume_up_rounded
-                                        : Icons.volume_off_rounded,
-                                    size: 13.0,
-                                    color: Colors.white,
-                                  ),
-                                  if (!isCompact) ...[
-                                    const SizedBox(width: 4.0),
-                                    Text(
-                                      isAudioActive ? 'AUDIO ON' : 'MUTED',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                            ),
+                            const SizedBox(width: 8.0),
+
+                            // Change Channel Button
+                            IconButton(
+                              padding: const EdgeInsets.all(4.0),
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(
+                                Icons.swap_horiz_rounded,
+                                color: Colors.white70,
+                                size: 18.0,
                               ),
+                              tooltip: 'Change Channel',
+                              onPressed: onSelectChannel,
                             ),
-                          ),
-                          const SizedBox(width: 8.0),
+                            const SizedBox(width: 4.0),
 
-                          // Change Channel Button
-                          IconButton(
-                            padding: const EdgeInsets.all(4.0),
-                            constraints: const BoxConstraints(),
-                            icon: const Icon(
-                              Icons.swap_horiz_rounded,
-                              color: Colors.white70,
-                              size: 18.0,
+                            // Clear Slot Button
+                            IconButton(
+                              padding: const EdgeInsets.all(4.0),
+                              constraints: const BoxConstraints(),
+                              icon: const Icon(
+                                Icons.close_rounded,
+                                color: Colors.white70,
+                                size: 18.0,
+                              ),
+                              tooltip: 'Remove from Multi-View',
+                              onPressed: () => controller.clearSlot(slotIndex),
                             ),
-                            tooltip: 'Change Channel',
-                            onPressed: onSelectChannel,
-                          ),
-                          const SizedBox(width: 4.0),
-
-                          // Clear Slot Button
-                          IconButton(
-                            padding: const EdgeInsets.all(4.0),
-                            constraints: const BoxConstraints(),
-                            icon: const Icon(
-                              Icons.close_rounded,
-                              color: Colors.white70,
-                              size: 18.0,
-                            ),
-                            tooltip: 'Remove from Multi-View',
-                            onPressed: () => controller.clearSlot(slotIndex),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -222,6 +234,7 @@ class MultiViewSlotTile extends StatelessWidget {
                   Center(
                     child: TvFocusable(
                       onTap: onSelectChannel,
+                      autofocus: slotIndex == 0,
                       borderRadius: AppRadius.medium,
                       scale: 1.08,
                       child: Padding(

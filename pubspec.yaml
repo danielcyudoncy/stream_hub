@@ -82,6 +82,7 @@ dependencies:
 
   # QR Code generation for phone-based pairing
   qr_flutter: ^4.1.0
+  wakelock_plus: ^1.5.2
 
 dev_dependencies:
   flutter_test:
@@ -92,6 +93,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   build_runner: ^2.4.9
   hive_generator: ^1.1.3
+  wakelock_plus_platform_interface: ^1.6.0
 
 # Vendored because flutter_vlc_player 7.4.4's native pigeon channels are named
 # "dev.flutter.pigeon.flutter_vlc_player_platform_interface.VlcPlayerApi.*" while
@@ -101,6 +103,15 @@ dev_dependencies:
 dependency_overrides:
   flutter_vlc_player_platform_interface:
     path: packages/flutter_vlc_player_platform_interface
+  # media_kit_video 1.2.5 is pinned exact because upgrading requires media_kit >= 1.2.0,
+  # which depends on web ^1.1.0 - incompatible with the project's firebase_messaging 14.x
+  # / firebase_core 2.x chain (needs web <1.0.0). The vendored copy patches a benign
+  # teardown NPE in android/src/main/java/.../VideoOutput.java (null FlutterJNI ref +
+  # busy-wait loop when the engine detaches). Remove this override when media_kit >= 1.2.x
+  # and Firebase v3 (web ^1.1.0) can be co-resolved; upstream 1.3.x fixed the NPE via
+  # SurfaceProducer migration.
+  media_kit_video:
+    path: packages/media_kit_video
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

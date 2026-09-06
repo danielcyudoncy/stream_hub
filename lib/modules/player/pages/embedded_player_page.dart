@@ -5,6 +5,7 @@ import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/player/widgets/player_controls.dart';
+import 'package:stream_hub/shared/widgets/keep_screen_on.dart';
 
 class EmbeddedPlayerPage extends GetView<PlayerController> {
   final double height;
@@ -98,7 +99,7 @@ class EmbeddedPlayerPage extends GetView<PlayerController> {
       return Positioned.fill(
         child: ColoredBox(
           color: Colors.black,
-          child: engine.adapter.buildPlayerWidget(),
+          child: KeepScreenOn(child: engine.adapter.buildPlayerWidget()),
         ),
       );
     });

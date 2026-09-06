@@ -105,23 +105,25 @@ class HomeContentRail extends StatelessWidget {
         ),
 
         // Horizontal scrolling rail
-        SizedBox(
-          height: effectiveHeight,
-          child: FocusTraversalGroup(
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              itemCount: items.length,
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return SizedBox(
-                  width: effectiveCardWidth,
-                  child: Padding(
-                    padding: const EdgeInsets.only(right: AppSpacing.md),
-                    child: itemBuilder(context, item, index),
-                  ),
-                );
-              },
+        ClipRect(
+          child: SizedBox(
+            height: effectiveHeight,
+            child: FocusTraversalGroup(
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                itemCount: items.length,
+                itemBuilder: (context, index) {
+                  final item = items[index];
+                  return SizedBox(
+                    width: effectiveCardWidth,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: AppSpacing.md),
+                      child: itemBuilder(context, item, index),
+                    ),
+                  );
+                },
+              ),
             ),
           ),
         ),

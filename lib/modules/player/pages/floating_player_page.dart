@@ -7,6 +7,7 @@ import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
+import 'package:stream_hub/shared/widgets/keep_screen_on.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class FloatingPlayerPage extends StatefulWidget {
@@ -161,8 +162,10 @@ class _FloatingPlayerPageState extends State<FloatingPlayerPage> {
                     fit: StackFit.expand,
                     children: [
                       // Video Player Widget
-                      _controller.playbackController.engine.adapter
-                          .buildPlayerWidget(),
+                      KeepScreenOn(
+                        child: _controller.playbackController.engine.adapter
+                            .buildPlayerWidget(),
+                      ),
 
                       // Buffering indicator
                       if (state == PlaybackState.buffering ||

@@ -15,6 +15,7 @@ import '../../modules/player/pages/floating_player_page.dart';
 import '../../modules/profiles/profile_controller.dart';
 import '../../modules/provider_manager/provider_manager_controller.dart';
 import 'sync_progress_bar.dart';
+import 'tv_body_focus_registry.dart';
 import 'tv_focusable.dart';
 
 class TvScaffold extends StatefulWidget {
@@ -31,11 +32,41 @@ class _TvScaffoldState extends State<TvScaffold> {
   Timer? _clockTimer;
   DateTime _currentTime = DateTime.now();
 
-  final FocusNode _bodyFocusNode = FocusNode(debugLabel: 'TvScaffoldBody');
+  final FocusScopeNode _bodyFocusNode = FocusScopeNode(debugLabel: 'TvScaffoldBody')
+    ..directionalTraversalEdgeBehavior = TraversalEdgeBehavior.stop;
   final FocusNode _sidebarContainerFocusNode = FocusNode(debugLabel: 'TvScaffoldSidebar');
   final Map<int, FocusNode> _navFocusNodes = {};
   final FocusNode _profileFocusNode = FocusNode(debugLabel: 'Nav_Profile');
   FocusNode? _lastBodyFocusedNode;
+  final GlobalKey _bodyKey = GlobalKey(debugLabel: 'TvScaffoldBodyKey');
+
+  /// Real, actionable focus targets inside the body, in build (reading) order.
+  /// Registered by [TvFocusable] children via [TvBodyFocusRegistry].
+  final List<FocusNode> _bodyFocusables = <FocusNode>[];
+
+  void _registerBodyFocusable(FocusNode node) {
+    if (!_bodyFocusables.contains(node)) {
+      _bodyFocusables.add(node);
+    }
+
+    // Give the first actionable body widget initial focus so D-pad navigation
+    // works immediately after a page loads. Without this, no node holds
+    // primary focus and pressing any remote direction is a no-op. The root
+    // focus scope holds PRIMARY FOCUS at startup, so we must not require
+    // primary focus to be null — only that it isn't already inside the body.
+    if (_bodyFocusables.length == 1) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !node.canRequestFocus) return;
+        final primary = FocusManager.instance.primaryFocus;
+        if (primary != null && _bodyFocusables.contains(primary)) return;
+        node.requestFocus();
+      });
+    }
+  }
+
+  void _unregisterBodyFocusable(FocusNode node) {
+    _bodyFocusables.remove(node);
+  }
 
   @override
   void initState() {
@@ -120,15 +151,87 @@ class _TvScaffoldState extends State<TvScaffold> {
     final currentFocus = FocusManager.instance.primaryFocus;
     if (currentFocus != null && currentFocus != node && currentFocus != _bodyFocusNode) {
       _lastBodyFocusedNode = currentFocus;
+
+      // Try moving left inside the body first (e.g. from card 3 to card 2).
       final moved = currentFocus.focusInDirection(TraversalDirection.left);
       if (moved) {
+        // If directional traversal escaped the body into the sidebar, undo it
+        // and use the explicit "focus the active nav item" entrance instead of
+        // landing on an arbitrary, geometry-aligned nav item.
+        final newFocus = FocusManager.instance.primaryFocus;
+        if (newFocus != null && !_isInBody(newFocus)) {
+          currentFocus.requestFocus();
+          _openSidebarWithFocus();
+        }
         return KeyEventResult.handled;
+      }
+
+      // Directional left failed. Fall through to opening the sidebar when
+      // nothing actionable remains to the left within the body. A plain
+      // pixel-boundary check is unreliable for centered or vertically-scrolled
+      // content (e.g. the home page CTA inside a SingleChildScrollView), where
+      // the leftmost widget never touches the scrollable's edge. When another
+      // body target does sit to the left we keep `ignored` so a directional
+      // traversal that merely failed to resolve a leftward neighbor (common
+      // inside flat GridView.builder trees) does not leave the body.
+      if (_hasFocusableToLeft(currentFocus)) {
+        return KeyEventResult.ignored;
       }
     }
 
-    // At the leftmost edge of the body: open sidebar with focused nav item
+    // Genuinely at the leftmost edge of the body: open sidebar with focused nav item
     _openSidebarWithFocus();
     return KeyEventResult.handled;
+  }
+
+  /// Returns true when [node] lives somewhere inside the TV body subtree
+  /// (as opposed to the sidebar floating overlay).
+  bool _isInBody(FocusNode node) {
+    final nodeContext = node.context;
+    final bodyContext = _bodyKey.currentContext;
+    if (nodeContext == null || bodyContext == null) return true;
+    var inBody = false;
+    (nodeContext).visitAncestorElements((ancestor) {
+      if (ancestor == bodyContext) {
+        inBody = true;
+        return false;
+      }
+      return true;
+    });
+    return inBody;
+  }
+
+  /// Returns true when any registered body focusable sits strictly to the left
+  /// of [node]. When no such target exists, a Left press should open the
+  /// sidebar — even for centered or vertically-scrolled content where a
+  /// pixel-boundary test cannot detect a "left edge" (e.g. the home page's
+  /// centered hero CTA inside a SingleChildScrollView).
+  bool _hasFocusableToLeft(FocusNode node) {
+    RenderBox? currentBox;
+    try {
+      final currentObject = node.context?.findRenderObject();
+      currentBox = currentObject is RenderBox ? currentObject : null;
+    } catch (_) {
+      currentBox = null;
+    }
+    if (currentBox == null || !currentBox.hasSize) return false;
+
+    final currentLeft = currentBox.localToGlobal(Offset.zero).dx;
+    const epsilon = 8.0;
+    for (final candidate in _bodyFocusables) {
+      if (identical(node, candidate) || !candidate.canRequestFocus) continue;
+      RenderBox? candidateBox;
+      try {
+        final candidateObject = candidate.context?.findRenderObject();
+        candidateBox = candidateObject is RenderBox ? candidateObject : null;
+      } catch (_) {
+        candidateBox = null;
+      }
+      if (candidateBox == null || !candidateBox.hasSize) continue;
+      final candidateLeft = candidateBox.localToGlobal(Offset.zero).dx;
+      if (candidateLeft < currentLeft - epsilon) return true;
+    }
+    return false;
   }
 
   void _openSidebarWithFocus() {
@@ -151,6 +254,24 @@ class _TvScaffoldState extends State<TvScaffold> {
       return KeyEventResult.handled;
     }
 
+    // D-pad Left inside the sidebar is intentionally a no-op: the sidebar is
+    // the leftmost rail, so there is nowhere further left to go. Consuming it
+    // prevents the default directional traversal from wrapping focus around to
+    // the right edge of the body.
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _navigateSidebarByDelta(1);
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _navigateSidebarByDelta(-1);
+      return KeyEventResult.handled;
+    }
+
     if (event.logicalKey == LogicalKeyboardKey.escape ||
         event.logicalKey == LogicalKeyboardKey.goBack ||
         event.logicalKey == LogicalKeyboardKey.gameButtonB) {
@@ -163,15 +284,44 @@ class _TvScaffoldState extends State<TvScaffold> {
     return KeyEventResult.ignored;
   }
 
+  /// The D-pad ordering of sidebar targets: the nine root nav items followed by
+  /// the profile entry, wrapping in a closed loop.
+  List<FocusNode> get _sidebarDpadOrder =>
+      [...List.generate(9, (i) => _navFocusNodes[i]!), _profileFocusNode];
+
+  /// Moves sidebar focus [delta] positions forward (1) or backward (-1) with
+  /// wrap-around.
+  void _navigateSidebarByDelta(int delta) {
+    final order = _sidebarDpadOrder;
+    final current = FocusManager.instance.primaryFocus;
+    final currentIndex = current == null ? -1 : order.indexOf(current);
+    if (currentIndex < 0) return;
+    final nextIndex = (currentIndex + delta) % order.length;
+    final normalized = nextIndex < 0 ? nextIndex + order.length : nextIndex;
+    order[normalized].requestFocus();
+  }
+
   void _closeSidebarAndFocusBody() {
     if (mounted) {
       setState(() => _isExpanded = false);
     }
+
+    // Restore the most recently focused body element when there is one.
     if (_lastBodyFocusedNode != null && _lastBodyFocusedNode!.canRequestFocus) {
       _lastBodyFocusedNode!.requestFocus();
-    } else {
-      _bodyFocusNode.requestFocus();
+      return;
     }
+
+    // Otherwise land on the first real, actionable focus target in the body
+    // (reading order). The bare _bodyFocusNode container is intentionally not
+    // focusable, so this is what guarantees the remote always reaches a
+    // highlightable button (e.g. "Add Media Source", "Add Provider").
+    if (_bodyFocusables.isNotEmpty) {
+      _bodyFocusables.first.requestFocus();
+      return;
+    }
+
+    _bodyFocusNode.requestFocus();
   }
 
   void _onItemTapped(int index) {
@@ -195,14 +345,26 @@ class _TvScaffoldState extends State<TvScaffold> {
           // Main Body pushed by 96px (collapsed sidebar width)
           Positioned.fill(
             left: 96.0,
-            child: Focus(
-              focusNode: _bodyFocusNode,
+            child: FocusScope(
+              key: _bodyKey,
+              node: _bodyFocusNode,
+              canRequestFocus: true,
+              skipTraversal: true,
               onKeyEvent: _handleBodyKeyEvent,
-              child: Column(
-                children: [
-                  const SyncProgressBar(),
-                  Expanded(child: widget.body),
-                ],
+              child: FocusTraversalGroup(
+                policy: ReadingOrderTraversalPolicy(),
+                child: Column(
+                  children: [
+                    const SyncProgressBar(),
+                    Expanded(
+                      child: TvBodyFocusRegistry(
+                        register: _registerBodyFocusable,
+                        unregister: _unregisterBodyFocusable,
+                        child: widget.body,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -227,6 +389,9 @@ class _TvScaffoldState extends State<TvScaffold> {
             bottom: 0,
             child: Focus(
               focusNode: _sidebarContainerFocusNode,
+              canRequestFocus: false,
+              skipTraversal: true,
+              descendantsAreFocusable: true,
               onKeyEvent: _handleSidebarKeyEvent,
               onFocusChange: (hasFocus) {
                 if (mounted && _isExpanded != hasFocus) {

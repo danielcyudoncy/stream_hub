@@ -40,6 +40,19 @@ class PlaybackEngine {
   final bool allowEngineFallback;
 
   bool _initialized = false;
+
+  /// Monotonic token bumped on every stop/dispose. In-flight [_runLoad]
+  /// state machines compare their captured token to detect an interruption
+  /// (e.g. Stop pressed while a channel is still loading) and abandon the
+  /// trailing `adapter.play()` instead of resuming playback after the stop.
+  int _loadGeneration = 0;
+
+  /// True once [initialize] has completed and the adapter streams are bound.
+  ///
+  /// Reset by [_cleanup], so a later load re-runs [initialize] and rebinds
+  /// position/buffer/error streams that a previous `stop()` tore down.
+  bool get isInitialized => _initialized;
+
   final Set<PlaybackEngineKind> _attemptedEngines = <PlaybackEngineKind>{};
   int _silentVideoSeconds = 0;
 
@@ -400,6 +413,10 @@ class PlaybackEngine {
     if (_state == PlaybackState.stopped || _state == PlaybackState.idle) {
       return;
     }
+    // Invalidate any in-flight load IMMEDIATELY (before the awaited
+    // adapter.stop()) so a concurrent _runLoad cannot re-start playback after
+    // the stop once its async load action resolves.
+    _loadGeneration++;
     await adapter.stop();
     _setState(PlaybackState.stopped);
     _finalizeAnalytics();
@@ -785,14 +802,26 @@ class PlaybackEngine {
     required String title,
     required String loadId,
   }) async {
+    // A previous stop() tore down the adapter stream subscriptions. Rebind
+    // them so position/buffer/error updates flow again on this new load;
+    // otherwise listeners (e.g. the player's "actually rendering" wait) never
+    // see the position advance and always fall back to their hard timeout.
+    if (!_initialized) {
+      await initialize();
+    }
+    final generation = _loadGeneration;
     _setState(PlaybackState.loading);
     // A new load invalidates any classification from the previous session so
     // a past failure can never suppress or steer a later fallback decision.
     _structuredErrorReporter?.clearLastError();
     try {
       await loadAction();
+      // Stop was requested while this load was in flight: abandon without
+      // transitioning state or starting playback.
+      if (generation != _loadGeneration) return;
       _setState(PlaybackState.buffering);
       await adapter.play();
+      if (generation != _loadGeneration) return;
       _setState(PlaybackState.playing);
       _startAnalytics();
       _startBufferMonitoring();
@@ -802,6 +831,7 @@ class PlaybackEngine {
         tag: 'PlaybackEngine',
       );
     } catch (e, st) {
+      if (generation != _loadGeneration) return;
       if (await _tryEngineFallback()) {
         return;
       }
@@ -1007,6 +1037,7 @@ class PlaybackEngine {
   }
 
   void _cleanup() {
+    _loadGeneration++;
     _liveReconnectTimer?.cancel();
     _liveReconnectTimer = null;
     _liveReconnectAttempts = 0;
@@ -1022,6 +1053,7 @@ class PlaybackEngine {
     _currentSession = null;
     sessionRx.value = null;
     _analytics = null;
+    _initialized = false;
     _setState(PlaybackState.idle);
   }
 }

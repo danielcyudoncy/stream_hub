@@ -7,6 +7,7 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
+import '../../../core/utils/responsive_helper.dart';
 import '../../../data/models/cast_member.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/models/series_progress.dart';
@@ -786,7 +787,7 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
           children: [
             Expanded(
               child: TvFocusable(
-                autofocus: PlatformHelper.supportsDPadNavigation,
+                autofocus: ResponsiveHelper.isTvLayout(context),
                 onTap: isPlaying
                     ? _controller.stopInlinePlayback
                     : _controller.playPrimaryAction,

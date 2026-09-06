@@ -310,7 +310,7 @@ class PremiumMediaCard extends StatelessWidget {
 
     return TvFocusable(
       onTap: onTap,
-      scale: 1.06,
+      scale: 1.03,
       onFocusChange: onFocusChange,
       borderRadius: AppRadius.medium,
       child: cardBody,

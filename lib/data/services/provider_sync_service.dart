@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
@@ -179,6 +181,10 @@ class ProviderSyncService extends GetxService {
       );
     }
 
+    activeProviderName.value = provider.name;
+    _bumpSyncProgress(0.15);
+    currentSyncMessage.value = 'Connecting to "${provider.name}"...';
+
     try {
       final source = _sourceFactory.create(
         provider.id,
@@ -186,12 +192,18 @@ class ProviderSyncService extends GetxService {
         _buildConfig(provider, sourceType),
       );
       await _sourceRepo.register(source);
+
+      _bumpSyncProgress(0.35);
+      currentSyncMessage.value = 'Importing playlist "${provider.name}"...';
       final result = await _catalogRepo.syncSource(provider.id);
 
       if (result.success) {
         final account = source is AccountMetadataProvider
             ? (source as AccountMetadataProvider).accountMetadata
             : null;
+
+        _bumpSyncProgress(0.85);
+        currentSyncMessage.value = 'Saving playlist "${provider.name}"...';
         await _repository.updateProvider(
           provider.copyWith(
             status: ProviderStatus.active,
@@ -207,6 +219,9 @@ class ProviderSyncService extends GetxService {
         // Orchestrate XMLTV Sync if epgUrl is present
         if (result.epgUrl != null && result.epgUrl!.isNotEmpty) {
           try {
+            _bumpSyncProgress(0.92);
+            currentSyncMessage.value =
+                'Syncing program guide for "${provider.name}"...';
             final epgSourceId = '${provider.id}_epg';
             final xmltvSource = _sourceFactory.create(
               epgSourceId,
@@ -220,8 +235,11 @@ class ProviderSyncService extends GetxService {
           }
         }
 
+        _bumpSyncProgress(1.0);
+        currentSyncMessage.value = 'Playlist "${provider.name}" ready';
         return ProviderSyncResult(provider: provider, success: true);
       } else {
+        currentSyncMessage.value = '';
         await _repository.updateProvider(
           provider.copyWith(status: ProviderStatus.error),
         );
@@ -237,6 +255,7 @@ class ProviderSyncService extends GetxService {
         e is ApplicationException ? e.message : null,
         provider,
       );
+      currentSyncMessage.value = '';
       try {
         await _repository.updateProvider(
           provider.copyWith(status: ProviderStatus.error),
@@ -244,6 +263,12 @@ class ProviderSyncService extends GetxService {
       } catch (_) {}
       return ProviderSyncResult(provider: provider, success: false, message: message);
     }
+  }
+
+  /// Advances [syncProgress] monotonically so coarse per-provider stages never
+  /// regress the overall "provider i of N" ratio shown by batch syncs.
+  void _bumpSyncProgress(double target) {
+    syncProgress.value = math.max(syncProgress.value, target);
   }
 
   Map<String, dynamic> _buildConfig(ProviderModel provider, MediaSourceType sourceType) {

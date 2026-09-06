@@ -31,43 +31,54 @@ class MultiViewPage extends GetView<MultiViewController> {
         title: 'Multi-View',
         actions: [
           // Home / Exit Multi-View
-          IconButton(
-            icon: const Icon(Icons.home_rounded, color: Colors.white),
-            tooltip: 'Back to Home',
-            onPressed: () => Get.offAllNamed(AppRoutes.home),
+          TvFocusable(
+            onTap: () => Get.offAllNamed(AppRoutes.home),
+            scale: 1.15,
+            borderRadius: BorderRadius.circular(24),
+            child: IconButton(
+              icon: const Icon(Icons.home_rounded, color: Colors.white),
+              tooltip: 'Back to Home',
+              onPressed: () => Get.offAllNamed(AppRoutes.home),
+            ),
           ),
           // Layout Mode Selector
           Obx(() {
-            return PopupMenuButton<MultiViewLayoutMode>(
-              icon: const Icon(Icons.grid_view_rounded, color: Colors.white),
-              tooltip: 'Change Layout',
-              initialValue: controller.layoutMode.value,
-              onSelected: controller.setLayoutMode,
-              itemBuilder: (context) {
-                return MultiViewLayoutMode.values.map((mode) {
-                  final isSelected = controller.layoutMode.value == mode;
-                  return PopupMenuItem(
-                    value: mode,
-                    child: Row(
-                      children: [
-                        Icon(
-                          _iconForLayout(mode),
-                          color: isSelected ? AppColors.primary : colorScheme.onSurface,
-                          size: 20.0,
-                        ),
-                        const SizedBox(width: 8.0),
-                        Text(
-                          mode.label,
-                          style: TextStyle(
+            return TvFocusable(
+              onTap: () => _layoutPopupKey.currentState?.showButtonMenu(),
+              scale: 1.15,
+              borderRadius: BorderRadius.circular(24),
+              child: PopupMenuButton<MultiViewLayoutMode>(
+                key: _layoutPopupKey,
+                icon: const Icon(Icons.grid_view_rounded, color: Colors.white),
+                tooltip: 'Change Layout',
+                initialValue: controller.layoutMode.value,
+                onSelected: controller.setLayoutMode,
+                itemBuilder: (context) {
+                  return MultiViewLayoutMode.values.map((mode) {
+                    final isSelected = controller.layoutMode.value == mode;
+                    return PopupMenuItem(
+                      value: mode,
+                      child: Row(
+                        children: [
+                          Icon(
+                            _iconForLayout(mode),
                             color: isSelected ? AppColors.primary : colorScheme.onSurface,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            size: 20.0,
                           ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList();
-              },
+                          const SizedBox(width: 8.0),
+                          Text(
+                            mode.label,
+                            style: TextStyle(
+                              color: isSelected ? AppColors.primary : colorScheme.onSurface,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList();
+                },
+              ),
             );
           }),
         ],
@@ -76,12 +87,18 @@ class MultiViewPage extends GetView<MultiViewController> {
           padding: const EdgeInsets.all(AppSpacing.xs),
           child: Obx(() {
             final mode = controller.layoutMode.value;
-            return _buildGridForLayout(context, mode);
+            return FocusTraversalGroup(
+              policy: ReadingOrderTraversalPolicy(),
+              child: _buildGridForLayout(context, mode),
+            );
           }),
         ),
       ),
     );
   }
+
+  static final GlobalKey<PopupMenuButtonState<MultiViewLayoutMode>>
+      _layoutPopupKey = GlobalKey();
 
   IconData _iconForLayout(MultiViewLayoutMode mode) {
     switch (mode) {

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_shadows.dart';
+import 'tv_body_focus_registry.dart';
 
 class TvFocusable extends StatefulWidget {
   final Widget child;
@@ -45,13 +46,55 @@ class _TvFocusableState extends State<TvFocusable> {
   bool _hasFocus = false;
   Timer? _longPressTimer;
   bool _longPressTriggered = false;
+  bool _registered = false;
 
   FocusNode? _internalFocusNode;
   FocusNode get _effectiveFocusNode =>
       widget.focusNode ?? (_internalFocusNode ??= FocusNode());
 
+  TvBodyFocusRegistry? _registry;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncBodyRegistration();
+  }
+
+  @override
+  void didUpdateWidget(TvFocusable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      _unregisterWithBody();
+      _syncBodyRegistration();
+    }
+  }
+
+  void _syncBodyRegistration() {
+    final registry = TvBodyFocusRegistry.maybeOf(context);
+    if (registry == null) {
+      _unregisterWithBody();
+      _registry = null;
+      return;
+    }
+    _registry = registry;
+    if (!_registered) {
+      _registered = true;
+      registry.register(_effectiveFocusNode);
+    }
+  }
+
+  void _unregisterWithBody() {
+    if (!_registered) return;
+    final registry = _registry ?? TvBodyFocusRegistry.maybeOf(context);
+    if (registry != null) {
+      registry.unregister(_effectiveFocusNode);
+    }
+    _registered = false;
+  }
+
   @override
   void dispose() {
+    _unregisterWithBody();
     _longPressTimer?.cancel();
     _internalFocusNode?.dispose();
     super.dispose();
@@ -63,8 +106,6 @@ class _TvFocusableState extends State<TvFocusable> {
       if (res != KeyEventResult.ignored) return res;
     }
 
-    if (widget.onLongPress == null) return KeyEventResult.ignored;
-
     final isSelect = event.logicalKey == LogicalKeyboardKey.select ||
         event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter ||
@@ -73,6 +114,15 @@ class _TvFocusableState extends State<TvFocusable> {
     if (!isSelect) return KeyEventResult.ignored;
 
     if (event is KeyDownEvent) {
+      if (widget.onLongPress == null) {
+        // No long-press behavior: activate immediately on press (key down).
+        // Returning `handled` stops the event from bubbling to ancestor key
+        // handlers — e.g. a full-screen player wrapper that toggles its
+        // control overlay on Select and would otherwise swallow the button's
+        // activation, leaving remote-focused controls unresponsive.
+        widget.onTap?.call();
+        return KeyEventResult.handled;
+      }
       if (_longPressTimer == null && !_longPressTriggered) {
         _longPressTimer = Timer(const Duration(milliseconds: 600), () {
           if (mounted) {
@@ -83,6 +133,9 @@ class _TvFocusableState extends State<TvFocusable> {
       }
       return KeyEventResult.handled;
     } else if (event is KeyUpEvent) {
+      if (widget.onLongPress == null) {
+        return KeyEventResult.handled;
+      }
       final wasTriggered = _longPressTriggered;
       _longPressTimer?.cancel();
       _longPressTimer = null;

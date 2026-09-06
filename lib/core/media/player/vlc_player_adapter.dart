@@ -76,6 +76,8 @@ class VlcPlayerAdapter implements PlayerAdapter {
   @override
   bool get isInitialized => _controller != null;
 
+  final GlobalKey _vlcKey = GlobalKey(debugLabel: 'vlc_player');
+
   @override
   Widget buildPlayerWidget() {
     final controller = _controller;
@@ -88,6 +90,7 @@ class VlcPlayerAdapter implements PlayerAdapter {
           child: AspectRatio(
             aspectRatio: ratio,
             child: VlcPlayer(
+              key: _vlcKey,
               controller: controller,
               aspectRatio: ratio,
               placeholder: Container(color: const Color(0xFF000000)),

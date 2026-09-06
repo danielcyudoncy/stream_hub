@@ -11,6 +11,7 @@ class ConfirmationDialog extends StatelessWidget {
   final VoidCallback? onConfirm;
   final VoidCallback? onCancel;
   final bool isDestructive;
+  final bool autofocusCancel;
 
   const ConfirmationDialog({
     super.key,
@@ -21,6 +22,7 @@ class ConfirmationDialog extends StatelessWidget {
     this.onConfirm,
     this.onCancel,
     this.isDestructive = false,
+    this.autofocusCancel = false,
   });
 
   @override
@@ -33,7 +35,11 @@ class ConfirmationDialog extends StatelessWidget {
       title: Text(title, style: AppTypography.getHeadline(color: colorScheme.onSurface)),
       content: Text(message, style: AppTypography.getBody(color: colorScheme.onSurface.withValues(alpha: 0.8))),
       actions: [
-        TextButton(onPressed: onCancel ?? () => Get.back(), child: Text(cancelText)),
+        TextButton(
+          autofocus: autofocusCancel,
+          onPressed: onCancel ?? () => Get.back(),
+          child: Text(cancelText),
+        ),
         FilledButton(
           onPressed: onConfirm,
           style: FilledButton.styleFrom(

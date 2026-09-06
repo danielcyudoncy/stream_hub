@@ -6,6 +6,7 @@ import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
+import 'package:stream_hub/shared/widgets/keep_screen_on.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class MiniPlayerPage extends GetView<PlayerController> {
@@ -87,8 +88,10 @@ class MiniPlayerPage extends GetView<PlayerController> {
                           fit: StackFit.expand,
                           children: [
                             Container(color: Colors.black),
-                            controller.playbackController.engine.adapter
-                                .buildPlayerWidget(),
+                            KeepScreenOn(
+                              child: controller.playbackController.engine.adapter
+                                  .buildPlayerWidget(),
+                            ),
                             if (state == PlaybackState.buffering ||
                                 state == PlaybackState.loading)
                               Container(

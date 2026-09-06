@@ -206,75 +206,77 @@ class _PairingContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Scan QR Code',
-          style: AppTypography.getTitle(color: colorScheme.onSurface),
-        ),
-        AppSpacing.heightXS,
-        Text(
-          'Enter this code on your phone: $pairingUrl',
-          style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant),
-          textAlign: TextAlign.center,
-        ),
-        AppSpacing.heightMD,
-        Container(
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16.0),
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Scan QR Code',
+            style: AppTypography.getTitle(color: colorScheme.onSurface),
           ),
-          child: QrImageView(
-            data: pairingUrl,
-            version: QrVersions.auto,
-            size: isTV ? 200 : 180,
-            backgroundColor: Colors.white,
+          AppSpacing.heightXS,
+          Text(
+            'Enter this code on your phone: $pairingUrl',
+            style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
           ),
-        ),
-        AppSpacing.heightMD,
-        SelectableText(
-          code,
-          style: AppTypography.getTitle(color: colorScheme.primary).copyWith(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 4,
+          AppSpacing.heightMD,
+          Container(
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16.0),
+            ),
+            child: QrImageView(
+              data: pairingUrl,
+              version: QrVersions.auto,
+              size: isTV ? 200 : 180,
+              backgroundColor: Colors.white,
+            ),
           ),
-        ),
-        AppSpacing.heightSM,
-        Text(
-          'Expires in: $formattedTime',
-          style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant),
-        ),
-        AppSpacing.heightXL,
-        Text(
-          'Point your phone camera at the QR code or go to\n$pairingUrl',
-          style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant),
-          textAlign: TextAlign.center,
-        ),
-        AppSpacing.heightLG,
-        TvFocusable(
-          onTap: () {
-            // Clean up the pairing before dismissing
-            PairingService().deletePairing(code);
-            Navigator.of(context).pop();
-          },
-          scale: 1.05,
-          borderRadius: BorderRadius.circular(12),
-          child: TextButton(
-            onPressed: () {
+          AppSpacing.heightMD,
+          SelectableText(
+            code,
+            style: AppTypography.getTitle(color: colorScheme.primary).copyWith(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 4,
+            ),
+          ),
+          AppSpacing.heightSM,
+          Text(
+            'Expires in: $formattedTime',
+            style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant),
+          ),
+          AppSpacing.heightXL,
+          Text(
+            'Point your phone camera at the QR code or go to\n$pairingUrl',
+            style: AppTypography.getCaption(color: colorScheme.onSurfaceVariant),
+            textAlign: TextAlign.center,
+          ),
+          AppSpacing.heightLG,
+          TvFocusable(
+            onTap: () {
+              // Clean up the pairing before dismissing
               PairingService().deletePairing(code);
               Navigator.of(context).pop();
             },
-            style: TextButton.styleFrom(
-              foregroundColor: colorScheme.onSurfaceVariant,
-              textStyle: AppTypography.getButton(color: colorScheme.onSurfaceVariant),
+            scale: 1.05,
+            borderRadius: BorderRadius.circular(12),
+            child: TextButton(
+              onPressed: () {
+                PairingService().deletePairing(code);
+                Navigator.of(context).pop();
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: colorScheme.onSurfaceVariant,
+                textStyle: AppTypography.getButton(color: colorScheme.onSurfaceVariant),
+              ),
+              child: const Text('Cancel'),
             ),
-            child: const Text('Cancel'),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

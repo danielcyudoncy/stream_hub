@@ -11,6 +11,7 @@ import '../../../core/utils/title_formatter.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/channel_placeholder.dart';
+import '../../../shared/widgets/keep_screen_on.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import '../../../shared/widgets/tv_player_keyboard_hint.dart';
 import '../../player/controllers/player_controller.dart';
@@ -389,13 +390,15 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   @override
   void didUpdateWidget(LiveTvEmbeddedPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If orientation or mode changed between fullscreen and inline, ensure playback continues!
+    // When transitioning between fullscreen and inline, if the player was paused
+    // (e.g. from an interruption), resume playback. Do not trigger play() if already
+    // playing or buffering so we don't disrupt decoding or cause duplicate re-buffers.
     if (oldWidget.isFullscreen != widget.isFullscreen) {
       final playerCtrl = widget.controller.inlinePlayerController;
       if (playerCtrl != null) {
         final state = playerCtrl.playbackController.engine.stateRx.value;
-        if (!state.isStoppedLike && state != PlaybackState.error) {
-          playerCtrl.play();
+        if (state == PlaybackState.paused) {
+          playerCtrl.resume();
         }
       }
     }
@@ -414,59 +417,66 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
       final activeChannel = widget.controller.activePlayingChannel.value;
       final playerCtrl = widget.controller.inlinePlayerController;
 
-      if (widget.isFullscreen) {
-        return Container(
-          width: double.infinity,
-          height: double.infinity,
-          color: Colors.black,
-          child: activeChannel != null && playerCtrl != null
-              ? _buildActivePlayer(
-                  activeChannel,
-                  playerCtrl,
-                  isFullscreen: true,
-                )
-              : _buildFeaturedHero(isFullscreen: true),
-        );
-      }
+      final activeWidget = activeChannel != null && playerCtrl != null
+          ? _buildActivePlayer(
+              activeChannel,
+              playerCtrl,
+              isFullscreen: widget.isFullscreen,
+            )
+          : _buildFeaturedHero(isFullscreen: widget.isFullscreen);
 
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
-          AppSpacing.xs,
-          AppSpacing.md,
-          AppSpacing.xs,
-        ),
-        child: AspectRatio(
-          aspectRatio: 16 / 9,
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: AppRadius.large,
-              border: Border.all(
-                color: activeChannel != null
-                    ? AppColors.primary.withValues(alpha: 0.5)
-                    : Colors.white.withValues(alpha: 0.1),
-                width: 1.5,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: activeChannel != null
-                      ? AppColors.primary.withValues(alpha: 0.25)
-                      : Colors.black.withValues(alpha: 0.4),
-                  blurRadius: 16.0,
-                  offset: const Offset(0, 6),
+      final screenSize = MediaQuery.sizeOf(context);
+      final double targetAspectRatio = widget.isFullscreen
+          ? (screenSize.height > 0
+              ? (screenSize.width / screenSize.height)
+              : (16 / 9))
+          : (16 / 9);
+
+      return Container(
+        width: double.infinity,
+        height: widget.isFullscreen ? double.infinity : null,
+        color: Colors.black,
+        child: Padding(
+          padding: widget.isFullscreen
+              ? EdgeInsets.zero
+              : const EdgeInsets.fromLTRB(
+                  AppSpacing.md,
+                  AppSpacing.xs,
+                  AppSpacing.md,
+                  AppSpacing.xs,
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: AppRadius.large,
-              child: activeChannel != null && playerCtrl != null
-                  ? _buildActivePlayer(
-                      activeChannel,
-                      playerCtrl,
-                      isFullscreen: false,
-                    )
-                  : _buildFeaturedHero(isFullscreen: false),
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: targetAspectRatio,
+              child: Container(
+                decoration: widget.isFullscreen
+                    ? const BoxDecoration(color: Colors.black)
+                    : BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: AppRadius.large,
+                        border: Border.all(
+                          color: activeChannel != null
+                              ? AppColors.primary.withValues(alpha: 0.5)
+                              : Colors.white.withValues(alpha: 0.1),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: activeChannel != null
+                                ? AppColors.primary.withValues(alpha: 0.25)
+                                : Colors.black.withValues(alpha: 0.4),
+                            blurRadius: 16.0,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                child: ClipRRect(
+                  borderRadius: widget.isFullscreen
+                      ? BorderRadius.zero
+                      : AppRadius.large,
+                  child: activeWidget,
+                ),
+              ),
             ),
           ),
         ),
@@ -1209,7 +1219,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
           ignoring: true,
           child: ColoredBox(
             color: Colors.black,
-            child: adapter.buildPlayerWidget(),
+            child: KeepScreenOn(child: adapter.buildPlayerWidget()),
           ),
         );
       }),

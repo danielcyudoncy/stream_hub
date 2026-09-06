@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
@@ -22,6 +23,7 @@ import '../../../data/repositories/provider_repository.dart';
 import '../../../data/services/database_service.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
+import '../../../core/services/screen_awake_service.dart';
 
 class LiveTVController extends GetxController {
   final MediaEngine mediaEngine;
@@ -68,6 +70,9 @@ class LiveTVController extends GetxController {
   final Rxn<MediaItem> featuredChannel = Rxn<MediaItem>();
   final Rxn<MediaItem> activePlayingChannel = Rxn<MediaItem>();
   PlayerController? inlinePlayerController;
+  final GlobalKey playerKey = GlobalKey();
+  bool _navigationArgumentsHandled = false;
+  bool hasBeenLandscapeInFullscreen = false;
 
   StreamSubscription? _favoriteSubscription;
 
@@ -169,6 +174,10 @@ class LiveTVController extends GetxController {
     ]);
     inlinePlayerController?.stop();
     inlinePlayerController?.onClose();
+    if (Get.isRegistered<ScreenAwakeService>()) {
+      Get.find<ScreenAwakeService>()
+          .release(owner: 'LiveTVController.onClose');
+    }
     super.onClose();
   }
 
@@ -185,8 +194,10 @@ class LiveTVController extends GetxController {
   }
 
   void handleNavigationArguments() {
+    if (_navigationArgumentsHandled) return;
     final targetChannel = _extractChannelArg(Get.arguments);
     if (targetChannel == null) return;
+    _navigationArgumentsHandled = true;
 
     // Prefer the fully-loaded Channel instance from _allChannels (which has
     // streamUrl, correct metadata, etc.) over the raw MediaItem passed from
@@ -720,6 +731,12 @@ class LiveTVController extends GetxController {
     // to allow the UI to immediately paint the active (glowing) channel state
     Future.delayed(Duration.zero, () {
       _initInlinePlayer();
+      // Claim the wake lock for the lifetime of the inline player so the
+      // device does not turn the screen off while a channel is being watched.
+      Get.isRegistered<ScreenAwakeService>()
+          ? Get.find<ScreenAwakeService>()
+              .acquire(owner: 'LiveTVController.openChannel')
+          : null;
 
       // Record last played channel in history
       final historyRepo = historyRepository ??
@@ -778,6 +795,10 @@ class LiveTVController extends GetxController {
       DeviceOrientation.landscapeRight,
     ]);
     inlinePlayerController?.stop();
+    if (Get.isRegistered<ScreenAwakeService>()) {
+      Get.find<ScreenAwakeService>()
+          .release(owner: 'LiveTVController.stopInlinePlayer');
+    }
   }
 
   void expandToFullscreen() {
@@ -787,6 +808,8 @@ class LiveTVController extends GetxController {
       }
       lastFullscreenEntered = DateTime.now();
       isFullscreenMode.value = true;
+      hasBeenLandscapeInFullscreen = false;
+      SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
@@ -796,6 +819,8 @@ class LiveTVController extends GetxController {
 
   void exitFullscreen() {
     isFullscreenMode.value = false;
+    hasBeenLandscapeInFullscreen = false;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,

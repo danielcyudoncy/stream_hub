@@ -18,6 +18,7 @@ import 'package:stream_hub/modules/player/widgets/player_controls.dart';
 import 'package:stream_hub/modules/player/widgets/next_episode_overlay.dart';
 import 'package:stream_hub/modules/player/widgets/skip_intro_button.dart';
 import 'package:stream_hub/modules/player/widgets/player_touch_gesture_overlay.dart';
+import 'package:stream_hub/shared/widgets/keep_screen_on.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class FullscreenPlayerPage extends StatefulWidget {
@@ -251,7 +252,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       return Positioned.fill(
         child: ColoredBox(
           color: Colors.black,
-          child: adapter.buildPlayerWidget(),
+          child: KeepScreenOn(child: adapter.buildPlayerWidget()),
         ),
       );
     });

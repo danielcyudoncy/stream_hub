@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
@@ -9,6 +11,7 @@ import '../../../core/media/player/exo_player_surface_view_adapter.dart';
 import '../../../core/media/player/ijk_player_adapter.dart';
 import '../../../core/media/player/vlc_player_adapter.dart';
 import '../../../core/media/repositories/playback_repository.dart';
+import '../../../core/services/screen_awake_service.dart';
 import '../../../core/streaming/repositories/stream_repository.dart';
 import '../../../core/streaming/vod/xtream_vod_info_service.dart';
 import '../../../data/models/cast_member.dart';
@@ -72,8 +75,17 @@ class MovieDetailsController extends GetxController {
   void onClose() {
     stopInlinePlayback();
     inlinePlayerController?.onClose();
+    // Belt-and-suspenders: ensure any lingering claim is released when the
+    // page is torn down even if stopInlinePlayback() did not run.
+    unawaited(
+      _screenAwake.release(owner: 'MovieDetailsController.onClose'),
+    );
     super.onClose();
   }
+
+  ScreenAwakeService get _screenAwake => Get.isRegistered<ScreenAwakeService>()
+      ? Get.find<ScreenAwakeService>()
+      : ScreenAwakeService();
 
   Future<void> _loadMovie() async {
     isLoading.value = true;
@@ -310,6 +322,10 @@ class MovieDetailsController extends GetxController {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!isClosed) {
         isInlinePlayerActive.value = true;
+        // Module-level guarantee that the screen stays awake while the movie
+        // detail page hosts an active inline player, regardless of whether
+        // PlayerController.onInit() raced ahead of this toggle.
+        _screenAwake.acquire(owner: 'MovieDetailsController.inline');
       }
     });
   }
@@ -357,6 +373,7 @@ class MovieDetailsController extends GetxController {
       DeviceOrientation.landscapeRight,
     ]);
     inlinePlayerController?.stop();
+    await _screenAwake.release(owner: 'MovieDetailsController.stopInlinePlayback');
   }
 
   void expandToFullscreen() {

@@ -12,6 +12,7 @@ import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dar
 import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
 import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
+import 'package:stream_hub/core/services/screen_awake_service.dart';
 import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
@@ -101,6 +102,10 @@ class SeriesDetailsController extends GetxController {
   void onClose() {
     stopInlinePlayback();
     inlinePlayerController?.onClose();
+    if (Get.isRegistered<ScreenAwakeService>()) {
+      Get.find<ScreenAwakeService>()
+          .release(owner: 'SeriesDetailsController.onClose');
+    }
     super.onClose();
   }
 
@@ -732,6 +737,10 @@ class SeriesDetailsController extends GetxController {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!isClosed) {
         isInlinePlayerActive.value = true;
+        if (Get.isRegistered<ScreenAwakeService>()) {
+          Get.find<ScreenAwakeService>()
+              .acquire(owner: 'SeriesDetailsController.inline');
+        }
       }
     });
   }
@@ -786,6 +795,10 @@ class SeriesDetailsController extends GetxController {
       DeviceOrientation.landscapeRight,
     ]);
     inlinePlayerController?.stop();
+    if (Get.isRegistered<ScreenAwakeService>()) {
+      Get.find<ScreenAwakeService>()
+          .release(owner: 'SeriesDetailsController.stopInlinePlayback');
+    }
   }
 
   void expandToFullscreen() {

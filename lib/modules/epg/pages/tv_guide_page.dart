@@ -19,6 +19,7 @@ import 'package:stream_hub/modules/epg/widgets/channel_column.dart';
 import 'package:stream_hub/modules/live_tv/controllers/live_tv_controller.dart';
 import 'package:stream_hub/modules/live_tv/widgets/live_tv_channel_card.dart';
 import 'package:stream_hub/modules/live_tv/widgets/live_tv_embedded_player.dart';
+import 'package:stream_hub/modules/live_tv/widgets/live_tv_skeleton.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/empty_view.dart';
 import 'package:stream_hub/shared/loading/loading_indicator.dart';
@@ -115,29 +116,37 @@ class TVGuidePage extends GetView<GuideController> {
       return AppScaffold(
         title: 'TV Guide',
         showAppBar: false,
-        body: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. Top Showcase: Channel Info on Left, Large 16:9 Live Player on Right
-            _buildTopShowcase(context),
+        body: Obx(() {
+          if (liveCtrl != null && liveCtrl.isLoading.value) {
+            return const LiveTvSkeleton();
+          }
+          return FocusTraversalGroup(
+            policy: ReadingOrderTraversalPolicy(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // 1. Top Showcase: Channel Info on Left, Large 16:9 Live Player on Right
+                _buildTopShowcase(context),
 
-            // 2. Full-Width Category Rail Below the Player
-            _buildCategoryBar(context),
+                // 2. Full-Width Category Rail Below the Player
+                _buildCategoryBar(context),
 
-            AppSpacing.heightXS,
+                AppSpacing.heightXS,
 
-            // 3. Full Guide / Channel Catalog Grid Below
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                child: _buildTVLayout(context),
-              ),
+                // 3. Full Guide / Channel Catalog Grid Below
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                    child: _buildTVLayout(context),
+                  ),
+                ),
+
+                // 4. TV Remote D-Pad Navigation Legend Bar
+                _buildRemoteLegendBar(),
+              ],
             ),
-
-            // 4. TV Remote D-Pad Navigation Legend Bar
-            _buildRemoteLegendBar(),
-          ],
-        ),
+          );
+        }),
       );
     });
   }

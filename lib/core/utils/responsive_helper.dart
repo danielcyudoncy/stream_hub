@@ -24,6 +24,14 @@ class ResponsiveHelper {
   static bool isTV(BuildContext context) =>
       PlatformHelper.isTV || MediaQuery.sizeOf(context).width > desktopMaxWidth;
 
+  /// Whether the app is rendering the 10-foot (TV/desktop) layout.
+  ///
+  /// Mirrors the AppScaffold decision that swaps in [TvScaffold], so D-pad
+  /// autofocus still applies even if platform TV detection
+  /// ([PlatformHelper.isTVDevice]) failed or is still pending.
+  static bool isTvLayout(BuildContext context) =>
+      isTV(context) || isDesktop(context);
+
   /// Returns a value based on the current screen size.
   static T value<T>(
     BuildContext context, {

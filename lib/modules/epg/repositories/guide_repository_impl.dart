@@ -39,7 +39,11 @@ class GuideRepositoryImpl implements GuideRepository {
       final Map<String, List<EPGProgram>> realProgramsByChannel = {};
 
       if (realPrograms.isNotEmpty) {
-        for (final rp in realPrograms) {
+        for (var i = 0; i < realPrograms.length; i++) {
+          if (i % 500 == 0) {
+            await Future<void>.delayed(Duration.zero);
+          }
+          final rp = realPrograms[i];
           final sTime = rp.metadata['startTime'] != null ? DateTime.tryParse(rp.metadata['startTime'].toString()) : null;
           final eTime = rp.metadata['endTime'] != null ? DateTime.tryParse(rp.metadata['endTime'].toString()) : null;
           final chId = rp.metadata['channelId']?.toString() ?? rp.subtitle;
@@ -62,7 +66,13 @@ class GuideRepositoryImpl implements GuideRepository {
         }
       }
 
-      for (var item in items) {
+      for (var i = 0; i < items.length; i++) {
+        if (i % 100 == 0) {
+          // Yield periodically so a large channel catalog does not block the
+          // UI isolate while the guide schedule is generated.
+          await Future<void>.delayed(const Duration(milliseconds: 2));
+        }
+        final item = items[i];
         final channel = EPGChannel(
           id: item.id,
           providerId: item.providerId,

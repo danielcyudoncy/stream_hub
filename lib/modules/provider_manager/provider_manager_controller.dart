@@ -94,6 +94,9 @@ class ProviderManagerController extends GetxController {
   }
 
   Future<void> _syncProvider(ProviderModel provider) async {
+    _syncService.isSyncing.value = true;
+    _syncService.syncProgress.value = 0.0;
+    _syncService.activeProviderName.value = provider.name;
     final result = await _syncService.syncProvider(provider);
     if (!result.success) {
       errorMessage.value = result.message ?? 'Sync failed.';
@@ -106,6 +109,11 @@ class ProviderManagerController extends GetxController {
       );
     }
     await loadProviders();
+    Future.delayed(const Duration(seconds: 3), () {
+      _syncService.isSyncing.value = false;
+      _syncService.currentSyncMessage.value = '';
+      _syncService.activeProviderName.value = '';
+    });
   }
 
   Future<void> updateProvider(ProviderModel provider) async {
