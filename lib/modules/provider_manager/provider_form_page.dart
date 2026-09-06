@@ -13,6 +13,7 @@ import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/section_header.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
+import 'package:stream_hub/shared/widgets/tv_keyboard_aware_scroll_view.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
 import 'package:stream_hub/modules/provider_manager/widgets/pairing_dialog.dart';
@@ -62,14 +63,12 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
       title: isEditing ? 'Edit Provider' : 'Add Provider',
       body: Form(
         key: _formKey,
-        child: ListView(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            AppSpacing.lg,
-            AppSpacing.lg,
-            AppSpacing.lg + MediaQuery.of(context).viewInsets.bottom,
-          ),
-          children: [
+        child: TvKeyboardAwareScrollView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          maxWidth: 760.0,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             SectionHeader(
               title: isEditing ? 'Edit Provider Details' : 'New Provider',
               subtitle: isEditing
@@ -341,7 +340,8 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                 ),
               ],
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

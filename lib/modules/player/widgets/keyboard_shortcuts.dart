@@ -47,7 +47,11 @@ class PlayerKeyboardShortcuts extends StatelessWidget {
       onKeyEvent: (node, event) {
         if (event is KeyDownEvent && onDpadPress != null && _isDirectional(event)) {
           onDpadPress!();
-          return KeyEventResult.handled;
+          // Do NOT mark directional keys as handled: returning `ignored`
+          // allows Flutter's directional focus traversal to move between the
+          // player controls (favorite, aspect ratio, channel list, audio…).
+          // Handling them here previously made those icons unreachable.
+          return KeyEventResult.ignored;
         }
         return KeyEventResult.ignored;
       },

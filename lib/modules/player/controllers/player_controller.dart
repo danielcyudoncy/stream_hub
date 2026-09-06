@@ -19,6 +19,7 @@ import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/media_library.dart';
+import 'package:stream_hub/core/services/screen_awake_service.dart';
 import 'package:stream_hub/core/streaming/series/next_episode_resolver.dart';
 import 'package:stream_hub/core/streaming/series/intro_service.dart';
 import 'package:stream_hub/data/models/intro_segment.dart';
@@ -39,6 +40,8 @@ class PlayerController extends GetxController {
   final IptvCore? iptvCore;
   final NextEpisodeResolver nextEpisodeResolver;
   final IntroService introService;
+  final LoggingService? logger;
+  final ScreenAwakeService _screenAwake;
 
   final String? itemId;
   final String? streamUrl;
@@ -88,7 +91,7 @@ class PlayerController extends GetxController {
     PlayerAdapter? adapter,
     PlaybackEngineKind? engineKind,
     PlayerSettings? settings,
-    LoggingService? logger,
+    this.logger,
     StreamRepository? streamRepository,
     this.historyRepository,
     this.favoriteRepository,
@@ -97,30 +100,40 @@ class PlayerController extends GetxController {
     IptvCore? iptvCore,
     NextEpisodeResolver? nextEpisodeResolver,
     IntroService? introService,
-  })  : _pendingItems = pendingItems ?? const [],
-        _pendingCurrentId = pendingCurrentId,
-        nextEpisodeResolver = nextEpisodeResolver ?? const NextEpisodeResolver(),
-        introService = introService ?? IntroService(),
-        playbackController = PlaybackController(
-          adapter: adapter,
-          engineKind: engineKind,
-          settings: settings,
-          logger: logger,
-        ),
-        streamRepository = streamRepository ?? Get.find<StreamRepository>(),
-        iptvCore = iptvCore ??
-            (Get.isRegistered<IptvCore>() ? Get.find<IptvCore>() : null);
+    ScreenAwakeService? screenAwakeService,
+  }) : _pendingItems = pendingItems ?? const [],
+       _pendingCurrentId = pendingCurrentId,
+       nextEpisodeResolver = nextEpisodeResolver ?? const NextEpisodeResolver(),
+       introService = introService ?? IntroService(),
+       playbackController = PlaybackController(
+         adapter: adapter,
+         engineKind: engineKind,
+         settings: settings,
+         logger: logger,
+       ),
+       _screenAwake = screenAwakeService ??
+           (Get.isRegistered<ScreenAwakeService>()
+               ? Get.find<ScreenAwakeService>()
+               : ScreenAwakeService(logger: logger)),
+       streamRepository = streamRepository ?? Get.find<StreamRepository>(),
+       iptvCore =
+           iptvCore ??
+           (Get.isRegistered<IptvCore>() ? Get.find<IptvCore>() : null);
 
   PlayableMediaSession? get session => playbackController.engine.currentSession;
-  Rx<PlayableMediaSession?> get sessionRx => playbackController.engine.sessionRx;
+  Rx<PlayableMediaSession?> get sessionRx =>
+      playbackController.engine.sessionRx;
   Rx<PlaybackState> get stateRx => playbackController.engine.stateRx;
   PlaybackState get state => playbackController.engine.currentState;
   Duration get position => playbackController.engine.positionRx.value;
   Duration get duration => playbackController.engine.durationRx.value;
   Duration get buffer => playbackController.engine.bufferRx.value;
   MediaItem? get currentItem => session?.mediaItem;
-  bool get canSwitchNext => _currentChannelIndex < channelList.length - 1 || nextEpisodeRx.value != null;
-  bool get canSwitchPrevious => _currentChannelIndex > 0 || previousEpisodeRx.value != null;
+  bool get canSwitchNext =>
+      _currentChannelIndex < channelList.length - 1 ||
+      nextEpisodeRx.value != null;
+  bool get canSwitchPrevious =>
+      _currentChannelIndex > 0 || previousEpisodeRx.value != null;
 
   Worker? _engineWorker;
   Worker? _stateWorker;
@@ -143,6 +156,7 @@ class PlayerController extends GetxController {
       _syncChannelsToNativeAdapter();
     });
     _stateWorker = ever(stateRx, (state) {
+      _syncWakeLockWithPlayback(state);
       if (state == PlaybackState.playing) {
         _startProgressTimer();
       } else {
@@ -152,6 +166,9 @@ class PlayerController extends GetxController {
     _positionWorker = ever(playbackController.engine.positionRx, (pos) {
       _checkIntroAndAutoplay(pos);
     });
+    // Apply the lock for the state we are currently in (e.g. a controller
+    // created while already playing via the inline-player flow).
+    _syncWakeLockWithPlayback(stateRx.value);
     await _loadPersistedSettings();
     _wireAdapterChannelListeners();
     // Register the event listener BEFORE starting playback so that early
@@ -172,7 +189,6 @@ class PlayerController extends GetxController {
     }
     _loadBackgroundChannels();
   }
-
 
   void _startProgressTimer() {
     if (playbackRepository == null) return;
@@ -196,8 +212,9 @@ class PlayerController extends GetxController {
         allChannels = await catalogRepository!.getByType(MediaType.channel);
         if (allChannels.isEmpty) {
           final all = await catalogRepository!.getAllItems();
-          allChannels =
-              all.where((i) => i.mediaType == MediaType.channel).toList();
+          allChannels = all
+              .where((i) => i.mediaType == MediaType.channel)
+              .toList();
         }
       }
       if (allChannels.isEmpty && Get.isRegistered<MediaLibrary>()) {
@@ -253,7 +270,28 @@ class PlayerController extends GetxController {
     // native Activity). stop() alone leaves the adapter initialized and its
     // render surface/native process alive, leaking resources between plays.
     playbackController.dispose();
+    // Release any wake-lock claim owned by this controller. Paused/stopped
+    // states also release so a paused player does not keep the screen on.
+    unawaited(_screenAwake.release(owner: 'PlayerController.onClose'));
     super.onClose();
+  }
+
+  /// Holds the OS wake lock only while the engine is actually decoding frames
+  /// (playing/buffering/seeking/loading). Any other state — paused, stopped,
+  /// idle, error, completed, disposed — releases it.
+  ///
+  /// The reference-counted [ScreenAwakeService] lets multiple players
+  /// (movie + mini-player, etc.) coexist without one teardown releasing the
+  /// lock while another is still playing.
+  void _syncWakeLockWithPlayback(PlaybackState state) {
+    final shouldHold = state == PlaybackState.playing ||
+        state == PlaybackState.buffering ||
+        state == PlaybackState.seeking ||
+        state == PlaybackState.loading;
+    unawaited(_screenAwake.setEnabled(
+      shouldHold,
+      owner: 'PlayerController:${state.name}',
+    ));
   }
 
   void _onMediaSessionChanged(MediaItem item) {
@@ -262,7 +300,8 @@ class PlayerController extends GetxController {
     showNextEpisodeOverlayRx.value = false;
     showSkipIntroRx.value = false;
 
-    final isEp = item.mediaType == MediaType.episode ||
+    final isEp =
+        item.mediaType == MediaType.episode ||
         (item.metadata['seriesId'] != null ||
             item.metadata['isEpisode'] == true ||
             item.metadata['seasonNumber'] != null);
@@ -362,7 +401,6 @@ class PlayerController extends GetxController {
     _userCancelledNextEpisode = true;
   }
 
-
   Future<void> _autoStart(String id, String url) async {
     final mediaItem = MediaItem(
       id: id,
@@ -426,7 +464,7 @@ class PlayerController extends GetxController {
     // starts.
     final generation = ++_playGeneration;
     try {
-      if (!playbackController.engine.adapter.isInitialized) {
+      if (!playbackController.engine.isInitialized) {
         await playbackController.engine.initialize();
       }
 
@@ -445,9 +483,10 @@ class PlayerController extends GetxController {
       // Engine can locate the source. Passing item.id (a UUID) as the fallback
       // caused a StreamResolutionException for every channel whose metadata
       // does not include a pre-resolved 'streamUrl' key (Xtream, canonical, etc.).
-      final fallbackUrl = item.metadata['streamUrl']?.toString()
-          ?? item.metadata['stream_url']?.toString()
-          ?? item.metadata['url']?.toString();
+      final fallbackUrl =
+          item.metadata['streamUrl']?.toString() ??
+          item.metadata['stream_url']?.toString() ??
+          item.metadata['url']?.toString();
 
       final resolved = await streamRepository.resolvePlayback(
         mediaItemId: item.id,
@@ -490,7 +529,14 @@ class PlayerController extends GetxController {
     }
     _recoveryInFlightForItemId = item.id;
     try {
-      await _runRecovery(item, session, error, stackTrace, startedAt, generation);
+      await _runRecovery(
+        item,
+        session,
+        error,
+        stackTrace,
+        startedAt,
+        generation,
+      );
     } finally {
       if (_recoveryInFlightForItemId == item.id) {
         _recoveryInFlightForItemId = null;
@@ -579,7 +625,8 @@ class PlayerController extends GetxController {
           final item = channelList[index];
           _recordPlayback(item);
           isFavoriteRx.value = item.favorite;
-          final streamUrl = (item is Channel ? item.streamUrl : null) ??
+          final streamUrl =
+              (item is Channel ? item.streamUrl : null) ??
               item.metadata['streamUrl']?.toString() ??
               item.metadata['stream_url']?.toString() ??
               item.metadata['url']?.toString();
@@ -593,7 +640,8 @@ class PlayerController extends GetxController {
             final item = channelList[foundIndex];
             _recordPlayback(item);
             isFavoriteRx.value = item.favorite;
-            final streamUrl = (item is Channel ? item.streamUrl : null) ??
+            final streamUrl =
+                (item is Channel ? item.streamUrl : null) ??
                 item.metadata['streamUrl']?.toString() ??
                 item.metadata['stream_url']?.toString() ??
                 item.metadata['url']?.toString();
@@ -610,16 +658,19 @@ class PlayerController extends GetxController {
     final adapter = playbackController.engine.adapter;
     if (adapter is NativeActivityPlayerAdapter && channelList.isNotEmpty) {
       final nativeChannels = channelList.map((item) {
-        final streamUrl = (item is Channel ? item.streamUrl : null) ??
+        final streamUrl =
+            (item is Channel ? item.streamUrl : null) ??
             item.metadata['streamUrl']?.toString() ??
             item.metadata['stream_url']?.toString() ??
             item.metadata['url']?.toString() ??
             '';
-        final headers = (item.metadata['headers'] as Map?)?.map(
+        final headers =
+            (item.metadata['headers'] as Map?)?.map(
               (k, v) => MapEntry(k.toString(), v.toString()),
             ) ??
             const <String, String>{};
-        final category = (item.genres.isNotEmpty ? item.genres.first : null) ??
+        final category =
+            (item.genres.isNotEmpty ? item.genres.first : null) ??
             item.metadata['category_name']?.toString() ??
             item.metadata['group-title']?.toString() ??
             item.metadata['category']?.toString() ??
@@ -648,8 +699,9 @@ class PlayerController extends GetxController {
     Duration? resumePosition,
   }) {
     channelList.assignAll(channels);
-    _currentChannelIndex =
-        currentId != null ? channels.indexWhere((c) => c.id == currentId) : -1;
+    _currentChannelIndex = currentId != null
+        ? channels.indexWhere((c) => c.id == currentId)
+        : -1;
     _syncChannelsToNativeAdapter();
     if (_currentChannelIndex != -1) {
       playMediaItem(
@@ -765,13 +817,15 @@ class PlayerController extends GetxController {
       playbackController.setQuality(quality);
   Future<List<dynamic>> getAvailableSubtitleTracks() async {
     try {
-      final tracks = await playbackController.engine.adapter.getAvailableSubtitleTracks();
+      final tracks = await playbackController.engine.adapter
+          .getAvailableSubtitleTracks();
       final active = tracks.firstWhere(
         (t) => t is Map && t['selected'] == true,
         orElse: () => null,
       );
       if (active != null && active is Map) {
-        selectedSubtitleTrackRx.value = active['id']?.toString() ?? selectedSubtitleTrackRx.value;
+        selectedSubtitleTrackRx.value =
+            active['id']?.toString() ?? selectedSubtitleTrackRx.value;
       }
       return tracks;
     } catch (_) {
@@ -781,13 +835,15 @@ class PlayerController extends GetxController {
 
   Future<List<dynamic>> getAvailableAudioTracks() async {
     try {
-      final tracks = await playbackController.engine.adapter.getAvailableAudioTracks();
+      final tracks = await playbackController.engine.adapter
+          .getAvailableAudioTracks();
       final active = tracks.firstWhere(
         (t) => t is Map && t['selected'] == true,
         orElse: () => null,
       );
       if (active != null && active is Map) {
-        selectedAudioTrackRx.value = active['id']?.toString() ?? selectedAudioTrackRx.value;
+        selectedAudioTrackRx.value =
+            active['id']?.toString() ?? selectedAudioTrackRx.value;
       }
       return tracks;
     } catch (_) {
@@ -806,22 +862,21 @@ class PlayerController extends GetxController {
       final tracks = await getAvailableSubtitleTracks();
       if (tracks.isNotEmpty) {
         // Look for English subtitle track first
-        final englishTrack = tracks.firstWhere(
-          (t) {
-            if (t is Map) {
-              final lang = (t['language'] ?? '').toString().toLowerCase();
-              final label = (t['label'] ?? '').toString().toLowerCase();
-              return lang == 'en' ||
-                  lang == 'eng' ||
-                  lang.startsWith('en') ||
-                  label.contains('english') ||
-                  label.contains('eng');
-            }
-            return false;
-          },
-          orElse: () => tracks.first,
-        );
-        final trackId = (englishTrack is Map ? englishTrack['id'] : englishTrack)?.toString();
+        final englishTrack = tracks.firstWhere((t) {
+          if (t is Map) {
+            final lang = (t['language'] ?? '').toString().toLowerCase();
+            final label = (t['label'] ?? '').toString().toLowerCase();
+            return lang == 'en' ||
+                lang == 'eng' ||
+                lang.startsWith('en') ||
+                label.contains('english') ||
+                label.contains('eng');
+          }
+          return false;
+        }, orElse: () => tracks.first);
+        final trackId =
+            (englishTrack is Map ? englishTrack['id'] : englishTrack)
+                ?.toString();
         if (trackId != null &&
             trackId.isNotEmpty &&
             trackId != 'no' &&
@@ -838,8 +893,7 @@ class PlayerController extends GetxController {
     await playbackController.setAudioTrack(trackId);
   }
 
-  Future<void> setVolume(double volume) =>
-      playbackController.setVolume(volume);
+  Future<void> setVolume(double volume) => playbackController.setVolume(volume);
   Future<void> setMuted(bool muted) => playbackController.setMuted(muted);
   Future<void> enterPictureInPicture() =>
       playbackController.enterPictureInPicture();

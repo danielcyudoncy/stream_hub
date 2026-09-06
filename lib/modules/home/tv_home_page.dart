@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../core/helpers/platform_helper.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/repositories/playback_repository.dart';
 import '../../../core/routes/app_routes.dart';
@@ -10,6 +9,7 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
+import '../../../core/utils/responsive_helper.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/glass_panel.dart';
@@ -423,7 +423,7 @@ class _TvHomePageState extends State<TvHomePage> {
                 ),
                 AppSpacing.heightXL,
                 TvFocusable(
-                  autofocus: PlatformHelper.supportsDPadNavigation,
+autofocus: ResponsiveHelper.isTvLayout(context),
                   onTap: () => Get.toNamed(AppRoutes.providerManager),
                   borderRadius: AppRadius.pill,
                   child: Container(
@@ -637,7 +637,7 @@ class _TvHomePageState extends State<TvHomePage> {
             children: [
               // Watch Now / Resume Button
               TvFocusable(
-                autofocus: PlatformHelper.supportsDPadNavigation,
+                autofocus: ResponsiveHelper.isTvLayout(context),
                 onTap: () => _openItem(item),
                 borderRadius: AppRadius.pill,
                 child: Container(

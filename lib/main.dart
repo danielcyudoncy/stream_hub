@@ -12,6 +12,7 @@ import 'core/logging/logging_service.dart';
 import 'core/network/app_http_overrides.dart';
 import 'core/theme/app_theme.dart';
 import 'core/routes/app_pages.dart';
+import 'core/services/screen_awake_service.dart';
 import 'data/models/settings_model.dart';
 import 'data/models/cache_info.dart';
 import 'modules/provider_manager/models/provider_model.dart';
@@ -30,6 +31,10 @@ void main() async {
   Hive.registerAdapter(CacheInfoAdapter());
   Hive.registerAdapter(SettingsModelAdapter());
   Get.put<LoggingService>(LoggingService(), permanent: true);
+  Get.put<ScreenAwakeService>(
+    ScreenAwakeService(logger: Get.find<LoggingService>()),
+    permanent: true,
+  );
   final databaseService = DatabaseService();
   await databaseService.init();
   Get.put<DatabaseService>(databaseService, permanent: true);

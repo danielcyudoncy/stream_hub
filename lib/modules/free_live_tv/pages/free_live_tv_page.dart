@@ -35,15 +35,21 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
     final crossAxisCount =
         isTV ? 5 : (isDesktop ? 4 : (isTablet ? 3 : 2));
 
-    // Auto-exit fullscreen if device is rotated back to portrait
+    // Track landscape state while in fullscreen to prevent premature auto-exit race
+    if (isLandscape && controller.isFullscreenMode.value) {
+      controller.hasBeenLandscapeInFullscreen = true;
+    }
+
+    // Auto-exit fullscreen only if device was actually in landscape and is now rotated back to portrait
     if (!isLandscape &&
         controller.isFullscreenMode.value &&
         !isTV &&
         !isDesktop) {
-      if (DateTime.now()
-              .difference(controller.lastFullscreenEntered)
-              .inMilliseconds >
-          500) {
+      if (controller.hasBeenLandscapeInFullscreen &&
+          DateTime.now()
+                  .difference(controller.lastFullscreenEntered)
+                  .inMilliseconds >
+              800) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (controller.isFullscreenMode.value) {
             controller.exitFullscreen();
@@ -83,7 +89,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
               width: double.infinity,
               height: double.infinity,
               child: FreeTvEmbeddedPlayer(
-                key: const ValueKey('free_tv_fullscreen_player'),
+                key: controller.playerKey,
                 controller: controller,
                 isFullscreen: true,
               ),
@@ -123,7 +129,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
                     _buildTopAppBar(context, isList),
                     Expanded(
                       child: FreeTvEmbeddedPlayer(
-                        key: const ValueKey('free_tv_landscape_player'),
+                        key: controller.playerKey,
                         controller: controller,
                         isFullscreen: false,
                       ),
@@ -202,7 +208,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
 
             // 2. Embedded Player / Hero
             FreeTvEmbeddedPlayer(
-              key: const ValueKey('free_tv_portrait_player'),
+              key: controller.playerKey,
               controller: controller,
               isFullscreen: false,
             ),
@@ -273,71 +279,74 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
     return AppScaffold(
       title: 'Free Live TV',
       showAppBar: false,
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // 1. Top Showcase: Channel Info on Left, Large 16:9 Live Mini-Player on Right
-          _buildTopShowcase(context),
+      body: FocusTraversalGroup(
+        policy: ReadingOrderTraversalPolicy(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 1. Top Showcase: Channel Info on Left, Large 16:9 Live Mini-Player on Right
+            _buildTopShowcase(context),
 
-          // 2. Full-Width Category Rail Below the Player
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.xl,
-              vertical: AppSpacing.xs,
+            // 2. Full-Width Category Rail Below the Player
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.xl,
+                vertical: AppSpacing.xs,
+              ),
+              child: FreeTvCategoryBar(
+                categories: controller.categories,
+                selectedCategory: controller.selectedCategory.value,
+                countries: controller.countries,
+                selectedCountry: controller.selectedCountry.value,
+                regions: controller.regions,
+                selectedRegion: controller.selectedRegion.value,
+                showFavoritesOnly: controller.showFavoritesOnly.value,
+                favoritesCount: controller.favorites.length,
+                showWorkingOnly: controller.showWorkingOnly.value,
+                workingCount: controller.workingCount.value,
+                isCheckingWorking: controller.isCheckingWorking.value,
+                onCategorySelected: controller.setCategory,
+                onCountrySelected: controller.setCountry,
+                onRegionSelected: controller.setRegion,
+                onFavoritesToggle: controller.setFavoritesOnly,
+                onWorkingToggle: controller.setWorkingOnly,
+              ),
             ),
-            child: FreeTvCategoryBar(
-              categories: controller.categories,
-              selectedCategory: controller.selectedCategory.value,
-              countries: controller.countries,
-              selectedCountry: controller.selectedCountry.value,
-              regions: controller.regions,
-              selectedRegion: controller.selectedRegion.value,
-              showFavoritesOnly: controller.showFavoritesOnly.value,
-              favoritesCount: controller.favorites.length,
-              showWorkingOnly: controller.showWorkingOnly.value,
-              workingCount: controller.workingCount.value,
-              isCheckingWorking: controller.isCheckingWorking.value,
-              onCategorySelected: controller.setCategory,
-              onCountrySelected: controller.setCountry,
-              onRegionSelected: controller.setRegion,
-              onFavoritesToggle: controller.setFavoritesOnly,
-              onWorkingToggle: controller.setWorkingOnly,
+
+            AppSpacing.heightXS,
+
+            // 3. Header Summary Row
+            _buildHeaderSummaryRow(
+              favoritesOnly,
+              selectedCountry,
+              selectedCat,
+              filtered.length,
             ),
-          ),
 
-          AppSpacing.heightXS,
+            const SizedBox(height: 2.0),
 
-          // 3. Header Summary Row
-          _buildHeaderSummaryRow(
-            favoritesOnly,
-            selectedCountry,
-            selectedCat,
-            filtered.length,
-          ),
-
-          const SizedBox(height: 2.0),
-
-          // 4. Channel Catalog Grid / List
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-              child: RefreshIndicator(
-                onRefresh: controller.refresh,
-                child: _buildChannelListView(
-                  filtered,
-                  isList,
-                  true,
-                  crossAxisCount,
-                  query,
-                  favoritesOnly,
+            // 4. Channel Catalog Grid / List
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                child: RefreshIndicator(
+                  onRefresh: controller.refresh,
+                  child: _buildChannelListView(
+                    filtered,
+                    isList,
+                    true,
+                    crossAxisCount,
+                    query,
+                    favoritesOnly,
+                  ),
                 ),
               ),
             ),
-          ),
 
-          // 5. TV Remote D-Pad Navigation Legend Bar
-          _buildRemoteLegendBar(),
-        ],
+            // 5. TV Remote D-Pad Navigation Legend Bar
+            _buildRemoteLegendBar(),
+          ],
+        ),
       ),
     );
   }
@@ -382,7 +391,7 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: FreeTvEmbeddedPlayer(
-                key: const ValueKey('free_tv_tv_mini_player'),
+                key: controller.playerKey,
                 controller: controller,
                 isFullscreen: false,
               ),

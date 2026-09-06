@@ -53,6 +53,7 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
   EventChannel? _events;
   StreamSubscription<dynamic>? _eventSub;
   final Completer<int> _viewReady = Completer<int>();
+  final GlobalKey _platformViewKey = GlobalKey(debugLabel: 'exo_surface_view');
   bool _initialized = false;
   bool _disposed = false;
 
@@ -129,7 +130,7 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
     // forces the tree to tear down the old view and create a fresh one exactly
     // when the engine swaps backends.
     return PlatformViewLink(
-      key: ValueKey(this),
+      key: _platformViewKey,
       viewType: _viewType,
       surfaceFactory: (context, controller) => AndroidViewSurface(
         controller: controller as AndroidViewController,

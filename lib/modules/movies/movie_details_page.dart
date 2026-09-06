@@ -6,6 +6,7 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/utils/responsive_helper.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
@@ -742,7 +743,7 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
         children: [
           // Primary Play / Stop Button
           TvFocusable(
-            autofocus: PlatformHelper.supportsDPadNavigation,
+            autofocus: ResponsiveHelper.isTvLayout(context),
             onTap: isPlaying ? controller.stopInlinePlayback : controller.play,
             borderRadius: AppRadius.pill,
             child: Container(

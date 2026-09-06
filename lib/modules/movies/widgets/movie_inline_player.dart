@@ -9,6 +9,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import '../../../shared/widgets/tv_player_keyboard_hint.dart';
+import '../../../shared/widgets/keep_screen_on.dart';
 import '../../player/controllers/player_controller.dart';
 import '../../player/widgets/audio_track_selector.dart';
 import '../../player/widgets/player_touch_gesture_overlay.dart';
@@ -179,7 +180,7 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
       return Positioned.fill(
         child: ColoredBox(
           color: Colors.black,
-          child: engine.adapter.buildPlayerWidget(),
+          child: KeepScreenOn(child: engine.adapter.buildPlayerWidget()),
         ),
       );
     });

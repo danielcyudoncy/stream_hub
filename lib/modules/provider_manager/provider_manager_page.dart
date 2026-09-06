@@ -5,6 +5,7 @@ import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
+import 'package:stream_hub/core/utils/responsive_helper.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/empty_view.dart';
 import 'package:stream_hub/shared/widgets/filter_sheet.dart';
@@ -24,52 +25,60 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isTvMode =
+        ResponsiveHelper.isTV(context) || ResponsiveHelper.isDesktop(context);
 
     return AppScaffold(
       title: 'Provider Manager',
       actions: [
-        TvFocusable(
-          onTap: () => Get.toNamed(AppRoutes.providerForm),
-          borderRadius: BorderRadius.circular(8.0),
-          scale: 1.05,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(colors: AppColors.primaryGradient),
-              borderRadius: BorderRadius.circular(8.0),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(AppIcons.add, size: 16, color: Colors.white),
-                const SizedBox(width: 4),
-                Text(
-                  'Add Provider',
-                  style: AppTypography.getButton(color: Colors.white)
-                      .copyWith(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-              ],
+        if (!isTvMode)
+          TvFocusable(
+            onTap: () => Get.toNamed(AppRoutes.providerForm),
+            borderRadius: BorderRadius.circular(8.0),
+            scale: 1.05,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(colors: AppColors.primaryGradient),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(AppIcons.add, size: 16, color: Colors.white),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Add Provider',
+                    style: AppTypography.getButton(color: Colors.white)
+                        .copyWith(fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
         const SizedBox(width: AppSpacing.md),
       ],
-      floatingActionButton: TvFocusable(
-        onTap: () => Get.toNamed(AppRoutes.providerForm),
-        borderRadius: BorderRadius.circular(28.0),
-        scale: 1.05,
-        child: FloatingActionButton.extended(
-          onPressed: () => Get.toNamed(AppRoutes.providerForm),
-          backgroundColor: colorScheme.primary,
-          icon: const Icon(AppIcons.add, color: Colors.white),
-          label: Text(
-            'Add Provider',
-            style: AppTypography.getButton(color: Colors.white),
-          ),
-        ),
-      ),
+      // On TV the FAB is not rendered inside TvScaffold, so we surface an
+      // in-body "Add Provider" affordance instead.
+      floatingActionButton: !isTvMode
+          ? TvFocusable(
+              onTap: () => Get.toNamed(AppRoutes.providerForm),
+              borderRadius: BorderRadius.circular(28.0),
+              scale: 1.05,
+              child: FloatingActionButton.extended(
+                onPressed: () => Get.toNamed(AppRoutes.providerForm),
+                backgroundColor: colorScheme.primary,
+                icon: const Icon(AppIcons.add, color: Colors.white),
+                label: Text(
+                  'Add Provider',
+                  style: AppTypography.getButton(color: Colors.white),
+                ),
+              ),
+            )
+          : null,
       body: Column(
         children: [
+          if (isTvMode) _buildTvAddProviderBar(context, isTvMode: isTvMode),
           _buildSearchBar(context, colorScheme),
           _buildFilterChips(context, colorScheme),
           Expanded(
@@ -126,6 +135,68 @@ class ProviderManagerPage extends GetView<ProviderManagerController> {
                 ),
               );
             }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// TV-only header bar providing a reachable "Add Provider" action, since
+  /// AppScaffold discards AppBar actions and FABs when rendering TvScaffold.
+  Widget _buildTvAddProviderBar(BuildContext context, {bool isTvMode = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xs,
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Connect your IPTV provider to get started.',
+              style: AppTypography.getBody(
+                color: colorScheme.onSurfaceVariant,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          AppSpacing.widthMD,
+          TvFocusable(
+            autofocus: isTvMode,
+            onTap: () => Get.toNamed(AppRoutes.providerForm),
+            borderRadius: BorderRadius.circular(10.0),
+            scale: 1.06,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: AppSpacing.xs,
+              ),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: AppColors.primaryGradient,
+                ),
+                borderRadius: BorderRadius.circular(10.0),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(AppIcons.add, size: 16, color: Colors.white),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Add Provider',
+                    style: AppTypography.getButton(color: Colors.white)
+                        .copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
