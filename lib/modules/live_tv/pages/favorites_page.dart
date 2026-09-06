@@ -3,7 +3,10 @@ import 'package:get/get.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/responsive_helper.dart';
 
+import '../../../data/models/media_item.dart';
 import '../controllers/favorites_controller.dart';
+import '../controllers/live_tv_controller.dart';
+import '../../free_live_tv/controllers/free_live_tv_controller.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/channel_card.dart';
@@ -98,13 +101,7 @@ class FavoritesPage extends GetView<FavoritesController> {
                           ),
                           child: ChannelCard(
                             channel: item,
-                            onTap: () => Get.toNamed(
-                              AppRoutes.fullscreenPlayer,
-                              arguments: {
-                                'items': [item],
-                                'currentId': item.id,
-                              },
-                            ),
+                            onTap: () => _openChannel(item),
                             onFavorite: () => controller.toggleFavorite(item),
                             showFavoriteButton: true,
                           ),
@@ -141,13 +138,7 @@ class FavoritesPage extends GetView<FavoritesController> {
                     final item = controller.favoriteChannels[index];
                     return ChannelCard(
                       channel: item,
-                      onTap: () => Get.toNamed(
-                        AppRoutes.fullscreenPlayer,
-                        arguments: {
-                          'items': [item],
-                          'currentId': item.id,
-                        },
-                      ),
+                      onTap: () => _openChannel(item),
                       onFavorite: () => controller.toggleFavorite(item),
                       showFavoriteButton: true,
                     );
@@ -160,5 +151,33 @@ class FavoritesPage extends GetView<FavoritesController> {
         );
       }),
     );
+  }
+
+  void _openChannel(MediaItem item) {
+    final provider = item.providerType.displayName.toLowerCase();
+    final isFreeLiveTv = provider.contains('freelivetv') ||
+        provider.contains('free_live_tv') ||
+        provider.contains('iptv-org') ||
+        item.providerId.toLowerCase().contains('freelivetv') ||
+        item.providerId.toLowerCase().contains('free_live_tv') ||
+        item.id.startsWith('free_tv_');
+
+    if (isFreeLiveTv) {
+      if (Get.isRegistered<LiveTVController>()) {
+        Get.find<LiveTVController>().stopInlinePlayer();
+      }
+      Get.toNamed(
+        AppRoutes.freeLiveTV,
+        arguments: {'channel': item},
+      );
+    } else {
+      if (Get.isRegistered<FreeLiveTvController>()) {
+        Get.find<FreeLiveTvController>().stopInlinePlayer();
+      }
+      Get.toNamed(
+        AppRoutes.liveTV,
+        arguments: {'channel': item},
+      );
+    }
   }
 }

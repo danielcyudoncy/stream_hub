@@ -17,6 +17,7 @@ import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/settings/settings_controller.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/models/channel.dart';
+import '../../epg/controllers/guide_controller.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
@@ -24,6 +25,7 @@ import '../../../data/services/database_service.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 import '../../../core/services/screen_awake_service.dart';
+import '../../free_live_tv/controllers/free_live_tv_controller.dart';
 
 class LiveTVController extends GetxController {
   final MediaEngine mediaEngine;
@@ -71,7 +73,6 @@ class LiveTVController extends GetxController {
   final Rxn<MediaItem> activePlayingChannel = Rxn<MediaItem>();
   PlayerController? inlinePlayerController;
   final GlobalKey playerKey = GlobalKey();
-  bool _navigationArgumentsHandled = false;
   bool hasBeenLandscapeInFullscreen = false;
 
   StreamSubscription? _favoriteSubscription;
@@ -100,6 +101,7 @@ class LiveTVController extends GetxController {
 
   void _initInlinePlayer() {
     if (inlinePlayerController != null) return;
+    if (!Get.isRegistered<StreamRepository>()) return;
 
     // Resolve optimal in-tree embedded player engine based on user preference and device capability.
     // NativeActivity is an external Activity and cannot be embedded in a widget tree.
@@ -193,11 +195,16 @@ class LiveTVController extends GetxController {
     return null;
   }
 
+  String? _lastHandledChannelId;
+
   void handleNavigationArguments() {
-    if (_navigationArgumentsHandled) return;
     final targetChannel = _extractChannelArg(Get.arguments);
     if (targetChannel == null) return;
-    _navigationArgumentsHandled = true;
+    if (_lastHandledChannelId == targetChannel.id &&
+        activePlayingChannel.value?.id == targetChannel.id) {
+      return;
+    }
+    _lastHandledChannelId = targetChannel.id;
 
     // Prefer the fully-loaded Channel instance from _allChannels (which has
     // streamUrl, correct metadata, etc.) over the raw MediaItem passed from
@@ -205,21 +212,41 @@ class LiveTVController extends GetxController {
     final matched = _allChannels.firstWhereOrNull((c) => c.id == targetChannel.id)
         ?? targetChannel;
 
-    if (activePlayingChannel.value?.id != matched.id) {
-      openChannel(matched);
-      final matchCategory = matched.genres.isNotEmpty
-          ? matched.genres.first
-          : (matched.metadata['category_name']?.toString() ??
-             matched.metadata['groupTitle']?.toString() ??
-             matched.metadata['group']?.toString() ??
-             '');
+    openChannel(matched);
 
-      if (matchCategory.isNotEmpty) {
-        final targetCat = matchCategory.trim().toLowerCase();
-        final foundCat = categories.firstWhereOrNull(
-          (c) => c.toLowerCase() == targetCat,
-        );
-        if (foundCat != null) setCategory(foundCat);
+    String? foundCat;
+    final candidates = [
+      ...matched.genres,
+      matched.metadata['category_name']?.toString() ?? '',
+      matched.metadata['groupTitle']?.toString() ?? '',
+      matched.metadata['group']?.toString() ?? '',
+      matched.metadata['genre']?.toString() ?? '',
+    ];
+
+    for (final raw in candidates) {
+      if (raw.trim().isEmpty) continue;
+      final target = raw.trim().toLowerCase();
+      // 1. Exact match
+      foundCat = categories.firstWhereOrNull((c) => c.toLowerCase() == target);
+      if (foundCat != null) break;
+      // 2. Contains match
+      foundCat = categories.firstWhereOrNull((c) {
+        final cl = c.toLowerCase();
+        return cl.contains(target) || target.contains(cl);
+      });
+      if (foundCat != null) break;
+    }
+
+    if (foundCat == null && (matched.favorite || targetChannel.favorite)) {
+      if (categories.contains('★ Favorites')) {
+        foundCat = '★ Favorites';
+      }
+    }
+
+    if (foundCat != null) {
+      setCategory(foundCat);
+      if (Get.isRegistered<GuideController>()) {
+        Get.find<GuideController>().setCategory(foundCat);
       }
     }
   }
@@ -723,13 +750,22 @@ class LiveTVController extends GetxController {
     filteredChannels.assignAll(result);
   }
 
+  int _openChannelGeneration = 0;
+
   void openChannel(MediaItem channel) {
+    if (Get.isRegistered<FreeLiveTvController>()) {
+      Get.find<FreeLiveTvController>().stopInlinePlayer();
+    }
+    final currentGen = ++_openChannelGeneration;
     activePlayingChannel.value = channel;
     featuredChannel.value = channel;
 
     // Defer heavy player initialization and state setup to the next frame
     // to allow the UI to immediately paint the active (glowing) channel state
     Future.delayed(Duration.zero, () {
+      if (currentGen != _openChannelGeneration) return;
+      if (activePlayingChannel.value?.id != channel.id) return;
+
       _initInlinePlayer();
       // Claim the wake lock for the lifetime of the inline player so the
       // device does not turn the screen off while a channel is being watched.
@@ -786,6 +822,7 @@ class LiveTVController extends GetxController {
   }
 
   void stopInlinePlayer() {
+    _openChannelGeneration++;
     activePlayingChannel.value = null;
     isFullscreenMode.value = false;
     SystemChrome.setPreferredOrientations([

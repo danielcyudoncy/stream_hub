@@ -92,6 +92,12 @@ class TVGuidePage extends GetView<GuideController> {
     final liveCtrl =
         Get.isRegistered<LiveTVController>() ? Get.find<LiveTVController>() : null;
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (liveCtrl != null && !liveCtrl.isLoading.value) {
+        liveCtrl.handleNavigationArguments();
+      }
+    });
+
     return Obx(() {
       if (liveCtrl != null && liveCtrl.isFullscreenMode.value) {
         return PopScope(

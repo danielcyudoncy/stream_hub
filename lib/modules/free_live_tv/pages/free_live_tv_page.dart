@@ -16,13 +16,28 @@ import 'package:stream_hub/shared/widgets/empty_library.dart';
 import 'package:stream_hub/shared/widgets/error_view.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
-class FreeLiveTvPage extends GetView<FreeLiveTvController> {
+class FreeLiveTvPage extends StatefulWidget {
   const FreeLiveTvPage({super.key});
+
+  @override
+  State<FreeLiveTvPage> createState() => _FreeLiveTvPageState();
+}
+
+class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
+  FreeLiveTvController get controller => Get.find<FreeLiveTvController>();
 
   static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
       GlobalKey();
   static final GlobalKey<PopupMenuButtonState<String>> _countryPopupKey =
       GlobalKey();
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<FreeLiveTvController>()) {
+      Get.find<FreeLiveTvController>().stopInlinePlayer();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,6 +72,12 @@ class FreeLiveTvPage extends GetView<FreeLiveTvController> {
         });
       }
     }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!controller.isLoading.value) {
+        controller.handleNavigationArguments();
+      }
+    });
 
     return Obx(() {
       if (controller.isLoading.value) {

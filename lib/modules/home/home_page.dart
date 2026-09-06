@@ -13,6 +13,8 @@ import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/premium_media_card.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import '../../../core/helpers/platform_helper.dart';
+import '../free_live_tv/controllers/free_live_tv_controller.dart';
+import '../live_tv/controllers/live_tv_controller.dart';
 import 'home_controller.dart';
 import 'tv_home_page.dart';
 import 'widgets/home_content_rail.dart';
@@ -505,12 +507,26 @@ class HomePage extends GetView<HomeController> {
   }
 
   void _playChannel(MediaItem item) {
-    if (item.providerId == 'free_live_tv') {
+    final provider = item.providerType.displayName.toLowerCase();
+    final isFreeLiveTv = provider.contains('freelivetv') ||
+        provider.contains('free_live_tv') ||
+        provider.contains('iptv-org') ||
+        item.providerId.toLowerCase().contains('freelivetv') ||
+        item.providerId.toLowerCase().contains('free_live_tv') ||
+        item.id.startsWith('free_tv_');
+
+    if (isFreeLiveTv) {
+      if (Get.isRegistered<LiveTVController>()) {
+        Get.find<LiveTVController>().stopInlinePlayer();
+      }
       Get.toNamed(
         AppRoutes.freeLiveTV,
         arguments: {'channel': item},
       );
     } else {
+      if (Get.isRegistered<FreeLiveTvController>()) {
+        Get.find<FreeLiveTvController>().stopInlinePlayer();
+      }
       Get.toNamed(
         AppRoutes.liveTV,
         arguments: {'channel': item},
