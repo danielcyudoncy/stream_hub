@@ -13,6 +13,9 @@ import 'package:stream_hub/data/models/xmltv_models.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/modules/live_tv/controllers/live_tv_controller.dart';
+import 'package:stream_hub/modules/free_live_tv/controllers/free_live_tv_controller.dart';
+import 'package:stream_hub/data/models/free_tv_channel.dart';
+import 'package:stream_hub/data/repositories/free_tv_repository.dart';
 
 class _FakeCatalogRepository implements CatalogRepository {
   final List<MediaItem> items = [];
@@ -223,6 +226,26 @@ class _FakeFavoriteRepository implements FavoriteRepository {
   Future<void> clear() async => _favorites.clear();
 }
 
+class _FakeFreeTvRepo implements FreeTvRepository {
+  @override
+  Future<void> recordWatch(FreeTvChannel channel) async {}
+
+  @override
+  Future<List<FreeTvChannel>> getCatalog({bool forceRefresh = false}) async => [];
+
+  @override
+  Stream<Set<String>> watchFavorites() => const Stream.empty();
+
+  @override
+  Set<String> getFavoriteIds() => {};
+
+  @override
+  Future<List<FreeTvChannel>> getRecentlyWatched({int limit = 30}) async => [];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -396,5 +419,55 @@ void main() {
     expect(controller.selectedView.value, 'list');
     controller.setView('grid');
     expect(controller.selectedView.value, 'grid');
+  });
+
+  test('openChannel stops FreeLiveTvController inline player if registered', () {
+    final freeCtrl = FreeLiveTvController(repository: _FakeFreeTvRepo());
+    Get.put<FreeLiveTvController>(freeCtrl);
+    freeCtrl.activePlayingChannel.value = const FreeTvChannel(
+      id: 'free-ch-1',
+      name: 'Free TV News',
+      country: 'United States',
+      countryCode: 'US',
+      streamUrls: ['https://example.com/stream.m3u8'],
+    );
+    expect(freeCtrl.activePlayingChannel.value, isNotNull);
+
+    controller.openChannel(testChannel1);
+
+    expect(freeCtrl.activePlayingChannel.value, isNull);
+    expect(controller.activePlayingChannel.value?.id, testChannel1.id);
+  });
+
+  test('stopInlinePlayer clears activePlayingChannel and exits fullscreen', () {
+    controller.activePlayingChannel.value = testChannel1;
+    controller.isFullscreenMode.value = true;
+
+    controller.stopInlinePlayer();
+
+    expect(controller.activePlayingChannel.value, isNull);
+    expect(controller.isFullscreenMode.value, isFalse);
+  });
+
+  test('FreeLiveTvController.openChannel stops LiveTVController inline player', () async {
+    Get.put<LiveTVController>(controller);
+    controller.activePlayingChannel.value = testChannel1;
+    controller.isFullscreenMode.value = true;
+    expect(controller.activePlayingChannel.value, isNotNull);
+
+    final freeCtrl = FreeLiveTvController(repository: _FakeFreeTvRepo());
+    Get.put<FreeLiveTvController>(freeCtrl);
+
+    await freeCtrl.openChannel(const FreeTvChannel(
+      id: 'free-ch-1',
+      name: 'Free Channel',
+      country: 'United States',
+      countryCode: 'US',
+      streamUrls: ['https://example.com/stream.m3u8'],
+    ));
+
+    expect(controller.activePlayingChannel.value, isNull);
+    expect(controller.isFullscreenMode.value, isFalse);
+    expect(freeCtrl.activePlayingChannel.value?.id, 'free-ch-1');
   });
 }

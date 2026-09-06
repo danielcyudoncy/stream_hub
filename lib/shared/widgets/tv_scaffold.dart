@@ -9,6 +9,7 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
 import '../../data/repositories/provider_repository.dart';
+import '../../modules/free_live_tv/controllers/free_live_tv_controller.dart';
 import '../../modules/live_tv/controllers/live_tv_controller.dart';
 import '../../modules/player/controllers/player_controller.dart';
 import '../../modules/player/pages/floating_player_page.dart';
@@ -332,6 +333,13 @@ class _TvScaffoldState extends State<TvScaffold> {
     }
     if (Get.currentRoute == targetRoute) return;
 
+    if (Get.isRegistered<LiveTVController>()) {
+      Get.find<LiveTVController>().stopInlinePlayer();
+    }
+    if (Get.isRegistered<FreeLiveTvController>()) {
+      Get.find<FreeLiveTvController>().stopInlinePlayer();
+    }
+
     Get.offAllNamed(targetRoute);
   }
 
@@ -598,7 +606,15 @@ class _TvScaffoldState extends State<TvScaffold> {
 
     return TvFocusable(
       focusNode: _profileFocusNode,
-      onTap: () => Get.toNamed(AppRoutes.profile),
+      onTap: () {
+        if (Get.isRegistered<LiveTVController>()) {
+          Get.find<LiveTVController>().stopInlinePlayer();
+        }
+        if (Get.isRegistered<FreeLiveTvController>()) {
+          Get.find<FreeLiveTvController>().stopInlinePlayer();
+        }
+        Get.toNamed(AppRoutes.profile);
+      },
       scale: 1.02,
       borderRadius: BorderRadius.circular(12),
       onFocusChange: (focused) {

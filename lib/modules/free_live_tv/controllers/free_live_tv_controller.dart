@@ -17,6 +17,7 @@ import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/repositories/free_tv_repository.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/settings/settings_controller.dart';
+import '../../live_tv/controllers/live_tv_controller.dart';
 
 class FreeLiveTvController extends GetxController {
   final FreeTvRepository repository;
@@ -83,6 +84,7 @@ class FreeLiveTvController extends GetxController {
   final RxBool isFullscreenMode = false.obs;
   DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
   bool hasBeenLandscapeInFullscreen = false;
+  String? _lastHandledChannelId;
 
   final Rxn<PlayerController> _inlinePlayerController = Rxn<PlayerController>();
   PlayerController? get inlinePlayerController => _inlinePlayerController.value;
@@ -173,31 +175,7 @@ class FreeLiveTvController extends GetxController {
         featuredChannel.value = heroCandidate;
       }
 
-      final args = Get.arguments;
-      MediaItem? targetChannel;
-      if (args is Map) {
-        if (args['channel'] is MediaItem) {
-          targetChannel = args['channel'] as MediaItem;
-        } else if (args['item'] is MediaItem) {
-          targetChannel = args['item'] as MediaItem;
-        }
-      } else if (args is MediaItem) {
-          targetChannel = args;
-      }
-
-      if (targetChannel != null) {
-        final matched = _allChannels.firstWhereOrNull((c) => c.toMediaItem().id == targetChannel!.id);
-        if (matched != null) {
-          openChannel(matched, streamIndex: 0);
-          if (matched.categories.isNotEmpty) {
-            final targetCat = matched.categories.first.trim().toLowerCase();
-            final foundCat = categories.firstWhereOrNull((c) => c.toLowerCase() == targetCat);
-            if (foundCat != null) {
-              setCategory(foundCat);
-            }
-          }
-        }
-      }
+      handleNavigationArguments();
     } catch (e, stack) {
       _logger.error('Error loading Free Live TV catalog',
           tag: 'FreeLiveTvController', error: e, stackTrace: stack);
@@ -205,6 +183,53 @@ class FreeLiveTvController extends GetxController {
           'Unable to load Free Live TV.\nPlease check your internet connection and try again.';
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  void handleNavigationArguments() {
+    final args = Get.arguments;
+    MediaItem? targetChannel;
+    if (args is Map) {
+      if (args['channel'] is MediaItem) {
+        targetChannel = args['channel'] as MediaItem;
+      } else if (args['item'] is MediaItem) {
+        targetChannel = args['item'] as MediaItem;
+      }
+    } else if (args is MediaItem) {
+      targetChannel = args;
+    }
+
+    if (targetChannel == null) return;
+    if (_lastHandledChannelId == targetChannel.id &&
+        activePlayingChannel.value?.id == targetChannel.id) {
+      return;
+    }
+    _lastHandledChannelId = targetChannel.id;
+
+    final targetId = targetChannel.id.replaceFirst('free_tv_', '');
+    final matched = _allChannels.firstWhereOrNull(
+      (c) => c.id == targetId || c.toMediaItem().id == targetChannel!.id,
+    );
+    if (matched != null) {
+      openChannel(matched, streamIndex: 0);
+      String? foundCat;
+      for (final raw in [
+        ...matched.categories,
+        matched.network ?? '',
+      ]) {
+        if (raw.trim().isEmpty) continue;
+        final target = raw.trim().toLowerCase();
+        foundCat = categories.firstWhereOrNull((c) => c.toLowerCase() == target);
+        if (foundCat != null) break;
+        foundCat = categories.firstWhereOrNull((c) {
+          final cl = c.toLowerCase();
+          return cl.contains(target) || target.contains(cl);
+        });
+        if (foundCat != null) break;
+      }
+      if (foundCat != null) {
+        setCategory(foundCat);
+      }
     }
   }
 
@@ -720,6 +745,10 @@ class FreeLiveTvController extends GetxController {
     if (channel.streamUrls.isEmpty) {
       playbackStatusMessage.value = 'No playable stream found for this channel.';
       return;
+    }
+
+    if (Get.isRegistered<LiveTVController>()) {
+      Get.find<LiveTVController>().stopInlinePlayer();
     }
 
     final currentGen = ++_openChannelGeneration;

@@ -18,11 +18,26 @@ import '../widgets/live_tv_skeleton.dart';
 import '../../epg/pages/tv_guide_page.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
-class LiveTVPage extends GetView<LiveTVController> {
+class LiveTVPage extends StatefulWidget {
   const LiveTVPage({super.key});
+
+  @override
+  State<LiveTVPage> createState() => _LiveTVPageState();
+}
+
+class _LiveTVPageState extends State<LiveTVPage> {
+  LiveTVController get controller => Get.find<LiveTVController>();
 
   static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
       GlobalKey();
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<LiveTVController>()) {
+      Get.find<LiveTVController>().stopInlinePlayer();
+    }
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,6 +49,13 @@ class LiveTVPage extends GetView<LiveTVController> {
     final crossAxisCount = isTV
         ? 5
         : (isDesktop ? 4 : (isTablet ? 3 : 2));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!controller.isLoading.value) {
+        controller.syncHiddenCategories();
+        controller.handleNavigationArguments();
+      }
+    });
 
     if (isTV || isDesktop) {
       return const TVGuidePage();
@@ -55,13 +77,6 @@ class LiveTVPage extends GetView<LiveTVController> {
         });
       }
     }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!controller.isLoading.value) {
-        controller.syncHiddenCategories();
-        controller.handleNavigationArguments();
-      }
-    });
 
     return PopScope(
       canPop: !controller.isFullscreenMode.value,

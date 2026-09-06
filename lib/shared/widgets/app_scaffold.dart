@@ -9,6 +9,8 @@ import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_typography.dart';
 import '../../core/utils/responsive_helper.dart';
+import '../../modules/free_live_tv/controllers/free_live_tv_controller.dart';
+import '../../modules/live_tv/controllers/live_tv_controller.dart';
 import '../../modules/player/controllers/player_controller.dart';
 import '../../modules/player/pages/floating_player_page.dart';
 import '../../modules/player/pages/mini_player_page.dart';
@@ -67,6 +69,13 @@ class AppScaffold extends StatelessWidget {
     if (index < 0 || index >= _rootRoutes.length) return;
     final targetRoute = _rootRoutes[index];
     if (Get.currentRoute == targetRoute) return;
+
+    if (Get.isRegistered<LiveTVController>()) {
+      Get.find<LiveTVController>().stopInlinePlayer();
+    }
+    if (Get.isRegistered<FreeLiveTvController>()) {
+      Get.find<FreeLiveTvController>().stopInlinePlayer();
+    }
 
     Get.offAllNamed(targetRoute);
   }

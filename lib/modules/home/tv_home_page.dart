@@ -16,6 +16,8 @@ import '../../../shared/widgets/glass_panel.dart';
 import '../../../shared/widgets/premium_media_card.dart';
 import '../../../shared/widgets/provider_selector_button.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../free_live_tv/controllers/free_live_tv_controller.dart';
+import '../live_tv/controllers/live_tv_controller.dart';
 import 'home_controller.dart';
 import 'widgets/home_content_rail.dart';
 import 'widgets/home_continue_watching_card.dart';
@@ -47,7 +49,25 @@ class _TvHomePageState extends State<TvHomePage> {
     } else if (item.mediaType == MediaType.movie) {
       Get.toNamed(AppRoutes.movieDetails, arguments: item);
     } else if (item.mediaType == MediaType.channel) {
-      Get.toNamed(AppRoutes.liveTV, arguments: {'channel': item});
+      final provider = item.providerType.displayName.toLowerCase();
+      final isFreeLiveTv = provider.contains('freelivetv') ||
+          provider.contains('free_live_tv') ||
+          provider.contains('iptv-org') ||
+          item.providerId.toLowerCase().contains('freelivetv') ||
+          item.providerId.toLowerCase().contains('free_live_tv') ||
+          item.id.startsWith('free_tv_');
+
+      if (isFreeLiveTv) {
+        if (Get.isRegistered<LiveTVController>()) {
+          Get.find<LiveTVController>().stopInlinePlayer();
+        }
+        Get.toNamed(AppRoutes.freeLiveTV, arguments: {'channel': item});
+      } else {
+        if (Get.isRegistered<FreeLiveTvController>()) {
+          Get.find<FreeLiveTvController>().stopInlinePlayer();
+        }
+        Get.toNamed(AppRoutes.liveTV, arguments: {'channel': item});
+      }
     } else {
       Duration? startPosition;
       if (Get.isRegistered<PlaybackRepository>()) {
@@ -83,8 +103,6 @@ class _TvHomePageState extends State<TvHomePage> {
       Get.toNamed(AppRoutes.seriesDetails, arguments: {'item': item});
     } else if (item.mediaType == MediaType.movie) {
       Get.toNamed(AppRoutes.movieDetails, arguments: item);
-    } else if (item.mediaType == MediaType.channel) {
-      Get.toNamed(AppRoutes.liveTV, arguments: {'channel': item});
     } else {
       _openItem(item);
     }

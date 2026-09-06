@@ -14,6 +14,8 @@ import '../../../shared/widgets/section_header.dart';
 import '../../../modules/movies/widgets/movie_card.dart';
 import '../../../modules/series/widgets/series_card.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../free_live_tv/controllers/free_live_tv_controller.dart';
+import '../live_tv/controllers/live_tv_controller.dart';
 import 'library_controller.dart';
 
 class LibraryPage extends GetView<LibraryController> {
@@ -547,6 +549,32 @@ class LibraryPage extends GetView<LibraryController> {
         AppRoutes.movieDetails,
         arguments: item,
       );
+    } else if (item.mediaType == MediaType.channel) {
+      final provider = item.providerType.displayName.toLowerCase();
+      final isFreeLiveTv = provider.contains('freelivetv') ||
+          provider.contains('free_live_tv') ||
+          provider.contains('iptv-org') ||
+          item.providerId.toLowerCase().contains('freelivetv') ||
+          item.providerId.toLowerCase().contains('free_live_tv') ||
+          item.id.startsWith('free_tv_');
+
+      if (isFreeLiveTv) {
+        if (Get.isRegistered<LiveTVController>()) {
+          Get.find<LiveTVController>().stopInlinePlayer();
+        }
+        Get.toNamed(
+          AppRoutes.freeLiveTV,
+          arguments: {'channel': item},
+        );
+      } else {
+        if (Get.isRegistered<FreeLiveTvController>()) {
+          Get.find<FreeLiveTvController>().stopInlinePlayer();
+        }
+        Get.toNamed(
+          AppRoutes.liveTV,
+          arguments: {'channel': item},
+        );
+      }
     } else {
       Get.toNamed(
         AppRoutes.fullscreenPlayer,

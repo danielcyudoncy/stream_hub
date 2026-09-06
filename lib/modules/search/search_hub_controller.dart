@@ -8,6 +8,8 @@ import '../../../data/models/media_item.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
+import '../free_live_tv/controllers/free_live_tv_controller.dart';
+import '../live_tv/controllers/live_tv_controller.dart';
 import '../provider_manager/models/provider_model.dart';
 
 class SearchHubController extends GetxController {
@@ -296,10 +298,31 @@ class SearchHubController extends GetxController {
     } else if (item.mediaType == MediaType.channel ||
         item.mediaType == MediaType.liveEvent ||
         item.mediaType == MediaType.program) {
-      Get.toNamed(
-        AppRoutes.liveTV,
-        arguments: {'channel': item},
-      );
+      final provider = item.providerType.displayName.toLowerCase();
+      final isFreeLiveTv = provider.contains('freelivetv') ||
+          provider.contains('free_live_tv') ||
+          provider.contains('iptv-org') ||
+          item.providerId.toLowerCase().contains('freelivetv') ||
+          item.providerId.toLowerCase().contains('free_live_tv') ||
+          item.id.startsWith('free_tv_');
+
+      if (isFreeLiveTv) {
+        if (Get.isRegistered<LiveTVController>()) {
+          Get.find<LiveTVController>().stopInlinePlayer();
+        }
+        Get.toNamed(
+          AppRoutes.freeLiveTV,
+          arguments: {'channel': item},
+        );
+      } else {
+        if (Get.isRegistered<FreeLiveTvController>()) {
+          Get.find<FreeLiveTvController>().stopInlinePlayer();
+        }
+        Get.toNamed(
+          AppRoutes.liveTV,
+          arguments: {'channel': item},
+        );
+      }
     } else {
       Get.toNamed(
         AppRoutes.fullscreenPlayer,
