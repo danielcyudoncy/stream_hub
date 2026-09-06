@@ -38,6 +38,7 @@ class PlayableSession {
   final bool supportsTimeshift;
   final bool supportsSubtitles;
   final bool supportsAudioTracks;
+  final bool supportsPiP;
 
   final DrmInformation? drmInformation;
 
@@ -69,6 +70,7 @@ class PlayableSession {
     this.supportsTimeshift = false,
     this.supportsSubtitles = false,
     this.supportsAudioTracks = false,
+    this.supportsPiP = true,
     this.drmInformation,
     this.networkTimeout = const Duration(seconds: 15),
     this.retryPolicy = const RetryPolicy(),
@@ -105,6 +107,7 @@ class PlayableSession {
     bool? supportsTimeshift,
     bool? supportsSubtitles,
     bool? supportsAudioTracks,
+    bool? supportsPiP,
     DrmInformation? drmInformation,
     Duration? networkTimeout,
     RetryPolicy? retryPolicy,
@@ -134,6 +137,7 @@ class PlayableSession {
       supportsTimeshift: supportsTimeshift ?? this.supportsTimeshift,
       supportsSubtitles: supportsSubtitles ?? this.supportsSubtitles,
       supportsAudioTracks: supportsAudioTracks ?? this.supportsAudioTracks,
+      supportsPiP: supportsPiP ?? this.supportsPiP,
       drmInformation: drmInformation ?? this.drmInformation,
       networkTimeout: networkTimeout ?? this.networkTimeout,
       retryPolicy: retryPolicy ?? this.retryPolicy,

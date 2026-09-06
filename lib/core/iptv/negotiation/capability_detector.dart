@@ -39,6 +39,7 @@ class CapabilityDetector {
       supportsAudioTracks: supportsAudioTracks,
       supportsQualitySelection: supportsQualitySelection,
       supportsResume: supportsResume,
+      supportsPiP: true,
     );
   }
 }

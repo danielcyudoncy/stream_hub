@@ -121,6 +121,7 @@ class StreamNegotiationEngine {
       supportsAudioTracks: detected.supportsAudioTracks,
       supportsQualitySelection: detected.supportsQualitySelection,
       supportsResume: detected.supportsResume,
+      supportsPiP: session.supportsPiP && detected.supportsPiP,
     );
   }
 

@@ -300,7 +300,7 @@ class PlaybackEngine {
         canSeek: session.supportsSeeking,
         canChangeSpeed: true,
         canChangeAspectRatio: true,
-        canPictureInPicture: true,
+        canPictureInPicture: session.supportsPiP,
         canChangeQuality: true,
         canChangeAudioTrack: true,
         canChangeSubtitle: true,
@@ -510,6 +510,12 @@ class PlaybackEngine {
       occurredAt: DateTime.now(),
     ));
   }
+
+  Future<List<dynamic>> getAvailableSubtitleTracks() =>
+      adapter.getAvailableSubtitleTracks();
+
+  Future<List<dynamic>> getAvailableAudioTracks() =>
+      adapter.getAvailableAudioTracks();
 
   Future<void> setSubtitleTrack(String trackId) async {
     selectedSubtitleTrackRx.value = trackId;

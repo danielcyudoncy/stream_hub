@@ -13,10 +13,11 @@ import 'package:stream_hub/core/media/player/buffer_info.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/player/pip_floating_capable.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/network/cookie_manager.dart';
 
-class MediaKitPlayerAdapter implements PlayerAdapter {
+class MediaKitPlayerAdapter implements PlayerAdapter, PipFloatingCapable {
   mk.Player? _player;
   VideoController? _videoController;
   final LoggingService _logger;
@@ -558,6 +559,7 @@ class MediaKitPlayerAdapter implements PlayerAdapter {
     _currentQuality = quality;
   }
 
+  @override
   void setFloating(Floating floating) {
     _floating = floating;
   }
