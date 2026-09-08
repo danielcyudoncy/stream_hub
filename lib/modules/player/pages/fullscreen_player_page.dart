@@ -62,14 +62,20 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
     _stateSub = _controller.playbackController.engine.stateRx.listen((state) {
       if (state == PlaybackState.playing) {
         _autoHideControls();
+        _enableAutoPiP();
       } else if (state == PlaybackState.stopped &&
           (_controller.playbackController.engine.adapter
                   is NativeActivityPlayerAdapter ||
               _controller.playbackController.engine.adapter
                   is IjkPlayerAdapter)) {
+        _disableAutoPiP();
         _stateSub?.cancel();
         _stateSub = null;
         Get.back();
+      } else if (state == PlaybackState.paused ||
+          state == PlaybackState.completed ||
+          state == PlaybackState.error) {
+        _disableAutoPiP();
       }
     });
     _engineKindSub = _controller.playbackController.engine.engineKindRx.stream
@@ -77,6 +83,23 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       _injectFloatingIntoAdapter();
     });
     _autoHideControls();
+  }
+
+  Future<void> _enableAutoPiP() async {
+    if (!_isPiPSupported || _floating == null) return;
+    try {
+      final pipAvailable = await _floating!.isPipAvailable;
+      if (pipAvailable) {
+        await _floating!.enable(const OnLeavePiP());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _disableAutoPiP() async {
+    if (!_isPiPSupported || _floating == null) return;
+    try {
+      await _floating!.cancelOnLeavePiP();
+    } catch (_) {}
   }
 
   void _autoHideControls() {
@@ -90,6 +113,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
 
   @override
   void dispose() {
+    _disableAutoPiP();
     _stateSub?.cancel();
     _engineKindSub?.cancel();
     _controlsTimer?.cancel();

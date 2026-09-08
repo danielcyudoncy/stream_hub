@@ -11,21 +11,27 @@ import '../../../shared/widgets/tv_focusable.dart';
 class EpisodeCard extends StatelessWidget {
   final MediaItem episode;
   final VoidCallback? onTap;
+  final VoidCallback? onDownload;
   final String? episodeNumber;
   final double? progressPercentage;
   final bool isCompleted;
   final bool isCurrentlyPlaying;
   final bool isNextUp;
+  final bool isDownloaded;
+  final bool isDownloading;
 
   const EpisodeCard({
     super.key,
     required this.episode,
     this.onTap,
+    this.onDownload,
     this.episodeNumber,
     this.progressPercentage,
     this.isCompleted = false,
     this.isCurrentlyPlaying = false,
     this.isNextUp = false,
+    this.isDownloaded = false,
+    this.isDownloading = false,
   });
 
   @override
@@ -282,24 +288,62 @@ class EpisodeCard extends StatelessWidget {
               ),
             ),
 
-            // Play Icon action
+            // Actions (Download + Play)
             Padding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.xs),
-                decoration: BoxDecoration(
-                  color: isCurrentlyPlaying
-                      ? colorScheme.primary
-                      : colorScheme.surfaceContainerHighest,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  isCompleted
-                      ? Icons.replay
-                      : (isCurrentlyPlaying ? Icons.pause : AppIcons.play),
-                  size: 18.0,
-                  color: isCurrentlyPlaying ? colorScheme.onPrimary : colorScheme.onSurface,
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (onDownload != null) ...[
+                    TvFocusable(
+                      onTap: onDownload,
+                      borderRadius: AppRadius.pill,
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        decoration: BoxDecoration(
+                          color: isDownloaded
+                              ? AppColors.darkSuccess.withValues(alpha: 0.2)
+                              : (isDownloading
+                                  ? colorScheme.primary.withValues(alpha: 0.15)
+                                  : colorScheme.surfaceContainerHighest),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isDownloaded
+                              ? Icons.download_done_rounded
+                              : (isDownloading
+                                  ? Icons.downloading_rounded
+                                  : Icons.download_rounded),
+                          size: 18.0,
+                          color: isDownloaded
+                              ? AppColors.darkSuccess
+                              : (isDownloading
+                                  ? colorScheme.primary
+                                  : colorScheme.onSurfaceVariant),
+                        ),
+                      ),
+                    ),
+                    AppSpacing.widthXS,
+                  ],
+
+                  // Play Icon
+                  Container(
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    decoration: BoxDecoration(
+                      color: isCurrentlyPlaying
+                          ? colorScheme.primary
+                          : colorScheme.surfaceContainerHighest,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isCompleted
+                          ? Icons.replay
+                          : (isCurrentlyPlaying ? Icons.pause : AppIcons.play),
+                      size: 18.0,
+                      color: isCurrentlyPlaying ? colorScheme.onPrimary : colorScheme.onSurface,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

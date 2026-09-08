@@ -10,11 +10,19 @@ import '../../../core/media/media_library.dart';
 import '../../../core/media/player/exo_player_surface_view_adapter.dart';
 import '../../../core/media/player/ijk_player_adapter.dart';
 import '../../../core/media/player/vlc_player_adapter.dart';
+import '../../../core/media/enums/stream_type.dart';
 import '../../../core/media/repositories/playback_repository.dart';
+import '../../../core/repositories/download_repository.dart';
+import '../../../core/routes/app_routes.dart';
+import '../../../core/services/download_service.dart';
 import '../../../core/services/screen_awake_service.dart';
+import '../../../core/streaming/models/playable_session.dart';
+import '../../../core/streaming/models/prepared_download.dart';
 import '../../../core/streaming/repositories/stream_repository.dart';
+import '../../../core/streaming/stream_engine.dart';
 import '../../../core/streaming/vod/xtream_vod_info_service.dart';
 import '../../../data/models/cast_member.dart';
+import '../../../data/models/download_item.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/models/playback_session_model.dart';
 import '../../../data/repositories/catalog_repository.dart';
@@ -41,6 +49,9 @@ class MovieDetailsController extends GetxController {
   final Rx<MediaItem?> movieRx = Rx<MediaItem?>(null);
   final RxBool isLoading = true.obs;
   final RxBool isFavorite = false.obs;
+  final Rx<DownloadStatus?> downloadStatus = Rx<DownloadStatus?>(null);
+  final RxDouble downloadProgress = 0.0.obs;
+  StreamSubscription? _downloadSub;
   final Rx<MoviePlayAction> playAction = MoviePlayAction.play.obs;
   final Rx<Duration> resumePosition = Duration.zero.obs;
   final Rx<Duration> totalDuration = Duration.zero.obs;
@@ -73,6 +84,7 @@ class MovieDetailsController extends GetxController {
 
   @override
   void onClose() {
+    _downloadSub?.cancel();
     stopInlinePlayback();
     inlinePlayerController?.onClose();
     // Belt-and-suspenders: ensure any lingering claim is released when the
@@ -116,6 +128,7 @@ class MovieDetailsController extends GetxController {
 
       await _checkFavoriteState(item);
       await _checkWatchProgress(item);
+      _watchDownloadState(item.id);
       await _loadRelatedMovies(item);
       _enrichFromVodService(item);
     } catch (e) {
@@ -420,11 +433,114 @@ class MovieDetailsController extends GetxController {
     cast.assignAll(item.castMembers);
     _checkFavoriteState(item);
     _checkWatchProgress(item);
+    _watchDownloadState(item.id);
     _loadRelatedMovies(item);
     _enrichFromVodService(item);
 
     if (isInlinePlayerActive.value) {
       startInlinePlayback();
+    }
+  }
+
+  void _watchDownloadState(String mediaItemId) {
+    _downloadSub?.cancel();
+    if (!Get.isRegistered<DownloadRepository>()) return;
+    final downloadRepo = Get.find<DownloadRepository>();
+    _downloadSub = downloadRepo.watchDownloads().listen((items) {
+      final match = items.where((d) => d.mediaItemId == mediaItemId).firstOrNull;
+      if (match != null) {
+        downloadStatus.value = match.status;
+        downloadProgress.value = match.progress;
+      } else {
+        downloadStatus.value = null;
+        downloadProgress.value = 0.0;
+      }
+    });
+    downloadRepo.getDownload(mediaItemId).then((item) {
+      if (item != null) {
+        downloadStatus.value = item.status;
+        downloadProgress.value = item.progress;
+      }
+    });
+  }
+
+  void _notify(String title, String message, {Duration? duration}) {
+    if (!Get.testMode) {
+      Get.snackbar(
+        title,
+        message,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: duration ?? const Duration(seconds: 3),
+      );
+    }
+  }
+
+  Future<void> downloadMovie() async {
+    final item = movie;
+    if (item == null) return;
+
+    if (!Get.isRegistered<DownloadService>()) {
+      _notify('Downloads', 'Download service is not initialized');
+      return;
+    }
+
+    final downloadService = Get.find<DownloadService>();
+
+    if (downloadStatus.value == DownloadStatus.completed) {
+      Get.toNamed(AppRoutes.downloads);
+      return;
+    }
+
+    if (downloadStatus.value == DownloadStatus.downloading) {
+      _notify('Downloads', 'Download is already in progress');
+      return;
+    }
+
+    try {
+      _notify(
+        'Downloading',
+        'Preparing "${item.title}" for download...',
+        duration: const Duration(seconds: 2),
+      );
+
+      final fallbackUrl = item.metadata['streamUrl']?.toString() ??
+          item.metadata['url']?.toString() ??
+          item.metadata['direct_source']?.toString();
+
+      PreparedDownload prepared;
+      if (Get.isRegistered<StreamEngine>()) {
+        final streamEngine = Get.find<StreamEngine>();
+        prepared = await streamEngine.prepareDownload(
+          mediaItemId: item.id,
+          providerType: item.providerType,
+          itemMetadata: item.metadata,
+          providerId: item.providerId,
+          fallbackUrl: fallbackUrl,
+        );
+      } else {
+        prepared = PreparedDownload(
+          session: PlayableSession(
+            sessionId: item.id,
+            mediaItemId: item.id,
+            providerId: item.providerId,
+            providerType: item.providerType,
+            streamUrl: fallbackUrl ?? '',
+            streamType: StreamType.mp4,
+            supportsDownload: true,
+          ),
+          canDownload: true,
+        );
+      }
+
+      await downloadService.enqueue(
+        preparedDownload: prepared,
+        title: item.title,
+        posterUrl: item.poster ?? item.thumbnail,
+        mediaType: 'movie',
+      );
+      _notify('Download Queued', 'Added "${item.title}" to downloads');
+    } catch (e) {
+      _notify('Download Failed', 'Could not prepare download: $e');
     }
   }
 

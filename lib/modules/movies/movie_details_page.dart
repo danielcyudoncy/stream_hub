@@ -7,6 +7,7 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/responsive_helper.dart';
+import '../../../data/models/download_item.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
@@ -818,6 +819,67 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
                     isFav ? 'In Favorites' : 'My List',
                     style: AppTypography.getButton(
                       color: isFav ? AppColors.darkError : Colors.white,
+                      scale: 0.9,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Download Button
+          TvFocusable(
+            onTap: controller.downloadMovie,
+            borderRadius: AppRadius.pill,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.lg,
+                vertical: AppSpacing.md,
+              ),
+              decoration: BoxDecoration(
+                color: controller.downloadStatus.value == DownloadStatus.completed
+                    ? AppColors.darkSuccess.withValues(alpha: 0.2)
+                    : (controller.downloadStatus.value == DownloadStatus.downloading
+                        ? AppColors.darkPrimary.withValues(alpha: 0.25)
+                        : Colors.white.withValues(alpha: 0.12)),
+                borderRadius: AppRadius.pill,
+                border: Border.all(
+                  color: controller.downloadStatus.value == DownloadStatus.completed
+                      ? AppColors.darkSuccess.withValues(alpha: 0.6)
+                      : (controller.downloadStatus.value == DownloadStatus.downloading
+                          ? AppColors.darkPrimary.withValues(alpha: 0.8)
+                          : Colors.white24),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    controller.downloadStatus.value == DownloadStatus.completed
+                        ? Icons.download_done_rounded
+                        : (controller.downloadStatus.value == DownloadStatus.downloading
+                            ? Icons.downloading_rounded
+                            : Icons.download_rounded),
+                    color: controller.downloadStatus.value == DownloadStatus.completed
+                        ? AppColors.darkSuccess
+                        : (controller.downloadStatus.value == DownloadStatus.downloading
+                            ? AppColors.darkPrimary
+                            : Colors.white),
+                    size: 18.0,
+                  ),
+                  AppSpacing.widthXXS,
+                  Text(
+                    controller.downloadStatus.value == DownloadStatus.completed
+                        ? 'Downloaded'
+                        : (controller.downloadStatus.value == DownloadStatus.downloading
+                            ? '${(controller.downloadProgress.value * 100).toInt()}%'
+                            : 'Download'),
+                    style: AppTypography.getButton(
+                      color: controller.downloadStatus.value == DownloadStatus.completed
+                          ? AppColors.darkSuccess
+                          : (controller.downloadStatus.value == DownloadStatus.downloading
+                              ? AppColors.darkPrimary
+                              : Colors.white),
                       scale: 0.9,
                     ),
                   ),

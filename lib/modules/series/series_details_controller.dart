@@ -8,19 +8,27 @@ import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
+import 'package:stream_hub/core/media/enums/stream_type.dart';
 import 'package:stream_hub/core/media/player/exo_player_surface_view_adapter.dart';
 import 'package:stream_hub/core/media/player/ijk_player_adapter.dart';
 import 'package:stream_hub/core/media/player/vlc_player_adapter.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/core/services/screen_awake_service.dart';
+import 'package:stream_hub/core/repositories/download_repository.dart';
+import 'package:stream_hub/core/routes/app_routes.dart';
+import 'package:stream_hub/core/services/download_service.dart';
 import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
+import 'package:stream_hub/core/streaming/models/playable_session.dart';
+import 'package:stream_hub/core/streaming/models/prepared_download.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/core/streaming/series/next_episode_resolver.dart';
 import 'package:stream_hub/core/streaming/series/series_progress_service.dart';
 import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
 import 'package:stream_hub/core/streaming/session/session_manager.dart';
+import 'package:stream_hub/core/streaming/stream_engine.dart';
 import 'package:stream_hub/data/models/cast_member.dart';
+import 'package:stream_hub/data/models/download_item.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playback_session_model.dart';
 import 'package:stream_hub/data/models/series_progress.dart';
@@ -78,6 +86,9 @@ class SeriesDetailsController extends GetxController {
   final Rx<SeriesProgress?> seriesProgress = Rx<SeriesProgress?>(null);
   final RxMap<String, double> episodeProgressMap = <String, double>{}.obs;
   final RxSet<String> completedEpisodeIds = <String>{}.obs;
+  final RxSet<String> downloadedEpisodeIds = <String>{}.obs;
+  final RxSet<String> downloadingEpisodeIds = <String>{}.obs;
+  StreamSubscription? _downloadSub;
   final RxList<MediaItem> relatedSeries = <MediaItem>[].obs;
   final RxList<CastMember> castMembers = <CastMember>[].obs;
 
@@ -100,6 +111,7 @@ class SeriesDetailsController extends GetxController {
 
   @override
   void onClose() {
+    _downloadSub?.cancel();
     stopInlinePlayback();
     inlinePlayerController?.onClose();
     if (Get.isRegistered<ScreenAwakeService>()) {
@@ -119,6 +131,7 @@ class SeriesDetailsController extends GetxController {
             : (args is Map ? args['item'] as MediaItem? : null));
     isFavorite.value = _series.value?.favorite ?? false;
     _parseCastMembers();
+    _subscribeDownloads();
     _load();
   }
 
@@ -938,5 +951,117 @@ class SeriesDetailsController extends GetxController {
       return series.id.split(':').first;
     }
     return series.id;
+  }
+
+  void _subscribeDownloads() {
+    if (!Get.isRegistered<DownloadRepository>()) return;
+    final repo = Get.find<DownloadRepository>();
+    _downloadSub = repo.watchDownloads().listen((items) {
+      downloadedEpisodeIds.assignAll(
+        items
+            .where((d) => d.status == DownloadStatus.completed)
+            .map((d) => d.mediaItemId),
+      );
+      downloadingEpisodeIds.assignAll(
+        items
+            .where((d) =>
+                d.status == DownloadStatus.downloading ||
+                d.status == DownloadStatus.queued)
+            .map((d) => d.mediaItemId),
+      );
+    });
+    repo.getAllDownloads().then((items) {
+      downloadedEpisodeIds.assignAll(
+        items
+            .where((d) => d.status == DownloadStatus.completed)
+            .map((d) => d.mediaItemId),
+      );
+      downloadingEpisodeIds.assignAll(
+        items
+            .where((d) =>
+                d.status == DownloadStatus.downloading ||
+                d.status == DownloadStatus.queued)
+            .map((d) => d.mediaItemId),
+      );
+    });
+  }
+
+  void _notify(String title, String message, {Duration? duration}) {
+    if (!Get.testMode) {
+      Get.snackbar(
+        title,
+        message,
+        snackPosition: SnackPosition.BOTTOM,
+        duration: duration ?? const Duration(seconds: 3),
+      );
+    }
+  }
+
+  Future<void> downloadEpisode(MediaItem episode) async {
+    if (!Get.isRegistered<DownloadService>()) {
+      _notify('Downloads', 'Download service is not initialized');
+      return;
+    }
+
+    if (downloadedEpisodeIds.contains(episode.id)) {
+      Get.toNamed(AppRoutes.downloads);
+      return;
+    }
+
+    if (downloadingEpisodeIds.contains(episode.id)) {
+      _notify(
+        'Downloads',
+        'Download is already in progress for this episode',
+      );
+      return;
+    }
+
+    try {
+      _notify(
+        'Downloading',
+        'Preparing "${episode.title}" for download...',
+        duration: const Duration(seconds: 2),
+      );
+
+      final fallbackUrl = episode.metadata['streamUrl']?.toString() ??
+          episode.metadata['url']?.toString() ??
+          episode.metadata['direct_source']?.toString();
+
+      final downloadService = Get.find<DownloadService>();
+      PreparedDownload prepared;
+      if (Get.isRegistered<StreamEngine>()) {
+        final streamEngine = Get.find<StreamEngine>();
+        prepared = await streamEngine.prepareDownload(
+          mediaItemId: episode.id,
+          providerType: episode.providerType,
+          itemMetadata: episode.metadata,
+          providerId: episode.providerId,
+          fallbackUrl: fallbackUrl,
+        );
+      } else {
+        prepared = PreparedDownload(
+          session: PlayableSession(
+            sessionId: episode.id,
+            mediaItemId: episode.id,
+            providerId: episode.providerId,
+            providerType: episode.providerType,
+            streamUrl: fallbackUrl ?? '',
+            streamType: StreamType.mp4,
+            supportsDownload: true,
+          ),
+          canDownload: true,
+        );
+      }
+
+      await downloadService.enqueue(
+        preparedDownload: prepared,
+        title: episode.title,
+        posterUrl: episode.poster ?? episode.thumbnail,
+        mediaType: 'series',
+      );
+      _notify('Download Queued', 'Added "${episode.title}" to downloads');
+    } catch (e) {
+      _notify('Download Failed', 'Could not prepare episode download: $e');
+    }
   }
 }

@@ -351,6 +351,7 @@ class NativePlayerActivity : Activity() {
                 emit("onState", mapOf("state" to if (isPlaying) "playing" else "paused"))
             }
             updatePlayPauseIcon()
+            updatePipAutoEnter(isPlaying)
             if (isPlaying) {
                 armRenderWatchdogIfNeeded()
             }
@@ -368,6 +369,7 @@ class NativePlayerActivity : Activity() {
                 videoWidth = videoSize.width
                 videoHeight = videoSize.height
                 applyAspectRatioTransform()
+                updatePipAutoEnter(player?.isPlaying == true)
                 android.util.Log.d(TAG, "video size ${videoWidth}x$videoHeight")
                 emit("onVideo", mapOf("width" to videoSize.width, "height" to videoSize.height))
             }
@@ -1215,15 +1217,35 @@ class NativePlayerActivity : Activity() {
                 } else {
                     Rational(16, 9)
                 }
-                val params = PictureInPictureParams.Builder()
+                val builder = PictureInPictureParams.Builder()
                     .setAspectRatio(rational)
-                    .build()
-                enterPictureInPictureMode(params)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    builder.setAutoEnterEnabled(true)
+                }
+                enterPictureInPictureMode(builder.build())
             } catch (e: Exception) {
                 Toast.makeText(this, "PiP not supported: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         } else {
             Toast.makeText(this, "PiP requires Android 8.0+", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun updatePipAutoEnter(enabled: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val rational = if (videoWidth > 0 && videoHeight > 0) {
+                    Rational(videoWidth, videoHeight)
+                } else {
+                    Rational(16, 9)
+                }
+                setPictureInPictureParams(
+                    PictureInPictureParams.Builder()
+                        .setAspectRatio(rational)
+                        .setAutoEnterEnabled(enabled)
+                        .build()
+                )
+            } catch (_: Exception) {}
         }
     }
 

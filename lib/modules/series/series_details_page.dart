@@ -238,7 +238,10 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                         isCompleted: isCompleted,
                         isNextUp: isNextUp,
                         isCurrentlyPlaying: isCurrentlyPlaying,
+                        isDownloaded: _controller.downloadedEpisodeIds.contains(episode.id),
+                        isDownloading: _controller.downloadingEpisodeIds.contains(episode.id),
                         onTap: () => _controller.playEpisode(episode),
+                        onDownload: () => _controller.downloadEpisode(episode),
                       );
                     },
                   ),
@@ -412,7 +415,10 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                           isCompleted: isCompleted,
                           isNextUp: isNextUp,
                           isCurrentlyPlaying: isCurrentlyPlaying,
+                          isDownloaded: _controller.downloadedEpisodeIds.contains(episode.id),
+                          isDownloading: _controller.downloadingEpisodeIds.contains(episode.id),
                           onTap: () => _controller.playEpisode(episode),
+                          onDownload: () => _controller.downloadEpisode(episode),
                         );
                       },
                     ),

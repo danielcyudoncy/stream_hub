@@ -34,6 +34,7 @@ class AppRoutes {
   static const String termsOfService = '/terms-of-service';
   static const String licenses = '/licenses';
   static const String storage = '/storage';
+  static const String downloads = '/downloads';
   static const String categories = '/categories';
   static const String channelDetails = '/channel-details';
   static const String favorites = '/favorites';

@@ -45,6 +45,9 @@ import 'package:stream_hub/data/engines/epg_engine.dart';
 import 'package:stream_hub/data/engines/timeline_engine.dart';
 import 'package:stream_hub/data/services/xmltv_download_service.dart';
 import 'package:stream_hub/data/services/xmltv_cache_service.dart';
+import 'package:stream_hub/core/repositories/download_repository.dart';
+import 'package:stream_hub/core/services/download_service.dart';
+import 'package:stream_hub/data/repositories/download_repository_impl.dart';
 import 'package:stream_hub/modules/epg/bindings/epg_binding.dart';
 
 class AppBinding extends Bindings {
@@ -53,6 +56,13 @@ class AppBinding extends Bindings {
     StreamEngineBinding().dependencies();
     IptvCoreBinding().dependencies();
     MediaBinding().dependencies();
+
+    final downloadRepo = DownloadRepositoryImpl();
+    Get.put<DownloadRepository>(downloadRepo, permanent: true);
+    Get.put<DownloadService>(
+      DownloadService(repository: downloadRepo),
+      permanent: true,
+    );
     EPGBinding().dependencies();
     Get.find<DatabaseService>();
     final settingsRepo = SettingsRepository();

@@ -1,5 +1,11 @@
+import 'dart:async';
+import 'dart:io';
+import 'package:floating/floating.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/iptv/models/player_negotiation.dart';
+import '../../../core/media/enums/playback_state.dart';
+import '../../../core/media/player/pip_floating_capable.dart';
 import '../../../data/models/media_item.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
@@ -9,6 +15,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
+import '../../../shared/widgets/keep_screen_on.dart';
 import '../../../shared/widgets/provider_selector_button.dart';
 import '../controllers/live_tv_controller.dart';
 import '../widgets/live_tv_category_bar.dart';
@@ -28,11 +35,108 @@ class LiveTVPage extends StatefulWidget {
 class _LiveTVPageState extends State<LiveTVPage> {
   LiveTVController get controller => Get.find<LiveTVController>();
 
+  Floating? _floating;
+  StreamSubscription<PlaybackState>? _stateSub;
+  StreamSubscription<PlaybackEngineKind>? _engineKindSub;
+  Worker? _activeChannelWorker;
+
+  static bool get _isPiPSupported => Platform.isAndroid;
+
   static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
       GlobalKey();
 
   @override
+  void initState() {
+    super.initState();
+    if (_isPiPSupported) {
+      _floating = Floating();
+    }
+    _setupAutoPiP();
+  }
+
+  void _setupAutoPiP() {
+    _activeChannelWorker = ever(controller.activePlayingChannel, (_) {
+      _bindPlayerController();
+    });
+    _bindPlayerController();
+  }
+
+  void _injectFloatingIntoAdapter() {
+    final playerCtrl = controller.inlinePlayerController;
+    final f = _floating;
+    if (playerCtrl == null || f == null) return;
+    final a = playerCtrl.playbackController.engine.adapter;
+    if (a is PipFloatingCapable) {
+      (a as PipFloatingCapable).setFloating(f);
+    }
+  }
+
+  void _bindPlayerController() {
+    _stateSub?.cancel();
+    _stateSub = null;
+    _engineKindSub?.cancel();
+    _engineKindSub = null;
+
+    void attach() {
+      final playerCtrl = controller.inlinePlayerController;
+      if (playerCtrl == null) return;
+
+      _injectFloatingIntoAdapter();
+
+      _engineKindSub = playerCtrl.playbackController.engine.engineKindRx.stream
+          .listen((_) {
+        _injectFloatingIntoAdapter();
+      });
+
+      _stateSub = playerCtrl.playbackController.engine.stateRx.listen((state) {
+        if (state == PlaybackState.playing) {
+          _enableAutoPiP();
+        } else if (state == PlaybackState.paused ||
+            state == PlaybackState.stopped ||
+            state == PlaybackState.completed ||
+            state == PlaybackState.error) {
+          _disableAutoPiP();
+        }
+      });
+
+      if (playerCtrl.playbackController.engine.stateRx.value ==
+          PlaybackState.playing) {
+        _enableAutoPiP();
+      }
+    }
+
+    if (controller.inlinePlayerController != null) {
+      attach();
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) attach();
+      });
+    }
+  }
+
+  Future<void> _enableAutoPiP() async {
+    if (!_isPiPSupported || _floating == null) return;
+    try {
+      final pipAvailable = await _floating!.isPipAvailable;
+      if (pipAvailable) {
+        await _floating!.enable(const OnLeavePiP());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _disableAutoPiP() async {
+    if (!_isPiPSupported || _floating == null) return;
+    try {
+      await _floating!.cancelOnLeavePiP();
+    } catch (_) {}
+  }
+
+  @override
   void dispose() {
+    _disableAutoPiP();
+    _stateSub?.cancel();
+    _engineKindSub?.cancel();
+    _activeChannelWorker?.dispose();
     if (Get.isRegistered<LiveTVController>()) {
       Get.find<LiveTVController>().stopInlinePlayer();
     }
@@ -78,7 +182,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
       }
     }
 
-    return PopScope(
+    final mainScaffold = PopScope(
       canPop: !controller.isFullscreenMode.value,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
@@ -332,7 +436,31 @@ class _LiveTVPageState extends State<LiveTVPage> {
       );
     }),
   );
-}
+
+    if (!_isPiPSupported || _floating == null) {
+      return mainScaffold;
+    }
+
+    return PiPSwitcher(
+      floating: _floating!,
+      childWhenEnabled: Scaffold(
+        backgroundColor: Colors.black,
+        body: Obx(() {
+          final playerCtrl = controller.inlinePlayerController;
+          if (playerCtrl == null) return const SizedBox.shrink();
+          playerCtrl.playbackController.engine.engineKindRx.value;
+          final adapter = playerCtrl.playbackController.engine.adapter;
+          return ColoredBox(
+            color: Colors.black,
+            child: SizedBox.expand(
+              child: KeepScreenOn(child: adapter.buildPlayerWidget()),
+            ),
+          );
+        }),
+      ),
+      childWhenDisabled: mainScaffold,
+    );
+  }
 
   Widget _buildChannelListView(
     List<MediaItem> filtered,

@@ -28,6 +28,8 @@ import '../../modules/legal/privacy_policy_page.dart';
 import '../../modules/legal/terms_of_service_page.dart';
 import '../../modules/legal/licenses_page.dart';
 import '../../modules/storage/storage_page.dart';
+import '../../modules/downloads/pages/downloads_page.dart';
+import '../../modules/downloads/bindings/downloads_binding.dart';
 import '../../modules/live_tv/pages/live_tv_page.dart';
 import '../../modules/live_tv/pages/categories_page.dart';
 import '../../modules/live_tv/pages/channel_details_page.dart';
@@ -196,6 +198,11 @@ class AppPages {
       name: AppRoutes.storage,
       page: () => const StoragePage(),
       binding: SettingsBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.downloads,
+      page: () => const DownloadsPage(),
+      binding: DownloadsBinding(),
     ),
     GetPage(
       name: AppRoutes.liveTV,
