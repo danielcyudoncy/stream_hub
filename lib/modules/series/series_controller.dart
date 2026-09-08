@@ -1,4 +1,5 @@
 // modules/series/series_controller.dart
+import 'dart:async';
 import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/media_engine.dart';
@@ -38,6 +39,8 @@ class SeriesController extends GetxController {
   final FavoriteRepository? favoriteRepository;
   final NextEpisodeResolver nextEpisodeResolver;
   final SeriesProgressService progressService;
+
+  StreamSubscription? _catalogSubscription;
 
   SeriesController({
     required this.mediaEngine,
@@ -93,6 +96,9 @@ class SeriesController extends GetxController {
       });
     }
     _loadSeries();
+    _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
+      _loadSeries();
+    });
     mediaLibrary.seriesStream.listen((items) {
       if (items.isNotEmpty) {
         final sorted = items.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -102,6 +108,12 @@ class SeriesController extends GetxController {
         _applyProviderFilter();
       }
     });
+  }
+
+  @override
+  void onClose() {
+    _catalogSubscription?.cancel();
+    super.onClose();
   }
 
   Future<void> reloadSeries() => _loadSeries();
@@ -137,9 +149,7 @@ class SeriesController extends GetxController {
   Future<void> _loadSeries() async {
     isLoading.value = true;
     try {
-      final allItems = await catalogRepository.getAllItems();
-      var seriesItems =
-          allItems.where((item) => item.mediaType == MediaType.series).toList();
+      var seriesItems = await catalogRepository.getByType(MediaType.series);
       if (seriesItems.isEmpty) {
         seriesItems = mediaLibrary.getSeries();
       }
@@ -156,10 +166,11 @@ class SeriesController extends GetxController {
   }
 
   Future<void> _loadContinueWatching(List<MediaItem> activeSeries) async {
-    if (playbackRepository == null) return;
+    final repo = playbackRepository;
+    if (repo == null) return;
     try {
-      final sessions = await playbackRepository!.getAllWatchSessions();
-      if (sessions.isEmpty) {
+      final sessions = await repo.getAllWatchSessions();
+      if (sessions.isEmpty || activeSeries.isEmpty) {
         continueWatching.clear();
         return;
       }
@@ -168,16 +179,49 @@ class SeriesController extends GetxController {
         for (final s in sessions) s.itemId: s,
       };
 
+      // Query episodes ONCE across the whole catalog instead of querying inside the series loop
+      final episodes = await catalogRepository.getByType(MediaType.episode);
+      if (episodes.isEmpty) {
+        continueWatching.clear();
+        return;
+      }
+
+      // Group episodes by seriesId for O(1) lookup
+      final episodesBySeriesId = <String, List<MediaItem>>{};
+      for (final ep in episodes) {
+        final sId = ep.metadata['seriesId']?.toString() ??
+            ep.metadata['series_id']?.toString() ??
+            (ep.id.contains('_') ? ep.id.substring(0, ep.id.lastIndexOf('_')) : null);
+        if (sId != null && sId.isNotEmpty) {
+          episodesBySeriesId.putIfAbsent(sId, () => []).add(ep);
+        }
+      }
+
+      // Identify watched series: only process series that appear in watch sessions
+      final watchedSeriesIds = <String>{};
+      for (final session in sessions) {
+        watchedSeriesIds.add(session.itemId);
+        for (final ep in episodes) {
+          if (ep.id == session.itemId) {
+            final sId = ep.metadata['seriesId']?.toString() ??
+                ep.metadata['series_id']?.toString();
+            if (sId != null && sId.isNotEmpty) {
+              watchedSeriesIds.add(sId);
+            }
+            break;
+          }
+        }
+      }
+
       final cwList = <ContinueWatchingSeriesItem>[];
+      final activeSeriesMap = {for (final s in activeSeries) s.id: s};
 
-      for (final s in activeSeries) {
-        // Find episodes for this series
-        final episodes = await catalogRepository.getByType(MediaType.episode);
-        final seriesEpisodes = episodes.where((e) {
-          final sId = e.metadata['seriesId']?.toString() ?? e.metadata['series_id']?.toString();
-          return sId == s.id || e.id.startsWith('${s.id}_');
-        }).toList();
+      for (final seriesId in watchedSeriesIds) {
+        final s = activeSeriesMap[seriesId];
+        if (s == null) continue;
 
+        final seriesEpisodes = episodesBySeriesId[s.id] ??
+            episodes.where((e) => e.id.startsWith('${s.id}_')).toList();
         if (seriesEpisodes.isEmpty) continue;
 
         // Group into seasons
@@ -230,7 +274,9 @@ class SeriesController extends GetxController {
 
   void _computeGenres(List<MediaItem> allSeries) {
     final genreSet = <String>{};
-    for (final s in allSeries) {
+    // Sample up to 500 items to avoid string/regex parsing across 37k+ items
+    final sample = allSeries.take(500);
+    for (final s in sample) {
       for (final g in s.genres) {
         final clean = g.trim();
         if (clean.isEmpty) continue;
@@ -253,8 +299,23 @@ class SeriesController extends GetxController {
   }
 
   void _computeSections(List<MediaItem> allSeries) {
-    // Featured series - up to 6 top series with backdrop for the hero carousel
-    final withBackdrop = allSeries
+    if (allSeries.isEmpty) {
+      featuredSeries.clear();
+      trendingSeries.clear();
+      topRatedSeries.clear();
+      recentlyAddedSeries.clear();
+      dramaSeries.clear();
+      comedySeries.clear();
+      actionAdventureSeries.clear();
+      sciFiFantasySeries.clear();
+      animationSeries.clear();
+      documentarySeries.clear();
+      return;
+    }
+
+    // Featured series - up to 6 top series with backdrop from first 200 candidates
+    final candidateSample = allSeries.take(200).toList();
+    final withBackdrop = candidateSample
         .where((item) => item.backdrop != null && item.backdrop!.isNotEmpty)
         .toList();
     if (withBackdrop.isNotEmpty) {
@@ -267,25 +328,23 @@ class SeriesController extends GetxController {
       });
       featuredSeries.assignAll(withBackdrop.take(6).toList());
     } else {
-      featuredSeries.assignAll(allSeries.take(6).toList());
+      featuredSeries.assignAll(candidateSample.take(6).toList());
     }
 
     // Trending series - most recently updated
-    trendingSeries.assignAll(
-      allSeries.take(15).toList(),
-    );
+    trendingSeries.assignAll(allSeries.take(15).toList());
 
-    // Top rated series - sorted by rating
-    final rated = allSeries.where((item) => item.rating != null).toList()
+    // Top rated series - from candidate sample to avoid full-list sorting in memory
+    final rated = allSeries.take(500).where((item) => item.rating != null).toList()
       ..sort((a, b) => b.rating!.compareTo(a.rating!));
     topRatedSeries.assignAll(rated.take(15).toList());
 
-    // Recently added series - sorted by createdAt
-    final recent = List<MediaItem>.of(allSeries)
+    // Recently added series - from candidate sample
+    final recent = allSeries.take(500).toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     recentlyAddedSeries.assignAll(recent.take(15).toList());
 
-    // Genre-based sections - strictly contain items that actually match the genre
+    // Genre-based sections - lazy iteration halts as soon as 15 items match
     dramaSeries.assignAll(allSeries.where(_isDrama).take(15).toList());
     comedySeries.assignAll(allSeries.where(_isComedy).take(15).toList());
     actionAdventureSeries.assignAll(
@@ -313,18 +372,29 @@ class SeriesController extends GetxController {
       _hasGenre(item, ['documentary', 'doc', 'biography']);
 
   bool _hasGenre(MediaItem item, List<String> targets) {
-    final genreStrings = <String>[
-      ...item.genres,
-      if (item.metadata['genre'] != null) item.metadata['genre'].toString(),
-      if (item.metadata['category_name'] != null)
-        item.metadata['category_name'].toString(),
-      if (item.metadata['categoryName'] != null)
-        item.metadata['categoryName'].toString(),
-      if (item.metadata['group-title'] != null)
-        item.metadata['group-title'].toString(),
-    ].map((g) => g.toLowerCase());
-
-    return genreStrings.any((g) => targets.any((t) => g.contains(t)));
+    for (final g in item.genres) {
+      final lower = g.toLowerCase();
+      for (final t in targets) {
+        if (lower.contains(t)) return true;
+      }
+    }
+    final metaGenre = item.metadata['genre']?.toString().toLowerCase();
+    if (metaGenre != null) {
+      for (final t in targets) {
+        if (metaGenre.contains(t)) return true;
+      }
+    }
+    final catName = (item.metadata['category_name'] ??
+            item.metadata['categoryName'] ??
+            item.metadata['group-title'])
+        ?.toString()
+        .toLowerCase();
+    if (catName != null) {
+      for (final t in targets) {
+        if (catName.contains(t)) return true;
+      }
+    }
+    return false;
   }
 
 

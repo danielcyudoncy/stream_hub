@@ -71,7 +71,10 @@ class LiveTVController extends GetxController {
   final RxBool isLoading = true.obs;
   final Rxn<MediaItem> featuredChannel = Rxn<MediaItem>();
   final Rxn<MediaItem> activePlayingChannel = Rxn<MediaItem>();
-  PlayerController? inlinePlayerController;
+  final Rxn<PlayerController> _inlinePlayerController = Rxn<PlayerController>();
+  PlayerController? get inlinePlayerController => _inlinePlayerController.value;
+  set inlinePlayerController(PlayerController? ctrl) =>
+      _inlinePlayerController.value = ctrl;
   final GlobalKey playerKey = GlobalKey();
   bool hasBeenLandscapeInFullscreen = false;
 

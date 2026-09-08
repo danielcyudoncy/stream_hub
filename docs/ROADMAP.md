@@ -367,7 +367,7 @@ Stalker Portal
 
 Premium Features
 
-- Downloads
+- [x] Downloads
 - Cloud Sync
 - Profiles
 - Parental Control

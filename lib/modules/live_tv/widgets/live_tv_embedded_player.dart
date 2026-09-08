@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/aspect_ratio_mode.dart';
@@ -1120,6 +1121,32 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                   ),
                                 ),
                                 const SizedBox(width: 2.0),
+                              ],
+
+                              // Picture-in-Picture Button (⧉)
+                              if (Platform.isAndroid) ...[
+                                Tooltip(
+                                  message: 'Picture-in-Picture',
+                                  child: TvFocusable(
+                                    onTap: () {
+                                      _showControlsTemporarily();
+                                      playerCtrl.enterPictureInPicture();
+                                    },
+                                    scale: 1.05,
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: const IconButton(
+                                      padding: EdgeInsets.all(4.0),
+                                      constraints: BoxConstraints(),
+                                      icon: Icon(
+                                        Icons.picture_in_picture_alt_rounded,
+                                        color: Colors.white,
+                                        size: 22.0,
+                                      ),
+                                      onPressed: null,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4.0),
                               ],
 
                               // Fullscreen Expand Button (⛶)
