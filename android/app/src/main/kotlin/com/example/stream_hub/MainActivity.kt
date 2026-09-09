@@ -185,6 +185,71 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        // Dedicated hardware device controls channel for on-screen player gestures
+        // (Window backlight brightness and AudioManager STREAM_MUSIC volume).
+        MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "stream_hub/device_controls",
+        ).setMethodCallHandler { call, result ->
+            val audioManager = getSystemService(android.content.Context.AUDIO_SERVICE) as? android.media.AudioManager
+            when (call.method) {
+                "getVolume" -> {
+                    if (audioManager != null) {
+                        val maxVol = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                        val curVol = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
+                        result.success(curVol.toDouble() / maxVol.toDouble())
+                    } else {
+                        result.success(1.0)
+                    }
+                }
+                "setVolume" -> {
+                    val volumeRatio = (call.argument<Number>("volume") ?: 1.0).toDouble().coerceIn(0.0, 1.0)
+                    if (audioManager != null) {
+                        val maxVol = audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                        val targetVol = (volumeRatio * maxVol).toInt().coerceIn(0, maxVol)
+                        // 0 = flags (no system HUD popup to prevent duplicate UI over our custom HUD)
+                        audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, targetVol, 0)
+                        result.success(true)
+                    } else {
+                        result.success(false)
+                    }
+                }
+                "getBrightness" -> {
+                    val lp = window.attributes
+                    val curBrightness = lp.screenBrightness
+                    if (curBrightness >= 0f) {
+                        result.success(curBrightness.toDouble())
+                    } else {
+                        // -1.0 means default system brightness; query ContentResolver or return 0.5 default
+                        try {
+                            val sysBrightness = android.provider.Settings.System.getInt(
+                                contentResolver,
+                                android.provider.Settings.System.SCREEN_BRIGHTNESS,
+                                128
+                            )
+                            result.success(sysBrightness.toDouble() / 255.0)
+                        } catch (_: Throwable) {
+                            result.success(0.5)
+                        }
+                    }
+                }
+                "setBrightness" -> {
+                    val brightness = (call.argument<Number>("brightness") ?: 1.0).toDouble().coerceIn(0.01, 1.0)
+                    val lp = window.attributes
+                    lp.screenBrightness = brightness.toFloat()
+                    window.attributes = lp
+                    result.success(true)
+                }
+                "restoreBrightness" -> {
+                    val lp = window.attributes
+                    lp.screenBrightness = android.view.WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                    window.attributes = lp
+                    result.success(true)
+                }
+                else -> result.notImplemented()
+            }
+        }
+
         // Phase 3 evaluation engine (docs/PLAYBACK_ENGINEERING.md §10): the
         // IJK launch channel is registered by IjkPlayerLaunch, which lives in
         // the optional `src/ijk/kotlin` source set. We register it via

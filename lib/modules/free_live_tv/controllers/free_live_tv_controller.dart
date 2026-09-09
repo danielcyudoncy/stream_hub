@@ -56,6 +56,7 @@ class FreeLiveTvController extends GetxController {
   final RxBool isCheckingWorking = false.obs;
   final RxInt workingCount = 0.obs;
   final RxBool isLoading = true.obs;
+  final RxBool isRefreshing = false.obs;
   final RxString errorMessage = ''.obs;
 
   /// Free TV catalog mode. Defaults to the curated "recommended" catalog.
@@ -132,11 +133,17 @@ class FreeLiveTvController extends GetxController {
           .release(owner: 'FreeLiveTvController.onClose');
     }
     super.onClose();
-  }
-
-  Future<void> _loadCatalog({bool forceRefresh = false}) async {
-    isLoading.value = true;
-    errorMessage.value = '';
+  }  Future<void> _loadCatalog({
+    bool forceRefresh = false,
+    bool isBackgroundRefresh = false,
+  }) async {
+    final isInitialLoad = _allChannels.isEmpty;
+    if (isInitialLoad && !isBackgroundRefresh) {
+      isLoading.value = true;
+      errorMessage.value = '';
+    } else {
+      isRefreshing.value = true;
+    }
     try {
       var list = await repository.getCatalog(forceRefresh: forceRefresh);
       if (!forceRefresh &&
@@ -171,26 +178,44 @@ class FreeLiveTvController extends GetxController {
 
         _buildFeatured(recommended);
 
-        // Hero fallback: a custom source channel, else Nigerian, else recommended top.
-        final heroCandidate = recommended.isNotEmpty
-            ? (recommended.firstWhereOrNull((c) => c.id.startsWith('custom_')) ??
-               recommended.firstWhereOrNull(
-                    (c) =>
-                        c.countryCode == 'NG' ||
-                        c.country.toLowerCase() == 'nigeria') ??
-                recommended.first)
-            : _allChannels.first;
-        featuredChannel.value = heroCandidate;
+        // Preserve active playing channel if one is already playing/featured,
+        // preventing pull-to-refresh from interrupting active playback.
+        if (activePlayingChannel.value != null) {
+          final stillExists = _allChannels.firstWhereOrNull(
+            (c) => c.id == activePlayingChannel.value!.id,
+          );
+          if (stillExists != null) {
+            featuredChannel.value = stillExists;
+          }
+        } else if (featuredChannel.value == null) {
+          // Hero fallback: a custom source channel, else Nigerian, else recommended top.
+          final heroCandidate = recommended.isNotEmpty
+              ? (recommended.firstWhereOrNull((c) => c.id.startsWith('custom_')) ??
+                 recommended.firstWhereOrNull(
+                      (c) =>
+                          c.countryCode == 'NG' ||
+                          c.country.toLowerCase() == 'nigeria') ??
+                  recommended.first)
+              : _allChannels.first;
+          featuredChannel.value = heroCandidate;
+        }
       }
 
-      handleNavigationArguments();
+      if (!isBackgroundRefresh) {
+        handleNavigationArguments();
+      }
     } catch (e, stack) {
       _logger.error('Error loading Free Live TV catalog',
           tag: 'FreeLiveTvController', error: e, stackTrace: stack);
-      errorMessage.value =
-          'Unable to load Free Live TV.\nPlease check your internet connection and try again.';
+      if (isInitialLoad) {
+        errorMessage.value =
+            'Unable to load Free Live TV.\nPlease check your internet connection and try again.';
+      }
     } finally {
-      isLoading.value = false;
+      if (isInitialLoad) {
+        isLoading.value = false;
+      }
+      isRefreshing.value = false;
     }
   }
 
@@ -665,7 +690,7 @@ class FreeLiveTvController extends GetxController {
 
   @override
   Future<void> refresh() async {
-    await _loadCatalog(forceRefresh: true);
+    await _loadCatalog(forceRefresh: true, isBackgroundRefresh: true);
   }
 
   Future<void> toggleFavorite(FreeTvChannel channel) async {

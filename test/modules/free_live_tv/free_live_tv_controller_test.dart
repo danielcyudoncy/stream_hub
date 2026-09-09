@@ -330,5 +330,28 @@ void main() {
       expect(controller.filteredChannels[2].country, 'Nigeria');
       expect(controller.filteredChannels[3].country, 'United Kingdom');
     });
+
+    test('refresh performs background refresh without setting isLoading or unmounting stream', () async {
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
+      expect(controller.isLoading.value, isFalse);
+      expect(controller.filteredChannels, isNotEmpty);
+
+      // Simulate an active playing channel
+      final initialPlaying = controller.filteredChannels.first;
+      controller.activePlayingChannel.value = initialPlaying;
+      controller.featuredChannel.value = initialPlaying;
+
+      final refreshFuture = controller.refresh();
+      // During refresh, isLoading must remain false so the UI skeleton is not triggered
+      expect(controller.isLoading.value, isFalse);
+      expect(controller.isRefreshing.value, isTrue);
+
+      await refreshFuture;
+      expect(controller.isLoading.value, isFalse);
+      expect(controller.isRefreshing.value, isFalse);
+      // Active playing channel and featured channel must be preserved
+      expect(controller.featuredChannel.value?.id, initialPlaying.id);
+    });
   });
 }
