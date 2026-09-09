@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:get/get.dart';
@@ -216,23 +217,10 @@ class ProviderSyncService extends GetxService {
           ),
         );
 
-        // Orchestrate XMLTV Sync if epgUrl is present
+        // Orchestrate XMLTV Sync asynchronously in the background so
+        // channel playback and UI navigation are not delayed.
         if (result.epgUrl != null && result.epgUrl!.isNotEmpty) {
-          try {
-            _bumpSyncProgress(0.92);
-            currentSyncMessage.value =
-                'Syncing program guide for "${provider.name}"...';
-            final epgSourceId = '${provider.id}_epg';
-            final xmltvSource = _sourceFactory.create(
-              epgSourceId,
-              MediaSourceType.xmltv,
-              {'sourceUrl': result.epgUrl!},
-            );
-            await _sourceRepo.register(xmltvSource);
-            await _catalogRepo.syncSource(epgSourceId);
-          } catch (e) {
-            _logger.warning('EPG sync failed for provider ${provider.id}', tag: 'ProviderSyncService', error: e);
-          }
+          unawaited(_syncEpgInBackground(provider, result.epgUrl!));
         }
 
         _bumpSyncProgress(1.0);
@@ -262,6 +250,23 @@ class ProviderSyncService extends GetxService {
         );
       } catch (_) {}
       return ProviderSyncResult(provider: provider, success: false, message: message);
+    }
+  }
+
+  Future<void> _syncEpgInBackground(ProviderModel provider, String epgUrl) async {
+    try {
+      _logger.info('Starting background EPG sync for "${provider.name}"', tag: 'ProviderSyncService');
+      final epgSourceId = '${provider.id}_epg';
+      final xmltvSource = _sourceFactory.create(
+        epgSourceId,
+        MediaSourceType.xmltv,
+        {'sourceUrl': epgUrl},
+      );
+      await _sourceRepo.register(xmltvSource);
+      await _catalogRepo.syncSource(epgSourceId);
+      _logger.info('Background EPG sync completed for "${provider.name}"', tag: 'ProviderSyncService');
+    } catch (e) {
+      _logger.warning('Background EPG sync failed for provider ${provider.id}', tag: 'ProviderSyncService', error: e);
     }
   }
 

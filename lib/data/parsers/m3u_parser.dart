@@ -199,7 +199,17 @@ class M3UParser {
     required List<String> warnings,
   }) {
     try {
-      final commaIndex = line.lastIndexOf(',');
+      var commaIndex = -1;
+      var inQuote = false;
+      for (var i = 0; i < line.length; i++) {
+        final c = line.codeUnitAt(i);
+        if (c == 34) {
+          inQuote = !inQuote;
+        } else if (c == 44 && !inQuote) {
+          commaIndex = i;
+        }
+      }
+
       if (commaIndex == -1) {
         warnings.add('Malformed EXTINF line: $line');
         return;
@@ -252,23 +262,46 @@ class M3UParser {
 
   Map<String, String> _parseAttributes(String input) {
     final result = <String, String>{};
-    final regex = RegExp(r'([a-zA-Z0-9\-]+)="([^"]*)"');
-    final matches = regex.allMatches(input);
+    final len = input.length;
+    var i = 0;
 
-    for (final match in matches) {
-      final key = match.group(1)?.toLowerCase().trim();
-      final value = match.group(2) ?? '';
-      if (key != null && key.isNotEmpty) {
-        result[key] = value;
+    while (i < len) {
+      while (i < len && (input.codeUnitAt(i) <= 32 || input.codeUnitAt(i) == 44)) {
+        i++;
       }
-    }
+      if (i >= len) break;
 
-    final unquoted = RegExp(r'([a-zA-Z0-9\-]+)=([^\s,]+)');
-    final remaining = unquoted.allMatches(input);
-    for (final match in remaining) {
-      final key = match.group(1)?.toLowerCase().trim();
-      final value = match.group(2) ?? '';
-      if (key != null && key.isNotEmpty && !result.containsKey(key)) {
+      final keyStart = i;
+      while (i < len && input.codeUnitAt(i) != 61 && input.codeUnitAt(i) > 32) {
+        i++;
+      }
+      if (i >= len || input.codeUnitAt(i) != 61) {
+        i++;
+        continue;
+      }
+      final key = input.substring(keyStart, i).toLowerCase().trim();
+      i++; // Skip '='
+
+      if (i >= len) break;
+
+      String value;
+      if (input.codeUnitAt(i) == 34) { // '"'
+        i++; // skip opening quote
+        final valStart = i;
+        while (i < len && input.codeUnitAt(i) != 34) {
+          i++;
+        }
+        value = input.substring(valStart, i);
+        if (i < len && input.codeUnitAt(i) == 34) i++; // skip closing quote
+      } else {
+        final valStart = i;
+        while (i < len && input.codeUnitAt(i) > 32 && input.codeUnitAt(i) != 44) {
+          i++;
+        }
+        value = input.substring(valStart, i);
+      }
+
+      if (key.isNotEmpty && !result.containsKey(key)) {
         result[key] = value;
       }
     }

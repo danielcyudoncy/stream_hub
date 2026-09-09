@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:stream_hub/core/constants/app_constants.dart';
@@ -29,12 +31,36 @@ class PlaylistCacheService extends GetxService {
     return this;
   }
 
+  Future<String?> _saveRawPlaylistToFile(String sourceId, String content) async {
+    if (content.isEmpty) return null;
+    try {
+      final boxPath = _cacheBox.path;
+      final parentDir = boxPath != null ? File(boxPath).parent : Directory.systemTemp;
+      final cacheDir = Directory('${parentDir.path}/m3u_playlists');
+      if (!await cacheDir.exists()) {
+        await cacheDir.create(recursive: true);
+      }
+      final file = File('${cacheDir.path}/$sourceId.m3u');
+      await file.writeAsString(content);
+      return file.path;
+    } catch (e) {
+      _logger.warning('Failed to save raw playlist to file: $e', tag: 'PlaylistCacheService');
+      return null;
+    }
+  }
+
   Future<void> cachePlaylist(M3UPlaylistCache cache) async {
     try {
+      final filePath = await _saveRawPlaylistToFile(cache.sourceId, cache.rawPlaylist);
+      final serializedChannels = cache.channels.length > 1000
+          ? await compute(_serializeChannelsIsolated, cache.channels)
+          : _serializeChannels(cache.channels);
+
       await _cacheBox.put(cache.sourceId, {
         'sourceId': cache.sourceId,
-        'rawPlaylist': cache.rawPlaylist,
-        'channels': _serializeChannels(cache.channels),
+        'rawPlaylistPath': filePath,
+        'rawPlaylist': cache.rawPlaylist.length <= 50000 ? cache.rawPlaylist : '',
+        'channels': serializedChannels,
         'statistics': _serializeStatistics(cache.statistics),
         'validation': _serializeValidation(cache.validation),
         'cachedAt': cache.cachedAt.millisecondsSinceEpoch,
@@ -74,10 +100,25 @@ class PlaylistCacheService extends GetxService {
         return null;
       }
 
+      var rawPlaylist = map['rawPlaylist'] as String? ?? '';
+      if (rawPlaylist.isEmpty && map['rawPlaylistPath'] is String) {
+        try {
+          final file = File(map['rawPlaylistPath'] as String);
+          if (await file.exists()) {
+            rawPlaylist = await file.readAsString();
+          }
+        } catch (_) {}
+      }
+
+      final rawChannels = map['channels'] as List? ?? [];
+      final channels = rawChannels.length > 500
+          ? await compute(_deserializeChannelsIsolated, rawChannels)
+          : _deserializeChannels(rawChannels);
+
       return M3UPlaylistCache(
         sourceId: map['sourceId'] as String,
-        rawPlaylist: map['rawPlaylist'] as String,
-        channels: _deserializeChannels(map['channels'] as List? ?? []),
+        rawPlaylist: rawPlaylist,
+        channels: channels,
         statistics: _deserializeStatistics(map['statistics'] as Map? ?? {}),
         validation: _deserializeValidation(map['validation'] as Map? ?? {}),
         cachedAt: cachedAt,
@@ -98,6 +139,15 @@ class PlaylistCacheService extends GetxService {
 
   Future<void> removeCachedPlaylist(String sourceId) async {
     try {
+      final raw = _cacheBox.get(sourceId);
+      if (raw is Map && raw['rawPlaylistPath'] is String) {
+        try {
+          final file = File(raw['rawPlaylistPath'] as String);
+          if (await file.exists()) {
+            await file.delete();
+          }
+        } catch (_) {}
+      }
       await _cacheBox.delete(sourceId);
     } catch (e) {
       _logger.warning(
@@ -237,4 +287,48 @@ class PlaylistCacheService extends GetxService {
       malformedEntryCount: raw['malformedEntryCount'] as int? ?? 0,
     );
   }
+}
+
+List<Map<String, dynamic>> _serializeChannelsIsolated(List<M3UChannel> channels) {
+  return channels
+      .map(
+        (c) => {
+          'id': c.id,
+          'title': c.title,
+          'streamUrl': c.streamUrl,
+          'logo': c.logo,
+          'group': c.group,
+          'tvgId': c.tvgId,
+          'tvgName': c.tvgName,
+          'isRadio': c.isRadio,
+          'language': c.language,
+          'country': c.country,
+          'catchup': c.catchup,
+          'attributes': c.attributes,
+          'warnings': c.warnings,
+        },
+      )
+      .toList();
+}
+
+List<M3UChannel> _deserializeChannelsIsolated(List<dynamic> raw) {
+  return raw
+      .map(
+        (c) => M3UChannel(
+          id: c['id'] as String,
+          title: c['title'] as String,
+          streamUrl: c['streamUrl'] as String?,
+          logo: c['logo'] as String?,
+          group: c['group'] as String?,
+          tvgId: c['tvgId'] as String?,
+          tvgName: c['tvgName'] as String?,
+          isRadio: c['isRadio'] as bool? ?? false,
+          language: c['language'] as String?,
+          country: c['country'] as String?,
+          catchup: Map<String, String>.from(c['catchup'] as Map? ?? {}),
+          attributes: Map<String, String>.from(c['attributes'] as Map? ?? {}),
+          warnings: List<String>.from(c['warnings'] as List? ?? []),
+        ),
+      )
+      .toList();
 }
