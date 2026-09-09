@@ -1,7 +1,9 @@
+import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/player/playback_analytics.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
+import 'package:stream_hub/core/services/cloud_sync_service.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/models/playback_analytics_model.dart';
 import 'package:stream_hub/data/models/playback_session_model.dart';
@@ -14,6 +16,12 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
 
   PlaybackRepositoryImpl(this.localService, {LoggingService? logger})
       : logger = logger ?? LoggingService();
+
+  void _triggerCloudSync() {
+    if (Get.isRegistered<CloudSyncService>()) {
+      Get.find<CloudSyncService>().schedulePush();
+    }
+  }
 
   @override
   Future<void> saveWatchProgress(
@@ -33,6 +41,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
       updatedAt: DateTime.now(),
     );
     await localService.saveSession(model);
+    _triggerCloudSync();
   }
 
   @override
@@ -54,6 +63,7 @@ class PlaybackRepositoryImpl implements PlaybackRepository {
   @override
   Future<void> deleteWatchProgress(String itemId) async {
     await localService.deleteSession(itemId);
+    _triggerCloudSync();
   }
 
   @override

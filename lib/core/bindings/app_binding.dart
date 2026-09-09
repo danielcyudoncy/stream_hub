@@ -54,6 +54,7 @@ import 'package:stream_hub/modules/epg/bindings/epg_binding.dart';
 import 'package:stream_hub/core/services/tmdb_catalog_service.dart';
 import 'package:stream_hub/core/media/stream_matching_service.dart';
 import 'package:stream_hub/core/services/media_watchlist_service.dart';
+import 'package:stream_hub/core/services/cloud_sync_service.dart';
 
 class AppBinding extends Bindings {
   @override
@@ -248,6 +249,10 @@ class AppBinding extends Bindings {
         () => AuthController(repository: repository),
         fenix: true,
       );
+    }
+
+    if (!Get.isRegistered<CloudSyncService>()) {
+      Get.put<CloudSyncService>(CloudSyncService(), permanent: true);
     }
   }
 }

@@ -1,3 +1,5 @@
+import 'package:get/get.dart';
+import 'package:stream_hub/core/services/cloud_sync_service.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
@@ -10,6 +12,12 @@ class FavoriteRepositoryImpl implements FavoriteRepository {
 
   FavoriteRepositoryImpl(this._service, [this._catalogRepository]);
 
+  void _triggerCloudSync() {
+    if (Get.isRegistered<CloudSyncService>()) {
+      Get.find<CloudSyncService>().schedulePush();
+    }
+  }
+
   @override
   Stream<void> watchUpdates() => _service.onChange;
 
@@ -17,12 +25,14 @@ class FavoriteRepositoryImpl implements FavoriteRepository {
   Future<void> add(MediaItem item) async {
     _itemCache[item.id] = item.copyWith(favorite: true);
     await _service.addFavorite(item);
+    _triggerCloudSync();
   }
 
   @override
   Future<void> remove(String itemId) async {
     _itemCache.remove(itemId);
     await _service.removeFavorite(itemId);
+    _triggerCloudSync();
   }
 
   @override
