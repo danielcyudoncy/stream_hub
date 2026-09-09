@@ -5,6 +5,7 @@ import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
+import 'package:stream_hub/core/services/cloud_sync_service.dart';
 import 'package:stream_hub/data/models/settings_model.dart';
 import 'package:stream_hub/data/services/settings_service.dart';
 import 'package:stream_hub/data/services/profile_service.dart';
@@ -277,6 +278,43 @@ class SettingsController extends GetxController {
 
   void clearError() {
     errorMessage.value = '';
+  }
+
+  // --- Cloud Synchronization ---
+
+  CloudSyncService? get _cloudSync =>
+      Get.isRegistered<CloudSyncService>() ? Get.find<CloudSyncService>() : null;
+
+  RxBool get isCloudSyncEnabled =>
+      _cloudSync?.isCloudSyncEnabledRx ?? false.obs;
+
+  RxBool get isCloudSyncing =>
+      _cloudSync?.isSyncingRx ?? false.obs;
+
+  Rxn<DateTime> get lastCloudSyncTime =>
+      _cloudSync?.lastSyncTimeRx ?? Rxn<DateTime>();
+
+  RxString get cloudSyncStatusMessage =>
+      _cloudSync?.syncStatusMessageRx ?? ''.obs;
+
+  Future<bool> toggleCloudSync(bool enable) async {
+    final syncService = _cloudSync;
+    if (syncService == null) return false;
+    final success = await syncService.setCloudSyncEnabled(enable);
+    if (!success && enable) {
+      Get.snackbar(
+        'Sign-in Required',
+        'Please sign in to enable cross-device Cloud Sync.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+    return success;
+  }
+
+  Future<void> triggerManualSync() async {
+    final syncService = _cloudSync;
+    if (syncService == null) return;
+    await syncService.syncAll(force: true);
   }
 
   Future<void> _persistSettings() async {

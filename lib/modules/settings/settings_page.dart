@@ -35,6 +35,8 @@ class SettingsPage extends GetView<SettingsController> {
           children: [
             _buildMediaSourcesSection(context, colorScheme),
             AppSpacing.heightXL,
+            _buildCloudSyncSection(context, colorScheme),
+            AppSpacing.heightXL,
             _buildAppearanceSection(context, colorScheme),
             AppSpacing.heightXL,
             _buildPlaybackSection(context, colorScheme),
@@ -200,6 +202,78 @@ class SettingsPage extends GetView<SettingsController> {
                 leadingIcon: Icons.language_outlined,
                 onTap: () => _showLanguagePicker(context),
               ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCloudSyncSection(BuildContext context, ColorScheme colorScheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+          title: 'Cloud Synchronization',
+          subtitle: 'Sync favorites, watch progress, and settings across your devices',
+        ),
+        AppSpacing.heightXS,
+        AppCard(
+          child: Column(
+            children: [
+              Obx(() {
+                final enabled = controller.isCloudSyncEnabled.value;
+                return SettingsTile(
+                  title: 'Enable Cloud Sync',
+                  subtitle: enabled
+                      ? 'Favorites, continue watching, and settings are backed up to your cloud account.'
+                      : 'Disabled. Data is stored locally on this device only.',
+                  leadingIcon: Icons.cloud_sync_outlined,
+                  trailing: Switch.adaptive(
+                    value: enabled,
+                    onChanged: (val) => controller.toggleCloudSync(val),
+                  ),
+                );
+              }),
+              Obx(() {
+                final enabled = controller.isCloudSyncEnabled.value;
+                if (!enabled) return const SizedBox.shrink();
+
+                final isSyncing = controller.isCloudSyncing.value;
+                final lastSync = controller.lastCloudSyncTime.value;
+                final status = controller.cloudSyncStatusMessage.value;
+
+                String lastSyncText = 'Never';
+                if (lastSync != null) {
+                  final diff = DateTime.now().difference(lastSync);
+                  if (diff.inSeconds < 60) {
+                    lastSyncText = 'Just now';
+                  } else if (diff.inMinutes < 60) {
+                    lastSyncText = '${diff.inMinutes}m ago';
+                  } else {
+                    lastSyncText = '${diff.inHours}h ago';
+                  }
+                }
+
+                return SettingsTile(
+                  title: 'Sync Now',
+                  subtitle: isSyncing
+                      ? 'Synchronizing data with cloud...'
+                      : (status.isNotEmpty ? '$status • Last sync: $lastSyncText' : 'Last sync: $lastSyncText'),
+                  leadingIcon: Icons.sync,
+                  trailing: isSyncing
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : TextButton(
+                          onPressed: () => controller.triggerManualSync(),
+                          child: const Text('Sync'),
+                        ),
+                  showDivider: false,
+                );
+              }),
             ],
           ),
         ),
