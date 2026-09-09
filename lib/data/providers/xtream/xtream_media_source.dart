@@ -13,6 +13,8 @@ import 'package:stream_hub/core/media/events/media_event_bus.dart';
 import 'package:stream_hub/core/media/media_source.dart';
 import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart';
+import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
+import 'package:stream_hub/data/providers/xtream/xtream_url_detector.dart';
 import 'package:stream_hub/core/utils/image_url_formatter.dart';
 import 'package:stream_hub/data/models/account_metadata.dart';
 import 'package:stream_hub/data/models/media_health.dart';
@@ -109,12 +111,11 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
        _logger = logger ?? Get.find<LoggingService>();
 
   static String _normalizeServerUrl(String raw) {
-    var url = raw.trim();
-    if (url.isEmpty) return '';
-    if (!url.contains('://')) {
-      url = 'http://$url';
+    final parts = XtreamUrlDetector.parse(raw);
+    if (parts != null) {
+      return XtreamSeriesInfoService.sanitizeBaseUrl(parts.serverUrl);
     }
-    return url.replaceAll(RegExp(r'/+$'), '');
+    return XtreamSeriesInfoService.sanitizeBaseUrl(raw);
   }
 
   @override

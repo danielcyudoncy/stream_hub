@@ -22,6 +22,7 @@ import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
 import '../../../data/services/database_service.dart';
+import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 import '../../../core/services/screen_awake_service.dart';
@@ -93,12 +94,24 @@ class LiveTVController extends GetxController {
       });
     }
     _loadLiveTVData();
-    _catalogSubscription =
-        catalogRepository.watchUpdates().listen((_) => refresh());
+    _subscribeToCatalogUpdates();
     if (favoriteRepository != null) {
       _favoriteSubscription = favoriteRepository!
           .watchUpdates()
           .listen((_) => _syncFavoritesFromRepo());
+    }
+  }
+
+  void _subscribeToCatalogUpdates() {
+    if (Get.isRegistered<CatalogRefreshCoordinator>()) {
+      final coordinator = Get.find<CatalogRefreshCoordinator>();
+      _catalogSubscription = coordinator.refreshSignal.listen((_) {
+        coordinator.runCoalesced(_loadLiveTVData);
+      });
+    } else {
+      _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
+        refresh();
+      });
     }
   }
 
@@ -257,10 +270,9 @@ class LiveTVController extends GetxController {
   Future<void> _loadLiveTVData() async {
     isLoading.value = true;
     try {
-      final allItems = await catalogRepository.getAllItems();
-      final liveChannels = allItems
-          .where((item) => item.mediaType == MediaType.channel)
-          .toList();
+      final liveChannels = await catalogRepository.getByType(
+        MediaType.channel,
+      );
 
       final favList = await favoriteRepository?.getAll() ?? [];
       final favIds = favList.map((f) => f.id).toSet();

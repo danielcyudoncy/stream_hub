@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_radius.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import 'series_hero_section.dart';
@@ -146,94 +145,98 @@ class _SeriesHeroCarouselState extends State<SeriesHeroCarousel> {
 
               // Page Indicator & Remote Slide Chevrons
               Positioned(
-                right: AppSpacing.lg,
-                bottom: isTv ? AppSpacing.xl : AppSpacing.md,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (widget.series.length > 1) ...[
-                      TvFocusable(
-                        onTap: () {
-                          _restartAutoPlay();
-                          final prev = (_currentPage - 1 + widget.series.length) % widget.series.length;
-                          _pageController.animateToPage(
-                            prev,
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        borderRadius: AppRadius.pill,
-                        child: Container(
-                          padding: const EdgeInsets.all(4.0),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.chevron_left_rounded,
-                            color: Colors.white,
-                            size: 18.0,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6.0),
-                    ],
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: List.generate(widget.series.length, (index) {
-                        final isActive = index == _currentPage;
-                        return GestureDetector(
+                left: isTv ? null : 0,
+                right: isTv ? 48.0 : 0,
+                bottom: isTv ? 36.0 : 8.0,
+                child: Align(
+                  alignment: isTv ? Alignment.centerRight : Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (isTv && widget.series.length > 1) ...[
+                        TvFocusable(
                           onTap: () {
                             _restartAutoPlay();
+                            final prev = (_currentPage - 1 + widget.series.length) % widget.series.length;
                             _pageController.animateToPage(
-                              index,
+                              prev,
                               duration: const Duration(milliseconds: 400),
                               curve: Curves.easeInOut,
                             );
                           },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            margin: const EdgeInsets.symmetric(horizontal: 3.0),
-                            height: 6.0,
-                            width: isActive ? 22.0 : 6.0,
+                          borderRadius: AppRadius.pill,
+                          child: Container(
+                            padding: const EdgeInsets.all(4.0),
                             decoration: BoxDecoration(
-                              color: isActive
-                                  ? Colors.white
-                                  : Colors.white.withValues(alpha: 0.35),
-                              borderRadius: AppRadius.pill,
+                              color: Colors.black.withValues(alpha: 0.45),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.chevron_left_rounded,
+                              color: Colors.white,
+                              size: 18.0,
                             ),
                           ),
-                        );
-                      }),
-                    ),
-                    if (widget.series.length > 1) ...[
-                      const SizedBox(width: 6.0),
-                      TvFocusable(
-                        onTap: () {
-                          _restartAutoPlay();
-                          final next = (_currentPage + 1) % widget.series.length;
-                          _pageController.animateToPage(
-                            next,
-                            duration: const Duration(milliseconds: 400),
-                            curve: Curves.easeInOut,
+                        ),
+                        const SizedBox(width: 6.0),
+                      ],
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(widget.series.length, (index) {
+                          final isActive = index == _currentPage;
+                          return GestureDetector(
+                            onTap: () {
+                              _restartAutoPlay();
+                              _pageController.animateToPage(
+                                index,
+                                duration: const Duration(milliseconds: 400),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              margin: const EdgeInsets.symmetric(horizontal: 3.0),
+                              height: 6.0,
+                              width: isActive ? 22.0 : 6.0,
+                              decoration: BoxDecoration(
+                                color: isActive
+                                    ? Colors.white
+                                    : Colors.white.withValues(alpha: 0.35),
+                                borderRadius: AppRadius.pill,
+                              ),
+                            ),
                           );
-                        },
-                        borderRadius: AppRadius.pill,
-                        child: Container(
-                          padding: const EdgeInsets.all(4.0),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.chevron_right_rounded,
-                            color: Colors.white,
-                            size: 18.0,
+                        }),
+                      ),
+                      if (isTv && widget.series.length > 1) ...[
+                        const SizedBox(width: 6.0),
+                        TvFocusable(
+                          onTap: () {
+                            _restartAutoPlay();
+                            final next = (_currentPage + 1) % widget.series.length;
+                            _pageController.animateToPage(
+                              next,
+                              duration: const Duration(milliseconds: 400),
+                              curve: Curves.easeInOut,
+                            );
+                          },
+                          borderRadius: AppRadius.pill,
+                          child: Container(
+                            padding: const EdgeInsets.all(4.0),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.45),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.white,
+                              size: 18.0,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ],

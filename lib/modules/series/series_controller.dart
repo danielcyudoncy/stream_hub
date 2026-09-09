@@ -14,6 +14,8 @@ import '../../../data/models/series_progress.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
+import '../../../core/services/tmdb_catalog_service.dart';
+import '../../../data/services/catalog_refresh_coordinator.dart';
 
 class ContinueWatchingSeriesItem {
   final MediaItem series;
@@ -37,6 +39,7 @@ class SeriesController extends GetxController {
   final CatalogRepository catalogRepository;
   final PlaybackRepository? playbackRepository;
   final FavoriteRepository? favoriteRepository;
+  final TMDBCatalogService? tmdbCatalogService;
   final NextEpisodeResolver nextEpisodeResolver;
   final SeriesProgressService progressService;
 
@@ -48,6 +51,7 @@ class SeriesController extends GetxController {
     required this.catalogRepository,
     PlaybackRepository? playbackRepository,
     FavoriteRepository? favoriteRepository,
+    TMDBCatalogService? tmdbCatalogService,
     NextEpisodeResolver? nextEpisodeResolver,
     SeriesProgressService? progressService,
   })  : playbackRepository = playbackRepository ??
@@ -58,11 +62,16 @@ class SeriesController extends GetxController {
             (Get.isRegistered<FavoriteRepository>()
                 ? Get.find<FavoriteRepository>()
                 : null),
+        tmdbCatalogService = tmdbCatalogService ??
+            (Get.isRegistered<TMDBCatalogService>()
+                ? Get.find<TMDBCatalogService>()
+                : null),
         nextEpisodeResolver = nextEpisodeResolver ?? NextEpisodeResolver(),
         progressService =
             progressService ?? const SeriesProgressService();
 
   final RxBool isLoading = true.obs;
+  final RxBool isTmdbDiscovery = true.obs;
   final RxString selectedProvider = ''.obs;
   final RxList<MediaItem> series = <MediaItem>[].obs;
   final List<MediaItem> _allSeries = <MediaItem>[];
@@ -91,23 +100,45 @@ class SeriesController extends GetxController {
       ever(providerRepo.activeProviderId, (id) {
         if (selectedProvider.value != id) {
           selectedProvider.value = id;
-          _applyProviderFilter();
+          if (selectedProvider.value.isEmpty) {
+            _applyProviderFilter();
+            _loadSeries();
+          } else {
+            _applyProviderFilter();
+          }
         }
       });
     }
     _loadSeries();
-    _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
-      _loadSeries();
-    });
+    _subscribeToCatalogUpdates();
     mediaLibrary.seriesStream.listen((items) {
       if (items.isNotEmpty) {
         final sorted = items.toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
         _allSeries
           ..clear()
           ..addAll(sorted);
-        _applyProviderFilter();
+        if (selectedProvider.value.isNotEmpty) {
+          _applyProviderFilter();
+        }
       }
     });
+  }
+
+  void _subscribeToCatalogUpdates() {
+    if (Get.isRegistered<CatalogRefreshCoordinator>()) {
+      final coordinator = Get.find<CatalogRefreshCoordinator>();
+      _catalogSubscription = coordinator.refreshSignal.listen((_) {
+        if (selectedProvider.value.isNotEmpty || !isTmdbDiscovery.value) {
+          coordinator.runCoalesced(_loadSeries);
+        }
+      });
+    } else {
+      _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
+        if (selectedProvider.value.isNotEmpty || !isTmdbDiscovery.value) {
+          _loadSeries();
+        }
+      });
+    }
   }
 
   @override
@@ -131,6 +162,11 @@ class SeriesController extends GetxController {
   }
 
   void _applyProviderFilter() {
+    if (selectedProvider.value.isEmpty && tmdbCatalogService != null && _allSeries.isEmpty) {
+      _loadSeries();
+      return;
+    }
+    isTmdbDiscovery.value = false;
     List<MediaItem> filtered;
     if (selectedProvider.value.isEmpty) {
       filtered = List.of(_allSeries);
@@ -153,6 +189,39 @@ class SeriesController extends GetxController {
       if (seriesItems.isEmpty) {
         seriesItems = mediaLibrary.getSeries();
       }
+
+      if (seriesItems.isEmpty && selectedProvider.value.isEmpty && tmdbCatalogService != null) {
+        isTmdbDiscovery.value = true;
+        final tmdb = tmdbCatalogService!;
+        final trending = await tmdb.getTrendingSeries();
+        final topRated = await tmdb.getTopRatedSeries();
+        final popular = await tmdb.getPopularSeries();
+
+        if (trending.isNotEmpty || topRated.isNotEmpty) {
+          final combined = <MediaItem>[...trending, ...topRated, ...popular];
+          final seen = <String>{};
+          final unique = combined.where((s) => seen.add(s.id)).toList();
+
+          series.assignAll(unique);
+          featuredSeries.assignAll(trending.take(6).toList());
+          trendingSeries.assignAll(trending);
+          topRatedSeries.assignAll(topRated);
+          recentlyAddedSeries.assignAll(popular);
+
+          // Build genres
+          final genreNames = tmdb.tvGenres.values.toList();
+          if (genreNames.isNotEmpty) {
+            availableGenres.assignAll(genreNames);
+          }
+
+          _computeSections(unique);
+          _loadContinueWatching(unique);
+          isLoading.value = false;
+          return;
+        }
+      }
+
+      isTmdbDiscovery.value = false;
       seriesItems.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       _allSeries
         ..clear()
@@ -188,7 +257,9 @@ class SeriesController extends GetxController {
 
       // Group episodes by seriesId for O(1) lookup
       final episodesBySeriesId = <String, List<MediaItem>>{};
+      final episodeMap = <String, MediaItem>{};
       for (final ep in episodes) {
+        episodeMap[ep.id] = ep;
         final sId = ep.metadata['seriesId']?.toString() ??
             ep.metadata['series_id']?.toString() ??
             (ep.id.contains('_') ? ep.id.substring(0, ep.id.lastIndexOf('_')) : null);
@@ -201,14 +272,12 @@ class SeriesController extends GetxController {
       final watchedSeriesIds = <String>{};
       for (final session in sessions) {
         watchedSeriesIds.add(session.itemId);
-        for (final ep in episodes) {
-          if (ep.id == session.itemId) {
-            final sId = ep.metadata['seriesId']?.toString() ??
-                ep.metadata['series_id']?.toString();
-            if (sId != null && sId.isNotEmpty) {
-              watchedSeriesIds.add(sId);
-            }
-            break;
+        final ep = episodeMap[session.itemId];
+        if (ep != null) {
+          final sId = ep.metadata['seriesId']?.toString() ??
+              ep.metadata['series_id']?.toString();
+          if (sId != null && sId.isNotEmpty) {
+            watchedSeriesIds.add(sId);
           }
         }
       }

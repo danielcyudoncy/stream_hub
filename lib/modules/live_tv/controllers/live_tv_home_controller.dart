@@ -7,6 +7,7 @@ import '../../../data/models/media_item.dart';
 import '../../../data/models/channel.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
+import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
@@ -40,7 +41,20 @@ class LiveTVHomeController extends GetxController {
   void onInit() {
     super.onInit();
     _loadHomeData();
-    _catalogSubscription = catalogRepository.watchUpdates().listen((_) => refresh());
+    _subscribeToCatalogUpdates();
+  }
+
+  void _subscribeToCatalogUpdates() {
+    if (Get.isRegistered<CatalogRefreshCoordinator>()) {
+      final coordinator = Get.find<CatalogRefreshCoordinator>();
+      _catalogSubscription = coordinator.refreshSignal.listen((_) {
+        coordinator.runCoalesced(_loadHomeData);
+      });
+    } else {
+      _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
+        _loadHomeData();
+      });
+    }
   }
 
   @override
@@ -55,33 +69,31 @@ class LiveTVHomeController extends GetxController {
       final favList = await favoriteRepository?.getAll() ?? [];
       final favIds = favList.map((e) => e.id).toSet();
 
-      final allItems = await catalogRepository.getAllItems();
-      final channelItems = allItems
-          .where((item) => item.mediaType == MediaType.channel)
-          .map((item) => item.copyWith(favorite: favIds.contains(item.id)))
-          .toList();
-
-      recentlyAdded.assignAll(
-        channelItems.toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
+      final channelItems = await catalogRepository.getByType(
+        MediaType.channel,
       );
+      final marked = favIds.isNotEmpty
+          ? channelItems
+              .map((item) => item.copyWith(favorite: favIds.contains(item.id)))
+              .toList()
+          : channelItems;
+
+      final sorted = marked.toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+      recentlyAdded.assignAll(sorted);
 
       favoriteChannels.assignAll(
-        channelItems.where((item) => item.favorite).toList(),
+        sorted.where((item) => item.favorite).toList(),
       );
 
       liveNow.assignAll(
-        channelItems
-            .where((item) => item is Channel && item.isLive)
-            .toList(),
+        sorted.where((item) => item is Channel && item.isLive).toList(),
       );
 
-      recentlyViewed.assignAll(
-        channelItems.toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)),
-      );
+      recentlyViewed.assignAll(sorted);
 
-      categories.assignAll(_buildCategories(channelItems));
+      categories.assignAll(_buildCategories(sorted));
 
       continueWatching.assignAll([]);
     } catch (e) {

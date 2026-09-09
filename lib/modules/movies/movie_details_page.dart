@@ -16,8 +16,38 @@ import 'movie_details_controller.dart';
 import 'widgets/movie_carousel.dart';
 import 'widgets/movie_inline_player.dart';
 
-class MovieDetailsPage extends GetView<MovieDetailsController> {
+class MovieDetailsPage extends StatefulWidget {
   const MovieDetailsPage({super.key});
+
+  @override
+  State<MovieDetailsPage> createState() => _MovieDetailsPageState();
+}
+
+class _MovieDetailsPageState extends State<MovieDetailsPage> {
+  late final MovieDetailsController controller = Get.find<MovieDetailsController>();
+  final ScrollController _scrollController = ScrollController();
+  Worker? _inlineWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _inlineWorker = ever(controller.isInlinePlayerActive, (isActive) {
+      if (isActive && _scrollController.hasClients) {
+        _scrollController.animateTo(
+          0.0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _inlineWorker?.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -128,6 +158,7 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
           final isPlaying = controller.isInlinePlayerActive.value;
 
           return CustomScrollView(
+            controller: _scrollController,
             slivers: [
               if (isPlaying)
                 SliverPersistentHeader(
@@ -337,7 +368,7 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
         ),
         Center(
           child: TvFocusable(
-            onTap: controller.play,
+            onTap: controller.isAvailableInLibrary.value ? controller.play : controller.playTrailer,
             borderRadius: AppRadius.pill,
             child: Container(
               width: 52.0,
@@ -355,8 +386,10 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.play_arrow_rounded,
+              child: Icon(
+                controller.isAvailableInLibrary.value
+                    ? Icons.play_arrow_rounded
+                    : Icons.play_circle_outline_rounded,
                 color: Colors.white,
                 size: 32.0,
               ),
@@ -406,7 +439,7 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
           // Central Play Tap Button
           Center(
             child: TvFocusable(
-              onTap: controller.play,
+              onTap: controller.isAvailableInLibrary.value ? controller.play : controller.playTrailer,
               borderRadius: AppRadius.pill,
               child: Container(
                 padding: const EdgeInsets.all(14.0),
@@ -421,8 +454,10 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
                     ),
                   ],
                 ),
-                child: const Icon(
-                  Icons.play_arrow_rounded,
+                child: Icon(
+                  controller.isAvailableInLibrary.value
+                      ? Icons.play_arrow_rounded
+                      : Icons.play_circle_outline_rounded,
                   size: 36.0,
                   color: Colors.white,
                 ),
@@ -713,6 +748,9 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
       final isPlaying = controller.isInlinePlayerActive.value;
       final action = controller.playAction.value;
       final isFav = controller.isFavorite.value;
+      final isAvailable = controller.isAvailableInLibrary.value;
+      final isNotified = controller.isWatchlistNotified.value;
+      final match = controller.matchResult.value;
 
       String playLabel;
       IconData playIcon;
@@ -737,182 +775,354 @@ class MovieDetailsPage extends GetView<MovieDetailsController> {
         }
       }
 
-      return Wrap(
-        spacing: AppSpacing.sm,
-        runSpacing: AppSpacing.xs,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Primary Play / Stop Button
-          TvFocusable(
-            autofocus: ResponsiveHelper.isTvLayout(context),
-            onTap: isPlaying ? controller.stopInlinePlayback : controller.play,
-            borderRadius: AppRadius.pill,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                gradient: isPlaying
-                    ? null
-                    : const LinearGradient(
+          Wrap(
+            spacing: AppSpacing.sm,
+            runSpacing: AppSpacing.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              if (isAvailable) ...[
+                // Primary Play / Stop Button
+                TvFocusable(
+                  autofocus: ResponsiveHelper.isTvLayout(context),
+                  onTap: isPlaying ? controller.stopInlinePlayback : controller.play,
+                  borderRadius: AppRadius.pill,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: isPlaying
+                          ? null
+                          : const LinearGradient(
+                              colors: AppColors.primaryGradient,
+                            ),
+                      color: isPlaying ? AppColors.darkError : null,
+                      borderRadius: AppRadius.pill,
+                      boxShadow: isPlaying
+                          ? [
+                              BoxShadow(
+                                color: AppColors.darkError.withValues(alpha: 0.4),
+                                blurRadius: 8.0,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(playIcon, color: Colors.white, size: 20.0),
+                        AppSpacing.widthXS,
+                        Text(
+                          playLabel,
+                          style: AppTypography.getButton(
+                            color: Colors.white,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Trailer Button (Secondary)
+                TvFocusable(
+                  onTap: controller.playTrailer,
+                  borderRadius: AppRadius.pill,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.12),
+                      borderRadius: AppRadius.pill,
+                      border: Border.all(color: Colors.white24),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.ondemand_video_rounded,
+                          color: Colors.white,
+                          size: 18.0,
+                        ),
+                        AppSpacing.widthXXS,
+                        Text(
+                          'Trailer',
+                          style: AppTypography.getButton(
+                            color: Colors.white,
+                            scale: 0.9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Download Button
+                TvFocusable(
+                  onTap: controller.downloadMovie,
+                  borderRadius: AppRadius.pill,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: controller.downloadStatus.value == DownloadStatus.completed
+                          ? AppColors.darkSuccess.withValues(alpha: 0.2)
+                          : (controller.downloadStatus.value == DownloadStatus.downloading
+                              ? AppColors.darkPrimary.withValues(alpha: 0.25)
+                              : Colors.white.withValues(alpha: 0.12)),
+                      borderRadius: AppRadius.pill,
+                      border: Border.all(
+                        color: controller.downloadStatus.value == DownloadStatus.completed
+                            ? AppColors.darkSuccess.withValues(alpha: 0.6)
+                            : (controller.downloadStatus.value == DownloadStatus.downloading
+                                ? AppColors.darkPrimary.withValues(alpha: 0.8)
+                                : Colors.white24),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          controller.downloadStatus.value == DownloadStatus.completed
+                              ? Icons.download_done_rounded
+                              : (controller.downloadStatus.value == DownloadStatus.downloading
+                                  ? Icons.downloading_rounded
+                                  : Icons.download_rounded),
+                          color: controller.downloadStatus.value == DownloadStatus.completed
+                              ? AppColors.darkSuccess
+                              : (controller.downloadStatus.value == DownloadStatus.downloading
+                                  ? AppColors.darkPrimary
+                                  : Colors.white),
+                          size: 18.0,
+                        ),
+                        AppSpacing.widthXXS,
+                        Text(
+                          controller.downloadStatus.value == DownloadStatus.completed
+                              ? 'Downloaded'
+                              : (controller.downloadStatus.value == DownloadStatus.downloading
+                                  ? '${(controller.downloadProgress.value * 100).toInt()}%'
+                                  : 'Download'),
+                          style: AppTypography.getButton(
+                            color: controller.downloadStatus.value == DownloadStatus.completed
+                                ? AppColors.darkSuccess
+                                : (controller.downloadStatus.value == DownloadStatus.downloading
+                                    ? AppColors.darkPrimary
+                                    : Colors.white),
+                            scale: 0.9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else ...[
+                // Movie Unavailable in connected library -> Show Watch Trailer as Primary CTA
+                TvFocusable(
+                  autofocus: ResponsiveHelper.isTvLayout(context),
+                  onTap: controller.playTrailer,
+                  borderRadius: AppRadius.pill,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
+                    ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
                         colors: AppColors.primaryGradient,
                       ),
-                color: isPlaying ? AppColors.darkError : null,
-                borderRadius: AppRadius.pill,
-                boxShadow: isPlaying
-                    ? [
-                        BoxShadow(
-                          color: AppColors.darkError.withValues(alpha: 0.4),
-                          blurRadius: 8.0,
-                          offset: const Offset(0, 2),
+                      borderRadius: AppRadius.pill,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.play_circle_filled_rounded,
+                          color: Colors.white,
+                          size: 20.0,
                         ),
-                      ]
-                    : null,
+                        AppSpacing.widthXS,
+                        Text(
+                          'Watch Trailer',
+                          style: AppTypography.getButton(
+                            color: Colors.white,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Notify When Available Button
+                TvFocusable(
+                  onTap: controller.toggleWatchlistNotify,
+                  borderRadius: AppRadius.pill,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isNotified
+                          ? Colors.amber.withValues(alpha: 0.25)
+                          : Colors.white.withValues(alpha: 0.12),
+                      borderRadius: AppRadius.pill,
+                      border: Border.all(
+                        color: isNotified
+                            ? Colors.amber
+                            : Colors.white24,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isNotified
+                              ? Icons.notifications_active_rounded
+                              : Icons.notification_add_outlined,
+                          color: isNotified ? Colors.amberAccent : Colors.white,
+                          size: 18.0,
+                        ),
+                        AppSpacing.widthXXS,
+                        Text(
+                          isNotified ? 'Notification Set' : 'Notify When Available',
+                          style: AppTypography.getButton(
+                            color: isNotified ? Colors.amberAccent : Colors.white,
+                            scale: 0.9,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+
+              // Favorite Toggle Button
+              TvFocusable(
+                onTap: controller.toggleFavorite,
+                borderRadius: AppRadius.pill,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: AppSpacing.md,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isFav
+                        ? AppColors.darkError.withValues(alpha: 0.2)
+                        : Colors.white.withValues(alpha: 0.12),
+                    borderRadius: AppRadius.pill,
+                    border: Border.all(
+                      color: isFav
+                          ? AppColors.darkError.withValues(alpha: 0.6)
+                          : Colors.white24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: isFav ? AppColors.darkError : Colors.white,
+                        size: 18.0,
+                      ),
+                      AppSpacing.widthXXS,
+                      Text(
+                        isFav ? 'In Favorites' : 'My List',
+                        style: AppTypography.getButton(
+                          color: isFav ? AppColors.darkError : Colors.white,
+                          scale: 0.9,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Share Button
+              TvFocusable(
+                onTap: () {
+                  Get.snackbar(
+                    'Share',
+                    'Sharing "${controller.movie?.title}"',
+                    snackPosition: SnackPosition.BOTTOM,
+                    duration: const Duration(seconds: 2),
+                  );
+                },
+                borderRadius: AppRadius.pill,
+                child: Container(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white24),
+                  ),
+                  child: const Icon(
+                    Icons.share_rounded,
+                    color: Colors.white,
+                    size: 18.0,
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // Provider Badge if available via match
+          if (isAvailable && match?.matchedProviderName != null) ...[
+            AppSpacing.heightSM,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: AppColors.darkPrimary.withValues(alpha: 0.18),
+                borderRadius: AppRadius.small,
+                border: Border.all(color: AppColors.darkPrimary.withValues(alpha: 0.35)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(playIcon, color: Colors.white, size: 20.0),
+                  const Icon(Icons.check_circle_outline_rounded, color: AppColors.darkPrimary, size: 14.0),
+                  const SizedBox(width: 6.0),
+                  Text(
+                    'Stream available via ${match!.matchedProviderName}',
+                    style: AppTypography.getCaption(color: AppColors.darkPrimary).copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+          ],
+
+          // Info banner if not available
+          if (!isAvailable) ...[
+            AppSpacing.heightSM,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.12),
+                borderRadius: AppRadius.medium,
+                border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 16.0),
                   AppSpacing.widthXS,
-                  Text(
-                    playLabel,
-                    style: AppTypography.getButton(
-                      color: Colors.white,
-                    ).copyWith(fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Favorite Toggle Button
-          TvFocusable(
-            onTap: controller.toggleFavorite,
-            borderRadius: AppRadius.pill,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: isFav
-                    ? AppColors.darkError.withValues(alpha: 0.2)
-                    : Colors.white.withValues(alpha: 0.12),
-                borderRadius: AppRadius.pill,
-                border: Border.all(
-                  color: isFav
-                      ? AppColors.darkError.withValues(alpha: 0.6)
-                      : Colors.white24,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                    color: isFav ? AppColors.darkError : Colors.white,
-                    size: 18.0,
-                  ),
-                  AppSpacing.widthXXS,
-                  Text(
-                    isFav ? 'In Favorites' : 'My List',
-                    style: AppTypography.getButton(
-                      color: isFav ? AppColors.darkError : Colors.white,
-                      scale: 0.9,
+                  Flexible(
+                    child: Text(
+                      'Not available in your connected playlist yet. Tap "Notify When Available" to be alerted once synced.',
+                      style: AppTypography.getCaption(color: Colors.amberAccent),
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-
-          // Download Button
-          TvFocusable(
-            onTap: controller.downloadMovie,
-            borderRadius: AppRadius.pill,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-                vertical: AppSpacing.md,
-              ),
-              decoration: BoxDecoration(
-                color: controller.downloadStatus.value == DownloadStatus.completed
-                    ? AppColors.darkSuccess.withValues(alpha: 0.2)
-                    : (controller.downloadStatus.value == DownloadStatus.downloading
-                        ? AppColors.darkPrimary.withValues(alpha: 0.25)
-                        : Colors.white.withValues(alpha: 0.12)),
-                borderRadius: AppRadius.pill,
-                border: Border.all(
-                  color: controller.downloadStatus.value == DownloadStatus.completed
-                      ? AppColors.darkSuccess.withValues(alpha: 0.6)
-                      : (controller.downloadStatus.value == DownloadStatus.downloading
-                          ? AppColors.darkPrimary.withValues(alpha: 0.8)
-                          : Colors.white24),
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    controller.downloadStatus.value == DownloadStatus.completed
-                        ? Icons.download_done_rounded
-                        : (controller.downloadStatus.value == DownloadStatus.downloading
-                            ? Icons.downloading_rounded
-                            : Icons.download_rounded),
-                    color: controller.downloadStatus.value == DownloadStatus.completed
-                        ? AppColors.darkSuccess
-                        : (controller.downloadStatus.value == DownloadStatus.downloading
-                            ? AppColors.darkPrimary
-                            : Colors.white),
-                    size: 18.0,
-                  ),
-                  AppSpacing.widthXXS,
-                  Text(
-                    controller.downloadStatus.value == DownloadStatus.completed
-                        ? 'Downloaded'
-                        : (controller.downloadStatus.value == DownloadStatus.downloading
-                            ? '${(controller.downloadProgress.value * 100).toInt()}%'
-                            : 'Download'),
-                    style: AppTypography.getButton(
-                      color: controller.downloadStatus.value == DownloadStatus.completed
-                          ? AppColors.darkSuccess
-                          : (controller.downloadStatus.value == DownloadStatus.downloading
-                              ? AppColors.darkPrimary
-                              : Colors.white),
-                      scale: 0.9,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // Share Button
-          TvFocusable(
-            onTap: () {
-              Get.snackbar(
-                'Share',
-                'Sharing "${controller.movie?.title}"',
-                snackPosition: SnackPosition.BOTTOM,
-                duration: const Duration(seconds: 2),
-              );
-            },
-            borderRadius: AppRadius.pill,
-            child: Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white24),
-              ),
-              child: const Icon(
-                Icons.share_rounded,
-                color: Colors.white,
-                size: 18.0,
-              ),
-            ),
-          ),
+          ],
         ],
       );
     });

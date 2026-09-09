@@ -44,7 +44,11 @@ class HomeSnapshotService {
         return null;
       }
       final decoded = await compute(jsonDecode, raw);
-      final json = decoded as Map<String, dynamic>;
+      if (decoded is! Map) {
+        _logger.warning('[HOME] Decoded snapshot is not a map', tag: 'HomeSnapshot');
+        return null;
+      }
+      final json = Map<String, dynamic>.from(decoded);
       final snapshot = HomeSnapshot.fromJson(json);
       _logger.info('[HOME] Persistent cache hit', tag: 'HomeSnapshot');
       return snapshot;
@@ -60,6 +64,13 @@ class HomeSnapshotService {
 
   Future<void> save(HomeSnapshot snapshot) async {
     try {
+      if (snapshot.isEmpty) {
+        _logger.info(
+          '[HOME] Aborting snapshot save: snapshot is empty to prevent wiping cache',
+          tag: 'HomeSnapshot',
+        );
+        return;
+      }
       final box = _box;
       if (box == null || !box.isOpen) {
         await init();

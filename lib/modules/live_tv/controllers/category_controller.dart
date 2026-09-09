@@ -7,6 +7,7 @@ import '../../../data/models/media_item.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/services/database_service.dart';
+import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 import 'live_tv_controller.dart';
@@ -133,13 +134,25 @@ class CategoryController extends GetxController {
     super.onInit();
     _loadHiddenState();
     _loadCategories();
-    _catalogSubscription =
-        catalogRepository.watchUpdates().listen((_) => refresh());
+    _subscribeToCatalogUpdates();
     if (favoriteRepository != null) {
       _favoriteSubscription = favoriteRepository!.watchUpdates().listen((_) {
         if (selectedCategoryId.value.isNotEmpty) {
           selectCategory(selectedCategoryId.value);
         }
+      });
+    }
+  }
+
+  void _subscribeToCatalogUpdates() {
+    if (Get.isRegistered<CatalogRefreshCoordinator>()) {
+      final coordinator = Get.find<CatalogRefreshCoordinator>();
+      _catalogSubscription = coordinator.refreshSignal.listen((_) {
+        coordinator.runCoalesced(_loadCategories);
+      });
+    } else {
+      _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
+        _loadCategories();
       });
     }
   }
@@ -154,16 +167,17 @@ class CategoryController extends GetxController {
   Future<void> _loadCategories() async {
     isLoading.value = true;
     try {
-      final allItems = await catalogRepository.getAllItems();
-      final channelItems = allItems
-          .where((item) => item.mediaType == MediaType.channel)
-          .toList();
+      final channelItems = await catalogRepository.getByType(
+        MediaType.channel,
+      );
 
-      final categoryItems = allItems
+      final categoryItems = await catalogRepository.getByType(
+        MediaType.collection,
+      );
+      final collectionItems = categoryItems
           .where((item) =>
-              item.mediaType == MediaType.collection &&
-              (item.metadata['type'] == 'live' ||
-                  item.metadata['type'] == null))
+              item.metadata['type'] == 'live' ||
+              item.metadata['type'] == null)
           .toList();
 
       // Index channels by genre name, genreId, and category title
@@ -185,7 +199,7 @@ class CategoryController extends GetxController {
       final categoryMap = <String, Category>{};
 
       // 1. Add all collection items from catalog (e.g. all 114 categories)
-      for (final catItem in categoryItems) {
+      for (final catItem in collectionItems) {
         final genreId = catItem.metadata['genreId']?.toString() ?? catItem.id;
         final name = catItem.title;
         if (name.isEmpty) continue;

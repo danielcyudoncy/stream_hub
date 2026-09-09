@@ -329,7 +329,10 @@ URL.
 - Entries without a preceding `#EXTINF` line are flagged as malformed
 - Duplicate stream URLs are detected and counted
 - Empty channel names generate warnings
-- UTF-8 encoding is assumed; invalid UTF-8 sequences produce decode errors
+- Encoding is auto-detected: UTF-8 and UTF-16 (LE/BE) BOMs are honored; payloads
+  without a BOM are decoded tolerantly as UTF-8 (invalid sequences become the
+  Unicode replacement character) so legacy single-byte-encoded playlists
+  (Windows-1252, ISO-8859-1, CP1251) are ingested instead of failing the sync
 - Playlists with only whitespace or empty content are rejected
 
 ### Authentication

@@ -37,18 +37,19 @@ class EpisodeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final rawThumbnail = episode.thumbnail ?? episode.poster ?? episode.backdrop;
+    final rawThumbnail =
+        episode.thumbnail ?? episode.poster ?? episode.backdrop;
     final thumbnail = ImageUrlFormatter.format(rawThumbnail, item: episode);
 
     final duration = _resolveDuration();
     final effectiveProgress = progressPercentage?.clamp(0.0, 1.0);
-
 
     return TvFocusable(
       onTap: onTap,
       borderRadius: AppRadius.medium,
       scale: 1.02,
       child: Container(
+        padding: const EdgeInsets.all(AppSpacing.xs),
         decoration: BoxDecoration(
           color: isCurrentlyPlaying
               ? colorScheme.primary.withValues(alpha: 0.12)
@@ -57,17 +58,20 @@ class EpisodeCard extends StatelessWidget {
           border: isCurrentlyPlaying
               ? Border.all(color: colorScheme.primary, width: 1.5)
               : (isNextUp
-                  ? Border.all(color: colorScheme.primary.withValues(alpha: 0.5), width: 1.0)
+                  ? Border.all(
+                      color: colorScheme.primary.withValues(alpha: 0.5),
+                      width: 1.0,
+                    )
                   : null),
         ),
         child: Row(
           children: [
-            // Thumbnail with overlay badges
+            // 1. Thumbnail with overlay badges (Fixed 16:9, non-flex so info column gets all remaining space)
             ClipRRect(
-              borderRadius: AppRadius.medium,
+              borderRadius: AppRadius.small,
               child: SizedBox(
-                width: 140,
-                height: 84,
+                width: 120,
+                height: 68,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
@@ -85,7 +89,9 @@ class EpisodeCard extends StatelessWidget {
                               child: SizedBox(
                                 width: 20.0,
                                 height: 20.0,
-                                child: CircularProgressIndicator(strokeWidth: 2.0),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.0,
+                                ),
                               ),
                             ),
                           );
@@ -95,7 +101,9 @@ class EpisodeCard extends StatelessWidget {
                       _buildThumbnailPlaceholder(colorScheme),
 
                     // Progress bar overlay at bottom of thumbnail
-                    if (effectiveProgress != null && effectiveProgress > 0 && !isCompleted)
+                    if (effectiveProgress != null &&
+                        effectiveProgress > 0 &&
+                        !isCompleted)
                       Positioned(
                         left: 0,
                         right: 0,
@@ -106,9 +114,7 @@ class EpisodeCard extends StatelessWidget {
                           child: FractionallySizedBox(
                             alignment: Alignment.centerLeft,
                             widthFactor: effectiveProgress,
-                            child: Container(
-                              color: colorScheme.primary,
-                            ),
+                            child: Container(color: colorScheme.primary),
                           ),
                         ),
                       ),
@@ -138,7 +144,10 @@ class EpisodeCard extends StatelessWidget {
                         top: AppSpacing.xxs,
                         right: AppSpacing.xxs,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4.0,
+                            vertical: 2.0,
+                          ),
                           decoration: BoxDecoration(
                             color: colorScheme.primary,
                             borderRadius: AppRadius.small,
@@ -159,7 +168,10 @@ class EpisodeCard extends StatelessWidget {
                         top: AppSpacing.xxs,
                         right: AppSpacing.xxs,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4.0,
+                            vertical: 2.0,
+                          ),
                           decoration: BoxDecoration(
                             color: AppColors.darkPrimary,
                             borderRadius: AppRadius.small,
@@ -167,7 +179,11 @@ class EpisodeCard extends StatelessWidget {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.play_arrow, size: 10, color: Colors.white),
+                              const Icon(
+                                Icons.play_arrow,
+                                size: 10,
+                                color: Colors.white,
+                              ),
                               Text(
                                 'PLAYING',
                                 style: AppTypography.getCaption(
@@ -179,107 +195,140 @@ class EpisodeCard extends StatelessWidget {
                           ),
                         ),
                       ),
-
                   ],
                 ),
               ),
             ),
 
-            // Episode Info
+            // 2. Episode Info: Takes all available width, prominent title
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
+                  horizontal: AppSpacing.sm,
+                  vertical: 2.0,
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        if (episodeNumber != null && episodeNumber!.isNotEmpty) ...[
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.xs,
-                              vertical: 2.0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isCurrentlyPlaying
-                                  ? colorScheme.primary
-                                  : colorScheme.primary.withValues(alpha: 0.14),
-                              borderRadius: AppRadius.small,
-                            ),
-                            child: Text(
-                              episodeNumber!,
-                              style: AppTypography.getCaption(
-                                color: isCurrentlyPlaying
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.primary,
-                                scale: 0.85,
-                              ).copyWith(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          AppSpacing.widthXS,
-                        ],
-                        Expanded(
-                          child: Text(
-                            episode.title,
-                            style: AppTypography.getLabel(
-                              color: isCurrentlyPlaying
-                                  ? colorScheme.primary
-                                  : colorScheme.onSurface,
-                            ).copyWith(fontWeight: FontWeight.w600),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (duration != null || episode.subtitle != null) ...[
-                      AppSpacing.heightXXS,
+                    // Kicker: Episode badge + duration on their own line
+                    if ((episodeNumber != null && episodeNumber!.isNotEmpty) ||
+                        duration != null)
                       Row(
                         children: [
-                          if (duration != null) ...[
-                            Icon(
-                              Icons.access_time,
-                              size: 12.0,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            const SizedBox(width: 4.0),
-                            Text(
-                              duration,
-                              style: AppTypography.getCaption(
-                                color: colorScheme.onSurfaceVariant,
-                                scale: 0.85,
-                              ),
-                            ),
-                            if (episode.subtitle != null) const SizedBox(width: 8.0),
-                          ],
-                          if (episode.subtitle != null)
-                            Expanded(
-                              child: Text(
-                                episode.subtitle!,
-                                style: AppTypography.getCaption(
-                                  color: colorScheme.onSurfaceVariant,
-                                  scale: 0.85,
+                          if (episodeNumber != null &&
+                              episodeNumber!.isNotEmpty)
+                            Flexible(
+                              child: ClipRect(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6.0,
+                                    vertical: 1.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isCurrentlyPlaying
+                                        ? colorScheme.primary
+                                        : colorScheme.primary.withValues(
+                                            alpha: 0.14,
+                                          ),
+                                  borderRadius: AppRadius.small,
+                                  ),
+                                  child: Text(
+                                    episodeNumber!,
+                                    style: AppTypography.getCaption(
+                                      color: isCurrentlyPlaying
+                                          ? colorScheme.onPrimary
+                                          : colorScheme.primary,
+                                      scale: 0.75,
+                                    ).copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.3,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                          if (duration != null) ...[
+                            if (episodeNumber != null &&
+                                episodeNumber!.isNotEmpty)
+                              const SizedBox(width: 6.0),
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 11.0,
+                                      color: colorScheme.onSurfaceVariant
+                                          .withValues(alpha: 0.8),
+                                    ),
+                                    const SizedBox(width: 3.0),
+                                    Text(
+                                      duration,
+                                      style: AppTypography.getCaption(
+                                        color: colorScheme.onSurfaceVariant
+                                            .withValues(alpha: 0.8),
+                                        scale: 0.8,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
+
+                    const SizedBox(height: 3.0),
+
+                    // Clear, prominent Episode Title (wraps to 2 lines without truncation)
+                    Text(
+                      episode.title,
+                      style: AppTypography.getTitle(
+                        color: isCurrentlyPlaying
+                            ? colorScheme.primary
+                            : colorScheme.onSurface,
+                        scale: 0.72,
+                      ).copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    if (episode.subtitle != null &&
+                        episode.subtitle!.isNotEmpty) ...[
+                      const SizedBox(height: 2.0),
+                      Text(
+                        episode.subtitle!,
+                        style: AppTypography.getCaption(
+                          color: colorScheme.onSurfaceVariant,
+                          scale: 0.8,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
-                    if (episode.description != null && episode.description!.isNotEmpty) ...[
-                      AppSpacing.heightXXS,
+
+                    if (episode.description != null &&
+                        episode.description!.isNotEmpty) ...[
+                      const SizedBox(height: 2.0),
                       Text(
                         episode.description!,
                         style: AppTypography.getCaption(
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.85),
-                          scale: 0.8,
+                          color: colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.7,
+                          ),
+                          scale: 0.75,
                         ),
-                        maxLines: 2,
+                        maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -288,9 +337,12 @@ class EpisodeCard extends StatelessWidget {
               ),
             ),
 
-            // Actions (Download + Play)
+            // 3. Actions (Download + Play)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+              padding: const EdgeInsets.only(
+                right: AppSpacing.xs,
+                left: AppSpacing.xxs,
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -299,12 +351,14 @@ class EpisodeCard extends StatelessWidget {
                       onTap: onDownload,
                       borderRadius: AppRadius.pill,
                       child: Container(
-                        padding: const EdgeInsets.all(AppSpacing.xs),
+                        padding: const EdgeInsets.all(AppSpacing.xxs),
                         decoration: BoxDecoration(
                           color: isDownloaded
                               ? AppColors.darkSuccess.withValues(alpha: 0.2)
                               : (isDownloading
-                                  ? colorScheme.primary.withValues(alpha: 0.15)
+                                  ? colorScheme.primary.withValues(
+                                      alpha: 0.15,
+                                    )
                                   : colorScheme.surfaceContainerHighest),
                           shape: BoxShape.circle,
                         ),
@@ -328,7 +382,7 @@ class EpisodeCard extends StatelessWidget {
 
                   // Play Icon
                   Container(
-                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    padding: const EdgeInsets.all(AppSpacing.xxs),
                     decoration: BoxDecoration(
                       color: isCurrentlyPlaying
                           ? colorScheme.primary
@@ -340,7 +394,9 @@ class EpisodeCard extends StatelessWidget {
                           ? Icons.replay
                           : (isCurrentlyPlaying ? Icons.pause : AppIcons.play),
                       size: 18.0,
-                      color: isCurrentlyPlaying ? colorScheme.onPrimary : colorScheme.onSurface,
+                      color: isCurrentlyPlaying
+                          ? colorScheme.onPrimary
+                          : colorScheme.onSurface,
                     ),
                   ),
                 ],
@@ -353,7 +409,8 @@ class EpisodeCard extends StatelessWidget {
   }
 
   String? _resolveDuration() {
-    final direct = episode.metadata['duration'] ??
+    final direct =
+        episode.metadata['duration'] ??
         episode.metadata['durationSeconds'] ??
         episode.metadata['runtime'] ??
         episode.metadata['length'];
@@ -373,13 +430,13 @@ class EpisodeCard extends StatelessWidget {
 
   Widget _buildThumbnailPlaceholder(ColorScheme colorScheme) {
     return Container(
-      width: 140,
-      height: 84,
+      width: 120,
+      height: 68,
       color: colorScheme.surfaceContainerHighest,
       child: Center(
         child: Icon(
           AppIcons.series,
-          size: 28.0,
+          size: 24.0,
           color: colorScheme.onSurface.withValues(alpha: 0.3),
         ),
       ),

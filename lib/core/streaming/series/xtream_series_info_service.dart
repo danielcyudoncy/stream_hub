@@ -40,7 +40,8 @@ class XtreamSeriesEpisode {
     required String? username,
     required String? password,
   }) {
-    return '$baseUrl/series/$username/$password/$id.$extension';
+    final cleanBase = XtreamSeriesInfoService.sanitizeBaseUrl(baseUrl ?? '');
+    return '$cleanBase/series/$username/$password/$id.$extension';
   }
 }
 
@@ -109,6 +110,33 @@ class XtreamSeriesInfoService {
     : _logger = logger ?? LoggingService(),
       _client = client ?? createDohAwareHttpClient();
 
+  /// Strips endpoint paths like `get.php` or `player_api.php` and any query
+  /// parameters to return the clean root origin and panel base path.
+  static String sanitizeBaseUrl(String raw) {
+    var url = raw.trim();
+    if (url.isEmpty) return '';
+    if (!url.contains('://')) {
+      url = 'http://$url';
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null || uri.host.isEmpty) {
+      return raw.trim().replaceAll(RegExp(r'/+$'), '');
+    }
+
+    var origin = '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+    final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+    if (segments.isNotEmpty) {
+      final last = segments.last.toLowerCase();
+      if (last.endsWith('.php') || last == 'get.php' || last == 'player_api.php') {
+        segments.removeLast();
+      }
+    }
+    if (segments.isNotEmpty) {
+      origin = '$origin/${segments.join('/')}';
+    }
+    return origin;
+  }
+
   /// Fetches and parses the season/episode structure for [seriesId].
   ///
   /// Some panels index `get_series_info` by the stream ID rather than the
@@ -126,12 +154,13 @@ class XtreamSeriesInfoService {
     required String seriesId,
     List<String> alternativeIds = const [],
   }) async {
-    final baseUrl = session.baseUrl;
-    if (baseUrl == null || baseUrl.isEmpty) {
+    final rawBaseUrl = session.baseUrl;
+    if (rawBaseUrl == null || rawBaseUrl.isEmpty) {
       throw const StreamResolutionException(
         message: 'Xtream session is missing the server URL.',
       );
     }
+    final baseUrl = sanitizeBaseUrl(rawBaseUrl);
 
     // A few panels index series info under the stream ID (or a numeric-only
     // variant of the series ID) rather than the raw series ID, so every known

@@ -45,7 +45,7 @@ class HomePage extends GetView<HomeController> {
           return const HomeSkeletonLoader();
         }
 
-        if (!controller.hasProviders.value) {
+        if (!controller.hasProviders.value && !controller.hasContent) {
           return SafeArea(
             bottom: false,
             child: CustomScrollView(

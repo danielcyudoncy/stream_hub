@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
+import 'package:stream_hub/core/theme/app_typography.dart';
 
 class FreeTvSkeleton extends StatefulWidget {
   const FreeTvSkeleton({super.key});
@@ -21,7 +22,7 @@ class _FreeTvSkeletonState extends State<FreeTvSkeleton>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.3, end: 0.7).animate(
+    _animation = Tween<double>(begin: 0.4, end: 0.85).animate(
       CurvedAnimation(parent: _animCtrl, curve: Curves.easeInOut),
     );
   }
@@ -35,86 +36,91 @@ class _FreeTvSkeletonState extends State<FreeTvSkeleton>
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
-        final shimmerColor = (isDark ? Colors.white : Colors.black)
-            .withValues(alpha: _animation.value * 0.15);
+        final shimmerColor = isDark
+            ? colorScheme.surfaceContainerHighest
+                .withValues(alpha: _animation.value)
+            : colorScheme.surfaceContainerHighest
+                .withValues(alpha: _animation.value * 0.6);
 
         return Column(
           children: [
-            // Top App Bar skeleton
-            Container(
-              padding: EdgeInsets.only(
-                top: MediaQuery.of(context).padding.top + 8.0,
-                bottom: 8.0,
-                left: AppSpacing.md,
-                right: AppSpacing.md,
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 140,
-                    height: 24,
-                    decoration: BoxDecoration(
-                      color: shimmerColor,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: shimmerColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: shimmerColor,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: AppSpacing.sm),
 
-            // Top Hero / Player placeholder
+            // Prominent Hero / Player Loading Card
             Container(
-              height: 200.0,
+              height: 190.0,
               width: double.infinity,
               margin: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
               decoration: BoxDecoration(
-                color: shimmerColor,
+                color: colorScheme.surfaceContainerLow,
                 borderRadius: AppRadius.large,
+                border: Border.all(
+                  color: colorScheme.primary.withValues(alpha: 0.25),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: colorScheme.primary.withValues(alpha: 0.08),
+                    blurRadius: 16.0,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: Center(
-                child: Icon(
-                  Icons.tv_rounded,
-                  size: 48,
-                  color: shimmerColor,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 36.0,
+                      height: 36.0,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 3.0,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16.0),
+                    Text(
+                      'Loading Free Live TV...',
+                      style: AppTypography.getBody(
+                        color: colorScheme.onSurface,
+                      ).copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15.5,
+                      ),
+                    ),
+                    const SizedBox(height: 5.0),
+                    Text(
+                      'Fetching live channels and stations...',
+                      style: AppTypography.getCaption(
+                        color: colorScheme.onSurfaceVariant,
+                        scale: 0.9,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
 
-            const SizedBox(height: AppSpacing.sm),
+            const SizedBox(height: AppSpacing.md),
 
             // Category Bar placeholder
             SizedBox(
-              height: 40.0,
+              height: 36.0,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
                 itemCount: 6,
                 itemBuilder: (context, index) {
                   return Container(
-                    width: index == 0 ? 100 : 80,
+                    width: index == 0 ? 90 : 75,
                     margin: const EdgeInsets.only(right: AppSpacing.xs),
                     decoration: BoxDecoration(
                       color: shimmerColor,
@@ -130,19 +136,25 @@ class _FreeTvSkeletonState extends State<FreeTvSkeleton>
             // Channel Cards Grid placeholder
             Expanded(
               child: GridView.builder(
-                padding: const EdgeInsets.all(AppSpacing.md),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.xs,
+                ),
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: AppSpacing.sm,
                   mainAxisSpacing: AppSpacing.sm,
-                  childAspectRatio: 1.0,
+                  childAspectRatio: 1.05,
                 ),
-                itemCount: 8,
+                itemCount: 6,
                 itemBuilder: (context, index) {
                   return Container(
                     decoration: BoxDecoration(
                       color: shimmerColor,
                       borderRadius: AppRadius.medium,
+                      border: Border.all(
+                        color: colorScheme.outline.withValues(alpha: 0.08),
+                      ),
                     ),
                   );
                 },

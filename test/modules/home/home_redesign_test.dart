@@ -36,6 +36,36 @@ class _FakeCatalogRepository implements CatalogRepository {
   Future<List<MediaItem>> getAllItems() async => List.of(items);
 
   @override
+  Future<List<MediaItem>> topByUpdatedAt(
+    MediaType type, {
+    String? providerId,
+    int limit = 20,
+  }) async {
+    final filtered = List.of(items.where((item) => item.mediaType == type))
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return filtered.take(limit).toList();
+  }
+
+  @override
+  Future<List<MediaItem>> topByCreatedAt(
+    MediaType type, {
+    String? providerId,
+    int limit = 20,
+  }) async {
+    final filtered = List.of(items.where((item) => item.mediaType == type))
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return filtered.take(limit).toList();
+  }
+
+  @override
+  Future<List<MediaItem>> getByProviderAndType(
+    String providerId,
+    MediaType type,
+  ) async =>
+      List.of(items.where(
+          (item) => item.mediaType == type && item.providerId == providerId));
+
+  @override
   Future<List<MediaItem>> getByType(MediaType type) async =>
       List.of(items.where((item) => item.mediaType == type));
 
@@ -43,7 +73,12 @@ class _FakeCatalogRepository implements CatalogRepository {
   Future<void> upsertItems(List<MediaItem> newItems) async {}
 
   @override
-  Future<MediaItem?> getItem(String id) async => null;
+  Future<MediaItem?> getItem(String id) async {
+    for (final item in items) {
+      if (item.id == id) return item;
+    }
+    return null;
+  }
 
   @override
   Future<void> deleteItem(String id) async {}
@@ -551,6 +586,68 @@ void main() {
       await controller.toggleFavorite(sampleSeries);
       expect(controller.isItemFavorite(sampleSeries.id), isFalse);
     });
+
+    test('Preserves cached content when catalog repository returns empty on refresh', () async {
+      controller.movies.assignAll([sampleMovie]);
+      controller.series.assignAll([sampleSeries]);
+      controller.liveChannels.assignAll([sampleChannel]);
+
+      final emptyCatalogController = HomeController(
+        mediaEngine: _FakeMediaEngine(),
+        mediaLibrary: _FakeMediaLibrary(),
+        catalogRepository: _FakeCatalogRepository([]),
+        historyRepository: _FakeHistoryRepository([]),
+        favoriteRepository: _FakeFavoriteRepository([]),
+        mediaSourceRepository: _FakeMediaSourceRepository([sampleSource]),
+        snapshotService: _FakeHomeSnapshotService(),
+      );
+
+      // Pre-seed with cached content
+      emptyCatalogController.movies.assignAll([sampleMovie]);
+      emptyCatalogController.series.assignAll([sampleSeries]);
+      emptyCatalogController.liveChannels.assignAll([sampleChannel]);
+      emptyCatalogController.featuredHeroItems.assignAll([sampleMovie]);
+
+      await emptyCatalogController.refresh();
+
+      // Assert that cached items were preserved rather than cleared
+      expect(emptyCatalogController.movies.length, equals(1));
+      expect(emptyCatalogController.movies.first.title, equals('Inception'));
+      expect(emptyCatalogController.series.length, equals(1));
+      expect(emptyCatalogController.series.first.title, equals('Breaking Bad'));
+      expect(emptyCatalogController.liveChannels.length, equals(1));
+      expect(emptyCatalogController.liveChannels.first.title, equals('CNN International'));
+      expect(emptyCatalogController.featuredHeroItems.length, equals(1));
+    });
+
+    test('HomeSnapshot.fromJson parses dynamic Map types without throwing TypeError', () {
+      final dynamicJson = <dynamic, dynamic>{
+        'providerCount': 2,
+        'cachedAt': DateTime.now().toIso8601String(),
+        'movies': [
+          <dynamic, dynamic>{
+            'id': 'm1',
+            'title': 'Test Movie',
+            'mediaType': 'movie',
+            'providerType': 'xtream',
+            'genres': ['Action'],
+            'metadata': <dynamic, dynamic>{'key': 'value'},
+          }
+        ],
+        'series': [],
+        'liveChannels': [],
+        'featuredHeroItems': [],
+        'continueWatching': [],
+        'favorites': [],
+        'recentlyAdded': [],
+        'recentlyPlayed': [],
+      };
+
+      final snapshot = HomeSnapshot.fromJson(Map<String, dynamic>.from(dynamicJson));
+      expect(snapshot.movies.length, equals(1));
+      expect(snapshot.movies.first.title, equals('Test Movie'));
+      expect(snapshot.movies.first.metadata['key'], equals('value'));
+    });
   });
 
   group('HomePage Widget Tests', () {
@@ -558,7 +655,7 @@ void main() {
       Get.reset();
     });
 
-    testWidgets('Displays Welcome Card when 0 providers are configured', (tester) async {
+    testWidgets('Displays Welcome Card when 0 providers and no cached content', (tester) async {
       final controller = HomeController(
         mediaEngine: _FakeMediaEngine(),
         mediaLibrary: _FakeMediaLibrary(),
@@ -580,6 +677,32 @@ void main() {
 
       expect(find.text('Welcome to StreamHub Pro'), findsOneWidget);
       expect(find.text('Add Media Source'), findsOneWidget);
+    });
+
+    testWidgets('Renders cached content when hasProviders is false but hasContent is true', (tester) async {
+      final controller = HomeController(
+        mediaEngine: _FakeMediaEngine(),
+        mediaLibrary: _FakeMediaLibrary(),
+        catalogRepository: _FakeCatalogRepository([]),
+        historyRepository: _FakeHistoryRepository([]),
+        favoriteRepository: _FakeFavoriteRepository([]),
+        mediaSourceRepository: _FakeMediaSourceRepository([]),
+        snapshotService: _FakeHomeSnapshotService(),
+      );
+
+      controller.movies.assignAll([sampleMovie]);
+      controller.hasProviders.value = false;
+      Get.put<HomeController>(controller);
+
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: HomePage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Welcome to StreamHub Pro'), findsNothing);
+      expect(find.text('Trending Movies'), findsOneWidget);
     });
 
     testWidgets('Renders complete redesigned Home screen with content', (tester) async {
@@ -608,7 +731,7 @@ void main() {
 
       // Hero Carousel
       expect(find.byType(HomeHeroCarousel), findsOneWidget);
-      expect(find.text('WATCH NOW'), findsOneWidget);
+      expect(find.text('Watch Now'), findsOneWidget);
 
       // Quick Actions
       expect(find.byType(HomeQuickActions), findsOneWidget);

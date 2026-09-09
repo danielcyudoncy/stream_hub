@@ -151,18 +151,22 @@ class _HomeHeroCarouselState extends State<HomeHeroCarousel> {
             ),
             if (widget.items.length > 1)
               Positioned(
-                bottom: AppSpacing.md,
-                right: AppSpacing.lg,
-                child: _PageIndicator(
-                  count: widget.items.length,
-                  currentIndex: _currentPage,
-                  onTap: (index) {
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 400),
-                      curve: Curves.easeInOut,
-                    );
-                  },
+                left: isTv ? null : 0,
+                right: isTv ? AppSpacing.xl : 0,
+                bottom: isTv ? 24.0 : 8.0,
+                child: Align(
+                  alignment: isTv ? Alignment.centerRight : Alignment.center,
+                  child: _PageIndicator(
+                    count: widget.items.length,
+                    currentIndex: _currentPage,
+                    onTap: (index) {
+                      _pageController.animateToPage(
+                        index,
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                      );
+                    },
+                  ),
                 ),
               ),
           ],

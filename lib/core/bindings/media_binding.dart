@@ -14,6 +14,7 @@ import 'package:stream_hub/data/repositories/media_repository_impl.dart';
 import 'package:stream_hub/data/repositories/media_source_repository.dart';
 import 'package:stream_hub/data/repositories/media_source_repository_impl.dart';
 import 'package:stream_hub/data/repositories/playback_repository_impl.dart';
+import 'package:stream_hub/data/services/catalog_refresh_coordinator.dart';
 import 'package:stream_hub/data/services/m3u_download_service.dart';
 import 'package:stream_hub/data/services/playback_local_service.dart';
 import 'package:stream_hub/data/services/playlist_cache_service.dart';
@@ -85,5 +86,14 @@ class MediaBinding extends Bindings {
       () => Get.find<CatalogRepository>() as CatalogRepositoryImpl,
       fenix: true,
     );
+    if (!Get.isRegistered<CatalogRefreshCoordinator>()) {
+      Get.lazyPut<CatalogRefreshCoordinator>(
+        () => CatalogRefreshCoordinator(
+          catalogRepository: Get.find<CatalogRepository>(),
+          logger: Get.find<LoggingService>(),
+        ),
+        fenix: true,
+      );
+    }
   }
 }

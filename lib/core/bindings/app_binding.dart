@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'media_binding.dart';
@@ -22,6 +23,7 @@ import 'package:stream_hub/data/services/provider_storage_service.dart';
 import 'package:stream_hub/data/services/cache_service.dart';
 import 'package:stream_hub/data/services/database_service.dart';
 import 'package:stream_hub/data/services/firebase_service.dart';
+import 'package:stream_hub/data/services/catalog_refresh_coordinator.dart';
 import 'package:stream_hub/data/services/provider_sync_service.dart';
 import 'package:stream_hub/core/media/media_engine.dart';
 import 'package:stream_hub/core/media/media_library.dart';
@@ -49,6 +51,9 @@ import 'package:stream_hub/core/repositories/download_repository.dart';
 import 'package:stream_hub/core/services/download_service.dart';
 import 'package:stream_hub/data/repositories/download_repository_impl.dart';
 import 'package:stream_hub/modules/epg/bindings/epg_binding.dart';
+import 'package:stream_hub/core/services/tmdb_catalog_service.dart';
+import 'package:stream_hub/core/media/stream_matching_service.dart';
+import 'package:stream_hub/core/services/media_watchlist_service.dart';
 
 class AppBinding extends Bindings {
   @override
@@ -99,6 +104,14 @@ class AppBinding extends Bindings {
     Get.put<CatalogRepository>(catalogRepo, permanent: true);
     Get.put<MediaRepository>(mediaRepo, permanent: true);
 
+    Get.put<CatalogRefreshCoordinator>(
+      CatalogRefreshCoordinator(
+        catalogRepository: catalogRepo,
+        logger: loggingService,
+      ),
+      permanent: true,
+    );
+
     Get.put<ProviderSyncService>(
       ProviderSyncService(
         repository: providerRepo,
@@ -124,6 +137,26 @@ class AppBinding extends Bindings {
     Get.put<HistoryRepository>(HistoryRepositoryImpl(Get.find<HistoryService>()), permanent: true);
     final favoriteRepo = FavoriteRepositoryImpl(Get.find<FavoriteService>(), catalogRepo);
     Get.put<FavoriteRepository>(favoriteRepo, permanent: true);
+
+    final tmdbCatalogService = TMDBCatalogService(logger: loggingService);
+    Get.put<TMDBCatalogService>(tmdbCatalogService, permanent: true);
+
+    final streamMatchingService = StreamMatchingService(
+      catalogRepository: catalogRepo,
+      providerRepository: providerRepo,
+      mediaLibrary: Get.isRegistered<MediaLibrary>() ? Get.find<MediaLibrary>() : null,
+      logger: loggingService,
+    );
+    Get.put<StreamMatchingService>(streamMatchingService, permanent: true);
+
+    final mediaWatchlistService = MediaWatchlistService(logger: loggingService);
+    Get.put<MediaWatchlistService>(mediaWatchlistService, permanent: true);
+    unawaited(mediaWatchlistService.init().then((_) {
+      mediaWatchlistService.startMatchingWatcher(
+        catalogRepository: catalogRepo,
+        streamMatchingService: streamMatchingService,
+      );
+    }));
 
     Get.put<LiveTVHomeController>(
       LiveTVHomeController(

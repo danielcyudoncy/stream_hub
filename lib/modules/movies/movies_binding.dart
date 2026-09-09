@@ -4,19 +4,26 @@ import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
+import 'package:stream_hub/core/services/tmdb_catalog_service.dart';
 import 'movies_controller.dart';
 
 class MoviesBinding extends Bindings {
   @override
   void dependencies() {
     if (!Get.isRegistered<MoviesController>()) {
-      Get.lazyPut<MoviesController>(() => MoviesController(
-            mediaEngine: Get.find<MediaEngine>(),
-            mediaLibrary: Get.find<MediaLibrary>(),
-            catalogRepository: Get.find<CatalogRepository>(),
-            favoriteRepository: Get.find<FavoriteRepository>(),
-            playbackRepository: Get.find<PlaybackRepository>(),
-          ));
+      Get.lazyPut<MoviesController>(
+        () => MoviesController(
+          mediaEngine: Get.find<MediaEngine>(),
+          mediaLibrary: Get.find<MediaLibrary>(),
+          catalogRepository: Get.find<CatalogRepository>(),
+          favoriteRepository: Get.find<FavoriteRepository>(),
+          playbackRepository: Get.find<PlaybackRepository>(),
+          tmdbCatalogService: Get.isRegistered<TMDBCatalogService>()
+              ? Get.find<TMDBCatalogService>()
+              : null,
+        ),
+        fenix: true,
+      );
     }
   }
 }

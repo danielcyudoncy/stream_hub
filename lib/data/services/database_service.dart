@@ -6,6 +6,8 @@ import '../../core/logging/logging_service.dart';
 class DatabaseService extends GetxService {
   final LoggingService _logger = Get.find<LoggingService>();
 
+  bool _initialized = false;
+
   late Box settingsBox;
   late Box providersBox;
   late Box favoritesBox;
@@ -16,6 +18,9 @@ class DatabaseService extends GetxService {
   late Box recentSearchesBox;
 
   Future<DatabaseService> init() async {
+    // Idempotent: services are initialized in main() before runApp and again in
+    // the splash bootstrap, so repeated calls must not re-open every Hive box.
+    if (_initialized) return this;
     _logger.info('Initializing Hive Database...', tag: 'DatabaseService');
     try {
       settingsBox = await _openBoxSafe(AppConstants.boxSettings);
@@ -26,7 +31,8 @@ class DatabaseService extends GetxService {
       downloadsBox = await _openBoxSafe(AppConstants.boxDownloads);
       watchProgressBox = await _openBoxSafe(AppConstants.boxWatchProgress);
       recentSearchesBox = await _openBoxSafe(AppConstants.boxRecentSearches);
-      
+
+      _initialized = true;
       _logger.info('Hive Database successfully initialized.', tag: 'DatabaseService');
     } catch (e) {
       _logger.error('Hive Database initialization failed.', tag: 'DatabaseService', error: e);
