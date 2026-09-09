@@ -786,7 +786,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
 
                                 // Multi-Stream Indicator
                                 if (!isCompact &&
-                                    channel.streamUrls.length > 1) ...[
+                                    channel.resolvedStreamUrls.length > 1) ...[
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6.0,
@@ -797,7 +797,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                       borderRadius: BorderRadius.circular(4.0),
                                     ),
                                     child: Text(
-                                      'Stream ${widget.controller.activeStreamIndex.value + 1}/${channel.streamUrls.length}',
+                                      'Stream ${widget.controller.activeStreamIndex.value + 1}/${channel.resolvedStreamUrls.length}',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 9.5,

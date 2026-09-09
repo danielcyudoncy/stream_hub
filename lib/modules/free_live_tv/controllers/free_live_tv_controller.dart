@@ -146,14 +146,6 @@ class FreeLiveTvController extends GetxController {
     }
     try {
       var list = await repository.getCatalog(forceRefresh: forceRefresh);
-      if (!forceRefresh &&
-          list.isNotEmpty &&
-          list.every((c) => !c.id.startsWith('custom_'))) {
-        try {
-          final fresh = await repository.getCatalog(forceRefresh: true);
-          if (fresh.isNotEmpty) list = fresh;
-        } catch (_) {}
-      }
       _allChannels.clear();
       _allChannels.addAll(list);
 
@@ -188,10 +180,9 @@ class FreeLiveTvController extends GetxController {
             featuredChannel.value = stillExists;
           }
         } else if (featuredChannel.value == null) {
-          // Hero fallback: a custom source channel, else Nigerian, else recommended top.
+          // Hero fallback: prefer Nigerian, else the top recommended channel.
           final heroCandidate = recommended.isNotEmpty
-              ? (recommended.firstWhereOrNull((c) => c.id.startsWith('custom_')) ??
-                 recommended.firstWhereOrNull(
+              ? (recommended.firstWhereOrNull(
                       (c) =>
                           c.countryCode == 'NG' ||
                           c.country.toLowerCase() == 'nigeria') ??
@@ -295,11 +286,6 @@ class FreeLiveTvController extends GetxController {
       if (seen.contains(ch.id)) return;
       seen.add(ch.id);
       result.add(ch);
-    }
-
-    // Always put custom source channels at the very front of the featured carousel.
-    for (final ch in pool.where((c) => c.id.startsWith('custom_')).take(6)) {
-      add(ch);
     }
 
     // Prefer a spread of countries from the top of the recommended pool.
@@ -499,25 +485,13 @@ class FreeLiveTvController extends GetxController {
       }).toList();
     }
 
-    // 8. Sorting (custom sources like portal5458 always sort to the top)
+    // 8. Sorting
     switch (selectedSort.value) {
       case 'country':
-        list.sort((a, b) {
-          final aIsCustom = a.id.startsWith('custom_') ? 1 : 0;
-          final bIsCustom = b.id.startsWith('custom_') ? 1 : 0;
-          if (aIsCustom != bIsCustom) {
-            return bIsCustom.compareTo(aIsCustom);
-          }
-          return a.country.compareTo(b.country);
-        });
+        list.sort((a, b) => a.country.compareTo(b.country));
         break;
       case 'category':
         list.sort((a, b) {
-          final aIsCustom = a.id.startsWith('custom_') ? 1 : 0;
-          final bIsCustom = b.id.startsWith('custom_') ? 1 : 0;
-          if (aIsCustom != bIsCustom) {
-            return bIsCustom.compareTo(aIsCustom);
-          }
           final aCat = a.categories.isNotEmpty ? a.categories.first : 'zzz';
           final bCat = b.categories.isNotEmpty ? b.categories.first : 'zzz';
           return aCat.compareTo(bCat);
@@ -525,14 +499,9 @@ class FreeLiveTvController extends GetxController {
         break;
       case 'alphabetical':
       default:
-        list.sort((a, b) {
-          final aIsCustom = a.id.startsWith('custom_') ? 1 : 0;
-          final bIsCustom = b.id.startsWith('custom_') ? 1 : 0;
-          if (aIsCustom != bIsCustom) {
-            return bIsCustom.compareTo(aIsCustom);
-          }
-          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        });
+        list.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         break;
     }
 
@@ -824,7 +793,8 @@ class FreeLiveTvController extends GetxController {
 
   /// Plays the channel with automatic multi-stream fallback.
   Future<void> openChannel(FreeTvChannel channel, {int streamIndex = 0}) async {
-    if (channel.streamUrls.isEmpty) {
+    final availableUrls = channel.resolvedStreamUrls;
+    if (availableUrls.isEmpty) {
       playbackStatusMessage.value = 'No playable stream found for this channel.';
       return;
     }
@@ -847,9 +817,14 @@ class FreeLiveTvController extends GetxController {
     }
     if (currentGen != _openChannelGeneration) return;
 
+    final safeStreamIndex =
+        (streamIndex >= 0 && streamIndex < availableUrls.length)
+            ? streamIndex
+            : 0;
+
     // Update active channel and kick off loading spinner immediately
     activePlayingChannel.value = channel;
-    activeStreamIndex.value = streamIndex;
+    activeStreamIndex.value = safeStreamIndex;
     playbackStatusMessage.value = '';
     _stopPlayerLoading(complete: false);
     _startPlayerLoading();
@@ -866,28 +841,35 @@ class FreeLiveTvController extends GetxController {
       }
     }));
 
-    final currentStreamUrl = channel.streamUrls[streamIndex];
+    final currentStreamUrl = availableUrls[safeStreamIndex];
+    final matchingStream = channel.streams.firstWhereOrNull(
+      (s) => s.url == currentStreamUrl,
+    );
     final mediaItem = channel.toMediaItem().copyWith(
       metadata: {
         ...channel.toMediaItem().metadata,
         'streamUrl': currentStreamUrl,
         'isLive': true,
+        if (matchingStream?.referrer != null) 'referer': matchingStream!.referrer,
+        if (matchingStream?.referrer != null) 'origin': matchingStream!.referrer,
+        if (matchingStream?.userAgent != null)
+          'userAgent': matchingStream!.userAgent,
       },
     );
 
     _logger.info(
-      'Playing Free TV Channel "${channel.name}" (Stream ${streamIndex + 1}/${channel.streamUrls.length}): $currentStreamUrl',
+      'Playing Free TV Channel "${channel.name}" (Stream ${safeStreamIndex + 1}/${availableUrls.length}): $currentStreamUrl',
       tag: 'FreeLiveTvController',
     );
 
     // If backup streams exist, start a watchdog to fail over fast if the stream stalls/hangs
-    if (channel.streamUrls.length > 1 && streamIndex < channel.streamUrls.length - 1) {
+    if (availableUrls.length > 1 && safeStreamIndex < availableUrls.length - 1) {
       _streamStartupWatchdogTimer = Timer(const Duration(seconds: 7), () {
         if (currentGen == _openChannelGeneration &&
             isPlayerLoading.value &&
             activePlayingChannel.value?.id == channel.id) {
           _logger.warning(
-            'Stream ${streamIndex + 1} for "${channel.name}" exceeded startup threshold (7s). Failing over to next stream...',
+            'Stream ${safeStreamIndex + 1} for "${channel.name}" exceeded startup threshold (7s). Failing over to next stream...',
             tag: 'FreeLiveTvController',
           );
           _handlePlaybackError();
@@ -903,14 +885,15 @@ class FreeLiveTvController extends GetxController {
     final active = activePlayingChannel.value;
     if (active == null) return;
 
+    final availableUrls = active.resolvedStreamUrls;
     final nextIndex = activeStreamIndex.value + 1;
-    if (nextIndex < active.streamUrls.length) {
+    if (nextIndex < availableUrls.length) {
       _logger.warning(
         'Stream $nextIndex failed for "${active.name}". Trying backup stream ${nextIndex + 1}...',
         tag: 'FreeLiveTvController',
       );
       playbackStatusMessage.value =
-          'Stream unavailable, attempting fallback (${nextIndex + 1}/${active.streamUrls.length})...';
+          'Stream unavailable, attempting fallback (${nextIndex + 1}/${availableUrls.length})...';
       openChannel(active, streamIndex: nextIndex);
     } else {
       _logger.error(
@@ -919,6 +902,7 @@ class FreeLiveTvController extends GetxController {
       );
       playbackStatusMessage.value =
           'Unable to play this channel right now.\nPlease try again later or select another channel.';
+      _stopPlayerLoading(complete: false);
     }
   }
 

@@ -234,8 +234,82 @@ void main() {
       }
     });
 
+    test('Xtream fallback attaches portal headers and uses neutral labeling when categories are unknown',
+        () async {
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((HttpRequest request) {
+        if (request.uri.path == '/get.php') {
+          request.response.statusCode = HttpStatus.notFound;
+        } else if (request.uri.path == '/player_api.php') {
+          final action = request.uri.queryParameters['action'];
+          if (action == 'get_live_categories') {
+            request.response.headers.contentType = ContentType.json;
+            request.response.write(
+              '[{"category_id":"1","category_name":"UK - Entertainment"},'
+              '{"category_id":"2","category_name":"US - News"}]',
+            );
+          } else if (action == 'get_live_streams') {
+            request.response.headers.contentType = ContentType.json;
+            request.response.write(
+              '[{"stream_id":101,"name":"BBC One","category_id":"1","stream_icon":""},'
+              '{"stream_id":202,"name":"Mystery Feed","category_id":"999","stream_icon":""}]',
+            );
+          } else {
+            request.response.statusCode = HttpStatus.notFound;
+          }
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+        }
+        request.response.close();
+      });
+
+      final source = FreeTvSource(
+        id: 'portal5458',
+        name: 'Portal 5458',
+        url:
+            'http://${server.address.host}:${server.port}/get.php?username=spehar6&password=2934778645&type=m3u_plus',
+        kind: FreeTvSourceKind.global,
+      );
+
+      final dataSource = CustomM3uFreeTvRemoteDataSource(
+        source: source,
+        httpClient: HttpClient(),
+      );
+
+      final channels = await dataSource.fetchOnlineChannels();
+      expect(channels.length, 2);
+
+      final origin = 'http://${server.address.host}:${server.port}';
+
+      // Resolved category drives country/region labels.
+      final bbc = channels.firstWhere((c) => c.id == 'portal5458_101');
+      expect(bbc.name, 'BBC One');
+      expect(bbc.country, 'United Kingdom');
+      expect(bbc.countryCode, 'GB');
+      expect(bbc.region, 'Europe');
+      expect(
+        bbc.streams.first.url,
+        '$origin/live/spehar6/2934778645/101.ts',
+      );
+      // Header injection: portal origin Referer + portal-conformant User-Agent.
+      expect(bbc.streams.first.referrer, origin);
+      expect(bbc.streams.first.userAgent, 'IPTVSmartersPro/1.0');
+
+      // Unresolvable category must fall into a neutral bucket, never a fabricated country.
+      final mystery = channels.firstWhere((c) => c.id == 'portal5458_202');
+      expect(mystery.country, 'International');
+      expect(mystery.countryCode, 'ZZ');
+      expect(mystery.region, 'Worldwide');
+      expect(mystery.streams.first.referrer, origin);
+    });
+
     test('unimplemented secondary methods return empty lists', () async {
-      final source = FreeTvSources.customPortal5458;
+      final source = const FreeTvSource(
+        id: 'unimplemented_test',
+        name: 'Unimplemented Test',
+        url: 'http://127.0.0.1:8080/get.php',
+        kind: FreeTvSourceKind.global,
+      );
       final dataSource = CustomM3uFreeTvRemoteDataSource(source: source);
 
       expect(await dataSource.fetchCountries(), isEmpty);

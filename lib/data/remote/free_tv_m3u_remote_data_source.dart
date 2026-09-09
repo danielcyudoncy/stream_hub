@@ -208,10 +208,14 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
       final rawCategory = catMap[catId] ?? source.categoryName ?? 'General';
       final logo = item['stream_icon']?.toString().trim();
 
-      String country = 'United States';
-      String countryCode = 'US';
-      String region = 'North America';
-      String lang = 'English';
+      // Providers exposing a usable `category_name` map drive country/region
+      // from the category; otherwise fall back to the source-declared defaults
+      // (or a neutral 'International' bucket) instead of fabricating a single
+      // country label for the whole feed.
+      String country = source.defaultCountry ?? 'International';
+      String countryCode = source.defaultCountryCode ?? 'ZZ';
+      String region = source.defaultRegion ?? 'Worldwide';
+      String lang = source.defaultLanguage ?? 'English';
 
       final catUpper = rawCategory.toUpperCase();
       if (catUpper.startsWith('UK - ') || catUpper.contains('UNITED KINGDOM')) {
@@ -241,25 +245,34 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
 
       final streamUrl = '${baseUri.scheme}://${baseUri.host}:${baseUri.port}/live/$username/$password/$streamId.ts';
 
+      // Xtream portals typically require the portal origin as Referer plus a
+      // portal-conformant User-Agent, otherwise they return HTTP 403. These are
+      // attached to the stream and later injected by the Stream Engine.
+      final origin =
+          '${baseUri.scheme}://${baseUri.host}${baseUri.hasPort ? ':${baseUri.port}' : ''}';
+
       final normalizedCategories = _normalizeCategories(rawCategory);
 
       result.add(FreeTvChannel(
-        id: 'custom_portal5458_$streamId',
+        id: '${source.id}_$streamId',
         name: rawName,
         logo: (logo != null && logo.isNotEmpty) ? logo : null,
         country: country,
         countryCode: countryCode,
         region: region,
         categories: normalizedCategories,
-        languages: [lang, 'English'],
+        languages: lang == 'English' ? ['English'] : [lang, 'English'],
         qualityScore: 100,
         qualityTier: FreeTvQualityTier.recommended,
+        streamUrls: [streamUrl],
         streams: [
           FreeTvStream(
             url: streamUrl,
             isOnline: true,
             healthScore: 100.0,
             label: 'MPEG-TS',
+            referrer: origin,
+            userAgent: 'IPTVSmartersPro/1.0',
           ),
         ],
       ));

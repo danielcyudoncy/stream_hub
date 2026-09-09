@@ -823,9 +823,9 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (channel.streamUrls.length > 1)
+            if (channel.resolvedStreamUrls.length > 1)
               Text(
-                '${channel.streamUrls.length} streams',
+                '${channel.resolvedStreamUrls.length} streams',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 11,

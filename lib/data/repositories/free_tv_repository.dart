@@ -13,8 +13,8 @@ class FreeTvRepository {
   static const String kBoxRecent = 'free_tv_recent';
   static const String kBoxReachability = 'free_tv_reachability';
 
-  static const String kKeyChannels = 'channels_data_v3';
-  static const String kKeyCachedAt = 'cached_at_v3';
+  static const String kKeyChannels = 'channels_data_v4';
+  static const String kKeyCachedAt = 'cached_at_v4';
   static const String kKeyWorkingIds = 'working_ids';
   static const String kKeyWorkingCheckedAt = 'working_checked_at';
 
@@ -82,7 +82,7 @@ class FreeTvRepository {
       if (cached != null && cached.isNotEmpty) {
         _logger.info('Returning ${cached.length} channels from Hive cache.',
             tag: 'FreeTvRepository');
-        return cached;
+        return _withoutLegacyCustomChannels(cached);
       }
     }
 
@@ -91,10 +91,11 @@ class FreeTvRepository {
       if (freshChannels.isNotEmpty) {
         await _saveToCache(freshChannels);
         // Apply favorite states
-        return freshChannels.map((ch) {
+        final withFavorites = freshChannels.map((ch) {
           final isFav = favorites.contains(ch.id);
           return isFav ? ch.copyWith(isFavorite: true) : ch;
         }).toList();
+        return _withoutLegacyCustomChannels(withFavorites);
       }
     } catch (e) {
       _logger.warning(
@@ -107,12 +108,23 @@ class FreeTvRepository {
           'API failed, but loaded ${fallback.length} channels from fallback cache.',
           tag: 'FreeTvRepository',
         );
-        return fallback;
+        return _withoutLegacyCustomChannels(fallback);
       }
       rethrow;
     }
 
     return const [];
+  }
+
+  /// Drops channels injected by the removed third-party Portal 5458 sample
+  /// source (id prefix `custom_portal5458_`) that may still linger in an older
+  /// Hive cache.
+  List<FreeTvChannel> _withoutLegacyCustomChannels(
+    List<FreeTvChannel> channels,
+  ) {
+    return channels
+        .where((c) => !c.id.startsWith('custom_portal5458_'))
+        .toList();
   }
 
   /// Returns the curated (recommended) subset of the catalog.
