@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+import 'package:stream_hub/core/helpers/profile_key_helper.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/models/playback_analytics_model.dart';
 import 'package:stream_hub/data/models/playback_session_model.dart';
 import 'package:stream_hub/data/models/player_settings_model.dart';
+import 'package:stream_hub/data/services/active_profile_service.dart';
 
 class PlaybackSessionModelAdapter extends TypeAdapter<PlaybackSessionModel> {
   @override
@@ -191,22 +194,40 @@ class PlaybackLocalService {
     return this;
   }
 
+  String get _profileId {
+    if (Get.isRegistered<ActiveProfileService>()) {
+      return Get.find<ActiveProfileService>().currentProfileId;
+    }
+    return '';
+  }
+
+  String _watchKey(String itemId) =>
+      ProfileKeyHelper.watchKey(_profileId, itemId);
+
   Future<void> saveSession(PlaybackSessionModel model) async {
-    await _sessionsBox?.put(model.id, model);
+    // Store under a profile-scoped key; the model's own id stays as the raw itemId.
+    await _sessionsBox?.put(_watchKey(model.id), model);
   }
 
   Future<PlaybackSessionModel?> getSession(String id) async {
-    return _sessionsBox?.get(id);
+    return _sessionsBox?.get(_watchKey(id));
   }
 
   Future<List<PlaybackSessionModel>> getAllSessions() async {
-    final list = _sessionsBox?.values.toList() ?? [];
+    final box = _sessionsBox;
+    if (box == null) return const [];
+    // Filter to only this profile's sessions.
+    final list = box.keys
+        .where((k) => ProfileKeyHelper.isWatchKeyForProfile(k.toString(), _profileId))
+        .map((k) => box.get(k))
+        .whereType<PlaybackSessionModel>()
+        .toList();
     list.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
     return list;
   }
 
   Future<void> deleteSession(String id) async {
-    await _sessionsBox?.delete(id);
+    await _sessionsBox?.delete(_watchKey(id));
   }
 
   Future<void> clearSessions() async {

@@ -55,6 +55,7 @@ import 'package:stream_hub/core/services/tmdb_catalog_service.dart';
 import 'package:stream_hub/core/media/stream_matching_service.dart';
 import 'package:stream_hub/core/services/media_watchlist_service.dart';
 import 'package:stream_hub/core/services/cloud_sync_service.dart';
+import 'package:stream_hub/data/services/active_profile_service.dart';
 
 class AppBinding extends Bindings {
   @override
@@ -125,12 +126,27 @@ class AppBinding extends Bindings {
     );
 
     final databaseService = Get.find<DatabaseService>();
+
+    // Register ActiveProfileService before data-layer services that depend on it.
+    if (!Get.isRegistered<ActiveProfileService>()) {
+      Get.put<ActiveProfileService>(ActiveProfileService(), permanent: true);
+      // Restore the persisted active profile ID from settings.
+      unawaited(Get.find<ActiveProfileService>().init());
+    }
+
     Box? favBox;
     try {
       favBox = databaseService.favoritesBox;
     } catch (_) {}
+    Box? historyBox;
+    try {
+      historyBox = databaseService.historyBox;
+    } catch (_) {}
 
-    Get.put<HistoryService>(HistoryService(logger: loggingService), permanent: true);
+    Get.put<HistoryService>(
+      HistoryService(logger: loggingService, box: historyBox),
+      permanent: true,
+    );
     Get.put<FavoriteService>(
       FavoriteService(logger: loggingService, box: favBox),
       permanent: true,
