@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../../core/services/device_environment_service.dart';
 import '../../../core/theme/app_colors.dart';
 
 enum _DragType { none, brightness, volume }
 
 /// A touch gesture overlay for video players providing:
-/// - Left-side vertical drag: Adjusts brightness with real-time HUD and screen dimming.
-/// - Right-side vertical drag: Adjusts volume with real-time HUD and audio control.
+/// - Left-side vertical drag: Adjusts physical screen brightness with real-time HUD.
+/// - Right-side vertical drag: Adjusts device master volume with real-time HUD and audio control.
 /// - Single tap: Toggles player controls.
 /// - Double tap: Triggers play/pause or quick seek.
 class PlayerTouchGestureOverlay extends StatefulWidget {
@@ -41,6 +42,7 @@ class PlayerTouchGestureOverlay extends StatefulWidget {
 }
 
 class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
+  final DeviceEnvironmentService _deviceEnv = DeviceEnvironmentService();
   late double _brightness;
   late double _volume;
 
@@ -53,8 +55,27 @@ class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
   @override
   void initState() {
     super.initState();
-    _brightness = widget.initialBrightness.clamp(0.05, 1.0);
+    _brightness = widget.initialBrightness.clamp(0.01, 1.0);
     _volume = widget.initialVolume.clamp(0.0, 1.0);
+
+    if (widget.enableBrightness) {
+      _deviceEnv.acquireBrightnessClaim();
+      // Initialize with active hardware screen brightness if available
+      _deviceEnv.getBrightness().then((b) {
+        if (b != null && mounted && _currentDrag != _DragType.brightness) {
+          setState(() => _brightness = b.clamp(0.01, 1.0));
+        }
+      });
+    }
+
+    if (widget.enableVolume) {
+      // Initialize with active system media volume if available
+      _deviceEnv.getVolume().then((v) {
+        if (v != null && mounted && _currentDrag != _DragType.volume) {
+          setState(() => _volume = v.clamp(0.0, 1.0));
+        }
+      });
+    }
   }
 
   @override
@@ -69,10 +90,14 @@ class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
   @override
   void dispose() {
     _hudHideTimer?.cancel();
+    if (widget.enableBrightness) {
+      _deviceEnv.releaseBrightnessClaim();
+    }
     super.dispose();
   }
 
-  void _onVerticalDragStart(DragStartDetails details, BoxConstraints constraints) {
+  @visibleForTesting
+  void onVerticalDragStart(DragStartDetails details, BoxConstraints constraints) {
     _dragStartY = details.localPosition.dy;
     final isLeft = details.localPosition.dx < (constraints.maxWidth / 2);
 
@@ -91,7 +116,8 @@ class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
     setState(() => _showHud = true);
   }
 
-  void _onVerticalDragUpdate(
+  @visibleForTesting
+  void onVerticalDragUpdate(
       DragUpdateDetails details, BoxConstraints constraints) {
     if (_currentDrag == _DragType.none) return;
 
@@ -102,21 +128,24 @@ class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
 
     if (_currentDrag == _DragType.brightness) {
       final newBrightness =
-          (_initialDragValue + deltaFraction).clamp(0.05, 1.0);
+          (_initialDragValue + deltaFraction).clamp(0.01, 1.0);
       if ((newBrightness - _brightness).abs() > 0.005) {
         setState(() => _brightness = newBrightness);
+        _deviceEnv.setBrightness(newBrightness);
         widget.onBrightnessChanged?.call(newBrightness);
       }
     } else if (_currentDrag == _DragType.volume) {
       final newVolume = (_initialDragValue + deltaFraction).clamp(0.0, 1.0);
       if ((newVolume - _volume).abs() > 0.005) {
         setState(() => _volume = newVolume);
+        _deviceEnv.setVolume(newVolume);
         widget.onVolumeChanged?.call(newVolume);
       }
     }
   }
 
-  void _onVerticalDragEnd(DragEndDetails details) {
+  @visibleForTesting
+  void onVerticalDragEnd(DragEndDetails details) {
     _currentDrag = _DragType.none;
     _hudHideTimer?.cancel();
     _hudHideTimer = Timer(const Duration(milliseconds: 1100), () {
@@ -130,7 +159,8 @@ class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final dimOpacity = (1.0 - _brightness).clamp(0.0, 0.85);
+        // Subtle fallback dimming only if brightness drops into extreme low range (< 15%)
+        final dimOpacity = _brightness < 0.15 ? ((0.15 - _brightness) / 0.15 * 0.7).clamp(0.0, 0.7) : 0.0;
 
         return Stack(
           fit: StackFit.expand,
@@ -138,7 +168,7 @@ class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
             // 1. Underlying Player Content (Video)
             if (widget.child != null) widget.child!,
 
-            // 2. Brightness Dimming Layer
+            // 2. Extra Low-Light Dimming Layer (Only for sub-15% night viewing)
             if (dimOpacity > 0.01)
               IgnorePointer(
                 child: ColoredBox(
@@ -149,15 +179,16 @@ class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
             // 3. Touch Interceptor (Beneath controls so buttons remain fully interactive)
             Positioned.fill(
               child: GestureDetector(
+                key: const ValueKey('player_gesture_detector'),
                 behavior: HitTestBehavior.opaque,
                 onTap: widget.onTap,
                 onDoubleTap: widget.onDoubleTap,
                 onVerticalDragStart: (details) =>
-                    _onVerticalDragStart(details, constraints),
+                    onVerticalDragStart(details, constraints),
                 onVerticalDragUpdate: (details) =>
-                    _onVerticalDragUpdate(details, constraints),
-                onVerticalDragEnd: _onVerticalDragEnd,
-                onVerticalDragCancel: () => _onVerticalDragEnd(DragEndDetails()),
+                    onVerticalDragUpdate(details, constraints),
+                onVerticalDragEnd: onVerticalDragEnd,
+                onVerticalDragCancel: () => onVerticalDragEnd(DragEndDetails()),
                 child: const ColoredBox(color: Colors.transparent),
               ),
             ),
