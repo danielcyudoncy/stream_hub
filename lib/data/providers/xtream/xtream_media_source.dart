@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
@@ -186,33 +187,46 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
         _accountMetadata = accountMetadata;
       }
 
-      final results = await Future.wait<dynamic>([
+      final stage1Results = await Future.wait<dynamic>([
         _fetchLiveChannels(syncStartedAt),
         _fetchLiveCategories(syncStartedAt),
         _fetchMovieCategories(syncStartedAt),
         _fetchSeriesCategories(syncStartedAt),
-        _fetchMovies(syncStartedAt),
-        _fetchSeries(syncStartedAt),
       ], eagerError: false);
 
-      final liveCategories = results[1] as List<MediaItem>;
-      final movieCategories = results[2] as List<MediaItem>;
-      final seriesCategories = results[3] as List<MediaItem>;
+      final liveCategories = stage1Results[1] as List<MediaItem>;
+      final movieCategories = stage1Results[2] as List<MediaItem>;
+      final seriesCategories = stage1Results[3] as List<MediaItem>;
 
-      _cachedChannels = results[0] as List<MediaItem>;
+      _cachedChannels = stage1Results[0] as List<MediaItem>;
       _cachedCategories = [
         ...liveCategories,
         ...movieCategories,
         ...seriesCategories,
       ];
-      _cachedMovies = results[4] as List<MediaItem>;
-      _cachedSeries = results[5] as List<MediaItem>;
-      _lastSync = DateTime.now();
 
       _cachedChannels = _resolveCategoryNames(
         _cachedChannels,
         _categoryNameMap(_cachedCategories, _kLiveCategoryPrefix),
       );
+
+      // Fast-path: Emit live channels and categories immediately so UI becomes active
+      if (_cachedChannels.isNotEmpty || _cachedCategories.isNotEmpty) {
+        _channelsController.add(_cachedChannels);
+        _categoriesController.add(_cachedCategories);
+      }
+
+      // Stage 2: Fetch Movies and Series (heavy VOD payloads).
+      // Staged with a concurrency pool of 2 to avoid server socket exhaustion.
+      final stage2Results = await Future.wait<dynamic>([
+        _fetchMovies(syncStartedAt),
+        _fetchSeries(syncStartedAt),
+      ], eagerError: false);
+
+      _cachedMovies = stage2Results[0] as List<MediaItem>;
+      _cachedSeries = stage2Results[1] as List<MediaItem>;
+      _lastSync = DateTime.now();
+
       _cachedMovies = _resolveCategoryNames(
         _cachedMovies,
         _categoryNameMap(_cachedCategories, _kVodCategoryPrefix),
@@ -509,11 +523,11 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       return null;
     }
 
-    final bytes = await response.fold<List<int>>(
-      [],
-      (prev, chunk) => prev..addAll(chunk),
-    );
-    return utf8.decode(bytes);
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in response) {
+      builder.add(chunk);
+    }
+    return utf8.decode(builder.takeBytes(), allowMalformed: true);
   }
 
   /// Fetches the panel `user_info` and parses subscription account metadata.

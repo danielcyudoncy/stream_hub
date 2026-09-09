@@ -235,21 +235,23 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
           progressController: progressController,
           cancellationToken: _currentCancellationToken,
         );
-        final normalized = rawContent
-            .replaceAll(RegExp(r'\s+'), ' ')
-            .trimLeft();
+        final samplePrefix = rawContent.length > 500
+            ? rawContent.substring(0, 500).trimLeft()
+            : rawContent.trimLeft();
         _logger.info(
           'M3U downloaded content: ${rawContent.length} chars, '
-          'starts-with-#EXTM3U=${normalized.startsWith('#EXTM3U')}, '
-          'looks-like-html=${normalized.toLowerCase().contains('<html') || normalized.toLowerCase().contains('<!doctype')}',
+          'starts-with-#EXTM3U=${samplePrefix.startsWith('#EXTM3U')}, '
+          'looks-like-html=${samplePrefix.toLowerCase().contains('<html') || samplePrefix.toLowerCase().contains('<!doctype')}',
           tag: 'M3UMediaSource',
         );
       } finally {
         await progressController.close();
       }
 
-      final validation = await compute(_validatePlaylistIsolated, rawContent);
-      final playlist = await compute(_parsePlaylistIsolated, rawContent);
+      final processed = await compute(_processM3UIsolated, rawContent);
+      final validation = processed.validation;
+      final playlist = processed.playlist;
+      final hash = processed.hash;
 
       final contentIssue = _detectProviderBlockedContent(rawContent, playlist);
       if (contentIssue != null) {
@@ -270,8 +272,6 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
         playlist,
         stopwatch.elapsed,
       );
-
-      final hash = await compute(_computeHashIsolated, rawContent);
       final now = DateTime.now();
       final cache = M3UPlaylistCache(
         sourceId: _id,
@@ -717,10 +717,6 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
   }
 }
 
-M3UPlaylistResult _parsePlaylistIsolated(String content) {
-  return M3UParser().parse(content);
-}
-
 /// Returns a user-facing message when the downloaded body is not a usable IPTV
 /// playlist (e.g. a login/block page served with HTTP 200). Surfacing this as a
 /// failed sync - instead of silently reporting 0 items - prevents a blocked
@@ -776,17 +772,33 @@ String _sanitizePreview(String value) {
   return cleaned.length > 160 ? cleaned.substring(0, 160) : cleaned;
 }
 
-M3UValidationResult _validatePlaylistIsolated(String content) {
-  return M3UParser().validate(content);
+class _M3UProcessResult {
+  final M3UValidationResult validation;
+  final M3UPlaylistResult playlist;
+  final String hash;
+
+  const _M3UProcessResult({
+    required this.validation,
+    required this.playlist,
+    required this.hash,
+  });
 }
 
-String _computeHashIsolated(String content) {
-  // Simple hash copied from PlaylistCacheService to run in isolate
+_M3UProcessResult _processM3UIsolated(String content) {
+  final parser = M3UParser();
+  final validation = parser.validate(content);
+  final playlist = parser.parse(content);
+
   final bytes = utf8.encode(content);
   var hash = 0;
   for (final byte in bytes) {
     hash = ((hash << 5) - hash) + byte;
     hash = hash & hash;
   }
-  return hash.toRadixString(16);
+
+  return _M3UProcessResult(
+    validation: validation,
+    playlist: playlist,
+    hash: hash.toRadixString(16),
+  );
 }
