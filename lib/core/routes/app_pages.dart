@@ -148,6 +148,7 @@ class AppPages {
       name: AppRoutes.home,
       page: () => const HomePage(),
       binding: HomeBinding(),
+      transition: Transition.noTransition,
     ),
     GetPage(
       name: AppRoutes.settings,
@@ -208,11 +209,13 @@ class AppPages {
       name: AppRoutes.liveTV,
       page: () => const LiveTVPage(),
       bindings: [LiveTVBinding(), EPGBinding()],
+      transition: Transition.noTransition,
     ),
     GetPage(
       name: AppRoutes.freeLiveTV,
       page: () => const FreeLiveTvPage(),
       binding: FreeLiveTvBinding(),
+      transition: Transition.noTransition,
     ),
     GetPage(
       name: AppRoutes.library,
@@ -223,6 +226,7 @@ class AppPages {
       name: AppRoutes.movies,
       page: () => const MoviesPage(),
       binding: MoviesBinding(),
+      transition: Transition.noTransition,
     ),
     GetPage(
       name: AppRoutes.movieDetails,
@@ -242,6 +246,7 @@ class AppPages {
       name: AppRoutes.series,
       page: () => const SeriesPage(),
       binding: SeriesBinding(),
+      transition: Transition.noTransition,
     ),
     GetPage(
       name: AppRoutes.seriesDetails,
@@ -277,6 +282,7 @@ class AppPages {
       name: AppRoutes.favorites,
       page: () => const FavoritesPage(),
       binding: LiveTVBinding(),
+      transition: Transition.noTransition,
     ),
     GetPage(
       name: AppRoutes.recent,

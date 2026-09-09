@@ -6,6 +6,8 @@ import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/services/database_service.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
+import 'package:stream_hub/data/providers/xtream/xtream_url_detector.dart';
+import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
 
 class ProviderRepository extends GetxService {
   final DatabaseService _dbService = Get.find<DatabaseService>();
@@ -137,9 +139,19 @@ class ProviderRepository extends GetxService {
       final id = map['id'] as String?;
       final name = map['name'] as String?;
       final providerTypeStr = map['providerType'] as String?;
-      final serverUrl = map['serverUrl'] as String?;
-      final username = map['username'] as String?;
-      final password = map['password'] as String?;
+      var username = map['username'] as String?;
+      var password = map['password'] as String?;
+      var serverUrl = map['serverUrl'] as String?;
+
+      if (serverUrl != null && serverUrl.isNotEmpty) {
+        final parts = XtreamUrlDetector.parse(serverUrl);
+        if (parts != null) {
+          serverUrl = parts.serverUrl;
+          username ??= parts.username;
+          password ??= parts.password;
+        }
+        serverUrl = XtreamSeriesInfoService.sanitizeBaseUrl(serverUrl);
+      }
       final macAddress = map['macAddress'] as String?;
       final xmltvUrl = map['xmltvUrl'] as String?;
       final notes = map['notes'] as String?;

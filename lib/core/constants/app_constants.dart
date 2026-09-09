@@ -17,6 +17,7 @@ class AppConstants {
   static const String boxRecentSearches = 'recent_searches';
   static const String boxCache = 'cache';
   static const String boxAuthSession = 'auth_session';
+  static const String boxWatchlist = 'watchlist';
 
   // Settings Keys
   static const String keyThemeMode = 'theme_mode';

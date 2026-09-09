@@ -1,5 +1,6 @@
 // modules/series/series_details_controller.dart
 import 'dart:async';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
@@ -39,6 +40,11 @@ import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/settings/settings_controller.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:stream_hub/core/media/stream_matching_service.dart';
+import 'package:stream_hub/core/services/media_watchlist_service.dart';
+import 'package:stream_hub/core/services/tmdb_catalog_service.dart';
+import 'package:stream_hub/data/providers/xtream/xtream_url_detector.dart';
 
 /// Loads a series' seasons and episodes and prepares individual episodes for playback.
 class SeriesDetailsController extends GetxController {
@@ -53,6 +59,9 @@ class SeriesDetailsController extends GetxController {
   final SeriesProgressService progressService;
   final NextEpisodeResolver resolver;
   final MediaItem? _initialSeries;
+  final StreamMatchingService matchingService;
+  final MediaWatchlistService watchlistService;
+  final TMDBCatalogService? tmdbService;
 
   SeriesDetailsController({
     required this.sessionManager,
@@ -66,8 +75,23 @@ class SeriesDetailsController extends GetxController {
     this.resolver = const NextEpisodeResolver(),
     LoggingService? logger,
     MediaItem? initialSeries,
+    StreamMatchingService? matchingService,
+    MediaWatchlistService? watchlistService,
+    TMDBCatalogService? tmdbService,
   }) : logger = logger ?? LoggingService(),
-       _initialSeries = initialSeries;
+       _initialSeries = initialSeries,
+       matchingService = matchingService ??
+           (Get.isRegistered<StreamMatchingService>()
+               ? Get.find<StreamMatchingService>()
+               : StreamMatchingService(catalogRepository: catalogRepository)),
+       watchlistService = watchlistService ??
+           (Get.isRegistered<MediaWatchlistService>()
+               ? Get.find<MediaWatchlistService>()
+               : MediaWatchlistService()),
+       tmdbService = tmdbService ??
+           (Get.isRegistered<TMDBCatalogService>()
+               ? Get.find<TMDBCatalogService>()
+               : null);
 
   final Rx<MediaItem?> _series = Rx<MediaItem?>(null);
   MediaItem? get series => _series.value;
@@ -82,6 +106,14 @@ class SeriesDetailsController extends GetxController {
   final RxList<SeasonGroup> seasons = <SeasonGroup>[].obs;
   final RxInt selectedSeasonIndex = 0.obs;
   final RxBool isFavorite = false.obs;
+
+  // TMDB Discovery and Matching State
+  final RxBool isCheckingAvailability = true.obs;
+  final RxBool isAvailableInLibrary = false.obs;
+  final Rx<StreamMatchResult?> matchResult = Rx<StreamMatchResult?>(null);
+  final Rx<MediaItem?> matchedPlayableSeries = Rx<MediaItem?>(null);
+  final RxString trailerUrl = ''.obs;
+  final RxBool isWatchlistNotified = false.obs;
 
   final Rx<SeriesProgress?> seriesProgress = Rx<SeriesProgress?>(null);
   final RxMap<String, double> episodeProgressMap = <String, double>{}.obs;
@@ -130,6 +162,11 @@ class SeriesDetailsController extends GetxController {
             ? args
             : (args is Map ? args['item'] as MediaItem? : null));
     isFavorite.value = _series.value?.favorite ?? false;
+    final isNative = _series.value != null &&
+        _series.value!.providerId.isNotEmpty &&
+        _series.value!.providerId != 'tmdb' &&
+        _series.value!.metadata['isTmdb'] != true;
+    isAvailableInLibrary.value = isNative;
     _parseCastMembers();
     _subscribeDownloads();
     _load();
@@ -169,11 +206,38 @@ class SeriesDetailsController extends GetxController {
         errorMessage.value = 'No series was selected.';
         return;
       }
-      final groups = await _fetchSeasonGroups(current);
-      seasons.assignAll(groups);
-      selectedSeasonIndex.value = 0;
-      await _loadProgress();
-      await _loadRelatedSeries();
+
+      // Check availability against IPTV catalog if from TMDB
+      if (current.providerId == 'tmdb' || current.metadata['isTmdb'] == true) {
+        isCheckingAvailability.value = true;
+        final match = await matchingService.matchSeries(current);
+        matchResult.value = match;
+        isAvailableInLibrary.value = match.isAvailable;
+        matchedPlayableSeries.value = match.matchedItem;
+        isCheckingAvailability.value = false;
+
+        if (match.isAvailable && match.matchedItem != null) {
+          final groups = await _fetchSeasonGroups(match.matchedItem!);
+          seasons.assignAll(groups);
+          selectedSeasonIndex.value = 0;
+          await _loadProgress();
+          await _loadRelatedSeries();
+        } else {
+          seasons.clear();
+        }
+      } else {
+        isAvailableInLibrary.value = true;
+        matchedPlayableSeries.value = current;
+        isCheckingAvailability.value = false;
+        final groups = await _fetchSeasonGroups(current);
+        seasons.assignAll(groups);
+        selectedSeasonIndex.value = 0;
+        await _loadProgress();
+        await _loadRelatedSeries();
+      }
+
+      unawaited(_resolveTrailer(current));
+      isWatchlistNotified.value = watchlistService.isInWatchlist(current);
     } on StreamSeriesInfoUnavailableException catch (e) {
       logger.warning(
         'Provider does not expose series info for ${_series.value?.id}',
@@ -193,6 +257,56 @@ class SeriesDetailsController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> _resolveTrailer(MediaItem item) async {
+    try {
+      int? tmdbId;
+      if (item.metadata['tmdb_id'] != null) {
+        tmdbId = int.tryParse(item.metadata['tmdb_id'].toString());
+      } else if (item.metadata['tmdbId'] != null) {
+        tmdbId = int.tryParse(item.metadata['tmdbId'].toString());
+      } else if (item.id.startsWith('tmdb-tv-') || item.id.startsWith('tmdb-series-')) {
+        tmdbId = int.tryParse(item.id.replaceAll(RegExp(r'tmdb-(tv|series)-'), ''));
+      }
+
+      if (tmdbId != null && tmdbService != null) {
+        final urlOrKey = await tmdbService!.getSeriesTrailer(tmdbId);
+        if (urlOrKey != null && urlOrKey.isNotEmpty) {
+          trailerUrl.value = urlOrKey.startsWith('http')
+              ? urlOrKey
+              : 'https://www.youtube.com/watch?v=$urlOrKey';
+          return;
+        }
+      }
+
+      final query = Uri.encodeComponent('${item.title} official trailer');
+      trailerUrl.value = 'https://www.youtube.com/results?search_query=$query';
+    } catch (_) {}
+  }
+
+  Future<void> playTrailer() async {
+    final url = trailerUrl.value;
+    if (url.isNotEmpty) {
+      final uri = Uri.parse(url);
+      try {
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          await launchUrl(uri, mode: LaunchMode.platformDefault);
+        }
+      } catch (_) {
+        Get.snackbar('Trailer', 'Could not open trailer.');
+      }
+    } else {
+      Get.snackbar('Trailer', 'No trailer available for this title.');
+    }
+  }
+
+  Future<void> toggleWatchlistNotify() async {
+    final item = series;
+    if (item == null) return;
+    await watchlistService.toggleWatchlist(item);
+    isWatchlistNotified.value = watchlistService.isInWatchlist(item);
   }
 
   Future<void> _loadProgress() async {
@@ -297,6 +411,20 @@ class SeriesDetailsController extends GetxController {
           'Failed live stalker season fetch for series $seriesId, attempting catalog fallback: $e',
           tag: 'SeriesDetailsController',
         );
+      }
+    }
+
+    if (series.providerType == MediaSourceType.m3u) {
+      final provider = await providerRepository.getProviderById(series.providerId);
+      final sUrl = provider?.serverUrl;
+      if (sUrl != null && XtreamUrlDetector.isXtreamExport(sUrl)) {
+        try {
+          final groups = await _xtreamSeasonGroups(series, seriesId);
+          if (groups.isNotEmpty) {
+            _cacheEpisodes(groups);
+            return groups;
+          }
+        } catch (_) {}
       }
     }
 
@@ -625,21 +753,64 @@ class SeriesDetailsController extends GetxController {
     final provider = await providerRepository.getProviderById(
       series.providerId,
     );
-    final providerConfig = provider != null
+    var serverUrl = provider?.serverUrl;
+    var username = provider?.username;
+    var password = provider?.password;
+    final macAddress = provider?.macAddress;
+
+    // If serverUrl is an export link or contains credentials/php endpoints, extract parts & sanitize
+    if (serverUrl != null && serverUrl.isNotEmpty) {
+      final parts = XtreamUrlDetector.parse(serverUrl);
+      if (parts != null) {
+        serverUrl = parts.serverUrl;
+        username ??= parts.username;
+        password ??= parts.password;
+      }
+      serverUrl = XtreamSeriesInfoService.sanitizeBaseUrl(serverUrl);
+    }
+
+    // Fallback: Check if any movie from this provider in catalog contains credentials
+    if ((username == null || username.isEmpty || password == null || password.isEmpty) &&
+        series.providerId.isNotEmpty) {
+      final movies = await catalogRepository.getByType(MediaType.movie);
+      final sampleItems = movies.where((m) => m.providerId == series.providerId);
+      for (final item in sampleItems) {
+        final sUrl = item.metadata['streamUrl']?.toString() ?? '';
+        final match = RegExp(r'/(?:live|movie|series)/([^/]+)/([^/]+)/').firstMatch(sUrl);
+        if (match != null) {
+          username ??= match.group(1);
+          password ??= match.group(2);
+          if (serverUrl == null || serverUrl.isEmpty) {
+            final uri = Uri.tryParse(sUrl);
+            if (uri != null && uri.host.isNotEmpty) {
+              serverUrl = '${uri.scheme}://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}';
+            }
+          }
+          break;
+        }
+      }
+    }
+
+    final providerConfig = provider != null || username != null
         ? <String, dynamic>{
-            'providerId': provider.id,
-            'serverUrl': provider.serverUrl,
-            'portalUrl': provider.serverUrl,
-            'username': provider.username,
-            'password': provider.password,
-            'macAddress': provider.macAddress,
+            'providerId': provider?.id ?? series.providerId,
+            'serverUrl': ?serverUrl,
+            'portalUrl': ?serverUrl,
+            'username': ?username,
+            'password': ?password,
+            'macAddress': ?macAddress,
           }
         : null;
 
     return sessionManager.getOrCreateSession(
       mediaItemId: series.id,
       providerType: series.providerType,
-      itemMetadata: series.metadata,
+      itemMetadata: {
+        ...series.metadata,
+        'serverUrl': ?serverUrl,
+        'username': ?username,
+        'password': ?password,
+      },
       providerConfig: providerConfig,
       providerId: series.providerId,
     );
@@ -747,15 +918,26 @@ class SeriesDetailsController extends GetxController {
   }
 
   void _activateInlinePlayer() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!isClosed) {
-        isInlinePlayerActive.value = true;
-        if (Get.isRegistered<ScreenAwakeService>()) {
-          Get.find<ScreenAwakeService>()
-              .acquire(owner: 'SeriesDetailsController.inline');
+    if (isClosed) return;
+    if (WidgetsBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!isClosed) {
+          isInlinePlayerActive.value = true;
+          if (Get.isRegistered<ScreenAwakeService>()) {
+            Get.find<ScreenAwakeService>()
+                .acquire(owner: 'SeriesDetailsController.inline');
+          }
         }
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    } else {
+      isInlinePlayerActive.value = true;
+      if (Get.isRegistered<ScreenAwakeService>()) {
+        Get.find<ScreenAwakeService>()
+            .acquire(owner: 'SeriesDetailsController.inline');
       }
-    });
+    }
   }
 
   /// Starts inline playback for a specific episode.
@@ -846,6 +1028,14 @@ class SeriesDetailsController extends GetxController {
 
   /// Triggers the primary action (Play S01E01 / Resume / Play Next / Watch Again).
   void playPrimaryAction() {
+    if (!isAvailableInLibrary.value) {
+      Get.snackbar(
+        'Not in Library',
+        '"$seriesTitle" is not available on your connected playlist yet. You can watch the trailer or turn on notifications.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
     final prog = seriesProgress.value;
     final allEps = seasons.expand((s) => s.episodes).toList();
     if (allEps.isEmpty) return;

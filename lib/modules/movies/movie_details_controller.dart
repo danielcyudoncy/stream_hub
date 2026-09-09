@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
@@ -28,6 +29,10 @@ import '../../../data/models/playback_session_model.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/repositories/history_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../core/media/stream_matching_service.dart';
+import '../../../core/services/media_watchlist_service.dart';
+import '../../../core/services/tmdb_catalog_service.dart';
 import '../player/controllers/player_controller.dart';
 import '../settings/settings_controller.dart';
 
@@ -42,6 +47,9 @@ class MovieDetailsController extends GetxController {
   final FavoriteRepository favoriteRepository;
   final PlaybackRepository playbackRepository;
   final MediaLibrary mediaLibrary;
+  final StreamMatchingService _streamMatchingService;
+  final MediaWatchlistService _watchlistService;
+  final TMDBCatalogService? _tmdbService;
 
   PlayerController? inlinePlayerController;
   final RxBool isInlinePlayerActive = false.obs;
@@ -60,12 +68,34 @@ class MovieDetailsController extends GetxController {
   final RxList<MediaItem> relatedMovies = <MediaItem>[].obs;
   final RxString errorMessage = ''.obs;
 
+  // TMDB Discovery & Stream Match State
+  final RxBool isCheckingAvailability = true.obs;
+  final RxBool isAvailableInLibrary = true.obs;
+  final Rx<StreamMatchResult?> matchResult = Rx<StreamMatchResult?>(null);
+  final Rx<MediaItem?> playableItem = Rx<MediaItem?>(null);
+  final RxString trailerUrl = ''.obs;
+  final RxBool isWatchlistNotified = false.obs;
+
   MovieDetailsController({
     required this.catalogRepository,
     required this.favoriteRepository,
     required this.playbackRepository,
     required this.mediaLibrary,
-  });
+    StreamMatchingService? streamMatchingService,
+    MediaWatchlistService? watchlistService,
+    TMDBCatalogService? tmdbService,
+  })  : _streamMatchingService = streamMatchingService ??
+            (Get.isRegistered<StreamMatchingService>()
+                ? Get.find<StreamMatchingService>()
+                : StreamMatchingService(catalogRepository: catalogRepository)),
+        _watchlistService = watchlistService ??
+            (Get.isRegistered<MediaWatchlistService>()
+                ? Get.find<MediaWatchlistService>()
+                : MediaWatchlistService()),
+        _tmdbService = tmdbService ??
+            (Get.isRegistered<TMDBCatalogService>()
+                ? Get.find<TMDBCatalogService>()
+                : null);
 
   MediaItem? get movie => movieRx.value;
   String get actionButtonLabel => switch (playAction.value) {
@@ -131,11 +161,81 @@ class MovieDetailsController extends GetxController {
       _watchDownloadState(item.id);
       await _loadRelatedMovies(item);
       _enrichFromVodService(item);
+
+      // 1. Check Library Availability via StreamMatchingService
+      if (item.providerId == 'tmdb' || item.metadata['isTmdb'] == true) {
+        isCheckingAvailability.value = true;
+        final match = await _streamMatchingService.matchMovie(item);
+        matchResult.value = match;
+        isAvailableInLibrary.value = match.isAvailable;
+        playableItem.value = match.matchedItem;
+        isCheckingAvailability.value = false;
+      } else {
+        isAvailableInLibrary.value = true;
+        playableItem.value = item;
+        isCheckingAvailability.value = false;
+      }
+
+      // 2. Resolve Trailer
+      unawaited(_resolveTrailer(item));
+
+      // 3. Check Watchlist status
+      isWatchlistNotified.value = _watchlistService.isInWatchlist(item);
     } catch (e) {
       errorMessage.value = 'Failed to load movie details: $e';
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> _resolveTrailer(MediaItem item) async {
+    try {
+      int? tmdbId;
+      if (item.metadata['tmdb_id'] != null) {
+        tmdbId = int.tryParse(item.metadata['tmdb_id'].toString());
+      } else if (item.metadata['tmdbId'] != null) {
+        tmdbId = int.tryParse(item.metadata['tmdbId'].toString());
+      } else if (item.id.startsWith('tmdb-movie-')) {
+        tmdbId = int.tryParse(item.id.replaceFirst('tmdb-movie-', ''));
+      }
+
+      if (tmdbId != null && _tmdbService != null) {
+        final urlOrKey = await _tmdbService.getMovieTrailer(tmdbId);
+        if (urlOrKey != null && urlOrKey.isNotEmpty) {
+          trailerUrl.value = urlOrKey.startsWith('http')
+              ? urlOrKey
+              : 'https://www.youtube.com/watch?v=$urlOrKey';
+          return;
+        }
+      }
+
+      final query = Uri.encodeComponent('${item.title} official trailer');
+      trailerUrl.value = 'https://www.youtube.com/results?search_query=$query';
+    } catch (_) {}
+  }
+
+  Future<void> playTrailer() async {
+    final url = trailerUrl.value;
+    if (url.isNotEmpty) {
+      final uri = Uri.parse(url);
+      try {
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          await launchUrl(uri, mode: LaunchMode.platformDefault);
+        }
+      } catch (_) {
+        _notify('Trailer', 'Could not open trailer.');
+      }
+    } else {
+      _notify('Trailer', 'No trailer available for this title.');
+    }
+  }
+
+  Future<void> toggleWatchlistNotify() async {
+    final item = movie;
+    if (item == null) return;
+    await _watchlistService.toggleWatchlist(item);
+    isWatchlistNotified.value = _watchlistService.isInWatchlist(item);
   }
 
   void _enrichFromVodService(MediaItem item) {
@@ -332,20 +432,35 @@ class MovieDetailsController extends GetxController {
   }
 
   void _activateInlinePlayer() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!isClosed) {
-        isInlinePlayerActive.value = true;
-        // Module-level guarantee that the screen stays awake while the movie
-        // detail page hosts an active inline player, regardless of whether
-        // PlayerController.onInit() raced ahead of this toggle.
-        _screenAwake.acquire(owner: 'MovieDetailsController.inline');
-      }
-    });
+    if (isClosed) return;
+    if (WidgetsBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!isClosed) {
+          isInlinePlayerActive.value = true;
+          _screenAwake.acquire(owner: 'MovieDetailsController.inline');
+        }
+      });
+      WidgetsBinding.instance.scheduleFrame();
+    } else {
+      isInlinePlayerActive.value = true;
+      _screenAwake.acquire(owner: 'MovieDetailsController.inline');
+    }
   }
 
   Future<void> startInlinePlayback() async {
-    final item = movie;
-    if (item == null) return;
+    final baseItem = movie;
+    if (baseItem == null) return;
+
+    if (!isAvailableInLibrary.value) {
+      _notify(
+        'Not Available in Library',
+        '"${baseItem.title}" is not available on your connected IPTV source yet. You can watch the trailer or turn on notifications.',
+      );
+      return;
+    }
+
+    final item = playableItem.value ?? baseItem;
 
     _initInlinePlayer();
     _activateInlinePlayer();
@@ -476,8 +591,18 @@ class MovieDetailsController extends GetxController {
   }
 
   Future<void> downloadMovie() async {
-    final item = movie;
-    if (item == null) return;
+    final baseItem = movie;
+    if (baseItem == null) return;
+
+    if (!isAvailableInLibrary.value) {
+      _notify(
+        'Not Available in Library',
+        '"${baseItem.title}" is not available in your library to download yet.',
+      );
+      return;
+    }
+
+    final item = playableItem.value ?? baseItem;
 
     if (!Get.isRegistered<DownloadService>()) {
       _notify('Downloads', 'Download service is not initialized');

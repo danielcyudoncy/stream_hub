@@ -8,12 +8,14 @@ import '../../../core/media/enums/media_type.dart';
 import '../../../data/models/curated_genre.dart';
 import '../../../data/models/home_snapshot.dart';
 import '../../../data/models/media_item.dart';
+import '../../../data/models/playback_session_model.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/history_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/repositories/media_source_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
 import '../../../core/media/repositories/playback_repository.dart';
+import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../data/services/home_snapshot_service.dart';
 
 enum SectionLoadState { idle, loading, loaded, error }
@@ -81,12 +83,28 @@ class HomeController extends GetxController {
       });
     }
     _initializeHome();
-    _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
-      _refreshSectionsInBackground();
-    });
+    _subscribeToCatalogUpdates();
     _favoriteSubscription = favoriteRepository.watchUpdates().listen((_) {
-      _refreshFavoritesOnly();
+      _refreshFavoritesOnly(selectedProviderId.value);
     });
+  }
+
+  CatalogRefreshCoordinator? get _catalogCoordinator =>
+      Get.isRegistered<CatalogRefreshCoordinator>()
+          ? Get.find<CatalogRefreshCoordinator>()
+          : null;
+
+  void _subscribeToCatalogUpdates() {
+    final coordinator = _catalogCoordinator;
+    if (coordinator != null) {
+      _catalogSubscription = coordinator.refreshSignal.listen((_) {
+        coordinator.runCoalesced(_refreshSectionsInBackground);
+      });
+    } else {
+      _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
+        _refreshSectionsInBackground();
+      });
+    }
   }
 
   @override
@@ -153,14 +171,14 @@ class HomeController extends GetxController {
     });
   }
 
-  List<MediaItem> _filterBySelectedProvider(List<MediaItem> items) {
-    if (selectedProviderId.value.isEmpty) return items;
-    return items
-        .where((item) =>
-            item.providerId == selectedProviderId.value ||
-            item.metadata['providerId'] == selectedProviderId.value ||
-            item.metadata['provider_id'] == selectedProviderId.value)
-        .toList();
+  String? _providerOrNull(String providerId) =>
+      providerId.isEmpty ? null : providerId;
+
+  bool _matchesProvider(MediaItem item, String providerId) {
+    if (providerId.isEmpty) return true;
+    return item.providerId == providerId ||
+        item.metadata['providerId'] == providerId ||
+        item.metadata['provider_id'] == providerId;
   }
 
   void setSelectedProvider(String providerId) {
@@ -178,25 +196,18 @@ class HomeController extends GetxController {
   Future<void> _refreshSectionsInBackground() async {
     _log('[HOME] Background refresh started');
     try {
-      await _loadProviders();
-      final rawItems = await catalogRepository.getAllItems();
-      final allItems = _filterBySelectedProvider(rawItems);
-      if (allItems.isEmpty && hasContent) {
-        _log('[HOME] Catalog empty but have cached content, skipping refresh');
+      if (hasContent && providerCount.value == 0) {
+        _log('[HOME] No providers yet, skipping refresh');
         return;
       }
-      await Future.wait([
-        _refreshHeroSection(allItems),
-        _refreshMoviesSection(allItems),
-        _refreshSeriesSection(allItems),
-        _refreshChannelsSection(allItems),
-      ]);
-      await _refreshContinueWatching(allItems);
-      await _refreshFavoritesOnly();
-      await _refreshRecentlyAdded(allItems);
-      await _refreshRecentlyPlayed();
-      await _snapshotService.save(_buildSnapshot());
-      _log('[HOME] Background refresh complete, snapshot saved');
+      await _refreshSections();
+      final snapshot = _buildSnapshot();
+      if (!snapshot.isEmpty) {
+        await _snapshotService.save(snapshot);
+        _log('[HOME] Background refresh complete, snapshot saved');
+      } else {
+        _log('[HOME] Background refresh produced empty snapshot, skipping save');
+      }
     } catch (e) {
       _log('[HOME] Background refresh error: $e');
     }
@@ -204,24 +215,32 @@ class HomeController extends GetxController {
 
   Future<void> _loadAllFromNetwork() async {
     try {
-      final rawItems = await catalogRepository.getAllItems();
-      final allItems = _filterBySelectedProvider(rawItems);
-      await Future.wait([
-        _refreshHeroSection(allItems),
-        _refreshMoviesSection(allItems),
-        _refreshSeriesSection(allItems),
-        _refreshChannelsSection(allItems),
-      ]);
-      await _refreshContinueWatching(allItems);
-      await _refreshFavoritesOnly();
-      await _refreshRecentlyAdded(allItems);
-      await _refreshRecentlyPlayed();
-      availableGenres.assignAll(CuratedGenre.defaultGenres);
-      await _snapshotService.save(_buildSnapshot());
+      await _refreshSections(assignGenres: true);
+      final snapshot = _buildSnapshot();
+      if (!snapshot.isEmpty) {
+        await _snapshotService.save(snapshot);
+      }
     } catch (e) {
       _log('[HOME] Network load error: $e');
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  Future<void> _refreshSections({bool assignGenres = false}) async {
+    final providerId = selectedProviderId.value;
+    await Future.wait([
+      _refreshHeroSection(providerId),
+      _refreshMoviesSection(providerId),
+      _refreshSeriesSection(providerId),
+      _refreshChannelsSection(providerId),
+    ]);
+    await _refreshContinueWatching(providerId);
+    await _refreshFavoritesOnly(providerId);
+    await _refreshRecentlyAdded(providerId);
+    await _refreshRecentlyPlayed();
+    if (assignGenres) {
+      availableGenres.assignAll(CuratedGenre.defaultGenres);
     }
   }
 
@@ -237,20 +256,36 @@ class HomeController extends GetxController {
         ? providers.length
         : storedProviders.length;
     providerCount.value = count;
-    hasProviders.value = count > 0;
+    hasProviders.value = count > 0 || hasContent;
   }
 
-  Future<void> _refreshHeroSection(List<MediaItem> allItems) async {
+  Future<void> _refreshHeroSection(String providerId) async {
     heroState.value = SectionLoadState.loading;
     try {
-      final movieItems = allItems
-          .where((item) => item.mediaType == MediaType.movie)
-          .toList();
-      final seriesItems = allItems
-          .where((item) => item.mediaType == MediaType.series)
-          .toList();
-      final result = _computeFeaturedHero(movieItems, seriesItems, allItems);
-      if (!_areMediaListsEqual(featuredHeroItems, result)) {
+      final provider = _providerOrNull(providerId);
+      final moviePool = await catalogRepository.topByUpdatedAt(
+        MediaType.movie,
+        providerId: provider,
+        limit: 64,
+      );
+      final seriesPool = await catalogRepository.topByUpdatedAt(
+        MediaType.series,
+        providerId: provider,
+        limit: 64,
+      );
+      List<MediaItem> result;
+      if (moviePool.isEmpty && seriesPool.isEmpty) {
+        final channelPool = provider != null
+            ? await catalogRepository.getByProviderAndType(
+                provider,
+                MediaType.channel,
+              )
+            : await catalogRepository.getByType(MediaType.channel);
+        result = _computeFeaturedFromChannels(channelPool);
+      } else {
+        result = _computeFeaturedFromVod(moviePool, seriesPool);
+      }
+      if (result.isNotEmpty && !_areMediaListsEqual(featuredHeroItems, result)) {
         featuredHeroItems.assignAll(result);
       }
       heroState.value = SectionLoadState.loaded;
@@ -259,16 +294,15 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> _refreshMoviesSection(List<MediaItem> allItems) async {
+  Future<void> _refreshMoviesSection(String providerId) async {
     moviesState.value = SectionLoadState.loading;
     try {
-      final movieItems = allItems
-          .where((item) => item.mediaType == MediaType.movie)
-          .toList();
-      final sorted = movieItems.toList()
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      final newItems = sorted.take(20).toList();
-      if (!_areMediaListsEqual(movies, newItems)) {
+      final newItems = await catalogRepository.topByUpdatedAt(
+        MediaType.movie,
+        providerId: _providerOrNull(providerId),
+        limit: 20,
+      );
+      if (newItems.isNotEmpty && !_areMediaListsEqual(movies, newItems)) {
         movies.assignAll(newItems);
       }
       moviesState.value = SectionLoadState.loaded;
@@ -277,16 +311,15 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> _refreshSeriesSection(List<MediaItem> allItems) async {
+  Future<void> _refreshSeriesSection(String providerId) async {
     seriesState.value = SectionLoadState.loading;
     try {
-      final seriesItems = allItems
-          .where((item) => item.mediaType == MediaType.series)
-          .toList();
-      final sorted = seriesItems.toList()
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      final newItems = sorted.take(20).toList();
-      if (!_areMediaListsEqual(series, newItems)) {
+      final newItems = await catalogRepository.topByUpdatedAt(
+        MediaType.series,
+        providerId: _providerOrNull(providerId),
+        limit: 20,
+      );
+      if (newItems.isNotEmpty && !_areMediaListsEqual(series, newItems)) {
         series.assignAll(newItems);
       }
       seriesState.value = SectionLoadState.loaded;
@@ -295,15 +328,19 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> _refreshChannelsSection(List<MediaItem> allItems) async {
+  Future<void> _refreshChannelsSection(String providerId) async {
     channelsState.value = SectionLoadState.loading;
     try {
-      final channelItems = allItems
-          .where((item) => item.mediaType == MediaType.channel)
-          .toList();
+      final channelItems = providerId.isNotEmpty
+          ? await catalogRepository.getByProviderAndType(
+              providerId,
+              MediaType.channel,
+            )
+          : await catalogRepository.getByType(MediaType.channel);
       if (channelItems.isEmpty) {
-        liveChannels.clear();
-        channelsState.value = SectionLoadState.loaded;
+        if (liveChannels.isEmpty) {
+          channelsState.value = SectionLoadState.loaded;
+        }
         return;
       }
 
@@ -364,7 +401,7 @@ class HomeController extends GetxController {
       final curated = [...favoritesList, ...recentsList, ...diversified];
       final newItems = curated.take(20).toList();
 
-      if (!_areMediaListsEqual(liveChannels, newItems)) {
+      if (newItems.isNotEmpty && !_areMediaListsEqual(liveChannels, newItems)) {
         liveChannels.assignAll(newItems);
       }
       channelsState.value = SectionLoadState.loaded;
@@ -381,7 +418,7 @@ class HomeController extends GetxController {
     return true;
   }
 
-  Future<void> _refreshContinueWatching(List<MediaItem> allItems) async {
+  Future<void> _refreshContinueWatching(String providerId) async {
     continueWatchingState.value = SectionLoadState.loading;
     try {
       final history = await historyRepository.getRecent(limit: 20);
@@ -389,18 +426,26 @@ class HomeController extends GetxController {
         try {
           final sessions =
               await Get.find<PlaybackRepository>().getAllWatchSessions();
-          final sessionMap = {for (var s in sessions) s.itemId: s};
-          final inProgressItems = allItems.where((i) {
-            final s = sessionMap[i.id];
-            return s != null &&
-                s.completionPercentage > 0.01 &&
-                s.completionPercentage < 0.90;
-          }).toList()
-            ..sort((a, b) {
-              final sA = sessionMap[a.id]?.updatedAt ?? a.updatedAt;
-              final sB = sessionMap[b.id]?.updatedAt ?? b.updatedAt;
-              return sB.compareTo(sA);
-            });
+          final progressByItem = <String, PlaybackSessionModel>{};
+          for (final session in sessions) {
+            final pct = session.completionPercentage;
+            if (pct <= 0.01 || pct >= 0.90) continue;
+            if (!progressByItem.containsKey(session.itemId)) {
+              progressByItem[session.itemId] = session;
+            }
+          }
+          final inProgressItems = <MediaItem>[];
+          for (final entry in progressByItem.entries) {
+            final item = await catalogRepository.getItem(entry.key);
+            if (item == null) continue;
+            if (!_matchesProvider(item, providerId)) continue;
+            inProgressItems.add(item);
+          }
+          inProgressItems.sort((a, b) {
+            final sA = progressByItem[a.id]?.updatedAt ?? a.updatedAt;
+            final sB = progressByItem[b.id]?.updatedAt ?? b.updatedAt;
+            return sB.compareTo(sA);
+          });
           if (inProgressItems.isNotEmpty) {
             if (!_areMediaListsEqual(continueWatching, inProgressItems)) {
               continueWatching.assignAll(inProgressItems);
@@ -426,15 +471,22 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> _refreshFavoritesOnly() async {
+  Future<void> _refreshFavoritesOnly(String providerId) async {
     favoritesState.value = SectionLoadState.loading;
     try {
       final favItems = await favoriteRepository.getAll();
-      final favIds = favItems.map((f) => f.id).toSet();
-      final allItems = await catalogRepository.getAllItems();
-      final newFavs = allItems
-          .where((item) => favIds.contains(item.id) || item.favorite)
-          .toList();
+      final newFavs = <MediaItem>[];
+      for (final fav in favItems) {
+        final item = await catalogRepository.getItem(fav.id);
+        if (item == null) continue;
+        if (!_matchesProvider(item, providerId)) continue;
+        newFavs.add(item);
+      }
+      if (favItems.isNotEmpty && newFavs.isEmpty && favorites.isNotEmpty) {
+        // Catalog not ready yet, preserve existing cached favorites
+        favoritesState.value = SectionLoadState.loaded;
+        return;
+      }
       if (!_areMediaListsEqual(favorites, newFavs)) {
         favorites.assignAll(newFavs);
       }
@@ -444,22 +496,32 @@ class HomeController extends GetxController {
     }
   }
 
-  Future<void> _refreshRecentlyAdded(List<MediaItem> allItems) async {
+  Future<void> _refreshRecentlyAdded(String providerId) async {
     recentlyAddedState.value = SectionLoadState.loading;
     try {
-      final movieItems = allItems
-          .where((item) => item.mediaType == MediaType.movie)
-          .toList();
-      final seriesItems = allItems
-          .where((item) => item.mediaType == MediaType.series)
-          .toList();
-      final vodItems = [...movieItems, ...seriesItems];
-      final recentlyAddedList = vodItems.isNotEmpty
-          ? (vodItems..sort((a, b) => b.createdAt.compareTo(a.createdAt)))
-          : (allItems.toList()
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
-      final newItems = recentlyAddedList.take(20).toList();
-      if (!_areMediaListsEqual(recentlyAdded, newItems)) {
+      final provider = _providerOrNull(providerId);
+      final movieItems = await catalogRepository.topByCreatedAt(
+        MediaType.movie,
+        providerId: provider,
+        limit: 20,
+      );
+      final seriesItems = await catalogRepository.topByCreatedAt(
+        MediaType.series,
+        providerId: provider,
+        limit: 20,
+      );
+      var vodItems = <MediaItem>[...movieItems, ...seriesItems];
+      if (vodItems.isEmpty) {
+        vodItems = await catalogRepository.topByCreatedAt(
+          MediaType.channel,
+          providerId: provider,
+          limit: 20,
+        );
+      }
+      final sorted = vodItems.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final newItems = sorted.take(20).toList();
+      if (newItems.isNotEmpty && !_areMediaListsEqual(recentlyAdded, newItems)) {
         recentlyAdded.assignAll(newItems);
       }
       recentlyAddedState.value = SectionLoadState.loaded;
@@ -471,7 +533,7 @@ class HomeController extends GetxController {
   Future<void> _refreshRecentlyPlayed() async {
     try {
       final history = await historyRepository.getRecent(limit: 20);
-      if (!_areMediaListsEqual(recentlyPlayed, history)) {
+      if (history.isNotEmpty && !_areMediaListsEqual(recentlyPlayed, history)) {
         recentlyPlayed.assignAll(history);
       }
     } catch (e) {
@@ -479,51 +541,50 @@ class HomeController extends GetxController {
     }
   }
 
-  List<MediaItem> _computeFeaturedHero(
-    List<MediaItem> movieItems,
-    List<MediaItem> seriesItems,
-    List<MediaItem> allItems,
+  List<MediaItem> _computeFeaturedFromVod(
+    List<MediaItem> moviePool,
+    List<MediaItem> seriesPool,
   ) {
-    final vodCandidates = <MediaItem>[...movieItems, ...seriesItems];
-    if (vodCandidates.isNotEmpty) {
-      final ratedWithArtwork = vodCandidates
-          .where((item) =>
-              item.rating != null &&
-              item.rating! > 0 &&
-              ((item.backdrop != null && item.backdrop!.isNotEmpty) ||
-                  (item.poster != null && item.poster!.isNotEmpty)))
-          .toList()
-        ..sort((a, b) {
-          final ratingCmp = (b.rating ?? 0).compareTo(a.rating ?? 0);
-          if (ratingCmp != 0) return ratingCmp;
-          return b.updatedAt.compareTo(a.updatedAt);
-        });
+    final vodCandidates = <MediaItem>[...moviePool, ...seriesPool];
+    final ratedWithArtwork = vodCandidates
+        .where((item) =>
+            item.rating != null &&
+            item.rating! > 0 &&
+            ((item.backdrop != null && item.backdrop!.isNotEmpty) ||
+                (item.poster != null && item.poster!.isNotEmpty)))
+        .toList()
+      ..sort((a, b) {
+        final ratingCmp = (b.rating ?? 0).compareTo(a.rating ?? 0);
+        if (ratingCmp != 0) return ratingCmp;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
 
-      final fallbackWithArtwork = vodCandidates
-          .where((item) =>
-              (item.backdrop != null && item.backdrop!.isNotEmpty) ||
-              (item.poster != null && item.poster!.isNotEmpty))
-          .toList()
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final fallbackWithArtwork = vodCandidates
+        .where((item) =>
+            (item.backdrop != null && item.backdrop!.isNotEmpty) ||
+            (item.poster != null && item.poster!.isNotEmpty))
+        .toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
-      final result = <MediaItem>[];
-      final seen = <String>{};
-      for (final item in [...ratedWithArtwork, ...fallbackWithArtwork, ...vodCandidates]) {
-        if (result.length >= 5) break;
-        if (seen.add(item.id)) {
-          result.add(item);
-        }
+    final result = <MediaItem>[];
+    final seen = <String>{};
+    for (final item in [
+      ...ratedWithArtwork,
+      ...fallbackWithArtwork,
+      ...vodCandidates,
+    ]) {
+      if (result.length >= 5) break;
+      if (seen.add(item.id)) {
+        result.add(item);
       }
-      if (result.isNotEmpty) return result;
     }
+    return result;
+  }
 
-    final channelCandidates = allItems
-        .where((item) => item.mediaType == MediaType.channel)
-        .toList();
-    if (channelCandidates.isEmpty && allItems.isNotEmpty) {
-      channelCandidates.addAll(allItems);
-    }
-    if (channelCandidates.isEmpty) return [];
+  List<MediaItem> _computeFeaturedFromChannels(
+    List<MediaItem> channelCandidates,
+  ) {
+    if (channelCandidates.isEmpty) return const [];
 
     final withLogos = channelCandidates
         .where((item) =>
@@ -603,20 +664,14 @@ class HomeController extends GetxController {
   Future<void> refresh() async {
     _log('[HOME] Manual refresh triggered');
     isLoading.value = !hasContent;
+    final coordinator = _catalogCoordinator;
     try {
       await _loadProviders();
-      final rawItems = await catalogRepository.getAllItems();
-      final allItems = _filterBySelectedProvider(rawItems);
-      await Future.wait([
-        _refreshHeroSection(allItems),
-        _refreshMoviesSection(allItems),
-        _refreshSeriesSection(allItems),
-        _refreshChannelsSection(allItems),
-      ]);
-      await _refreshContinueWatching(allItems);
-      await _refreshFavoritesOnly();
-      await _refreshRecentlyAdded(allItems);
-      await _refreshRecentlyPlayed();
+      if (coordinator != null) {
+        await coordinator.runCoalesced(_refreshSections);
+      } else {
+        await _refreshSections();
+      }
       await _snapshotService.save(_buildSnapshot());
       _log('[HOME] Manual refresh complete');
     } catch (e) {

@@ -107,10 +107,11 @@ class XtreamStreamResolver implements StreamResolver {
       final typeSegment = isVod ? 'movie' : 'live';
       final u = session.username ?? '';
       final p = session.password ?? '';
-      final url = '${session.baseUrl}/$typeSegment/$u/$p/$streamId.$ext';
+      final cleanBase = XtreamSeriesInfoService.sanitizeBaseUrl(session.baseUrl ?? '');
+      final url = '$cleanBase/$typeSegment/$u/$p/$streamId.$ext';
       return _resolution(
         request,
-        _normalizer.resolveRelative(url, session.baseUrl ?? ''),
+        _normalizer.resolveRelative(url, cleanBase),
         metadata,
         isVod: isVod,
       );

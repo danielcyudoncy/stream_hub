@@ -184,14 +184,22 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
     });
 
     final mainScaffold = Obx(() {
+      final isList = controller.selectedView.value == 'list';
+
       if (controller.isLoading.value) {
-        return const Scaffold(
-          body: FreeTvSkeleton(),
+        return AppScaffold(
+          title: 'Free Live TV',
+          showAppBar: false,
+          body: Column(
+            children: [
+              _buildTopAppBar(context, isList),
+              const Expanded(child: FreeTvSkeleton()),
+            ],
+          ),
         );
       }
 
       final filtered = controller.filteredChannels;
-      final isList = controller.selectedView.value == 'list';
       final query = controller.searchQuery.value;
       final favoritesOnly = controller.showFavoritesOnly.value;
       final selectedCat = controller.selectedCategory.value;
@@ -1251,7 +1259,9 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  '${controller.channels.length} Public Free Channels',
+                  controller.isLoading.value
+                      ? 'Loading channels...'
+                      : '${controller.channels.length} Public Free Channels',
                   style: const TextStyle(
                     fontSize: 10.0,
                     color: AppColors.darkTextMuted,

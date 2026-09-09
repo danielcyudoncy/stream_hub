@@ -305,26 +305,42 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                           : _notesController.text.trim();
 
                       if (isEditing) {
+                        final parts = XtreamUrlDetector.parse(trimmedServerUrl ?? '');
+                        final effectiveUsername = (trimmedUsername != null && trimmedUsername.isNotEmpty)
+                            ? trimmedUsername
+                            : parts?.username;
+                        final effectivePassword = (trimmedPassword != null && trimmedPassword.isNotEmpty)
+                            ? trimmedPassword
+                            : parts?.password;
+
                         controller.updateProvider(
                           provider!.copyWith(
                             name: trimmedName,
                             providerType: _selectedType.value,
-                            serverUrl: trimmedServerUrl,
-                            username: trimmedUsername,
-                            password: trimmedPassword,
+                            serverUrl: parts?.serverUrl ?? trimmedServerUrl,
+                            username: effectiveUsername,
+                            password: effectivePassword,
                             macAddress: trimmedMac,
                             xmltvUrl: trimmedXmltv,
                             notes: trimmedNotes,
                           ),
                         );
                       } else {
+                        final parts = XtreamUrlDetector.parse(trimmedServerUrl ?? '');
+                        final effectiveUsername = (trimmedUsername != null && trimmedUsername.isNotEmpty)
+                            ? trimmedUsername
+                            : parts?.username;
+                        final effectivePassword = (trimmedPassword != null && trimmedPassword.isNotEmpty)
+                            ? trimmedPassword
+                            : parts?.password;
+
                         final newProvider = ProviderModel(
                           id: 'provider_${DateTime.now().millisecondsSinceEpoch}_${_randomSuffix()}',
                           name: trimmedName,
                           providerType: _selectedType.value,
-                          serverUrl: trimmedServerUrl,
-                          username: trimmedUsername,
-                          password: trimmedPassword,
+                          serverUrl: parts?.serverUrl ?? trimmedServerUrl,
+                          username: effectiveUsername,
+                          password: effectivePassword,
                           macAddress: trimmedMac,
                           xmltvUrl: trimmedXmltv,
                           notes: trimmedNotes,

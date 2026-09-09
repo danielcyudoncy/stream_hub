@@ -11,12 +11,15 @@ import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
 
+import '../../../core/services/tmdb_catalog_service.dart';
+
 class MoviesController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
   final PlaybackRepository? playbackRepository;
   final FavoriteRepository? favoriteRepository;
+  final TMDBCatalogService? tmdbCatalogService;
 
   MoviesController({
     required this.mediaEngine,
@@ -24,6 +27,7 @@ class MoviesController extends GetxController {
     required this.catalogRepository,
     PlaybackRepository? playbackRepository,
     FavoriteRepository? favoriteRepository,
+    TMDBCatalogService? tmdbCatalogService,
   })  : playbackRepository = playbackRepository ??
             (Get.isRegistered<PlaybackRepository>()
                 ? Get.find<PlaybackRepository>()
@@ -31,9 +35,15 @@ class MoviesController extends GetxController {
         favoriteRepository = favoriteRepository ??
             (Get.isRegistered<FavoriteRepository>()
                 ? Get.find<FavoriteRepository>()
+                : null),
+        tmdbCatalogService = tmdbCatalogService ??
+            (Get.isRegistered<TMDBCatalogService>()
+                ? Get.find<TMDBCatalogService>()
                 : null);
 
   final RxBool isLoading = true.obs;
+  bool _isLoadingMovies = false;
+  final RxBool isTmdbDiscovery = true.obs;
   final RxString selectedProvider = ''.obs;
   final RxList<MediaItem> movies = <MediaItem>[].obs;
   final List<MediaItem> _allMovies = <MediaItem>[];
@@ -106,12 +116,48 @@ class MoviesController extends GetxController {
   }
 
   Future<void> _loadMovies() async {
+    if (_isLoadingMovies) return;
+    _isLoadingMovies = true;
     isLoading.value = true;
     try {
       var movieItems = await catalogRepository.getByType(MediaType.movie);
       if (movieItems.isEmpty) {
         movieItems = mediaLibrary.getMovies();
       }
+
+      if (movieItems.isEmpty && selectedProvider.value.isEmpty && tmdbCatalogService != null) {
+        isTmdbDiscovery.value = true;
+        final tmdb = tmdbCatalogService!;
+        final trending = await tmdb.getTrendingMovies();
+        final topRated = await tmdb.getTopRatedMovies();
+        final popular = await tmdb.getPopularMovies();
+
+        if (trending.isNotEmpty || topRated.isNotEmpty) {
+          final combined = <MediaItem>[...trending, ...topRated, ...popular];
+          final seen = <String>{};
+          final unique = combined.where((m) => seen.add(m.id)).toList();
+
+          movies.assignAll(unique);
+          featuredMovies.assignAll(trending.take(6).toList());
+          heroMovie.value = trending.firstOrNull;
+          trendingMovies.assignAll(trending);
+          topRatedMovies.assignAll(topRated);
+          newThisWeekMovies.assignAll(popular);
+
+          // Build genres
+          final genreNames = tmdb.movieGenres.values.toList();
+          if (genreNames.isNotEmpty) {
+            availableGenres.assignAll(genreNames);
+          }
+
+          await _loadWatchSessions();
+          _computeContinueWatchingFromSessions();
+          isLoading.value = false;
+          return;
+        }
+      }
+
+      isTmdbDiscovery.value = false;
       movieItems.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       _allMovies
         ..clear()
@@ -122,8 +168,20 @@ class MoviesController extends GetxController {
     } catch (e) {
       // Non-critical logging
     } finally {
+      _isLoadingMovies = false;
       isLoading.value = false;
     }
+  }
+
+  void _computeContinueWatchingFromSessions() {
+    final continueList = <MediaItem>[];
+    for (final m in movies) {
+      final p = progressMap[m.id];
+      if (p != null && p > 0.0 && p < 0.90) {
+        continueList.add(m);
+      }
+    }
+    continueWatchingMovies.assignAll(continueList);
   }
 
   Future<void> _loadWatchSessions() async {
@@ -152,6 +210,11 @@ class MoviesController extends GetxController {
   }
 
   void _applyProviderFilter() {
+    if (selectedProvider.value.isEmpty && tmdbCatalogService != null && _allMovies.isEmpty) {
+      _loadMovies();
+      return;
+    }
+    isTmdbDiscovery.value = false;
     List<MediaItem> filtered;
     if (selectedProvider.value.isEmpty) {
       filtered = List.of(_allMovies);
@@ -169,16 +232,18 @@ class MoviesController extends GetxController {
   void _computeSections(List<MediaItem> allMovies) {
     final now = DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
+    final candidateSample =
+        allMovies.length > 500 ? allMovies.take(500).toList() : allMovies;
 
     // 1. Featured Movies (Top rated or trending)
     final featured = _takePreferred(
-      preferred: allMovies.where((item) => item.rating != null).toList()
+      preferred: candidateSample.where((item) => item.rating != null).toList()
         ..sort((a, b) {
           final ratingCompare = b.rating!.compareTo(a.rating!);
           if (ratingCompare != 0) return ratingCompare;
           return b.updatedAt.compareTo(a.updatedAt);
         }),
-      fallback: allMovies,
+      fallback: candidateSample,
       limit: 5,
     );
     featuredMovies.assignAll(featured);
@@ -204,7 +269,7 @@ class MoviesController extends GetxController {
     // 3. Trending
     trendingMovies.assignAll(
       _takePreferred(
-        preferred: List<MediaItem>.of(allMovies),
+        preferred: candidateSample,
         fallback: allMovies,
         limit: 15,
       ),
@@ -214,9 +279,9 @@ class MoviesController extends GetxController {
     newThisWeekMovies.assignAll(
       _takePreferred(
         preferred:
-            allMovies.where((item) => item.createdAt.isAfter(weekAgo)).toList()
+            candidateSample.where((item) => item.createdAt.isAfter(weekAgo)).toList()
               ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
-        fallback: allMovies,
+        fallback: candidateSample,
         limit: 15,
       ),
     );
@@ -224,8 +289,8 @@ class MoviesController extends GetxController {
     // 5. Mystery & Thriller
     mysteryThrillerMovies.assignAll(
       _takePreferred(
-        preferred: allMovies.where(_isMysteryOrThriller).toList(),
-        fallback: allMovies,
+        preferred: candidateSample.where(_isMysteryOrThriller).toList(),
+        fallback: candidateSample,
         limit: 15,
       ),
     );
@@ -233,8 +298,8 @@ class MoviesController extends GetxController {
     // 6. Romantic Comedy
     romanticComedyMovies.assignAll(
       _takePreferred(
-        preferred: _sortRomanticComedyMatches(allMovies),
-        fallback: allMovies,
+        preferred: _sortRomanticComedyMatches(candidateSample),
+        fallback: candidateSample,
         limit: 15,
       ),
     );
@@ -242,21 +307,22 @@ class MoviesController extends GetxController {
     // 7. Top Rated
     topRatedMovies.assignAll(
       _takePreferred(
-        preferred: allMovies.where((item) => item.rating != null).toList()
+        preferred: candidateSample.where((item) => item.rating != null).toList()
           ..sort((a, b) => b.rating!.compareTo(a.rating!)),
-        fallback: allMovies,
+        fallback: candidateSample,
         limit: 15,
       ),
     );
 
     // 8. Dynamic Genres Extraction & Grouping
-    _buildDynamicGenres(allMovies);
+    _buildDynamicGenres(candidateSample);
   }
 
   void _buildDynamicGenres(List<MediaItem> allMovies) {
+    final sample = allMovies.take(500);
     final Map<String, List<MediaItem>> genreMap = {};
 
-    for (final movie in allMovies) {
+    for (final movie in sample) {
       final candidateGenres = <String>{};
 
       // Add direct genres
@@ -353,19 +419,22 @@ class MoviesController extends GetxController {
     r'(\b(live|itv|channel|fhd|hevc|uhd|4k|sd|h265|radio|epg|stream|24/7|sports\s*\d)\b|^uk\s*:|^us\s*:|^ca\s*:|^all\s+channels$)',
     caseSensitive: false,
   );
+  static final RegExp _kDigitsOnly = RegExp(r'^\d+$');
+  static final RegExp _kGenreSplitter = RegExp(r'[,/|]');
 
   void _computeGenres(List<MediaItem> allMovies) {
     final genreSet = <String>{};
-    for (final m in allMovies) {
+    final sample = allMovies.take(500);
+    for (final m in sample) {
       for (final g in m.genres) {
         final clean = g.trim();
         if (clean.isEmpty) continue;
-        if (RegExp(r'^\d+$').hasMatch(clean)) continue;
+        if (_kDigitsOnly.hasMatch(clean)) continue;
 
-        for (final part in clean.split(RegExp(r'[,/|]'))) {
+        for (final part in clean.split(_kGenreSplitter)) {
           final trimmed = part.trim();
           if (trimmed.isNotEmpty &&
-              !RegExp(r'^\d+$').hasMatch(trimmed) &&
+              !_kDigitsOnly.hasMatch(trimmed) &&
               !_kLiveTvMarkerPattern.hasMatch(trimmed)) {
             genreSet.add(trimmed);
           }
@@ -376,10 +445,10 @@ class MoviesController extends GetxController {
           m.metadata['categoryName']?.toString().trim() ??
           m.metadata['genre']?.toString().trim();
       if (cat != null && cat.isNotEmpty) {
-        for (final part in cat.split(RegExp(r'[,/|]'))) {
+        for (final part in cat.split(_kGenreSplitter)) {
           final trimmed = part.trim();
           if (trimmed.isNotEmpty &&
-              !RegExp(r'^\d+$').hasMatch(trimmed) &&
+              !_kDigitsOnly.hasMatch(trimmed) &&
               !_kLiveTvMarkerPattern.hasMatch(trimmed)) {
             genreSet.add(trimmed);
           }

@@ -105,6 +105,15 @@ class SessionManager {
 
     if (providerType == MediaSourceType.xtream ||
         providerType == MediaSourceType.m3u) {
+      if ((session.username == null || session.username!.isEmpty) &&
+          (configuredUsername != null && configuredUsername.isNotEmpty)) {
+        return true;
+      }
+      if ((session.password == null || session.password!.isEmpty) &&
+          (configuredPassword != null && configuredPassword.isNotEmpty)) {
+        return true;
+      }
+
       final usernameMatches =
           configuredUsername == null ||
           configuredUsername.isEmpty ||

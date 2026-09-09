@@ -237,19 +237,19 @@ class CuratedGenre {
     ),
   ];
 
-  static CuratedGenre? findByQuery(String query) {
-    final lower = query.trim().toLowerCase();
+  static final Map<String, CuratedGenre> _lookup = () {
+    final map = <String, CuratedGenre>{};
     for (final genre in defaultGenres) {
-      if (genre.id.toLowerCase() == lower ||
-          genre.title.toLowerCase() == lower) {
-        return genre;
-      }
+      map[genre.id] = genre;
+      map[genre.title] = genre;
       for (final keyword in genre.keywords) {
-        if (keyword.toLowerCase() == lower) {
-          return genre;
-        }
+        map[keyword] = genre;
       }
     }
-    return null;
+    return map;
+  }();
+
+  static CuratedGenre? findByQuery(String query) {
+    return _lookup[query.trim().toLowerCase()];
   }
 }

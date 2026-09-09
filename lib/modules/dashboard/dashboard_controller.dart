@@ -9,6 +9,7 @@ import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/data/repositories/media_source_repository.dart';
+import 'package:stream_hub/data/services/catalog_refresh_coordinator.dart';
 
 class DashboardController extends GetxController {
   final MediaEngine mediaEngine;
@@ -40,7 +41,20 @@ class DashboardController extends GetxController {
   void onInit() {
     super.onInit();
     loadDashboard();
-    _catalogSubscription = catalogRepository.watchUpdates().listen((_) => loadDashboard());
+    _subscribeToCatalogUpdates();
+  }
+
+  void _subscribeToCatalogUpdates() {
+    if (Get.isRegistered<CatalogRefreshCoordinator>()) {
+      final coordinator = Get.find<CatalogRefreshCoordinator>();
+      _catalogSubscription = coordinator.refreshSignal.listen((_) {
+        coordinator.runCoalesced(loadDashboard);
+      });
+    } else {
+      _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
+        loadDashboard();
+      });
+    }
   }
 
   @override
@@ -59,16 +73,20 @@ class DashboardController extends GetxController {
       final providers = await mediaSourceRepository.getAll();
       providerCount.value = providers.length;
 
-      final allItems = await catalogRepository.getAllItems();
+      final liveChannelsList = await catalogRepository.getByType(
+        MediaType.channel,
+      );
       liveChannels.assignAll(
-        allItems.where((item) => item.mediaType == MediaType.channel).toList(),
+        liveChannelsList.take(200).toList(),
       );
 
       final favList = await favoriteRepository.getAll();
-      final favIds = favList.map((f) => f.id).toSet();
-      favorites.assignAll(
-        allItems.where((item) => favIds.contains(item.id)).toList(),
-      );
+      final newFavs = <MediaItem>[];
+      for (final fav in favList) {
+        final item = await catalogRepository.getItem(fav.id);
+        if (item != null) newFavs.add(item);
+      }
+      favorites.assignAll(newFavs);
 
       final history = await historyRepository.getRecent(limit: 20);
       recentlyPlayed.assignAll(history);

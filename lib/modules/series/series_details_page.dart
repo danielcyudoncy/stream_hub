@@ -133,19 +133,6 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
             );
           }
 
-          if (_controller.seasons.isEmpty) {
-            final hasInfo = _controller.infoMessage.value.isNotEmpty;
-            return EmptyLibrary(
-              icon: AppIcons.series,
-              title: hasInfo ? 'Episodes Unavailable' : 'No Episodes Yet',
-              description: hasInfo
-                  ? _controller.infoMessage.value
-                  : 'This series has no episodes available right now.',
-              actionLabel: hasInfo ? 'Try Again' : null,
-              onAction: hasInfo ? _controller.retry : null,
-            );
-          }
-
           return _buildContent(context);
         }),
       );
@@ -244,6 +231,62 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                         onDownload: () => _controller.downloadEpisode(episode),
                       );
                     },
+                  ),
+                )
+              else
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.lg,
+                      vertical: AppSpacing.md,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: AppRadius.medium,
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              if (_controller.isLoading.value) ...[
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                                ),
+                                AppSpacing.widthXS,
+                                Text(
+                                  'Loading Episodes...',
+                                  style: AppTypography.getBody(color: Colors.white).copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ] else ...[
+                                const Icon(Icons.tv_rounded, color: Colors.white70, size: 20.0),
+                                AppSpacing.widthXS,
+                                Text(
+                                  _controller.isAvailableInLibrary.value
+                                      ? 'Episodes Unavailable'
+                                      : 'Episodes Available Soon',
+                                  style: AppTypography.getBody(color: Colors.white).copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ],
+                          ),
+                          AppSpacing.heightXS,
+                          Text(
+                            _controller.isLoading.value
+                                ? 'Fetching season and episode information from provider...'
+                                : (_controller.isAvailableInLibrary.value
+                                    ? 'Your connected provider does not have episode streams listed for this series.'
+                                    : 'This series was discovered from TMDB. Tap "Notify Me" to be alerted once available on your playlist.'),
+                            style: AppTypography.getCaption(color: Colors.white60),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               if (_controller.relatedSeries.isNotEmpty)
@@ -424,6 +467,62 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                     ),
                   );
                 }),
+              if (selectedSeason == null)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.md,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        borderRadius: AppRadius.medium,
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              if (_controller.isLoading.value) ...[
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                                ),
+                                AppSpacing.widthXS,
+                                Text(
+                                  'Loading Episodes...',
+                                  style: AppTypography.getBody(color: Colors.white).copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ] else ...[
+                                const Icon(Icons.tv_rounded, color: Colors.white70, size: 20.0),
+                                AppSpacing.widthXS,
+                                Text(
+                                  _controller.isAvailableInLibrary.value
+                                      ? 'Episodes Unavailable'
+                                      : 'Episodes Available Soon',
+                                  style: AppTypography.getBody(color: Colors.white).copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ],
+                          ),
+                          AppSpacing.heightXS,
+                          Text(
+                            _controller.isLoading.value
+                                ? 'Fetching season and episode information from provider...'
+                                : (_controller.isAvailableInLibrary.value
+                                    ? 'Your connected provider does not have episode streams listed for this series.'
+                                    : 'This series was discovered from TMDB. Tap "Notify Me" to be alerted once available on your playlist.'),
+                            style: AppTypography.getCaption(color: Colors.white60),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               if (_controller.castMembers.isNotEmpty)
                 SliverToBoxAdapter(child: _buildCastSection(context)),
               if (_controller.relatedSeries.isNotEmpty)
@@ -713,10 +812,14 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
                   color: colorScheme.primary,
                 ),
                 AppSpacing.widthXXS,
-                Text(
-                  '${_controller.seasonCount} ${_controller.seasonCount == 1 ? 'Season' : 'Seasons'} • ${_controller.totalEpisodes} Episodes',
-                  style: AppTypography.getCaption(
-                    color: colorScheme.onSurfaceVariant,
+                Flexible(
+                  child: Text(
+                    '${_controller.seasonCount} ${_controller.seasonCount == 1 ? 'Season' : 'Seasons'} • ${_controller.totalEpisodes} Episodes',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -771,12 +874,14 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
         ],
       ),
     );
-  }
-
-  Widget _buildActionButtons(BuildContext context, SeriesProgress? prog) {
+  }  Widget _buildActionButtons(BuildContext context, SeriesProgress? prog) {
     return Obx(() {
       final isPlaying = _controller.isInlinePlayerActive.value;
       final isFav = _controller.isFavorite.value;
+      final isAvailable = _controller.isAvailableInLibrary.value;
+      final isNotified = _controller.isWatchlistNotified.value;
+      final match = _controller.matchResult.value;
+
       final actionLabel = isPlaying
           ? 'Stop Video'
           : (prog?.actionLabel ?? 'Play Series');
@@ -789,116 +894,278 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
           AppSpacing.lg,
           AppSpacing.sm,
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: TvFocusable(
-                autofocus: ResponsiveHelper.isTvLayout(context),
-                onTap: isPlaying
-                    ? _controller.stopInlinePlayback
-                    : _controller.playPrimaryAction,
-                borderRadius: AppRadius.pill,
-                scale: 1.02,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.md,
-                    vertical: AppSpacing.md,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: isPlaying
-                          ? [AppColors.darkError, AppColors.darkError.withValues(alpha: 0.8)]
-                          : AppColors.primaryGradient,
-                    ),
+            Wrap(
+              spacing: AppSpacing.sm,
+              runSpacing: AppSpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (isAvailable) ...[
+                  TvFocusable(
+                    autofocus: ResponsiveHelper.isTvLayout(context),
+                    onTap: isPlaying
+                        ? _controller.stopInlinePlayback
+                        : _controller.playPrimaryAction,
                     borderRadius: AppRadius.pill,
-                    boxShadow: [
-                      BoxShadow(
-                        color: isPlaying
-                            ? AppColors.darkError.withValues(alpha: 0.3)
-                            : AppColors.darkPrimary.withValues(alpha: 0.3),
-                        blurRadius: 12.0,
-                        offset: const Offset(0, 4),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        isPlaying
-                            ? Icons.stop_rounded
-                            : (prog?.isCompleted == true ? Icons.replay : AppIcons.play),
-                        color: Colors.white,
-                        size: 20.0,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: isPlaying
+                              ? [AppColors.darkError, AppColors.darkError.withValues(alpha: 0.8)]
+                              : AppColors.primaryGradient,
+                        ),
+                        borderRadius: AppRadius.pill,
+                        boxShadow: [
+                          BoxShadow(
+                            color: isPlaying
+                                ? AppColors.darkError.withValues(alpha: 0.3)
+                                : AppColors.darkPrimary.withValues(alpha: 0.3),
+                            blurRadius: 12.0,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      AppSpacing.widthXS,
-                      Flexible(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              actionLabel,
-                              style: AppTypography.getButton(color: Colors.white)
-                                  .copyWith(fontWeight: FontWeight.bold),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (summaryText != null)
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isPlaying
+                                ? Icons.stop_rounded
+                                : (prog?.isCompleted == true ? Icons.replay : AppIcons.play),
+                            color: Colors.white,
+                            size: 20.0,
+                          ),
+                          AppSpacing.widthXS,
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Text(
-                                summaryText,
-                                style: AppTypography.getCaption(
-                                  color: Colors.white70,
-                                  scale: 0.85,
-                                ),
-                                overflow: TextOverflow.ellipsis,
+                                actionLabel,
+                                style: AppTypography.getButton(color: Colors.white)
+                                    .copyWith(fontWeight: FontWeight.bold),
                               ),
-                          ],
+                              if (summaryText != null)
+                                Text(
+                                  summaryText,
+                                  style: AppTypography.getCaption(
+                                    color: Colors.white70,
+                                    scale: 0.85,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  TvFocusable(
+                    onTap: _controller.playTrailer,
+                    borderRadius: AppRadius.pill,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.md,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(color: Colors.white24),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.ondemand_video_rounded,
+                            color: Colors.white,
+                            size: 18.0,
+                          ),
+                          AppSpacing.widthXXS,
+                          Text(
+                            'Trailer',
+                            style: AppTypography.getButton(
+                              color: Colors.white,
+                              scale: 0.9,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ] else ...[
+                  // Not available yet -> Watch Trailer primary CTA
+                  TvFocusable(
+                    autofocus: ResponsiveHelper.isTvLayout(context),
+                    onTap: _controller.playTrailer,
+                    borderRadius: AppRadius.pill,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.lg,
+                        vertical: AppSpacing.md,
+                      ),
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: AppColors.primaryGradient,
+                        ),
+                        borderRadius: AppRadius.pill,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.play_circle_filled_rounded,
+                            color: Colors.white,
+                            size: 20.0,
+                          ),
+                          AppSpacing.widthXS,
+                          Text(
+                            'Watch Trailer',
+                            style: AppTypography.getButton(color: Colors.white)
+                                .copyWith(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  TvFocusable(
+                    onTap: _controller.toggleWatchlistNotify,
+                    borderRadius: AppRadius.pill,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.md,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isNotified
+                            ? Colors.amber.withValues(alpha: 0.25)
+                            : Colors.white.withValues(alpha: 0.12),
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(
+                          color: isNotified ? Colors.amber : Colors.white24,
                         ),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isNotified
+                                ? Icons.notifications_active_rounded
+                                : Icons.notification_add_outlined,
+                            color: isNotified ? Colors.amberAccent : Colors.white,
+                            size: 18.0,
+                          ),
+                          AppSpacing.widthXXS,
+                          Text(
+                            isNotified ? 'Notified' : 'Notify Me',
+                            style: AppTypography.getButton(
+                              color: isNotified ? Colors.amberAccent : Colors.white,
+                              scale: 0.9,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
-            AppSpacing.widthSM,
-            TvFocusable(
-              onTap: _controller.toggleFavorite,
-              borderRadius: AppRadius.pill,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.lg,
-                  vertical: AppSpacing.md,
-                ),
-                decoration: BoxDecoration(
-                  color: isFav
-                      ? AppColors.darkError.withValues(alpha: 0.2)
-                      : Colors.white.withValues(alpha: 0.12),
+                ],
+                TvFocusable(
+                  onTap: _controller.toggleFavorite,
                   borderRadius: AppRadius.pill,
-                  border: Border.all(
-                    color: isFav
-                        ? AppColors.darkError.withValues(alpha: 0.6)
-                        : Colors.white24,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isFav
+                          ? AppColors.darkError.withValues(alpha: 0.2)
+                          : Colors.white.withValues(alpha: 0.12),
+                      borderRadius: AppRadius.pill,
+                      border: Border.all(
+                        color: isFav
+                            ? AppColors.darkError.withValues(alpha: 0.6)
+                            : Colors.white24,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                          color: isFav ? AppColors.darkError : Colors.white,
+                          size: 18.0,
+                        ),
+                        AppSpacing.widthXXS,
+                        Text(
+                          isFav ? 'In Favorites' : 'My List',
+                          style: AppTypography.getButton(
+                            color: isFav ? AppColors.darkError : Colors.white,
+                            scale: 0.9,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
+                ),
+              ],
+            ),
+
+            if (isAvailable && match?.matchedProviderName != null) ...[
+              AppSpacing.heightSM,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4.0),
+                decoration: BoxDecoration(
+                  color: AppColors.darkPrimary.withValues(alpha: 0.18),
+                  borderRadius: AppRadius.small,
+                  border: Border.all(color: AppColors.darkPrimary.withValues(alpha: 0.35)),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                      color: isFav ? AppColors.darkError : Colors.white,
-                      size: 18.0,
-                    ),
-                    AppSpacing.widthXXS,
-                    Text(
-                      isFav ? 'In Favorites' : 'My List',
-                      style: AppTypography.getButton(
-                        color: isFav ? AppColors.darkError : Colors.white,
-                        scale: 0.9,
+                    const Icon(Icons.check_circle_outline_rounded, color: AppColors.darkPrimary, size: 14.0),
+                    const SizedBox(width: 6.0),
+                    Flexible(
+                      child: Text(
+                        'Stream available via ${match!.matchedProviderName}',
+                        style: AppTypography.getCaption(color: AppColors.darkPrimary).copyWith(fontWeight: FontWeight.bold),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+            ],
+
+            if (!isAvailable) ...[
+              AppSpacing.heightSM,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.12),
+                  borderRadius: AppRadius.medium,
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: Colors.amberAccent, size: 16.0),
+                    AppSpacing.widthXS,
+                    Flexible(
+                      child: Text(
+                        'Not available in your connected playlist yet. Tap "Notify Me" to be alerted once synced.',
+                        style: AppTypography.getCaption(color: Colors.amberAccent),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       );
@@ -991,14 +1258,39 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
   }
 
   String _resolveEpisodeCode(MediaItem ep) {
-    final sNum = ep.metadata['seasonNumber'] ?? ep.metadata['seasonId'];
-    final eNum = ep.metadata['episodeNumber'] ?? ep.metadata['streamId'];
+    final sNum = ep.metadata['seasonNumber'] ??
+        ep.metadata['season_num'] ??
+        ep.metadata['season'] ??
+        ep.metadata['seasonId'];
+    final eNum = ep.metadata['episodeNumber'] ??
+        ep.metadata['episode_num'] ??
+        ep.metadata['episode'] ??
+        ep.metadata['streamId'] ??
+        ep.metadata['stream_id'];
     if (sNum != null && eNum != null) {
-      final sStr = sNum.toString().padLeft(2, '0');
-      final eStr = eNum.toString().padLeft(2, '0');
+      final s = int.tryParse(sNum.toString());
+      final e = int.tryParse(eNum.toString());
+      final sStr = (s != null ? s.toString() : sNum.toString()).padLeft(2, '0');
+      final eStr = (e != null ? e.toString() : eNum.toString()).padLeft(2, '0');
       return 'S${sStr}E$eStr';
     }
-    return ep.subtitle ?? 'Episode';
+    final sMatch = RegExp(r'S(\d+)', caseSensitive: false).firstMatch(ep.subtitle ?? '') ??
+        RegExp(r'S(\d+)', caseSensitive: false).firstMatch(ep.title);
+    final eMatch = RegExp(r'E(\d+)', caseSensitive: false).firstMatch(ep.subtitle ?? '') ??
+        RegExp(r'E(\d+)', caseSensitive: false).firstMatch(ep.title);
+    if (eMatch != null) {
+      final eStr = eMatch.group(1)!.padLeft(2, '0');
+      if (sMatch != null) {
+        final sStr = sMatch.group(1)!.padLeft(2, '0');
+        return 'S${sStr}E$eStr';
+      }
+      return 'EP $eStr';
+    }
+    if (ep.subtitle != null && ep.subtitle!.isNotEmpty) {
+      final sub = ep.subtitle!.trim();
+      if (sub.length <= 10) return sub;
+    }
+    return 'Episode';
   }
 }
 

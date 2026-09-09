@@ -88,6 +88,50 @@ void main() {
     expect(tapped, isTrue);
   });
 
+  testWidgets('EpisodeCard does not overflow on narrow widths with long episodeNumber and duration', (tester) async {
+    final now = DateTime.now();
+    final episode = MediaItem(
+      id: 'ep-overflow-test',
+      title: 'Very Long Episode Title That Exceeds Normal Limits On Small Mobile Screens',
+      subtitle: 'Season 1 Episode 12 - Extended Director Special Edition',
+      description: 'An in-depth story synopsis that provides descriptive narrative context.',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.xtream,
+      mediaType: MediaType.episode,
+      metadata: {
+        'seasonNumber': 1,
+        'episodeNumber': 12,
+        'duration': 3600,
+      },
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 250, // Extreme narrow width test
+              child: EpisodeCard(
+                episode: episode,
+                episodeNumber: 'Season 1 Episode 12 Special Extended Edition',
+                progressPercentage: 0.5,
+                isNextUp: true,
+                isCurrentlyPlaying: true,
+                onDownload: () {},
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(EpisodeCard), findsOneWidget);
+  });
+
   testWidgets('NextEpisodeOverlay renders countdown and buttons', (tester) async {
     final now = DateTime.now();
     final nextEp = MediaItem(

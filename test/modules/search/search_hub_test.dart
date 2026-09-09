@@ -21,6 +21,37 @@ class _FakeCatalogRepository implements CatalogRepository {
   Future<List<MediaItem>> getAllItems() async => items;
 
   @override
+  Future<List<MediaItem>> topByUpdatedAt(
+    MediaType type, {
+    String? providerId,
+    int limit = 20,
+  }) async {
+    final filtered = items.where((i) => i.mediaType == type).toList()
+      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return filtered.take(limit).toList();
+  }
+
+  @override
+  Future<List<MediaItem>> topByCreatedAt(
+    MediaType type, {
+    String? providerId,
+    int limit = 20,
+  }) async {
+    final filtered = items.where((i) => i.mediaType == type).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return filtered.take(limit).toList();
+  }
+
+  @override
+  Future<List<MediaItem>> getByProviderAndType(
+    String providerId,
+    MediaType type,
+  ) async =>
+      items
+          .where((i) => i.mediaType == type && i.providerId == providerId)
+          .toList();
+
+  @override
   Future<List<MediaItem>> getByType(MediaType type) async =>
       items.where((i) => i.mediaType == type).toList();
 

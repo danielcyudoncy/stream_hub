@@ -8,6 +8,7 @@ import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/core/streaming/errors/stream_exceptions.dart';
 import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/security/sensitive_data_redactor.dart';
+import 'package:stream_hub/core/streaming/series/xtream_series_info_service.dart';
 import 'package:stream_hub/core/utils/image_url_formatter.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 
@@ -125,7 +126,7 @@ class XtreamVodInfoService {
     required String password,
     required String vodId,
   }) async {
-    final cleanBaseUrl = baseUrl.replaceAll(RegExp(r'/+$'), '');
+    final cleanBaseUrl = XtreamSeriesInfoService.sanitizeBaseUrl(baseUrl);
     final cacheKey = '$cleanBaseUrl:$vodId';
     if (_cache.containsKey(cacheKey)) {
       return _cache[cacheKey]!;
@@ -364,7 +365,9 @@ class XtreamVodInfoService {
 
   static String? _extractBaseUrl(MediaItem item, {ProviderSession? session}) {
     final explicit = session?.baseUrl ?? item.metadata['serverUrl']?.toString();
-    if (explicit != null && explicit.isNotEmpty) return explicit;
+    if (explicit != null && explicit.isNotEmpty) {
+      return XtreamSeriesInfoService.sanitizeBaseUrl(explicit);
+    }
 
     final streamUrl = item.metadata['streamUrl']?.toString() ?? item.metadata['stream_url']?.toString();
     if (streamUrl != null && streamUrl.isNotEmpty) {

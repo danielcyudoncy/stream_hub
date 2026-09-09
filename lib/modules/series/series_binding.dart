@@ -4,6 +4,7 @@ import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/data/repositories/catalog_repository.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/data/repositories/favorite_repository.dart';
+import 'package:stream_hub/core/services/tmdb_catalog_service.dart';
 import 'series_controller.dart';
 
 class SeriesBinding extends Bindings {
@@ -20,8 +21,12 @@ class SeriesBinding extends Bindings {
             favoriteRepository: Get.isRegistered<FavoriteRepository>()
                 ? Get.find<FavoriteRepository>()
                 : null,
-          ));
+            tmdbCatalogService: Get.isRegistered<TMDBCatalogService>()
+                ? Get.find<TMDBCatalogService>()
+                : null,
+          ),
+          fenix: true,
+      );
     }
   }
 }
-

@@ -53,6 +53,14 @@ class ValidationException extends ApplicationException {
   });
 }
 
+class ProviderContentException extends ApplicationException {
+  const ProviderContentException({
+    super.message = 'Provider returned content that could not be used.',
+    super.code = 'PROVIDER_CONTENT_BLOCKED',
+    super.originalError,
+  });
+}
+
 class UnknownException extends ApplicationException {
   const UnknownException({
     super.message = 'An unexpected error occurred. Please contact support.',

@@ -390,7 +390,9 @@ class M3UParser {
   Future<M3UPlaylistResult> parseStream(Stream<List<int>> stream) async {
     final buffer = StringBuffer();
     await for (final chunk in stream) {
-      buffer.write(utf8.decode(chunk));
+      // Tolerant decode: streaming M3U sources may contain legacy single-byte
+      // encoded bytes; strict UTF-8 would throw and break the whole parse.
+      buffer.write(utf8.decode(chunk, allowMalformed: true));
     }
     return parse(buffer.toString());
   }

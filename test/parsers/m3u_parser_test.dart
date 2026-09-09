@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_hub/data/parsers/m3u_parser.dart';
 
@@ -184,6 +186,37 @@ http://example.com/stream.m3u8
         final result = parser.validate(content);
 
         expect(result.duplicateCount, 1);
+      });
+    });
+
+    group('parseStream', () {
+      test('parseStream decodes malformed UTF-8 bytes without throwing', () async {
+        final bytes = <int>[
+          0x23, 0x45, 0x58, 0x54, 0x4D, 0x33, 0x55, 10, // #EXTM3U
+          0x23, 0x45, 0x58, 0x54, 0x49, 0x4E, 0x46, 0x3A, 0x2D, 0x31, 0x2C, // #EXTINF:-1,
+          0xC4, 0xE9, 0xC8, // invalid UTF-8 (legacy single-byte encoding)
+          10, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x6D, 0x2F, 0x31, 0x2E, 0x74, 0x73, 10,
+        ];
+
+        final result = await parser.parseStream(Stream<List<int>>.fromIterable([bytes]));
+
+        expect(result.hasValidHeader, isTrue);
+        expect(result.channels, hasLength(1));
+      });
+
+      test('parseStream strips a UTF-8 BOM', () async {
+        final bom = [0xEF, 0xBB, 0xBF];
+        final content = utf8.encode('''#EXTM3U
+#EXTINF:-1,Channel One
+http://example.com/stream.m3u8
+''');
+        final result = await parser.parseStream(
+          Stream<List<int>>.fromIterable([[...bom, ...content]]),
+        );
+
+        expect(result.hasValidHeader, isTrue);
+        expect(result.channels, hasLength(1));
+        expect(result.channels.first.title, 'Channel One');
       });
     });
   });

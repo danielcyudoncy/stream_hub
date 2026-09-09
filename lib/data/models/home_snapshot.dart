@@ -70,9 +70,12 @@ class HomeSnapshot {
   static List<MediaItem> _parseMediaItems(dynamic raw) {
     if (raw == null) return [];
     if (raw is List) {
-      return raw
-          .map((e) => _mediaItemFromJson(e as Map<String, dynamic>))
-          .toList();
+      return raw.map((e) {
+        if (e is Map) {
+          return _mediaItemFromJson(Map<String, dynamic>.from(e));
+        }
+        return null;
+      }).whereType<MediaItem>().toList();
     }
     return [];
   }
@@ -119,7 +122,9 @@ class HomeSnapshot {
       rating: (json['rating'] as num?)?.toDouble(),
       favorite: json['favorite'] as bool? ?? false,
       hidden: json['hidden'] as bool? ?? false,
-      metadata: (json['metadata'] as Map<String, dynamic>?) ?? const {},
+      metadata: json['metadata'] is Map
+          ? Map<String, dynamic>.from(json['metadata'] as Map)
+          : const {},
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       updatedAt: DateTime.tryParse(json['updatedAt'] as String? ?? '') ?? DateTime.now(),
     );

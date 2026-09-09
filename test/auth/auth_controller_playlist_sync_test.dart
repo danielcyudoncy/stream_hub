@@ -94,6 +94,29 @@ class _FakeCatalogRepository implements CatalogRepository {
   Future<List<MediaItem>> getAllItems() async => const [];
 
   @override
+  Future<List<MediaItem>> topByUpdatedAt(
+    MediaType type, {
+    String? providerId,
+    int limit = 20,
+  }) async =>
+      const [];
+
+  @override
+  Future<List<MediaItem>> topByCreatedAt(
+    MediaType type, {
+    String? providerId,
+    int limit = 20,
+  }) async =>
+      const [];
+
+  @override
+  Future<List<MediaItem>> getByProviderAndType(
+    String providerId,
+    MediaType type,
+  ) async =>
+      const [];
+
+  @override
   Future<List<MediaItem>> getByType(MediaType type) async => const [];
 
   @override

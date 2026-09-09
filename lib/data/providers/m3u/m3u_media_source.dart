@@ -14,6 +14,7 @@ import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/events/media_event_bus.dart';
 import 'package:stream_hub/core/media/events/media_event.dart';
+import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/data/models/m3u_models.dart';
 import 'package:stream_hub/data/models/account_metadata.dart';
 import 'package:stream_hub/data/models/media_health.dart';
@@ -88,13 +89,13 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
     M3UDownloadService? downloadService,
     PlaylistCacheService? cacheService,
     PlaylistStatisticsService? statisticsService,
-  })  : _id = id,
-        _eventBus = eventBus,
-        _logger = logger ?? Get.find<LoggingService>(),
-        _downloadService = downloadService ?? Get.find<M3UDownloadService>(),
-        _cacheService = cacheService ?? Get.find<PlaylistCacheService>(),
-        _statisticsService =
-            statisticsService ?? Get.find<PlaylistStatisticsService>();
+  }) : _id = id,
+       _eventBus = eventBus,
+       _logger = logger ?? Get.find<LoggingService>(),
+       _downloadService = downloadService ?? Get.find<M3UDownloadService>(),
+       _cacheService = cacheService ?? Get.find<PlaylistCacheService>(),
+       _statisticsService =
+           statisticsService ?? Get.find<PlaylistStatisticsService>();
 
   @override
   Future<void> initialize() async {
@@ -102,7 +103,9 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
     state = MediaSourceState.initializing;
 
     if (_eventBus != null) {
-      _eventBus.publish(SyncStartedEvent(sourceId: _id, occurredAt: DateTime.now()));
+      _eventBus.publish(
+        SyncStartedEvent(sourceId: _id, occurredAt: DateTime.now()),
+      );
     }
 
     final cached = await _cacheService.getCachedPlaylist(_id);
@@ -117,11 +120,13 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
     state = MediaSourceState.ready;
 
     if (_eventBus != null) {
-      _eventBus.publish(SyncFinishedEvent(
-        sourceId: _id,
-        success: true,
-        occurredAt: DateTime.now(),
-      ));
+      _eventBus.publish(
+        SyncFinishedEvent(
+          sourceId: _id,
+          success: true,
+          occurredAt: DateTime.now(),
+        ),
+      );
     }
   }
 
@@ -131,28 +136,34 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
     state = MediaSourceState.initializing;
 
     if (_eventBus != null) {
-      _eventBus.publish(SyncStartedEvent(sourceId: _id, occurredAt: DateTime.now()));
+      _eventBus.publish(
+        SyncStartedEvent(sourceId: _id, occurredAt: DateTime.now()),
+      );
     }
 
     try {
       await initialize();
       state = MediaSourceState.ready;
       if (_eventBus != null) {
-        _eventBus.publish(MediaSourceConnectedEvent(
-          sourceId: _id,
-          type: type,
-          occurredAt: DateTime.now(),
-        ));
+        _eventBus.publish(
+          MediaSourceConnectedEvent(
+            sourceId: _id,
+            type: type,
+            occurredAt: DateTime.now(),
+          ),
+        );
       }
     } catch (e) {
       state = MediaSourceState.error;
       if (_eventBus != null) {
-        _eventBus.publish(SyncFinishedEvent(
-          sourceId: _id,
-          success: false,
-          error: e.toString(),
-          occurredAt: DateTime.now(),
-        ));
+        _eventBus.publish(
+          SyncFinishedEvent(
+            sourceId: _id,
+            success: false,
+            error: e.toString(),
+            occurredAt: DateTime.now(),
+          ),
+        );
       }
       rethrow;
     }
@@ -224,6 +235,15 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
           progressController: progressController,
           cancellationToken: _currentCancellationToken,
         );
+        final normalized = rawContent
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trimLeft();
+        _logger.info(
+          'M3U downloaded content: ${rawContent.length} chars, '
+          'starts-with-#EXTM3U=${normalized.startsWith('#EXTM3U')}, '
+          'looks-like-html=${normalized.toLowerCase().contains('<html') || normalized.toLowerCase().contains('<!doctype')}',
+          tag: 'M3UMediaSource',
+        );
       } finally {
         await progressController.close();
       }
@@ -231,7 +251,25 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
       final validation = await compute(_validatePlaylistIsolated, rawContent);
       final playlist = await compute(_parsePlaylistIsolated, rawContent);
 
-      final stats = _statisticsService.calculateStatistics(playlist, stopwatch.elapsed);
+      final contentIssue = _detectProviderBlockedContent(rawContent, playlist);
+      if (contentIssue != null) {
+        final probe = _xtreamPanelProbe(config);
+        if (probe != null &&
+            await _probeXtreamPanel(probe.$1, probe.$2, probe.$3)) {
+          _logger.info(
+            'Downloaded content is not a usable playlist, but the host answers '
+            'as an Xtream panel; syncing through the Xtream JSON API.',
+            tag: 'M3UMediaSource',
+          );
+          return _syncViaXtreamApi();
+        }
+        throw ProviderContentException(message: contentIssue);
+      }
+
+      final stats = _statisticsService.calculateStatistics(
+        playlist,
+        stopwatch.elapsed,
+      );
 
       final hash = await compute(_computeHashIsolated, rawContent);
       final now = DateTime.now();
@@ -264,10 +302,14 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
 
       _broadcastChannels(liveChannels);
       _moviesController.add(
-        movieChannels.map((c) => c.toMediaItem(_id, mediaType: MediaType.movie)).toList(),
+        movieChannels
+            .map((c) => c.toMediaItem(_id, mediaType: MediaType.movie))
+            .toList(),
       );
       _seriesController.add(
-        seriesChannels.map((c) => c.toMediaItem(_id, mediaType: MediaType.series)).toList(),
+        seriesChannels
+            .map((c) => c.toMediaItem(_id, mediaType: MediaType.series))
+            .toList(),
       );
 
       final mediaItems = liveChannels
@@ -281,11 +323,13 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
       state = MediaSourceState.connected;
 
       if (_eventBus != null) {
-        _eventBus.publish(CatalogUpdatedEvent(
-          sourceId: _id,
-          addedItems: totalItems,
-          occurredAt: DateTime.now(),
-        ));
+        _eventBus.publish(
+          CatalogUpdatedEvent(
+            sourceId: _id,
+            addedItems: totalItems,
+            occurredAt: DateTime.now(),
+          ),
+        );
       }
 
       _logger.info(
@@ -315,12 +359,14 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
       );
 
       if (_eventBus != null) {
-        _eventBus.publish(SyncFinishedEvent(
-          sourceId: _id,
-          success: false,
-          error: e.toString(),
-          occurredAt: DateTime.now(),
-        ));
+        _eventBus.publish(
+          SyncFinishedEvent(
+            sourceId: _id,
+            success: false,
+            error: e.toString(),
+            occurredAt: DateTime.now(),
+          ),
+        );
       }
 
       return MediaSyncResult(
@@ -360,11 +406,13 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
     }
 
     if (_eventBus != null) {
-      _eventBus.publish(CatalogUpdatedEvent(
-        sourceId: _id,
-        addedItems: result.added,
-        occurredAt: DateTime.now(),
-      ));
+      _eventBus.publish(
+        CatalogUpdatedEvent(
+          sourceId: _id,
+          addedItems: result.added,
+          occurredAt: DateTime.now(),
+        ),
+      );
     }
 
     _logger.info(
@@ -384,6 +432,77 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
       'password': parts?.password ?? config.password ?? '',
     };
     return XtreamMediaSource(id: _id, config: xtreamConfig, logger: _logger);
+  }
+
+  /// Returns the panel origin and credentials to probe when [config] points at
+  /// a bare host (no `get.php`/`player_api.php` path), or `null` when there is
+  /// nothing to test (local file, no credentials).
+  (Uri, String, String)? _xtreamPanelProbe(M3UConfig config) {
+    if (config.localPath != null) return null;
+    final uri = Uri.tryParse(config.sourceUrl);
+    if (uri == null ||
+        uri.host.isEmpty ||
+        (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return null;
+    }
+    final parts = XtreamUrlDetector.parse(config.sourceUrl);
+    final username = config.username ?? parts?.username ?? '';
+    final password = config.password ?? parts?.password ?? '';
+    if (username.isEmpty || password.isEmpty) return null;
+    return (uri.replace(path: '/', queryParameters: null), username, password);
+  }
+
+  /// Lightweight check that the host at [origin] is an Xtream panel with valid
+  /// [username]/[password]. Used to rescue M3U sources whose download is
+  /// blocked but whose `player_api.php` would serve the catalog reliably.
+  Future<bool> _probeXtreamPanel(
+    Uri origin,
+    String username,
+    String password,
+  ) async {
+    final client = createDohAwareHttpClient();
+    try {
+      final uri = origin.replace(
+        path: '/player_api.php',
+        queryParameters: {'username': username, 'password': password},
+      );
+      final request = await client
+          .getUrl(uri)
+          .timeout(const Duration(seconds: 8));
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
+      final response = await request.close().timeout(
+        const Duration(seconds: 8),
+      );
+      if (response.statusCode != HttpStatus.ok) return false;
+      final bytes = await response
+          .fold<List<int>>([], (prev, chunk) => prev..addAll(chunk))
+          .timeout(const Duration(seconds: 8));
+      final decoded = json.decode(utf8.decode(bytes));
+      if (decoded is! Map) return false;
+      final info = decoded['user_info'];
+      if (info is! Map) return false;
+      if (info['auth'] == 1 || info['auth'] == '1') return true;
+      final status = info['status'];
+      if (status is String &&
+          status.isNotEmpty &&
+          status.toLowerCase() != 'expired') {
+        return true;
+      }
+      return false;
+    } on SocketException {
+      return false;
+    } on HttpException {
+      return false;
+    } on TimeoutException {
+      return false;
+    } on FormatException {
+      return false;
+    } catch (_) {
+      return false;
+    } finally {
+      client.close(force: true);
+    }
   }
 
   @override
@@ -559,7 +678,9 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
   Future<List<MediaItem>> getPrograms() async => [];
 
   void _broadcastChannels(List<M3UChannel> channels) {
-    final items = channels.map((c) => c.toMediaItem(_id)).toList(growable: false);
+    final items = channels
+        .map((c) => c.toMediaItem(_id))
+        .toList(growable: false);
     _channelsController.add(items);
   }
 
@@ -571,28 +692,88 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
     }
 
     var categoryIndex = 0;
-    return groups.entries.map((entry) {
-      final slug = entry.key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
-      final safeSlug = slug.isEmpty ? 'group' : slug;
-      final index = categoryIndex++;
-      return MediaItem(
-        id: '$_id-category-$index-$safeSlug',
-        providerId: _id,
-        providerType: MediaSourceType.m3u,
-        mediaType: MediaType.collection,
-        title: entry.key,
-        subtitle: '${entry.value.length} channels',
-        genres: [entry.key],
-        metadata: {'group': entry.key, 'channelCount': entry.value.length},
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-    }).toList(growable: false);
+    return groups.entries
+        .map((entry) {
+          final slug = entry.key.toLowerCase().replaceAll(
+            RegExp(r'[^a-z0-9]+'),
+            '-',
+          );
+          final safeSlug = slug.isEmpty ? 'group' : slug;
+          final index = categoryIndex++;
+          return MediaItem(
+            id: '$_id-category-$index-$safeSlug',
+            providerId: _id,
+            providerType: MediaSourceType.m3u,
+            mediaType: MediaType.collection,
+            title: entry.key,
+            subtitle: '${entry.value.length} channels',
+            genres: [entry.key],
+            metadata: {'group': entry.key, 'channelCount': entry.value.length},
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+        })
+        .toList(growable: false);
   }
 }
 
 M3UPlaylistResult _parsePlaylistIsolated(String content) {
   return M3UParser().parse(content);
+}
+
+/// Returns a user-facing message when the downloaded body is not a usable IPTV
+/// playlist (e.g. a login/block page served with HTTP 200). Surfacing this as a
+/// failed sync - instead of silently reporting 0 items - prevents a blocked
+/// provider from wiping a previously-good cached playlist.
+String? _detectProviderBlockedContent(
+  String rawContent,
+  M3UPlaylistResult playlist,
+) {
+  final content = rawContent.trim();
+  if (content.isEmpty) {
+    return 'Your provider returned an empty response. Check the M3U URL and '
+        'that the playlist supports direct downloads.';
+  }
+
+  if (playlist.channels.isNotEmpty) {
+    return null;
+  }
+
+  final sampled = content.length > 240 ? content.substring(0, 240) : content;
+  final lower = sampled.toLowerCase();
+  final looksBlocked =
+      lower.contains('<html') ||
+      lower.contains('<!doctype') ||
+      lower.contains('access denied') ||
+      lower.contains('forbidden') ||
+      lower.contains('unauthorized') ||
+      lower.contains('not authorized') ||
+      lower.contains('authentication required') ||
+      lower.contains('cloudflare') ||
+      lower.contains('login required') ||
+      lower.contains('blocked');
+
+  final snippet = _sanitizePreview(sampled);
+  if (looksBlocked) {
+    return 'Your provider blocked the playlist request (server returned: '
+        '"$snippet"). Check the M3U URL, credentials, or required headers '
+        '(e.g. Referer / User-Agent).';
+  }
+
+  if (!playlist.hasValidHeader) {
+    return 'The server response is not an M3U playlist (missing #EXTM3U '
+        'header): "$snippet". Verify the M3U URL points to a valid playlist.';
+  }
+
+  return null;
+}
+
+String _sanitizePreview(String value) {
+  final cleaned = value
+      .replaceAll(RegExp(r'[\u0000-\u0008\u000B\u000C\u000E-\u001F]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  return cleaned.length > 160 ? cleaned.substring(0, 160) : cleaned;
 }
 
 M3UValidationResult _validatePlaylistIsolated(String content) {

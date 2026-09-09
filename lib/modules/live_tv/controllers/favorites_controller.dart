@@ -6,6 +6,7 @@ import '../../../data/models/category.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
+import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 
@@ -39,8 +40,20 @@ class FavoritesController extends GetxController {
       _favoriteSubscription =
           favoriteRepository!.watchUpdates().listen((_) => _loadFavorites());
     }
-    _catalogSubscription =
-        catalogRepository.watchUpdates().listen((_) => _loadFavorites());
+    _subscribeToCatalogUpdates();
+  }
+
+  void _subscribeToCatalogUpdates() {
+    if (Get.isRegistered<CatalogRefreshCoordinator>()) {
+      final coordinator = Get.find<CatalogRefreshCoordinator>();
+      _catalogSubscription = coordinator.refreshSignal.listen((_) {
+        coordinator.runCoalesced(_loadFavorites);
+      });
+    } else {
+      _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
+        _loadFavorites();
+      });
+    }
   }
 
   @override
@@ -54,10 +67,9 @@ class FavoritesController extends GetxController {
     isLoading.value = true;
     try {
       final favItems = await favoriteRepository?.getAll() ?? [];
-      final allItems = await catalogRepository.getAllItems();
-      final channelItems = allItems
-          .where((item) => item.mediaType == MediaType.channel)
-          .toList();
+      final channelItems = await catalogRepository.getByType(
+        MediaType.channel,
+      );
 
       final favIds = favItems.map((f) => f.id).toSet();
 

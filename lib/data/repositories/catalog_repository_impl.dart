@@ -40,6 +40,32 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
+  Future<List<MediaItem>> getByProviderAndType(
+    String providerId,
+    MediaType type,
+  ) async {
+    return _catalog.getByProviderAndType(providerId, type);
+  }
+
+  @override
+  Future<List<MediaItem>> topByUpdatedAt(
+    MediaType type, {
+    String? providerId,
+    int limit = 20,
+  }) async {
+    return _catalog.topByUpdatedAt(type, providerId: providerId, limit: limit);
+  }
+
+  @override
+  Future<List<MediaItem>> topByCreatedAt(
+    MediaType type, {
+    String? providerId,
+    int limit = 20,
+  }) async {
+    return _catalog.topByCreatedAt(type, providerId: providerId, limit: limit);
+  }
+
+  @override
   Future<MediaItem?> getItem(String id) async {
     return _catalog.getById(id);
   }
@@ -184,11 +210,7 @@ class CatalogRepositoryImpl implements CatalogRepository {
   }
 
   @override
-  Stream<List<MediaItem>> watchUpdates() async* {
-    await for (final _ in _updateController.stream) {
-      yield _catalog.getAll();
-    }
-  }
+  Stream<void> watchUpdates() => _updateController.stream;
 
   @override
   Future<void> enrichWithXMLTV(XMLTVGuide guide) async {
