@@ -13,8 +13,8 @@ class FreeTvRepository {
   static const String kBoxRecent = 'free_tv_recent';
   static const String kBoxReachability = 'free_tv_reachability';
 
-  static const String kKeyChannels = 'channels_data';
-  static const String kKeyCachedAt = 'cached_at';
+  static const String kKeyChannels = 'channels_data_v3';
+  static const String kKeyCachedAt = 'cached_at_v3';
   static const String kKeyWorkingIds = 'working_ids';
   static const String kKeyWorkingCheckedAt = 'working_checked_at';
 
@@ -25,6 +25,7 @@ class FreeTvRepository {
   final FreeTvService _service;
   final FreeTvReachabilityService _reachability;
   final LoggingService _logger;
+  final bool includeM3uSources;
 
   Box? _catalogBox;
   Box? _favoritesBox;
@@ -38,6 +39,7 @@ class FreeTvRepository {
     FreeTvService? service,
     FreeTvReachabilityService? reachability,
     LoggingService? logger,
+    this.includeM3uSources = true,
   })  : _service = service ?? FreeTvService(),
         _reachability = reachability ?? FreeTvReachabilityService(),
         _logger = logger ?? LoggingService();

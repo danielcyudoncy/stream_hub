@@ -46,6 +46,9 @@ class FreeTvQualityService {
   /// streams, non-English (when [englishOnly] is true), and obvious test/placeholder
   /// records are removed here.
   bool isEligible(FreeTvChannel channel) {
+    if (channel.id.startsWith('custom_')) {
+      return channel.name.trim().isNotEmpty && channel.hasStream;
+    }
     if (channel.isNsfw) return false;
     if (channel.id.trim().isEmpty) return false;
     if (channel.name.trim().isEmpty) return false;
@@ -80,6 +83,12 @@ class FreeTvQualityService {
 
   /// Assigns each eligible channel a tier based on its quality score.
   FreeTvChannel assignTier(FreeTvChannel channel) {
+    if (channel.id.startsWith('custom_')) {
+      return channel.copyWith(
+        qualityScore: 100,
+        qualityTier: FreeTvQualityTier.recommended,
+      );
+    }
     final qualityValue = score(channel);
     final tier = qualityValue >= kRecommendedThreshold
         ? FreeTvQualityTier.recommended
@@ -92,6 +101,7 @@ class FreeTvQualityService {
 
   /// Lightweight quality heuristic (0–100).
   int score(FreeTvChannel channel) {
+    if (channel.id.startsWith('custom_')) return 100;
     var value = 0;
 
     // 1. Core identity (+20)

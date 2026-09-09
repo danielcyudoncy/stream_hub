@@ -208,6 +208,12 @@ provider or subscription, while preserving all provider-based features.
 - [x] `TvScaffold` expandable sidebar with D-pad focus
 - [x] Home Quick Actions + feature chip shortcuts
 - [x] Free TV JSON data layer upgrade powered by `dearbulut/iptv` (stream-level health, deduplication, quality scoring)
+- [x] Free TV Custom M3U Playlist Ingestion (`CustomM3uFreeTvRemoteDataSource` + `FreeTvSources` registry):
+  - Fetches and parses external M3U playlists with malformed UTF-8 tolerance
+  - Normalizes M3U channels into canonical `FreeTvChannel` models with stream metadata (`FreeTvStream`)
+  - Aggregates multi-source feeds with cross-source deduplication in `FreeTvCatalogBuilder`
+  - Safeguards sensitive credentials by sanitizing logs to hostname/source ID only
+  - Full Hive persistence and `toJson` / `fromJson` serialization
 - [x] Free TV Startup Latency Optimization:
   - Eliminated duplicative pre-playback network probing for live/Free TV streams (reduced resolution time from up to 35s down to <5ms)
   - Prioritized online streams with highest health scores in `FreeTvMapper` and `FreeTvCatalogBuilder`
@@ -215,7 +221,7 @@ provider or subscription, while preserving all provider-based features.
   - Protected channel switching against race conditions using monotonic generation counters
   - Added fast 7-second watchdog for multi-stream fallback when a live stream stalls
   - Tuned `MediaKitPlayerAdapter` libmpv demuxer analyzeduration (1.5s) and readahead (5s) for instant live playback
-- [x] 47 Free TV tests passing (model, DTOs, JSON pipeline, mapper, reachability, repository, controller, page, startup latency)
+- [x] 64 Free TV tests passing (remote data sources, M3U parser/normalizer, JSON pipeline, mapper, reachability, repository, catalog builder, controller, page, startup latency)
 
 ---
 

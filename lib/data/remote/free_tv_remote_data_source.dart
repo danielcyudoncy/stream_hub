@@ -8,7 +8,6 @@ import 'package:stream_hub/data/sources/free_tv_api_config.dart';
 
 /// Abstract remote data source contract for Free Live TV catalogs.
 ///
-/// Designed to be multi-source extensible (e.g. Dearbulut, OfficialBroadcasters, etc.).
 abstract class FreeTvRemoteDataSource {
   Future<List<DearbulutChannelDto>> fetchOnlineChannels({Duration? timeout});
   Future<List<DearbulutCountryDto>> fetchCountries({Duration? timeout});

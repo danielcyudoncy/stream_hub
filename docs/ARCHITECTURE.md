@@ -220,15 +220,15 @@ independently and offline-first, coexisting with provider-based IPTV.
 
 | Concern | Implementation |
 |---------|----------------|
-| Endpoints | `FreeTvApiConfig` — centralized endpoint constants pointing to `https://dearbulut.github.io/iptv/api/v1/` (`channels.online.json`, `countries.json`, `categories.json`) with gzip support |
-| Remote Data | `FreeTvRemoteDataSource` / `DearbulutFreeTvRemoteDataSource` — Gzip-aware HTTP data source fetching online-verified channels, countries, and categories |
-| DTOs & Models | `DearbulutChannelDto`, `DearbulutStreamDto`, `DearbulutHealthDto`, `FreeTvStream`, and `FreeTvChannel` |
-| Normalizer / Mapper | `FreeTvMapper` — translates DTOs to canonical `FreeTvChannel` entities with localized country/region names, friendly category groupings, and stream health scores |
-| Ingestion Pipeline | `FreeTvCatalogBuilder` — ingests JSON catalog, deduplicates multi-stream variants, unions categories/languages, and records pipeline diagnostics |
+| Endpoints | `FreeTvApiConfig` (pointing to `dearbulut/iptv` JSON endpoints) and `FreeTvSources` (centralized registry of Free TV sources, including JSON catalogs and custom M3U playlists) |
+| Remote Data | `FreeTvRemoteDataSource` (`DearbulutFreeTvRemoteDataSource` for JSON) and `FreeTvM3uRemoteDataSource` (`CustomM3uFreeTvRemoteDataSource` for M3U playlist feeds) |
+| DTOs & Models | `DearbulutChannelDto`, `DearbulutStreamDto`, `DearbulutHealthDto`, `M3UChannel`, `FreeTvStream`, and `FreeTvChannel` |
+| Normalizer / Mapper | `FreeTvMapper` (JSON DTOs → `FreeTvChannel`) and `FreeTvM3uNormalizer` / `FreeTvM3uConverter` (M3U channels → `FreeTvChannel` with stream-level metadata and language fallbacks) |
+| Ingestion Pipeline | `FreeTvCatalogBuilder` — aggregates JSON and M3U catalogs, deduplicates cross-source and multi-stream variants by normalized key, unions categories/languages, and records pipeline diagnostics |
 | Quality | `FreeTvQualityService` — excludes NSFW/junk/broken channels and assigns deterministic quality scores (0–100) with `recommended` (score ≥ 55) vs `valid` tiers |
 | Model | `FreeTvChannel` → canonical `MediaItem` via `toMediaItem()` (consumed by `PlaybackEngine` / `PlayerController`); carries `streams`, `qualityScore` / `qualityTier` / `region` |
 | Cache | `FreeTvRepository` — Hive boxes `free_tv_catalog` (TTL 12h), `free_tv_favorites`, `free_tv_recent` (capped at 20), `free_tv_reachability` (TTL 24h) |
-| Reachability | Background live health data pre-populated from `dearbulut/iptv` and refined on-demand via `FreeTvReachabilityService` |
+| Reachability | Background live health data pre-populated from `dearbulut/iptv` or M3U streams, and refined on-demand via `FreeTvReachabilityService` |
 | Playback | Inline embedded player with automatic multi-stream fallback (Stream 1 ➔ 2 ➔ 3) |
 | Session | `CustomProviderSessionFactory` — registered for `MediaSourceType.custom`; builds a credential-free `ProviderSession` from the direct stream URL, so Free TV flows through the standard Stream Engine pipeline (resolver → normalize → validate → `PlayableSession`) without any provider |
 
@@ -236,8 +236,12 @@ Key invariants:
 
 - **Subscription independence** — never checks for active providers or
   subscriptions; remains usable offline via the local catalog cache.
-- **JSON-first pipeline** — uses structured JSON data with stream-level health
-  checks instead of heavy client-side M3U downloads and parsing.
+- **Hybrid ingestion pipeline** — aggregates verified JSON feeds and custom M3U
+  playlists, normalizing both into canonical `FreeTvChannel` models before catalog
+  composition.
+- **Credential privacy** — custom M3U sources containing embedded credentials or
+  tokens never expose sensitive tokens in logs or UI diagnostics; logger records
+  hostnames and source IDs only.
 - **Curated quality layer** — raw channels are never shown unfiltered.
   `FreeTvQualityService` applies strict exclusions and deterministic scoring,
   separating curated `recommended` channels (default) from `valid` channels.

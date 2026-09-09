@@ -1,0 +1,9 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="BBC.UK@HD" tvg-name="BBC One" tvg-logo="https://example.com/bbc.png" group-title="News",BBC One HD
+http://portal5458.com:8080/live/bbc.m3u8
+#EXTINF:-1 tvg-id="CNN.US@SD" tvg-name="CNN" tvg-logo="https://example.com/cnn.png" group-title="News",CNN International
+http://portal5458.com:8080/live/cnn.m3u8
+#EXTINF:-1 tvg-id="ESPN.US@HD" tvg-name="ESPN" group-title="Sports",ESPN HD
+http://portal5458.com:8080/live/espn.m3u8
+#EXTINF:-1 tvg-id="" tvg-name="Unknown Channel",Unknown Channel
+http://portal5458.com:8080/live/unknown.m3u8

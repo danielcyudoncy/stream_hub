@@ -63,8 +63,9 @@ class FreeTvCategoryBar extends StatelessWidget {
         'News',
         'Sports',
         'Entertainment',
+        'Documentaries',
         'Kids',
-        'Documentary',
+        'Movies',
       ],
       countries: const [
         'Nigeria',
@@ -176,8 +177,11 @@ class FreeTvCategoryBar extends StatelessWidget {
 
           // Curated Category chips
           ...curated.categories.map((category) {
-            final isSelected =
-                !showFavoritesOnly && selectedCategory == category;
+            final isSelected = !showFavoritesOnly &&
+                (selectedCategory == category ||
+                    ((category == 'Documentaries' || category == 'Documentary') &&
+                        (selectedCategory == 'Documentaries' ||
+                            selectedCategory == 'Documentary')));
             return Padding(
               padding: const EdgeInsets.only(right: AppSpacing.xs),
               child: _CategoryChip(
@@ -191,8 +195,14 @@ class FreeTvCategoryBar extends StatelessWidget {
             );
           }),
 
-          // Dynamic Category chips from loaded channels
-          ...categories.where((c) => c != 'All Categories').map((category) {
+          // Dynamic Category chips from loaded channels (excluding already shown curated chips)
+          ...categories
+              .where((c) =>
+                  c != 'All Categories' &&
+                  !curated.categories.contains(c) &&
+                  !(c == 'Documentary' &&
+                      curated.categories.contains('Documentaries')))
+              .map((category) {
             final isSelected =
                 !showFavoritesOnly && selectedCategory == category;
             return Padding(
