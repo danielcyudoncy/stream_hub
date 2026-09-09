@@ -217,6 +217,31 @@ void main() {
       expect(controller.filteredChannels.first.id, 'RedBullTV.at');
     });
 
+    test('filters by Category and prioritizes custom source channels at the top', () async {
+      fakeRepo.catalog.add(
+        const FreeTvChannel(
+          id: 'custom_portal5458_123',
+          name: 'Portal Sports Channel',
+          country: 'United States',
+          countryCode: 'US',
+          categories: ['US - Sports', 'Sports'],
+          languages: ['English'],
+          qualityScore: 100,
+          qualityTier: FreeTvQualityTier.recommended,
+          streamUrls: ['http://portal5458.com:8080/live/123.ts'],
+        ),
+      );
+
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      controller.setCategory('Sports');
+      expect(controller.filteredChannels.length, 2);
+      // Custom portal channel must be first!
+      expect(controller.filteredChannels.first.id, 'custom_portal5458_123');
+      expect(controller.filteredChannels.last.id, 'RedBullTV.at');
+    });
+
     test('filters by Language correctly', () async {
       controller.onInit();
       await Future.delayed(const Duration(milliseconds: 50));

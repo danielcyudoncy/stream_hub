@@ -1,4 +1,5 @@
 import 'package:stream_hub/data/models/free_tv_channel.dart';
+import 'package:stream_hub/data/models/free_tv_stream.dart';
 import 'package:stream_hub/data/models/m3u_models.dart';
 import 'package:stream_hub/data/sources/free_tv_regions.dart';
 
@@ -87,6 +88,18 @@ class FreeTvM3uNormalizer {
       categories = [...categories, sourceCategory];
     }
 
+    var languages = _splitGroup(
+      m3u.language != null && m3u.language!.trim().isNotEmpty
+          ? m3u.language
+          : null,
+    );
+    if (languages.isEmpty &&
+        countryCode != null &&
+        const {'US', 'UK', 'GB', 'CA', 'AU', 'NZ', 'IE', 'NG', 'ZA'}
+            .contains(countryCode.toUpperCase())) {
+      languages = ['English'];
+    }
+
     final countryName =
         countryCode != null && countryCode.isNotEmpty
             ? (FreeTvRegions.countryNameForCode(countryCode) ??
@@ -94,6 +107,14 @@ class FreeTvM3uNormalizer {
             : (m3u.country != null && m3u.country!.trim().length > 3
                   ? m3u.country!.trim()
                   : 'Unknown');
+
+    final streamFormat = streamUrl.contains('.m3u8') ? 'm3u8' : 'ts';
+    final stream = FreeTvStream(
+      url: streamUrl,
+      label: streamFormat,
+      isOnline: true,
+      healthScore: 100.0,
+    );
 
     return FreeTvChannel(
       id: id,
@@ -103,14 +124,12 @@ class FreeTvM3uNormalizer {
           : 'Unknown',
       countryCode: countryCode ?? '',
       region: FreeTvRegions.regionForCountryCode(countryCode ?? ''),
-      languages: _splitGroup(
-        m3u.language != null && m3u.language!.trim().isNotEmpty
-            ? m3u.language
-            : null,
-      ),
+      languages: languages,
       categories: categories.toSet().toList(),
       logo: _validHttpUrl(m3u.logo),
       streamUrls: [streamUrl],
+      streams: [stream],
+      source: 'm3u',
       isNsfw: false,
     );
   }

@@ -138,7 +138,15 @@ class FreeLiveTvController extends GetxController {
     isLoading.value = true;
     errorMessage.value = '';
     try {
-      final list = await repository.getCatalog(forceRefresh: forceRefresh);
+      var list = await repository.getCatalog(forceRefresh: forceRefresh);
+      if (!forceRefresh &&
+          list.isNotEmpty &&
+          list.every((c) => !c.id.startsWith('custom_'))) {
+        try {
+          final fresh = await repository.getCatalog(forceRefresh: true);
+          if (fresh.isNotEmpty) list = fresh;
+        } catch (_) {}
+      }
       _allChannels.clear();
       _allChannels.addAll(list);
 
@@ -163,10 +171,10 @@ class FreeLiveTvController extends GetxController {
 
         _buildFeatured(recommended);
 
-        // Hero fallback: a Nigerian/international news-style channel, else the
-        // top-quality recommended channel.
+        // Hero fallback: a custom source channel, else Nigerian, else recommended top.
         final heroCandidate = recommended.isNotEmpty
-            ? (recommended.firstWhereOrNull(
+            ? (recommended.firstWhereOrNull((c) => c.id.startsWith('custom_')) ??
+               recommended.firstWhereOrNull(
                     (c) =>
                         c.countryCode == 'NG' ||
                         c.country.toLowerCase() == 'nigeria') ??
@@ -264,6 +272,11 @@ class FreeLiveTvController extends GetxController {
       result.add(ch);
     }
 
+    // Always put custom source channels at the very front of the featured carousel.
+    for (final ch in pool.where((c) => c.id.startsWith('custom_')).take(6)) {
+      add(ch);
+    }
+
     // Prefer a spread of countries from the top of the recommended pool.
     final byCountry = <String, List<FreeTvChannel>>{};
     for (final ch in pool) {
@@ -309,6 +322,21 @@ class FreeLiveTvController extends GetxController {
     }
 
     final sortedCats = catSet.toList()..sort();
+    const priorityCategories = [
+      'News',
+      'Sports',
+      'Entertainment',
+      'Documentaries',
+      'Kids',
+      'Movies',
+      'Music',
+    ];
+    for (final c in priorityCategories.reversed) {
+      if (sortedCats.contains(c)) {
+        sortedCats.remove(c);
+        sortedCats.insert(0, c);
+      }
+    }
     categories.assignAll(['All Categories', ...sortedCats]);
 
     final sortedCountries = countrySet.toList()..sort();
@@ -376,9 +404,19 @@ class FreeLiveTvController extends GetxController {
 
     // 1. Category Filter
     if (selectedCategory.value != 'All Categories') {
-      list = list
-          .where((c) => c.categories.contains(selectedCategory.value))
-          .toList();
+      final selectedCat = selectedCategory.value.trim().toLowerCase();
+      list = list.where((c) {
+        return c.categories.any((cat) {
+          final catLower = cat.trim().toLowerCase();
+          if (catLower == selectedCat) return true;
+          // Flexible mapping for Documentary vs Documentaries
+          if ((selectedCat == 'documentaries' || selectedCat == 'documentary') &&
+              (catLower == 'documentaries' || catLower == 'documentary')) {
+            return true;
+          }
+          return false;
+        });
+      }).toList();
     }
 
     // 2. Country Filter
@@ -436,13 +474,25 @@ class FreeLiveTvController extends GetxController {
       }).toList();
     }
 
-    // 8. Sorting
+    // 8. Sorting (custom sources like portal5458 always sort to the top)
     switch (selectedSort.value) {
       case 'country':
-        list.sort((a, b) => a.country.compareTo(b.country));
+        list.sort((a, b) {
+          final aIsCustom = a.id.startsWith('custom_') ? 1 : 0;
+          final bIsCustom = b.id.startsWith('custom_') ? 1 : 0;
+          if (aIsCustom != bIsCustom) {
+            return bIsCustom.compareTo(aIsCustom);
+          }
+          return a.country.compareTo(b.country);
+        });
         break;
       case 'category':
         list.sort((a, b) {
+          final aIsCustom = a.id.startsWith('custom_') ? 1 : 0;
+          final bIsCustom = b.id.startsWith('custom_') ? 1 : 0;
+          if (aIsCustom != bIsCustom) {
+            return bIsCustom.compareTo(aIsCustom);
+          }
           final aCat = a.categories.isNotEmpty ? a.categories.first : 'zzz';
           final bCat = b.categories.isNotEmpty ? b.categories.first : 'zzz';
           return aCat.compareTo(bCat);
@@ -450,7 +500,14 @@ class FreeLiveTvController extends GetxController {
         break;
       case 'alphabetical':
       default:
-        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        list.sort((a, b) {
+          final aIsCustom = a.id.startsWith('custom_') ? 1 : 0;
+          final bIsCustom = b.id.startsWith('custom_') ? 1 : 0;
+          if (aIsCustom != bIsCustom) {
+            return bIsCustom.compareTo(aIsCustom);
+          }
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
         break;
     }
 

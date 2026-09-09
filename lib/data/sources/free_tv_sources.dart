@@ -166,6 +166,15 @@ abstract final class FreeTvSources {
     categoryName: 'Documentary',
   );
 
+  /// Custom provider M3U playlist source.
+  static const FreeTvSource customPortal5458 = FreeTvSource(
+    id: 'custom_portal5458',
+    name: 'Portal 5458 Custom Playlist',
+    url:
+        'http://portal5458.com:8080/get.php?username=spehar6&password=2934778645&type=m3u_plus',
+    kind: FreeTvSourceKind.global,
+  );
+
   /// Every source used to build the unified catalog.
   static const List<FreeTvSource> all = [
     global,
@@ -183,6 +192,7 @@ abstract final class FreeTvSources {
     entertainment,
     kids,
     documentary,
+    customPortal5458,
   ];
 
   /// Country sources surfaced as dedicated country sections in the UI.
