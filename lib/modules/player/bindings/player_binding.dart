@@ -8,6 +8,7 @@ import 'package:stream_hub/data/repositories/favorite_repository.dart';
 import 'package:stream_hub/data/repositories/history_repository.dart';
 import 'package:stream_hub/data/repositories/session_repository_impl.dart';
 import 'package:stream_hub/data/services/playback_local_service.dart';
+import 'package:stream_hub/core/services/parental_control_service.dart';
 import '../controllers/player_controller.dart';
 
 class PlayerBinding extends Bindings {
@@ -52,6 +53,9 @@ class PlayerBinding extends Bindings {
             : null,
         catalogRepository: Get.isRegistered<CatalogRepository>()
             ? Get.find<CatalogRepository>()
+            : null,
+        parentalControlService: Get.isRegistered<ParentalControlService>()
+            ? Get.find<ParentalControlService>()
             : null,
       );
     });

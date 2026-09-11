@@ -19,6 +19,8 @@ import 'package:stream_hub/core/streaming/models/provider_session.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/media_library.dart';
+import 'package:stream_hub/core/routes/app_routes.dart';
+import 'package:stream_hub/core/services/parental_control_service.dart';
 import 'package:stream_hub/core/services/screen_awake_service.dart';
 import 'package:stream_hub/core/streaming/series/next_episode_resolver.dart';
 import 'package:stream_hub/core/streaming/series/intro_service.dart';
@@ -42,6 +44,7 @@ class PlayerController extends GetxController {
   final IntroService introService;
   final LoggingService? logger;
   final ScreenAwakeService _screenAwake;
+  final ParentalControlService? parentalControlService;
 
   final String? itemId;
   final String? streamUrl;
@@ -101,10 +104,15 @@ class PlayerController extends GetxController {
     NextEpisodeResolver? nextEpisodeResolver,
     IntroService? introService,
     ScreenAwakeService? screenAwakeService,
+    ParentalControlService? parentalControlService,
   }) : _pendingItems = pendingItems ?? const [],
        _pendingCurrentId = pendingCurrentId,
        nextEpisodeResolver = nextEpisodeResolver ?? const NextEpisodeResolver(),
        introService = introService ?? IntroService(),
+       parentalControlService = parentalControlService ??
+           (Get.isRegistered<ParentalControlService>()
+               ? Get.find<ParentalControlService>()
+               : null),
        playbackController = PlaybackController(
          adapter: adapter,
          engineKind: engineKind,
@@ -401,6 +409,30 @@ class PlayerController extends GetxController {
     _userCancelledNextEpisode = true;
   }
 
+  /// Checks whether parental control is locked and prompts the user for PIN.
+  /// Returns `true` if playback can proceed, `false` if blocked.
+  Future<bool> _checkParentalGate({MediaItem? item}) async {
+    final pc = parentalControlService;
+    if (pc == null) return true;
+
+    if (pc.isLocked) {
+      final unlocked = await pc.promptPinUnlock(
+        title: 'Parental Lock',
+        message: item != null
+            ? 'Enter PIN to play "${item.title}".'
+            : 'Enter PIN to proceed with playback.',
+      );
+      if (!unlocked) {
+        logger?.info(
+          'Playback blocked by parental control gate',
+          tag: 'PlayerController',
+        );
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<void> _autoStart(String id, String url) async {
     final mediaItem = MediaItem(
       id: id,
@@ -411,6 +443,12 @@ class PlayerController extends GetxController {
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
+    if (!await _checkParentalGate(item: mediaItem)) {
+      if (Get.currentRoute == AppRoutes.fullscreenPlayer) {
+        Get.back();
+      }
+      return;
+    }
     channelList.assignAll([mediaItem]);
     _currentChannelIndex = 0;
     _syncChannelsToNativeAdapter();
@@ -432,6 +470,12 @@ class PlayerController extends GetxController {
     String? providerId,
     Duration? resumePosition,
   }) async {
+    if (!await _checkParentalGate(item: mediaItem)) {
+      if (Get.currentRoute == AppRoutes.fullscreenPlayer && session == null) {
+        Get.back();
+      }
+      return;
+    }
     await playbackController.playMedia(
       mediaItem,
       stream,
@@ -447,6 +491,12 @@ class PlayerController extends GetxController {
     PlayableSession session, {
     Duration? resumePosition,
   }) async {
+    if (!await _checkParentalGate(item: mediaItem)) {
+      if (Get.currentRoute == AppRoutes.fullscreenPlayer && this.session == null) {
+        Get.back();
+      }
+      return;
+    }
     await playbackController.playSession(
       session,
       mediaItem: mediaItem,
@@ -456,8 +506,14 @@ class PlayerController extends GetxController {
   }
 
   Future<void> playMediaItem(MediaItem item, {Duration? resumePosition}) async {
+    if (!await _checkParentalGate(item: item)) {
+      if (Get.currentRoute == AppRoutes.fullscreenPlayer && session == null) {
+        Get.back();
+      }
+      return;
+    }
     final startedAt = DateTime.now();
-    PlayableSession? session;
+    PlayableSession? playableSession;
     _pendingItem = item;
     // Generation token for this user-initiated load. Any recovery spawned by a
     // failure of THIS load is invalidated as soon as another load (or a stop)
@@ -495,10 +551,10 @@ class PlayerController extends GetxController {
         providerId: item.providerId,
         fallbackUrl: fallbackUrl,
       );
-      session = resolved;
+      playableSession = resolved;
       await playWithSession(item, resolved, resumePosition: resume);
     } catch (e, st) {
-      await _handlePlaybackFailure(item, session, e, st, startedAt, generation);
+      await _handlePlaybackFailure(item, playableSession, e, st, startedAt, generation);
     }
   }
 

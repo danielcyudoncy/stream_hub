@@ -6,6 +6,7 @@ import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/repositories/download_repository.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/services/download_service.dart';
+import 'package:stream_hub/core/services/parental_control_service.dart';
 import 'package:stream_hub/data/models/download_item.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 
@@ -127,8 +128,19 @@ class DownloadsController extends GetxController {
     await loadDownloads();
   }
 
-  void playDownload(DownloadItem item) {
+  Future<void> playDownload(DownloadItem item) async {
     if (!item.isCompleted) return;
+
+    final parentalService = Get.isRegistered<ParentalControlService>()
+        ? Get.find<ParentalControlService>()
+        : null;
+    if (parentalService != null && parentalService.isLocked) {
+      final unlocked = await parentalService.promptPinUnlock(
+        title: 'Parental Lock',
+        message: 'Enter PIN to play downloaded content "${item.title}".',
+      );
+      if (!unlocked) return;
+    }
 
     final mediaItem = MediaItem(
       id: item.mediaItemId,

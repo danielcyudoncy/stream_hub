@@ -91,6 +91,22 @@ class SettingsRepository extends GetxService {
     }
   }
 
+  Future<void> updateParentalLock({required bool enabled, String? hashedPin}) async {
+    try {
+      final settings = await getSettings();
+      if (settings == null) return;
+      final updated = settings.copyWith(
+        parentalLockEnabled: enabled,
+        parentalPin: hashedPin ?? settings.parentalPin,
+        updatedAt: DateTime.now(),
+      );
+      await saveSettings(updated);
+    } catch (e) {
+      _logger.error('Failed to update parental lock settings', tag: 'SettingsRepository', error: e);
+      rethrow;
+    }
+  }
+
   Future<void> clearCacheTimestamp() async {
     try {
       final settings = await getSettings();

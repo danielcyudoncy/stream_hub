@@ -55,6 +55,7 @@ import 'package:stream_hub/core/services/tmdb_catalog_service.dart';
 import 'package:stream_hub/core/media/stream_matching_service.dart';
 import 'package:stream_hub/core/services/media_watchlist_service.dart';
 import 'package:stream_hub/core/services/cloud_sync_service.dart';
+import 'package:stream_hub/core/services/parental_control_service.dart';
 import 'package:stream_hub/data/services/active_profile_service.dart';
 
 class AppBinding extends Bindings {
@@ -80,10 +81,15 @@ class AppBinding extends Bindings {
     Get.put<ProfileRepository>(profileRepo, permanent: true);
     Get.put<ProviderRepository>(providerRepo, permanent: true);
 
-    Get.put<SettingsService>(SettingsService(settingsRepo), permanent: true);
+    final settingsService = SettingsService(settingsRepo);
+    Get.put<SettingsService>(settingsService, permanent: true);
     Get.put<ProfileService>(ProfileService(profileRepo), permanent: true);
     Get.put<ProviderStorageService>(ProviderStorageService(providerRepo), permanent: true);
     Get.put<CacheService>(CacheService(settingsRepo), permanent: true);
+    Get.put<ParentalControlService>(
+      ParentalControlService(settingsService: settingsService),
+      permanent: true,
+    );
     
     Get.put<EPGEngine>(EPGEngine(), permanent: true);
     Get.put<TimelineEngine>(TimelineEngine(), permanent: true);
