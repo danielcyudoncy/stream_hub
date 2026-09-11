@@ -85,11 +85,9 @@ class _TvFocusableState extends State<TvFocusable> {
 
   void _unregisterWithBody() {
     if (!_registered) return;
-    final registry = _registry ?? TvBodyFocusRegistry.maybeOf(context);
-    if (registry != null) {
-      registry.unregister(_effectiveFocusNode);
-    }
+    _registry?.unregister(_effectiveFocusNode);
     _registered = false;
+    _registry = null;
   }
 
   @override

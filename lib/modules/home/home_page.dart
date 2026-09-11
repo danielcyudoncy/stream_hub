@@ -513,7 +513,11 @@ class HomePage extends GetView<HomeController> {
         provider.contains('iptv-org') ||
         item.providerId.toLowerCase().contains('freelivetv') ||
         item.providerId.toLowerCase().contains('free_live_tv') ||
-        item.id.startsWith('free_tv_');
+        item.providerId.toLowerCase().contains('portal5458') ||
+        item.id.startsWith('free_tv_') ||
+        item.id.toLowerCase().contains('portal5458') ||
+        (item.metadata['source']?.toString().toLowerCase().contains('portal5458') ?? false) ||
+        (item.metadata['streamUrl']?.toString().toLowerCase().contains('portal5458') ?? false);
 
     if (isFreeLiveTv) {
       if (Get.isRegistered<LiveTVController>()) {

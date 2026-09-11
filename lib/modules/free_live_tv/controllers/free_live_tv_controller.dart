@@ -86,6 +86,7 @@ class FreeLiveTvController extends GetxController {
   DateTime lastFullscreenEntered = DateTime.fromMillisecondsSinceEpoch(0);
   bool hasBeenLandscapeInFullscreen = false;
   String? _lastHandledChannelId;
+  final Rxn<String> scrollToChannelId = Rxn<String>();
 
   final Rxn<PlayerController> _inlinePlayerController = Rxn<PlayerController>();
   PlayerController? get inlinePlayerController => _inlinePlayerController.value;
@@ -231,11 +232,24 @@ class FreeLiveTvController extends GetxController {
     _lastHandledChannelId = targetChannel.id;
 
     final targetId = targetChannel.id.replaceFirst('free_tv_', '');
-    final matched = _allChannels.firstWhereOrNull(
+    FreeTvChannel? matched = _allChannels.firstWhereOrNull(
       (c) => c.id == targetId || c.toMediaItem().id == targetChannel!.id,
     );
+
+    if (matched == null) {
+      final normalizedTarget = targetId.replaceAll('custom_', '');
+      matched = _allChannels.firstWhereOrNull(
+        (c) => c.id.replaceAll('custom_', '') == normalizedTarget,
+      );
+    }
+
+    if (matched == null && targetChannel.title.isNotEmpty) {
+      matched = _allChannels.firstWhereOrNull(
+        (c) => c.name.trim().toLowerCase() == targetChannel!.title.trim().toLowerCase(),
+      );
+    }
+
     if (matched != null) {
-      openChannel(matched, streamIndex: 0);
       String? foundCat;
       for (final raw in [
         ...matched.categories,
@@ -254,6 +268,8 @@ class FreeLiveTvController extends GetxController {
       if (foundCat != null) {
         setCategory(foundCat);
       }
+      openChannel(matched, streamIndex: 0);
+      scrollToChannelId.value = matched.id;
     }
   }
 
@@ -908,6 +924,7 @@ class FreeLiveTvController extends GetxController {
 
   void stopInlinePlayer() {
     _openChannelGeneration++;
+    _lastHandledChannelId = null;
     _streamStartupWatchdogTimer?.cancel();
     _playbackPositionSubscription?.cancel();
     // The engine's load-generation guard makes this safe to fire-and-forget:

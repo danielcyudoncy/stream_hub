@@ -113,7 +113,25 @@ class AppScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isPhone = MediaQuery.sizeOf(context).shortestSide < 600;
+    final screenSize = MediaQuery.sizeOf(context);
+    final width = screenSize.width;
+    final isPhone = screenSize.shortestSide < 600;
+    final isTvMode = PlatformHelper.isTV || ResponsiveHelper.isTV(context);
+
+    // Desktop / TV — persistent sidebar (top-level scaffold, never nested inside LayoutBuilder)
+    if ((width >= 1024 || isTvMode) && showNavigation) {
+      final tvWidget = TvScaffold(body: body);
+      if (_isRootRoute) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) _confirmExit(context);
+          },
+          child: tvWidget,
+        );
+      }
+      return tvWidget;
+    }
 
     final List<NavigationDestination> destinations = [
       const NavigationDestination(
@@ -151,20 +169,8 @@ class AppScaffold extends StatelessWidget {
     final Widget scaffold = Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: floatingActionButton,
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          final isTvMode =
-              PlatformHelper.isTV || ResponsiveHelper.isTV(context);
-
-          // Desktop / TV — persistent sidebar
-          if ((width >= 1024 || isTvMode) && showNavigation) {
-            return TvScaffold(body: body);
-          }
-
-          // Tablet — Navigation Rail (exclude phones in landscape)
-          if (width >= 600 && showNavigation && !isPhone) {
-            return FocusTraversalGroup(
+      body: (width >= 600 && showNavigation && !isPhone)
+          ? FocusTraversalGroup(
               policy: WidgetOrderTraversalPolicy(),
               child: Row(
                 children: [
@@ -211,58 +217,38 @@ class AppScaffold extends StatelessWidget {
                           ],
                         ),
                         if (Get.isRegistered<PlayerController>() &&
-                            Get.currentRoute != AppRoutes.fullscreenPlayer &&
-                            Get.currentRoute != AppRoutes.liveTV)
-                          Obx(() {
-                            final state =
-                                Get.find<PlayerController>().stateRx.value;
-                            if (state == PlaybackState.idle ||
-                                state == PlaybackState.stopped) {
-                              return const SizedBox.shrink();
-                            }
-                            return const FloatingPlayerPage();
-                          }),
+                            !AppRoutes.hasOwnPlayer(Get.currentRoute))
+                          const FloatingPlayerPage(),
                       ],
                     ),
                   ),
                 ],
               ),
-            );
-          }
-
-          // Mobile — full-screen with bottom nav
-          return Column(
-            children: [
-              if (showAppBar)
-                AppAppBar(
-                  title: title,
-                  actions: actions,
-                  leading: leading,
-                  showBackButton: showBackButton ?? false,
-                  onBack: onBack,
-                ),
-              const SyncProgressBar(),
-              Expanded(child: body),
-            ],
-          );
-        },
-      ),
-      bottomNavigationBar: LayoutBuilder(
-        builder: (context, constraints) {
-          final isTvMode =
-              PlatformHelper.isTV || ResponsiveHelper.isTV(context);
-          if ((constraints.maxWidth >= 600 && !isPhone) || isTvMode) {
+            )
+          : Column(
+              children: [
+                if (showAppBar)
+                  AppAppBar(
+                    title: title,
+                    actions: actions,
+                    leading: leading,
+                    showBackButton: showBackButton ?? false,
+                    onBack: onBack,
+                  ),
+                const SyncProgressBar(),
+                Expanded(child: body),
+              ],
+            ),
+      bottomNavigationBar: Builder(
+        builder: (context) {
+          if ((width >= 600 && !isPhone) || isTvMode) {
             return const SizedBox.shrink();
           }
 
           final hasPlayerController = Get.isRegistered<PlayerController>();
-          final isFullscreenOrLive =
-              Get.currentRoute == AppRoutes.fullscreenPlayer ||
-              Get.currentRoute == AppRoutes.liveTV;
-
           final showMiniPlayer =
               hasPlayerController &&
-              !isFullscreenOrLive &&
+              !AppRoutes.hasOwnPlayer(Get.currentRoute) &&
               Get.find<PlayerController>().stateRx.value !=
                   PlaybackState.idle &&
               Get.find<PlayerController>().stateRx.value !=

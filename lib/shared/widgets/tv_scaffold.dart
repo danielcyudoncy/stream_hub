@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import '../../core/media/enums/playback_state.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_icons.dart';
@@ -57,7 +56,12 @@ class _TvScaffoldState extends State<TvScaffold> {
     // primary focus to be null — only that it isn't already inside the body.
     if (_bodyFocusables.length == 1) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !node.canRequestFocus) return;
+        if (!mounted) return;
+        try {
+          if (!node.canRequestFocus) return;
+        } catch (_) {
+          return;
+        }
         final primary = FocusManager.instance.primaryFocus;
         if (primary != null && _bodyFocusables.contains(primary)) return;
         node.requestFocus();
@@ -377,18 +381,10 @@ class _TvScaffoldState extends State<TvScaffold> {
             ),
           ),
 
-          // Floating Player (PiP overlay when browsing outside fullscreen/liveTV)
+          // Floating Player (PiP overlay when browsing outside screens with their own player)
           if (Get.isRegistered<PlayerController>() &&
-              Get.currentRoute != AppRoutes.fullscreenPlayer &&
-              Get.currentRoute != AppRoutes.liveTV)
-            Obx(() {
-              final state = Get.find<PlayerController>().stateRx.value;
-              if (state == PlaybackState.idle ||
-                  state == PlaybackState.stopped) {
-                return const SizedBox.shrink();
-              }
-              return const FloatingPlayerPage();
-            }),
+              !AppRoutes.hasOwnPlayer(Get.currentRoute))
+            const FloatingPlayerPage(),
 
           // Sidebar Navigation (Floats on top, expands on focus/hover)
           Positioned(

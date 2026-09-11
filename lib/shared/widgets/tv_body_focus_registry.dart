@@ -21,12 +21,11 @@ class TvBodyFocusRegistry extends InheritedWidget {
   final ValueChanged<FocusNode> unregister;
 
   static TvBodyFocusRegistry? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<TvBodyFocusRegistry>();
+      context.getInheritedWidgetOfExactType<TvBodyFocusRegistry>();
 
   static TvBodyFocusRegistry? of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<TvBodyFocusRegistry>();
+      context.getInheritedWidgetOfExactType<TvBodyFocusRegistry>();
 
   @override
-  bool updateShouldNotify(TvBodyFocusRegistry oldWidget) =>
-      register != oldWidget.register || unregister != oldWidget.unregister;
+  bool updateShouldNotify(TvBodyFocusRegistry oldWidget) => false;
 }

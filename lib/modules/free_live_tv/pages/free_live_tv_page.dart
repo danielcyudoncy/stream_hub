@@ -37,6 +37,8 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
   StreamSubscription<PlaybackState>? _stateSub;
   StreamSubscription<PlaybackEngineKind>? _engineKindSub;
   Worker? _activeChannelWorker;
+  Worker? _scrollWorker;
+  final ScrollController _scrollController = ScrollController();
 
   static bool get _isPiPSupported => Platform.isAndroid;
 
@@ -52,6 +54,11 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
       _floating = Floating();
     }
     _setupAutoPiP();
+    _scrollWorker = ever(controller.scrollToChannelId, (id) {
+      if (id != null) {
+        _triggerScrollToChannel(id);
+      }
+    });
   }
 
   void _setupAutoPiP() {
@@ -131,8 +138,47 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
     } catch (_) {}
   }
 
+  void _triggerScrollToChannel(String channelId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final index =
+          controller.filteredChannels.indexWhere((c) => c.id == channelId);
+      if (index < 0) return;
+
+      final isTV = ResponsiveHelper.isTV(context);
+      final isDesktop = ResponsiveHelper.isDesktop(context);
+      final isTablet = ResponsiveHelper.isTablet(context);
+      final crossAxisCount =
+          isTV ? 5 : (isDesktop ? 4 : (isTablet ? 3 : 2));
+      final isList = controller.selectedView.value == 'list';
+
+      double offset = 0;
+      if (isList) {
+        offset = index * 68.0;
+      } else {
+        final rowIndex = index ~/ crossAxisCount;
+        final screenWidth = MediaQuery.of(context).size.width;
+        final totalSpacing =
+            (crossAxisCount - 1) * AppSpacing.sm + AppSpacing.md * 2;
+        final cardWidth = (screenWidth - totalSpacing) / crossAxisCount;
+        final cardHeight = cardWidth / (isTV ? 1.1 : 1.0);
+        offset = rowIndex * (cardHeight + AppSpacing.sm);
+      }
+
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final clamped = offset.clamp(0.0, maxScroll);
+      _scrollController.animateTo(
+        clamped,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    });
+  }
+
   @override
   void dispose() {
+    _scrollWorker?.dispose();
+    _scrollController.dispose();
     _disableAutoPiP();
     _stateSub?.cancel();
     _engineKindSub?.cancel();
@@ -398,7 +444,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
       );
     });
 
-    if (!_isPiPSupported || _floating == null) {
+    if (!_isPiPSupported || _floating == null || isTV || isDesktop) {
       return mainScaffold;
     }
 
@@ -1163,6 +1209,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
 
     if (isList) {
       return ListView.builder(
+        controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -1189,6 +1236,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
     }
 
     return GridView.builder(
+      controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpacing.md),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
