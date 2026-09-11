@@ -97,6 +97,12 @@ class FreeTvChannel {
     return streamUrls.isNotEmpty ? streamUrls.first : null;
   }
 
+  /// Returns the effective list of playable stream URLs, falling back to
+  /// [streams] if [streamUrls] was not explicitly populated.
+  List<String> get resolvedStreamUrls => streamUrls.isNotEmpty
+      ? streamUrls
+      : streams.map((s) => s.url).where((u) => u.isNotEmpty).toList();
+
   /// Returns true if this channel has at least one valid stream URL.
   bool get hasStream =>
       streams.isNotEmpty || streamUrls.isNotEmpty;
@@ -161,6 +167,12 @@ class FreeTvChannel {
     final urls = streamUrls.isNotEmpty
         ? streamUrls
         : streams.map((s) => s.url).toList();
+    final primaryStream = streams.isEmpty
+        ? null
+        : streams.firstWhere(
+            (s) => s.isOnline,
+            orElse: () => streams.first,
+          );
 
     return MediaItem(
       id: 'free_tv_$id',
@@ -191,6 +203,10 @@ class FreeTvChannel {
         'categories': categories,
         'website': website ?? '',
         'city': city ?? '',
+        if (primaryStream?.referrer != null) 'referer': primaryStream!.referrer,
+        if (primaryStream?.referrer != null) 'origin': primaryStream!.referrer,
+        if (primaryStream?.userAgent != null)
+          'userAgent': primaryStream!.userAgent,
       },
       createdAt: now,
       updatedAt: now,

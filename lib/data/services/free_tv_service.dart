@@ -11,8 +11,9 @@ import 'package:stream_hub/data/sources/free_tv_sources.dart';
 /// quality-filtering the normalized Free Live TV catalog.
 ///
 /// Ingests stream-health-aware JSON datasets from dearbulut/iptv (IPTV Nexus)
-/// and custom M3U playlist sources (e.g. Portal 5458), normalizes models, merges metadata,
-/// deduplicates by stable ID, and filters through the quality layer.
+/// plus bundled Xtream-style provider playlists (Portal 5458), normalizes
+/// models, merges metadata, deduplicates by stable ID, and filters through the
+/// quality layer.
 class FreeTvService {
   final FreeTvCatalogBuilder _builder;
   final LoggingService _logger;
@@ -25,7 +26,7 @@ class FreeTvService {
   })  : _builder = builder ??
             FreeTvCatalogBuilder(
               m3uRemoteDataSource: CustomM3uFreeTvRemoteDataSource(
-                source: FreeTvSources.customPortal5458,
+                source: FreeTvSources.portal5458,
                 logger: logger,
               ),
               logger: logger,
@@ -52,17 +53,6 @@ class FreeTvService {
     if (_lastResult != null) return _lastResult!.recommended;
     final result = await buildCatalog(timeout: timeout);
     return result.recommended;
-  }
-
-  /// Fetches channels from the custom M3U source only.
-  Future<List<FreeTvChannel>> fetchCustomM3uCatalog({
-    Duration timeout = FreeTvApiConfig.defaultTimeout,
-  }) async {
-    final m3uDataSource = CustomM3uFreeTvRemoteDataSource(
-      source: FreeTvSources.customPortal5458,
-      logger: _logger,
-    );
-    return await m3uDataSource.fetchOnlineChannels(timeout: timeout);
   }
 
   /// Fetches, aggregates, and filters the full Free Live TV catalog.

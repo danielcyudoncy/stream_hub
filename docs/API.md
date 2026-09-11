@@ -882,42 +882,54 @@ Returns
 ## Free Live TV & Custom M3U Catalog Provider
 
 StreamHub Pro supports hybrid catalog ingestion for Free Live TV, aggregating
-verified JSON APIs (`dearbulut/iptv`) with custom M3U playlist feeds (such as `FreeTvSources.customPortal5458`).
+verified JSON APIs (`dearbulut/iptv`) with custom M3U playlist feeds supplied
+through `FreeTvM3uRemoteDataSource`.
+
+> **Bundled provider source (Portal 5458):** `FreeTvSources.portal5458` is
+> bundled as a global Xtream-style provider feed. Its `get.php?type=m3u_plus`
+> endpoint returns HTTP 404, so ingestion falls back to the Xtream Codes API
+> (`player_api.php?action=get_live_streams`). Channels label country/region from
+> the provider's `category_name` map, falling back to a neutral `International`
+> bucket — never a single fabricated country label. Each stream carries the
+> portal origin as `Referer` plus a portal-conformant `User-Agent` so the Stream
+> Engine injects them during playback (portals otherwise return HTTP 403).
 
 ### Architecture
 
 ```
 FreeTvSources
-  ├─ dearbulut (JSON API) ────────► DearbulutFreeTvRemoteDataSource ──► FreeTvMapper ──────────┐
-  │                                                                                            │
-  └─ customPortal5458 (M3U Feed) ─► CustomM3uFreeTvRemoteDataSource ──► FreeTvM3uNormalizer ───┴─► FreeTvCatalogBuilder
-                                                                                                    │
-                                                                                                    ▼
-                                                                                            Unified FreeTvChannel Catalog
-                                                                                                    │
-                                                                                                    ▼
-                                                                                            FreeTvQualityService
-                                                                                            (Scoring & Tiering)
-                                                                                                    │
-                                                                                                    ▼
-                                                                                            FreeTvRepository (Hive Cache)
+  ├─ dearbulut (JSON API) ──────► DearbulutFreeTvRemoteDataSource ─► FreeTvMapper ─┐
+  ├─ Provider playlists ────────► CustomM3uFreeTvRemoteDataSource ──────────────────┤
+  │   (M3U / Xtream fallback)                                                     │
+  └─ (optional user M3U URLs)                                                      ▼
+                                                                             FreeTvCatalogBuilder
+                                                                                      │
+                                                                                      ▼
+                                                                             Unified FreeTvChannel Catalog
+                                                                                      │
+                                                                                      ▼
+                                                                             FreeTvQualityService
+                                                                             (Scoring & Tiering)
+                                                                                      │
+                                                                                      ▼
+                                                                             FreeTvRepository (Hive Cache)
 ```
 
 ### Components
 
 | Component | Responsibility |
 |-----------|----------------|
-| `FreeTvSources` | Source registry containing endpoint URLs, format (`json`, `m3u`), country overrides, category mappings, and toggle flags |
-| `FreeTvM3uRemoteDataSource` | Remote data source interface for M3U catalog feeds |
-| `CustomM3uFreeTvRemoteDataSource` | HTTP client fetching raw M3U feeds, UTF-8 decoding with `allowMalformed: true`, timeout handling, parsing via `M3UParser`, and normalizer invocation |
+| `FreeTvSources` | Source registry containing endpoint URLs, country/region/category groupings, bundled provider playlists (`portal5458`), and optional per-source default country/region/language labels for feeds without per-channel metadata |
+| `FreeTvM3uRemoteDataSource` | Remote data source interface for M3U/Xtream provider catalog feeds |
+| `CustomM3uFreeTvRemoteDataSource` | HTTP client fetching raw M3U feeds, UTF-8 decoding with `allowMalformed: true`, timeout handling, parsing via `M3UParser`, normalizer invocation, and Xtream Codes API fallback (`get_live_categories` / `get_live_streams`) when the M3U endpoint 404s — building streams with portal `Referer` + `User-Agent` for header injection |
 | `FreeTvM3uNormalizer` / `FreeTvM3uConverter` | Maps parsed `M3UChannel` records to canonical `FreeTvChannel` models, building stream-level metadata (`FreeTvStream` with `isOnline: true`, `healthScore: 100.0`, stream format label) and inferring English language for English-speaking ISO codes |
-| `FreeTvCatalogBuilder` | Aggregates channels from JSON and M3U remote sources, deduplicating channels by normalized key (`id` / normalized name) and merging multi-stream alternatives |
+| `FreeTvCatalogBuilder` | Aggregates channels from JSON and M3U/Xtream remote sources, deduplicating channels by normalized key (`id` / normalized name) and merging multi-stream alternatives, including per-stream `referrer`/`userAgent` for header injection |
 | `FreeTvQualityService` | Applies quality filtering (language, NSFW/adult filter, stream health) and assigns deterministic scores (0–100) and tiers (`recommended` vs `valid`) |
 
 ### Security & Privacy Rules
 
 - M3U URLs may contain user-provided or sensitive query parameters (e.g. `username`, `password`).
-- **Logs must never record raw URLs containing credentials.** `CustomM3uFreeTvRemoteDataSource` sanitizes all log outputs, recording only the URL scheme, host, and port (e.g. `http://portal5458.com:8080`).
+- **Logs must never record raw URLs containing credentials.** `CustomM3uFreeTvRemoteDataSource` sanitizes all log outputs, recording only the URL scheme, host, and port.
 - Error messages presented in the UI must display sanitized, human-readable diagnostics.
 
 ---

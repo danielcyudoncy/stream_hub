@@ -110,7 +110,7 @@ class TVGuidePage extends GetView<GuideController> {
             backgroundColor: Colors.black,
             body: SizedBox.expand(
               child: LiveTvEmbeddedPlayer(
-                key: const ValueKey('tv_guide_fullscreen_player'),
+                key: liveCtrl.playerKey,
                 controller: liveCtrl,
                 isFullscreen: true,
               ),
@@ -501,7 +501,7 @@ class TVGuidePage extends GetView<GuideController> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LiveTvEmbeddedPlayer(
-                  key: const ValueKey('tv_guide_inline_player'),
+                  key: liveCtrl.playerKey,
                   controller: liveCtrl,
                   isFullscreen: false,
                 ),

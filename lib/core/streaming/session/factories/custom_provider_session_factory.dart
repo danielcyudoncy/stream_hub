@@ -51,7 +51,9 @@ class CustomProviderSessionFactory implements ProviderSessionFactory {
         ..._extractStringMap(config['headers']),
       },
       expiresAt: existing?.expiresAt,
-      userAgent: config['userAgent']?.toString() ?? _userAgent,
+      userAgent: config['userAgent']?.toString() ??
+          itemMetadata['userAgent']?.toString() ??
+          _userAgent,
       referer: config['referer']?.toString() ?? itemMetadata['referer']?.toString(),
       origin: config['origin']?.toString() ?? itemMetadata['origin']?.toString(),
       timeout: Duration(seconds: (config['timeout'] ?? 15)),

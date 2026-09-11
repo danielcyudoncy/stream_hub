@@ -14,7 +14,7 @@ class FreeLiveTvBinding extends Bindings {
       () => FreeTvService(
         builder: FreeTvCatalogBuilder(
           m3uRemoteDataSource: CustomM3uFreeTvRemoteDataSource(
-            source: FreeTvSources.customPortal5458,
+            source: FreeTvSources.portal5458,
             logger: Get.isRegistered<LoggingService>()
                 ? Get.find<LoggingService>()
                 : null,

@@ -78,6 +78,7 @@ class LiveTVController extends GetxController {
       _inlinePlayerController.value = ctrl;
   final GlobalKey playerKey = GlobalKey();
   bool hasBeenLandscapeInFullscreen = false;
+  final Rxn<String> scrollToChannelId = Rxn<String>();
 
   StreamSubscription? _favoriteSubscription;
 
@@ -222,13 +223,19 @@ class LiveTVController extends GetxController {
     }
     _lastHandledChannelId = targetChannel.id;
 
+    if (targetChannel.providerId.isNotEmpty &&
+        selectedProvider.value != targetChannel.providerId &&
+        providers.contains(targetChannel.providerId)) {
+      setProvider(targetChannel.providerId);
+    }
+
     // Prefer the fully-loaded Channel instance from _allChannels (which has
     // streamUrl, correct metadata, etc.) over the raw MediaItem passed from
     // search results, which may be missing URL metadata.
     final matched = _allChannels.firstWhereOrNull((c) => c.id == targetChannel.id)
+        ?? _allChannels.firstWhereOrNull(
+            (c) => c.title.trim().toLowerCase() == targetChannel.title.trim().toLowerCase())
         ?? targetChannel;
-
-    openChannel(matched);
 
     String? foundCat;
     final candidates = [
@@ -265,6 +272,9 @@ class LiveTVController extends GetxController {
         Get.find<GuideController>().setCategory(foundCat);
       }
     }
+
+    openChannel(matched);
+    scrollToChannelId.value = matched.id;
   }
 
   Future<void> _loadLiveTVData() async {
@@ -838,6 +848,7 @@ class LiveTVController extends GetxController {
 
   void stopInlinePlayer() {
     _openChannelGeneration++;
+    _lastHandledChannelId = null;
     activePlayingChannel.value = null;
     isFullscreenMode.value = false;
     SystemChrome.setPreferredOrientations([

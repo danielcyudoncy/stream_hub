@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
+import 'package:stream_hub/data/models/free_tv_stream.dart';
 import 'package:stream_hub/data/repositories/free_tv_repository.dart';
 import 'package:stream_hub/modules/free_live_tv/controllers/free_live_tv_controller.dart';
 
@@ -217,11 +218,11 @@ void main() {
       expect(controller.filteredChannels.first.id, 'RedBullTV.at');
     });
 
-    test('filters by Category and prioritizes custom source channels at the top', () async {
+    test('filters by Category and sorts by name without force-pinning custom channels', () async {
       fakeRepo.catalog.add(
         const FreeTvChannel(
           id: 'custom_portal5458_123',
-          name: 'Portal Sports Channel',
+          name: 'Zeta Sports Channel',
           country: 'United States',
           countryCode: 'US',
           categories: ['US - Sports', 'Sports'],
@@ -237,9 +238,9 @@ void main() {
 
       controller.setCategory('Sports');
       expect(controller.filteredChannels.length, 2);
-      // Custom portal channel must be first!
-      expect(controller.filteredChannels.first.id, 'custom_portal5458_123');
-      expect(controller.filteredChannels.last.id, 'RedBullTV.at');
+      // Custom source channels must NOT be pinned above the alphabetical order.
+      expect(controller.filteredChannels.first.id, 'RedBullTV.at');
+      expect(controller.filteredChannels.last.id, 'custom_portal5458_123');
     });
 
     test('filters by Language correctly', () async {
@@ -352,6 +353,31 @@ void main() {
       expect(controller.isRefreshing.value, isFalse);
       // Active playing channel and featured channel must be preserved
       expect(controller.featuredChannel.value?.id, initialPlaying.id);
+    });
+
+    test('openChannel plays channel when only streams is populated', () async {
+      const channelWithStreamsOnly = FreeTvChannel(
+        id: 'portal5458_12554',
+        name: 'Bein Sport 01',
+        country: 'International',
+        countryCode: 'ZZ',
+        streams: [
+          FreeTvStream(
+            url: 'http://portal5458.com:8080/live/spehar6/2934778645/12554.ts',
+            isOnline: true,
+            label: 'MPEG-TS',
+            referrer: 'http://portal5458.com:8080',
+            userAgent: 'IPTVSmartersPro/1.0',
+          ),
+        ],
+      );
+
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      await controller.openChannel(channelWithStreamsOnly);
+      expect(controller.activePlayingChannel.value?.id, 'portal5458_12554');
+      expect(controller.playbackStatusMessage.value, isEmpty);
     });
   });
 }

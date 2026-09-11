@@ -54,4 +54,18 @@ class AppRoutes {
   static const String providerTest = '/developer/provider-test';
   static const String streamTest = '/developer/stream-test';
   static const String unknown = '/unknown';
+
+  /// Returns true if the given route has its own dedicated full/embedded player,
+  /// so floating or mini player overlays should not be mounted simultaneously.
+  static bool hasOwnPlayer(String? route) {
+    if (route == null) return false;
+    return route == fullscreenPlayer ||
+        route == liveTV ||
+        route == freeLiveTV ||
+        route == embeddedPlayer ||
+        route == multiView ||
+        route == movieDetails ||
+        route == seriesDetails ||
+        route == channelDetails;
+  }
 }

@@ -24,6 +24,15 @@ class FreeTvSource {
   final String? regionCode;
   final String? categoryName;
 
+  /// Fallback country/region/language labels used when a provider feed does
+  /// not expose per-channel metadata (e.g. an unlabeled Xtream portal).
+  /// When null, unresolved channels fall into a neutral 'International' bucket
+  /// rather than a fabricated country.
+  final String? defaultCountry;
+  final String? defaultCountryCode;
+  final String? defaultRegion;
+  final String? defaultLanguage;
+
   const FreeTvSource({
     required this.id,
     required this.name,
@@ -32,6 +41,10 @@ class FreeTvSource {
     this.countryCode,
     this.regionCode,
     this.categoryName,
+    this.defaultCountry,
+    this.defaultCountryCode,
+    this.defaultRegion,
+    this.defaultLanguage,
   });
 }
 
@@ -166,10 +179,18 @@ abstract final class FreeTvSources {
     categoryName: 'Documentary',
   );
 
-  /// Custom provider M3U playlist source.
-  static const FreeTvSource customPortal5458 = FreeTvSource(
-    id: 'custom_portal5458',
-    name: 'Portal 5458 Custom Playlist',
+  // --- Bundled provider playlists ---
+
+  /// A bundled Xtream portal treated as a global provider feed.
+  ///
+  /// `get.php?type=m3u_plus` returns HTTP 404 on this host, so ingestion falls
+  /// back to the Xtream Codes API (`player_api.php`). Stream URLs require the
+  /// portal origin as `Referer` plus a portal-conformant User-Agent; the data
+  /// source attaches both to each channel's [FreeTvStream] so the Stream Engine
+  /// injects them during playback.
+  static const FreeTvSource portal5458 = FreeTvSource(
+    id: 'portal5458',
+    name: 'Portal 5458',
     url:
         'http://portal5458.com:8080/get.php?username=spehar6&password=2934778645&type=m3u_plus',
     kind: FreeTvSourceKind.global,
@@ -192,7 +213,7 @@ abstract final class FreeTvSources {
     entertainment,
     kids,
     documentary,
-    customPortal5458,
+    portal5458,
   ];
 
   /// Country sources surfaced as dedicated country sections in the UI.
@@ -216,4 +237,8 @@ abstract final class FreeTvSources {
     kids,
     documentary,
   ];
+
+  /// Bundled provider playlists (e.g. Xtream portals) surfaced as their own
+  /// provider group in the UI.
+  static const List<FreeTvSource> providers = [portal5458];
 }

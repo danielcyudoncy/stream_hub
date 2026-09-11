@@ -227,6 +227,9 @@ class StreamEngine {
       cookies = providerSession.cookies;
     }
 
+    final effectiveUserAgent =
+        itemMetadata['userAgent']?.toString() ?? providerSession.userAgent;
+
     final headers = headerEngine.fromSession(
       providerSession,
       custom: {
@@ -234,6 +237,8 @@ class StreamEngine {
           'Referer': itemMetadata['referer'].toString(),
         if (itemMetadata['origin'] != null)
           'Origin': itemMetadata['origin'].toString(),
+        if (effectiveUserAgent != null && effectiveUserAgent.isNotEmpty)
+          'User-Agent': effectiveUserAgent,
       },
     );
 
@@ -243,7 +248,7 @@ class StreamEngine {
       resolution: resolution.copyWith(url: normalizedUrl),
       headers: headers,
       cookies: cookies,
-      userAgent: providerSession.userAgent,
+      userAgent: effectiveUserAgent,
       extraMetadata: itemMetadata,
     );
 
