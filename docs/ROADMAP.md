@@ -374,9 +374,11 @@ Stalker Portal
 Premium Features
 
 - [x] Downloads
-- Cloud Sync
-- Profiles
-- Parental Control
+- [x] Cloud Sync
+- [x] Profiles
+- [x] Parental Control
+
+> **Parental Control Implementation Note:** Standard IPTV sources (Xtream Codes, Stalker Portal, M3U) only expose numeric review scores (e.g. IMDb 7.5/10) rather than standardized maturity/censor ratings (MPAA, TV-MA). Parental control enforcement operates via cryptographic SHA-256 PIN challenge gates across all playback pipelines (Live TV, Movies, Series, and Downloads), with support for adult category/genre heuristics, temporary 5-minute authenticated grace periods, and PIN-secured Settings modification.
 
 ---
 

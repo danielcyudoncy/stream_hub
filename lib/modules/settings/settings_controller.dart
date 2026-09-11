@@ -6,6 +6,7 @@ import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
 import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/core/services/cloud_sync_service.dart';
+import 'package:stream_hub/core/services/parental_control_service.dart';
 import 'package:stream_hub/data/models/settings_model.dart';
 import 'package:stream_hub/data/services/settings_service.dart';
 import 'package:stream_hub/data/services/profile_service.dart';
@@ -17,6 +18,7 @@ class SettingsController extends GetxController {
   final ProfileService _profileService;
   final CacheService _cacheService;
   final PlaybackRepository? _playbackRepository;
+  final ParentalControlService? _parentalControlService;
   // ignore: unused_field
   final LoggingService _logger = Get.find<LoggingService>();
 
@@ -25,10 +27,15 @@ class SettingsController extends GetxController {
     required ProfileService profileService,
     required CacheService cacheService,
     PlaybackRepository? playbackRepository,
+    ParentalControlService? parentalControlService,
   }) : _settingsService = settingsService,
        _profileService = profileService,
        _cacheService = cacheService,
-       _playbackRepository = playbackRepository;
+       _playbackRepository = playbackRepository,
+       _parentalControlService = parentalControlService ??
+           (Get.isRegistered<ParentalControlService>()
+               ? Get.find<ParentalControlService>()
+               : null);
 
   final Rx<ThemeMode> themeMode = ThemeMode.system.obs;
   final RxString language = 'en'.obs;
@@ -62,7 +69,16 @@ class SettingsController extends GetxController {
 
       language.value = _settings?.language ?? 'en';
       notificationsEnabled.value = _settings?.notificationsEnabled ?? true;
-      parentalLockEnabled.value = _settings?.parentalLockEnabled ?? false;
+
+      final hasPin =
+          _settings?.parentalPin != null && _settings!.parentalPin!.isNotEmpty;
+      parentalLockEnabled.value =
+          (_settings?.parentalLockEnabled ?? false) && hasPin;
+
+      if ((_settings?.parentalLockEnabled ?? false) && !hasPin) {
+        // Self-heal legacy state where flag was true but no PIN was set
+        await _settingsService.updateParentalLock(enabled: false);
+      }
 
       await _loadPlayerSettings();
     } on ApplicationException catch (e) {
@@ -236,6 +252,94 @@ class SettingsController extends GetxController {
       isLoading.value = false;
     }
   }
+
+  Future<bool> enableParentalLock(String pin) async {
+    if (isLoading.value) return false;
+    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+      final pcService = _parentalControlService;
+      bool success = false;
+      if (pcService != null) {
+        success = await pcService.enableParentalLock(pin);
+      } else {
+        final hashed = ParentalControlService.hashPin(pin);
+        await _settingsService.updateParentalLock(enabled: true, hashedPin: hashed);
+        success = true;
+      }
+      if (success) {
+        parentalLockEnabled.value = true;
+        await _loadSettings();
+      }
+      return success;
+    } catch (e) {
+      errorMessage.value = 'Failed to enable parental lock.';
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> disableParentalLock(String currentPin) async {
+    if (isLoading.value) return false;
+    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+      final pcService = _parentalControlService;
+      bool success = false;
+      if (pcService != null) {
+        success = await pcService.disableParentalLock(currentPin);
+      } else {
+        await _settingsService.updateParentalLock(enabled: false);
+        success = true;
+      }
+      if (success) {
+        parentalLockEnabled.value = false;
+        await _loadSettings();
+      }
+      return success;
+    } catch (e) {
+      errorMessage.value = 'Failed to disable parental lock.';
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> changeParentalPin({
+    required String currentPin,
+    required String newPin,
+  }) async {
+    if (isLoading.value) return false;
+    try {
+      isLoading.value = true;
+      errorMessage.value = '';
+      final pcService = _parentalControlService;
+      if (pcService == null) return false;
+      final success = await pcService.changePin(
+        currentPin: currentPin,
+        newPin: newPin,
+      );
+      if (success) {
+        await _loadSettings();
+      }
+      return success;
+    } catch (e) {
+      errorMessage.value = 'Failed to change parental PIN.';
+      return false;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<bool> validateCurrentPin(String pin) async {
+    final pcService = _parentalControlService;
+    if (pcService == null) return true;
+    return await pcService.validatePin(pin);
+  }
+
+  bool get hasParentalPin =>
+      _settings?.parentalPin != null && _settings!.parentalPin!.isNotEmpty;
 
   Future<void> clearCache() async {
     if (isLoading.value) return;

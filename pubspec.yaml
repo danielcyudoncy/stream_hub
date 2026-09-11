@@ -59,6 +59,9 @@ dependencies:
   # XML Parsing
   xml: ^6.5.0
 
+  # Cryptography (SHA-256 for Parental PIN hashing)
+  crypto: ^3.0.3
+
   # Icons
   cupertino_icons: ^1.0.8
 

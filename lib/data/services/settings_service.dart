@@ -65,6 +65,15 @@ class SettingsService extends GetxService {
     }
   }
 
+  Future<void> updateParentalLock({required bool enabled, String? hashedPin}) async {
+    try {
+      await _repository.updateParentalLock(enabled: enabled, hashedPin: hashedPin);
+    } catch (e) {
+      _logger.error('SettingsService: failed to update parental lock', tag: 'SettingsService', error: e);
+      rethrow;
+    }
+  }
+
   Future<void> clearCacheTimestamp() async {
     try {
       await _repository.clearCacheTimestamp();

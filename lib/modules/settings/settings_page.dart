@@ -12,6 +12,7 @@ import 'package:stream_hub/shared/widgets/section_header.dart';
 import 'package:stream_hub/shared/widgets/settings_tile.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/shared/dialogs/confirmation_dialog.dart';
+import 'package:stream_hub/shared/dialogs/parental_pin_dialog.dart';
 import 'settings_controller.dart';
 
 class SettingsPage extends GetView<SettingsController> {
@@ -496,7 +497,7 @@ class SettingsPage extends GetView<SettingsController> {
                     style: AppTypography.getBody(color: colorScheme.onSurface),
                   ),
                   subtitle: Text(
-                    'Restrict access to certain content',
+                    'Restrict access to playback and settings with a 4-digit PIN',
                     style: AppTypography.getCaption(
                       color: colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
@@ -504,13 +505,27 @@ class SettingsPage extends GetView<SettingsController> {
                   value: controller.parentalLockEnabled.value,
                   onChanged: (value) {
                     if (value) {
-                      _showParentalPinDialog(context);
+                      _showSetParentalPinDialog(context);
                     } else {
-                      controller.toggleParentalLock(false);
+                      _showDisableParentalLockDialog(context);
                     }
                   },
                 ),
               ),
+              if (controller.parentalLockEnabled.value)
+                SettingsTile(
+                  title: controller.hasParentalPin
+                      ? 'Change Parental PIN'
+                      : 'Set Parental PIN',
+                  subtitle: controller.hasParentalPin
+                      ? 'Update your 4-digit security PIN'
+                      : 'Configure your 4-digit security PIN',
+                  leadingIcon: Icons.password_rounded,
+                  onTap: () => controller.hasParentalPin
+                      ? _showChangeParentalPinDialog(context)
+                      : _showSetParentalPinDialog(context),
+                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                ),
               SettingsTile(
                 title: 'Manage Categories & Visibility',
                 subtitle: 'Hide or organize playlist categories',
@@ -982,79 +997,81 @@ class SettingsPage extends GetView<SettingsController> {
     );
   }
 
-  void _showParentalPinDialog(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final pinController = TextEditingController();
-
-    showDialog(
+  Future<void> _showSetParentalPinDialog(BuildContext context) async {
+    final success = await ParentalPinDialog.showSetPinDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: AppRadius.large),
-        title: Row(
-          children: [
-            const Icon(Icons.lock_outline_rounded, color: AppColors.primary),
-            AppSpacing.widthSM,
-            Text(
-              'Set Parental PIN',
-              style: AppTypography.getHeadline(color: colorScheme.onSurface),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Enter a 4-digit security PIN to restrict access to locked and adult categories.',
-                style: AppTypography.getBody(color: colorScheme.onSurfaceVariant),
-              ),
-              AppSpacing.heightMD,
-              TextField(
-                controller: pinController,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                obscureText: true,
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 22.0, letterSpacing: 8.0, fontWeight: FontWeight.bold),
-                decoration: InputDecoration(
-                  hintText: '••••',
-                  filled: true,
-                  fillColor: colorScheme.surfaceContainerHighest,
-                  border: OutlineInputBorder(
-                    borderRadius: AppRadius.medium,
-                    borderSide: BorderSide.none,
-                  ),
-                  counterText: '',
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (pinController.text.length == 4) {
-                controller.toggleParentalLock(true);
-                Get.back();
-                Get.snackbar(
-                  'Parental Lock Enabled',
-                  'PIN protection is now active for protected categories.',
-                  snackPosition: SnackPosition.BOTTOM,
-                  backgroundColor: AppColors.darkSuccess.withValues(alpha: 0.2),
-                  colorText: Colors.white,
-                );
-              }
-            },
-            child: const Text('Save PIN'),
-          ),
-        ],
-      ),
+      onSetPin: (pin) async {
+        return await controller.enableParentalLock(pin);
+      },
     );
+
+    if (success == true) {
+      Get.snackbar(
+        'Parental Lock Enabled',
+        'PIN protection is now active for playback and restricted settings.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.darkSuccess.withValues(alpha: 0.2),
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _showDisableParentalLockDialog(BuildContext context) async {
+    if (!controller.hasParentalPin) {
+      await controller.disableParentalLock('');
+      Get.snackbar(
+        'Parental Lock Disabled',
+        'Parental protection has been turned off.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final success = await ParentalPinDialog.showDisableDialog(
+      context: context,
+      onValidate: (pin) async {
+        return await controller.disableParentalLock(pin);
+      },
+    );
+
+    if (success == true) {
+      Get.snackbar(
+        'Parental Lock Disabled',
+        'Parental protection has been turned off.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  Future<void> _showChangeParentalPinDialog(BuildContext context) async {
+    if (!controller.hasParentalPin) {
+      await _showSetParentalPinDialog(context);
+      return;
+    }
+
+    final success = await ParentalPinDialog.showChangePinDialog(
+      context: context,
+      onChangePin: (currentPin, newPin) async {
+        return await controller.changeParentalPin(
+          currentPin: currentPin,
+          newPin: newPin,
+        );
+      },
+    );
+
+    if (success == true) {
+      Get.snackbar(
+        'PIN Updated',
+        'Parental security PIN has been updated successfully.',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: AppColors.darkSuccess.withValues(alpha: 0.2),
+        colorText: Colors.white,
+      );
+    }
   }
 }
 
