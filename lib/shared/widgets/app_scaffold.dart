@@ -29,6 +29,7 @@ class AppScaffold extends StatelessWidget {
   final Widget? leading;
   final bool? showBackButton;
   final VoidCallback? onBack;
+  final bool? resizeToAvoidBottomInset;
 
   const AppScaffold({
     super.key,
@@ -41,6 +42,7 @@ class AppScaffold extends StatelessWidget {
     this.leading,
     this.showBackButton,
     this.onBack,
+    this.resizeToAvoidBottomInset,
   });
 
   int _getSelectedIndex() {
@@ -169,34 +171,49 @@ class AppScaffold extends StatelessWidget {
     final Widget scaffold = Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       floatingActionButton: floatingActionButton,
-      body: (width >= 600 && showNavigation && !isPhone)
+      resizeToAvoidBottomInset: resizeToAvoidBottomInset,
+      body: (width >= 600 && showNavigation)
           ? FocusTraversalGroup(
               policy: WidgetOrderTraversalPolicy(),
               child: Row(
                 children: [
-                  NavigationRail(
-                    selectedIndex: _getSelectedIndex(),
-                    onDestinationSelected: _onItemTapped,
-                    labelType: NavigationRailLabelType.all,
-                    backgroundColor: colorScheme.surface,
-                    selectedIconTheme: IconThemeData(
-                      color: colorScheme.primary,
-                    ),
-                    selectedLabelTextStyle: AppTypography.getCaption(
-                      color: colorScheme.primary,
-                    ),
-                    unselectedLabelTextStyle: AppTypography.getCaption(
-                      color: colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                    destinations: destinations
-                        .map(
-                          (d) => NavigationRailDestination(
-                            icon: d.icon,
-                            selectedIcon: d.selectedIcon,
-                            label: Text(d.label),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      return SingleChildScrollView(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                          child: IntrinsicHeight(
+                            child: NavigationRail(
+                              selectedIndex: _getSelectedIndex(),
+                              onDestinationSelected: _onItemTapped,
+                              labelType: isPhone
+                                  ? NavigationRailLabelType.none
+                                  : NavigationRailLabelType.all,
+                              minWidth: isPhone ? 56.0 : 72.0,
+                              backgroundColor: colorScheme.surface,
+                              selectedIconTheme: IconThemeData(
+                                color: colorScheme.primary,
+                              ),
+                              selectedLabelTextStyle: AppTypography.getCaption(
+                                color: colorScheme.primary,
+                              ),
+                              unselectedLabelTextStyle: AppTypography.getCaption(
+                                color: colorScheme.onSurface.withValues(alpha: 0.6),
+                              ),
+                              destinations: destinations
+                                  .map(
+                                    (d) => NavigationRailDestination(
+                                      icon: d.icon,
+                                      selectedIcon: d.selectedIcon,
+                                      label: Text(d.label),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
                           ),
-                        )
-                        .toList(),
+                        ),
+                      );
+                    },
                   ),
                   const VerticalDivider(thickness: 1, width: 1),
                   Expanded(
@@ -241,7 +258,7 @@ class AppScaffold extends StatelessWidget {
             ),
       bottomNavigationBar: Builder(
         builder: (context) {
-          if ((width >= 600 && !isPhone) || isTvMode) {
+          if (width >= 600 || isTvMode) {
             return const SizedBox.shrink();
           }
 

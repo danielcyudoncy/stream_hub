@@ -3,6 +3,7 @@ import 'package:stream_hub/data/repositories/provider_repository.dart';
 import 'package:stream_hub/modules/epg/models/epg_channel.dart';
 import 'package:stream_hub/modules/epg/models/epg_program.dart';
 import 'package:stream_hub/modules/epg/repositories/guide_repository.dart';
+import 'package:stream_hub/modules/live_tv/controllers/live_tv_controller.dart';
 
 class GuideController extends GetxController {
   final GuideRepository guideRepository;
@@ -60,6 +61,33 @@ class GuideController extends GetxController {
       languages.assignAll(['All', ...guide.languages.toList()..sort()]);
       countries.assignAll(['All', ...guide.countries.toList()..sort()]);
       genres.assignAll(['All', ...guide.genres.toList()..sort()]);
+
+      if (channels.isEmpty && Get.isRegistered<LiveTVController>()) {
+        final liveCtrl = Get.find<LiveTVController>();
+        if (liveCtrl.channels.isNotEmpty) {
+          final liveMapped = liveCtrl.channels.map((item) => EPGChannel(
+            id: item.id,
+            providerId: item.providerId,
+            providerType: item.providerType,
+            title: item.title,
+            mediaType: item.mediaType,
+            poster: item.poster,
+            thumbnail: item.thumbnail,
+            createdAt: item.createdAt,
+            updatedAt: item.updatedAt,
+            number: item.metadata['number']?.toString(),
+          )).toList();
+          channels.assignAll(liveMapped);
+        }
+      }
+
+      if (Get.isRegistered<LiveTVController>()) {
+        final liveCtrl = Get.find<LiveTVController>();
+        if (liveCtrl.categories.isNotEmpty) {
+          final merged = <String>{'All', ...liveCtrl.categories, ...guide.categories};
+          categories.assignAll(merged.toList());
+        }
+      }
     } catch (e) {
       error.value = e.toString();
     } finally {

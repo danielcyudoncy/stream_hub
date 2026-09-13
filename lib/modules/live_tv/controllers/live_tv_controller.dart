@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
@@ -76,11 +75,31 @@ class LiveTVController extends GetxController {
   PlayerController? get inlinePlayerController => _inlinePlayerController.value;
   set inlinePlayerController(PlayerController? ctrl) =>
       _inlinePlayerController.value = ctrl;
-  final GlobalKey playerKey = GlobalKey();
   bool hasBeenLandscapeInFullscreen = false;
   final Rxn<String> scrollToChannelId = Rxn<String>();
 
   StreamSubscription? _favoriteSubscription;
+  StreamSubscription? _directCatalogSub;
+  bool _isLoadingLiveTv = false;
+  bool _needsLiveTvReload = false;
+
+  /// Serialized refresh that ensures catalog update bursts never result in
+  /// dropped reloads or incomplete channel lists.
+  Future<void> reloadLiveTVData() async {
+    if (_isLoadingLiveTv) {
+      _needsLiveTvReload = true;
+      return;
+    }
+    _isLoadingLiveTv = true;
+    try {
+      do {
+        _needsLiveTvReload = false;
+        await _loadLiveTVData();
+      } while (_needsLiveTvReload);
+    } finally {
+      _isLoadingLiveTv = false;
+    }
+  }
 
   @override
   void onInit() {
@@ -107,13 +126,17 @@ class LiveTVController extends GetxController {
     if (Get.isRegistered<CatalogRefreshCoordinator>()) {
       final coordinator = Get.find<CatalogRefreshCoordinator>();
       _catalogSubscription = coordinator.refreshSignal.listen((_) {
-        coordinator.runCoalesced(_loadLiveTVData);
+        reloadLiveTVData();
       });
     } else {
       _catalogSubscription = catalogRepository.watchUpdates().listen((_) {
-        refresh();
+        reloadLiveTVData();
       });
     }
+    // Fail-safe direct subscription to ensure no catalog ingestion events are missed
+    _directCatalogSub = catalogRepository.watchUpdates().listen((_) {
+      reloadLiveTVData();
+    });
   }
 
   void _initInlinePlayer() {
@@ -184,6 +207,7 @@ class LiveTVController extends GetxController {
   @override
   void onClose() {
     _catalogSubscription?.cancel();
+    _directCatalogSub?.cancel();
     _favoriteSubscription?.cancel();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -298,6 +322,8 @@ class LiveTVController extends GetxController {
         ..clear()
         ..addAll(mappedChannels);
 
+
+
       final allCategories = await catalogRepository.getByType(MediaType.collection);
       _allCategories
         ..clear()
@@ -313,6 +339,11 @@ class LiveTVController extends GetxController {
         }
       }
       providers.assignAll(providerSet.toList()..sort());
+
+      if (selectedProvider.value.isNotEmpty &&
+          !providers.contains(selectedProvider.value)) {
+        selectedProvider.value = '';
+      }
 
       await _loadRecentChannels();
       _updateCategoriesAndFilters(favIds);
@@ -454,13 +485,18 @@ class LiveTVController extends GetxController {
         .where((item) => !_isChannelHidden(item, hiddenChannels, hiddenCategories))
         .toList();
 
-    final activeChannels = selectedProvider.value.isEmpty
+    List<MediaItem> activeChannels = selectedProvider.value.isEmpty
         ? List<MediaItem>.from(unhiddenChannels)
         : unhiddenChannels.where((item) {
             return item.providerId == selectedProvider.value ||
                 item.providerType.displayName == selectedProvider.value ||
                 item.providerType.name == selectedProvider.value;
           }).toList();
+
+    if (activeChannels.isEmpty && unhiddenChannels.isNotEmpty) {
+      activeChannels = List<MediaItem>.from(unhiddenChannels);
+      selectedProvider.value = '';
+    }
 
     channels.assignAll(activeChannels);
 
@@ -524,7 +560,13 @@ class LiveTVController extends GetxController {
     }
 
     for (final cat in _allCategories) {
-      final isLive = cat.metadata['type'] == 'live' || cat.metadata['type'] == null;
+      final isLive = cat.id.startsWith('xtream-live-cat-') ||
+          cat.metadata['type'] == 'live' ||
+          (!cat.id.startsWith('xtream-vod-cat-') &&
+              !cat.id.startsWith('xtream-series-cat-') &&
+              cat.metadata['type'] != 'movie' &&
+              cat.metadata['type'] != 'series' &&
+              cat.metadata['isVod'] != true);
       final matchesProvider = selectedProvider.value.isEmpty ||
           cat.providerId == selectedProvider.value ||
           cat.providerType.displayName == selectedProvider.value ||
@@ -668,6 +710,10 @@ class LiveTVController extends GetxController {
             cat.id.trim().toLowerCase() == selectedCat) {
           matchingCatIds.add(cat.id.trim().toLowerCase());
           matchingCatIds.add(cat.title.trim().toLowerCase());
+          final rawId = cat.metadata['categoryId']?.toString().trim().toLowerCase();
+          if (rawId != null && rawId.isNotEmpty) {
+            matchingCatIds.add(rawId);
+          }
         }
       }
 
@@ -693,7 +739,8 @@ class LiveTVController extends GetxController {
         }
 
         final catIdMeta =
-            item.metadata['category_id']?.toString().trim().toLowerCase();
+            item.metadata['category_id']?.toString().trim().toLowerCase() ??
+            item.metadata['categoryId']?.toString().trim().toLowerCase();
         if (catIdMeta != null &&
             (catIdMeta == selectedCat || matchingCatIds.contains(catIdMeta))) {
           return true;
@@ -720,11 +767,15 @@ class LiveTVController extends GetxController {
     }
 
     if (selectedProvider.value.isNotEmpty) {
-      result = result
+      final provMatches = result
           .where((item) =>
               item.providerId == selectedProvider.value ||
-              item.providerType.displayName == selectedProvider.value)
+              item.providerType.displayName == selectedProvider.value ||
+              item.providerType.name == selectedProvider.value)
           .toList();
+      if (provMatches.isNotEmpty) {
+        result = provMatches;
+      }
     }
 
     if (selectedLanguage.value.isNotEmpty) {
@@ -778,18 +829,25 @@ class LiveTVController extends GetxController {
   int _openChannelGeneration = 0;
 
   void openChannel(MediaItem channel) {
+    MediaItem resolvedChannel = channel;
+    if (resolvedChannel.metadata.isEmpty) {
+      final matched = _allChannels.firstWhereOrNull((c) => c.id == channel.id);
+      if (matched != null && matched.metadata.isNotEmpty) {
+        resolvedChannel = matched;
+      }
+    }
     if (Get.isRegistered<FreeLiveTvController>()) {
       Get.find<FreeLiveTvController>().stopInlinePlayer();
     }
     final currentGen = ++_openChannelGeneration;
-    activePlayingChannel.value = channel;
-    featuredChannel.value = channel;
+    activePlayingChannel.value = resolvedChannel;
+    featuredChannel.value = resolvedChannel;
 
     // Defer heavy player initialization and state setup to the next frame
     // to allow the UI to immediately paint the active (glowing) channel state
     Future.delayed(Duration.zero, () {
       if (currentGen != _openChannelGeneration) return;
-      if (activePlayingChannel.value?.id != channel.id) return;
+      if (activePlayingChannel.value?.id != resolvedChannel.id) return;
 
       _initInlinePlayer();
       // Claim the wake lock for the lifetime of the inline player so the
@@ -805,13 +863,13 @@ class LiveTVController extends GetxController {
               ? Get.find<HistoryRepository>()
               : null);
       if (historyRepo != null) {
-        historyRepo.add(channel).then((_) => _loadRecentChannels());
+        historyRepo.add(resolvedChannel).then((_) => _loadRecentChannels());
       }
 
       final itemsToPass = filteredChannels.isNotEmpty
           ? filteredChannels.toList()
-          : (channels.isNotEmpty ? channels.toList() : [channel]);
-      inlinePlayerController?.setChannelList(itemsToPass, currentId: channel.id);
+          : (channels.isNotEmpty ? channels.toList() : [resolvedChannel]);
+      inlinePlayerController?.setChannelList(itemsToPass, currentId: resolvedChannel.id);
     });
   }
 

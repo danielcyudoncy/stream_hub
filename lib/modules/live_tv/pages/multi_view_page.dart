@@ -13,8 +13,18 @@ import '../controllers/multi_view_controller.dart';
 import '../models/multi_view_layout_mode.dart';
 import '../widgets/multi_view_slot_tile.dart';
 
-class MultiViewPage extends GetView<MultiViewController> {
+class MultiViewPage extends StatefulWidget {
   const MultiViewPage({super.key});
+
+  @override
+  State<MultiViewPage> createState() => _MultiViewPageState();
+}
+
+class _MultiViewPageState extends State<MultiViewPage> {
+  final GlobalKey<PopupMenuButtonState<MultiViewLayoutMode>> _layoutPopupKey =
+      GlobalKey<PopupMenuButtonState<MultiViewLayoutMode>>();
+
+  MultiViewController get controller => Get.find<MultiViewController>();
 
   @override
   Widget build(BuildContext context) {
@@ -96,9 +106,6 @@ class MultiViewPage extends GetView<MultiViewController> {
       ),
     );
   }
-
-  static final GlobalKey<PopupMenuButtonState<MultiViewLayoutMode>>
-      _layoutPopupKey = GlobalKey();
 
   IconData _iconForLayout(MultiViewLayoutMode mode) {
     switch (mode) {

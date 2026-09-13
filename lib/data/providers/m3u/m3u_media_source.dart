@@ -255,9 +255,10 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
 
       final contentIssue = _detectProviderBlockedContent(rawContent, playlist);
       if (contentIssue != null) {
+        final isXtream = XtreamUrlDetector.isXtreamExport(config.sourceUrl);
         final probe = _xtreamPanelProbe(config);
         if (probe != null &&
-            await _probeXtreamPanel(probe.$1, probe.$2, probe.$3)) {
+            (isXtream || await _probeXtreamPanel(probe.$1, probe.$2, probe.$3))) {
           _logger.info(
             'Downloaded content is not a usable playlist, but the host answers '
             'as an Xtream panel; syncing through the Xtream JSON API.',
@@ -468,11 +469,14 @@ class M3UMediaSource implements MediaSource, AccountMetadataProvider {
       );
       final request = await client
           .getUrl(uri)
-          .timeout(const Duration(seconds: 8));
+          .timeout(const Duration(seconds: 20));
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
+      request.headers.set(
+        HttpHeaders.userAgentHeader,
+        'IPTVSmartersPro/1.0 (Linux; Android 11)',
+      );
       final response = await request.close().timeout(
-        const Duration(seconds: 8),
+        const Duration(seconds: 20),
       );
       if (response.statusCode != HttpStatus.ok) return false;
       final bytes = await response

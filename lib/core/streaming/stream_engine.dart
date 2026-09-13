@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
+import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/core/streaming/auth/authentication_engine.dart';
 import 'package:stream_hub/core/streaming/background/stream_task_manager.dart';
 import 'package:stream_hub/core/streaming/cache/stream_cache.dart';
@@ -178,10 +181,15 @@ class StreamEngine {
     required Map<String, dynamic> itemMetadata,
     String? fallbackUrl,
   }) async {
+    logger.info(
+      '[StreamEngineDebug] mediaItemId=$mediaItemId, providerSession.baseUrl=${providerSession.baseUrl}, providerSession.type=${providerSession.providerType}, metadata=$itemMetadata, fallbackUrl=$fallbackUrl',
+      tag: 'StreamEngine',
+    );
     final sourceUrl = _extractSourceUrl(
       itemMetadata,
       fallbackUrl,
       providerSession: providerSession,
+      mediaItemId: mediaItemId,
     );
     if (sourceUrl == null || sourceUrl.isEmpty) {
       throw const StreamResolutionException(
@@ -242,10 +250,12 @@ class StreamEngine {
       },
     );
 
+    final resolvedStreamUrl = await _resolveStreamHostDoh(normalizedUrl, headers);
+
     final playable = playableSessionFactory.create(
       mediaItemId: mediaItemId,
       providerSession: providerSession,
-      resolution: resolution.copyWith(url: normalizedUrl),
+      resolution: resolution.copyWith(url: resolvedStreamUrl),
       headers: headers,
       cookies: cookies,
       userAgent: effectiveUserAgent,
@@ -356,6 +366,7 @@ class StreamEngine {
     Map<String, dynamic> itemMetadata,
     String? fallbackUrl, {
     ProviderSession? providerSession,
+    String? mediaItemId,
   }) {
     final candidates = <String?>[
       itemMetadata['streamUrl']?.toString(),
@@ -388,8 +399,19 @@ class StreamEngine {
       return 'series://$seriesId';
     }
 
-    final streamId = itemMetadata['streamId']?.toString() ??
+    var streamId = itemMetadata['streamId']?.toString() ??
         itemMetadata['stream_id']?.toString();
+
+    // Fallback: extract streamId from mediaItemId (e.g. 'xtream-live-6480', 'live-6480', etc.)
+    if ((streamId == null || streamId.isEmpty) && mediaItemId != null) {
+      final match = RegExp(r'(?:xtream-)?(?:live|movie|stream)-(\d+)').firstMatch(mediaItemId);
+      if (match != null) {
+        streamId = match.group(1);
+      } else if (RegExp(r'^\d+$').hasMatch(mediaItemId)) {
+        streamId = mediaItemId;
+      }
+    }
+
     if (streamId != null &&
         streamId.isNotEmpty &&
         providerSession != null &&
@@ -398,7 +420,8 @@ class StreamEngine {
         providerSession.providerType != MediaSourceType.stalker) {
       final isVod = itemMetadata['isVod'] == true ||
           itemMetadata['containerExtension'] != null ||
-          itemMetadata['container_extension'] != null;
+          itemMetadata['container_extension'] != null ||
+          (mediaItemId?.contains('-movie-') ?? false);
       final ext = itemMetadata['containerExtension']?.toString() ??
           itemMetadata['container_extension']?.toString() ??
           (isVod ? 'mp4' : 'ts');
@@ -433,5 +456,83 @@ class StreamEngine {
     final explicit = itemMetadata['providerId']?.toString();
     if (explicit != null && explicit.isNotEmpty) return explicit;
     return 'unknown_provider';
+  }
+
+  Future<String> _resolveStreamHostDoh(
+    String url,
+    Map<String, String> headers,
+  ) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasScheme || uri.host.isEmpty) return url;
+
+    // Skip literal IP addresses
+    if (InternetAddress.tryParse(uri.host) != null) return url;
+
+    // Fast check if platform DNS can resolve the host
+    bool systemResolves = false;
+    try {
+      final res = await InternetAddress.lookup(uri.host)
+          .timeout(const Duration(milliseconds: 600));
+      if (res.isNotEmpty) {
+        systemResolves = true;
+      }
+    } catch (_) {
+      systemResolves = false;
+    }
+
+    if (systemResolves) return url;
+
+    // Platform DNS failed or timed out. Query public DoH endpoints.
+    try {
+      final dohResolver = DohResolver();
+      final addrs = await dohResolver.resolve(uri.host);
+      if (addrs.isNotEmpty) {
+        final ip = addrs.first.address;
+        headers['Host'] = uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+        final resolvedUrl = uri.replace(host: ip).toString();
+        logger.info(
+          'Resolved host ${uri.host} -> $ip via DoH for stream',
+          tag: 'StreamEngine',
+        );
+
+        // For HTTP streams, pre-probe redirects so the player connects directly to the CDN node
+        if (uri.scheme == 'http') {
+          try {
+            final client = HttpClient()
+              ..connectionTimeout = const Duration(seconds: 3);
+            final req = await client.getUrl(Uri.parse(resolvedUrl));
+            req.headers.set(
+              'Host',
+              uri.hasPort ? '${uri.host}:${uri.port}' : uri.host,
+            );
+            if (headers['User-Agent'] != null) {
+              req.headers.set('User-Agent', headers['User-Agent']!);
+            }
+            req.followRedirects = false;
+            final resp = await req.close().timeout(const Duration(seconds: 3));
+            if (resp.statusCode == HttpStatus.movedPermanently ||
+                resp.statusCode == HttpStatus.movedTemporarily ||
+                resp.statusCode == HttpStatus.seeOther ||
+                resp.statusCode == HttpStatus.temporaryRedirect) {
+              final location = resp.headers.value(HttpHeaders.locationHeader);
+              if (location != null && location.isNotEmpty) {
+                logger.info(
+                  'Stream redirected to CDN endpoint: $location',
+                  tag: 'StreamEngine',
+                );
+                return location;
+              }
+            }
+            await resp.drain();
+          } catch (_) {}
+        }
+
+        return resolvedUrl;
+      }
+    } catch (e) {
+      logger.warning('DoH resolution failed for ${uri.host}: $e', tag: 'StreamEngine');
+    }
+
+    return url;
   }
 }

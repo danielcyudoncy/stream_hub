@@ -192,8 +192,10 @@ class HistoryService {
         'providerType': item.providerType.name,
         'mediaType': item.mediaType.name,
         'title': item.title,
+        'subtitle': item.subtitle,
         'thumbnail': item.thumbnail,
         'poster': item.poster,
+        'metadata': item.metadata,
         'createdAt': item.createdAt.millisecondsSinceEpoch,
         'updatedAt': item.updatedAt.millisecondsSinceEpoch,
       };
@@ -213,8 +215,12 @@ class HistoryService {
           orElse: () => MediaType.channel,
         ),
         title: raw['title'] as String? ?? '',
+        subtitle: raw['subtitle'] as String?,
         thumbnail: raw['thumbnail'] as String?,
         poster: raw['poster'] as String?,
+        metadata: raw['metadata'] is Map
+            ? Map<String, dynamic>.from(raw['metadata'] as Map)
+            : const {},
         createdAt: raw['createdAt'] != null
             ? DateTime.fromMillisecondsSinceEpoch(raw['createdAt'] as int)
             : now,

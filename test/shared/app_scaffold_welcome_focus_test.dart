@@ -57,5 +57,49 @@ void main() {
 
       ctaNode.dispose();
     });
+
+    testWidgets('renders compact NavigationRail on mobile landscape without bottom NavigationBar',
+        (tester) async {
+      tester.view.physicalSize = const Size(800, 380);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: AppScaffold(
+            title: 'Live TV',
+            showAppBar: false,
+            body: Text('Live TV Content'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(NavigationBar), findsNothing);
+      expect(find.text('Live TV Content'), findsOneWidget);
+    });
+
+    testWidgets('renders bottom NavigationBar on mobile portrait without NavigationRail',
+        (tester) async {
+      tester.view.physicalSize = const Size(380, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: AppScaffold(
+            title: 'Live TV',
+            showAppBar: false,
+            body: Text('Live TV Content'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(find.text('Live TV Content'), findsOneWidget);
+    });
   });
 }

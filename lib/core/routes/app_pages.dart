@@ -63,6 +63,7 @@ import '../../modules/search/search_hub_page.dart';
 import '../../modules/search/search_hub_binding.dart';
 import '../../modules/epg/pages/program_details_page.dart';
 import '../../modules/epg/pages/channel_timeline_page.dart';
+import '../../modules/epg/pages/tv_guide_page.dart';
 import '../../modules/epg/pages/guide_search_page.dart';
 import '../../modules/epg/pages/mini_guide_page.dart';
 import '../../modules/epg/bindings/epg_binding.dart';
@@ -298,6 +299,14 @@ class AppPages {
       name: AppRoutes.libraryOverview,
       page: () => const LibraryOverviewPage(),
       binding: LiveTVBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.tvGuide,
+      page: () => const TVGuidePage(),
+      bindings: [
+        LiveTVBinding(),
+        EPGBinding(),
+      ],
     ),
     GetPage(
       name: AppRoutes.guideSearch,

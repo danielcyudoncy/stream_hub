@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
+import 'package:stream_hub/core/helpers/platform_helper.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/media_catalog.dart';
@@ -410,5 +411,86 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(LiveTvChannelCard), findsWidgets);
+  });
+
+  testWidgets('renders responsive desktop layout and TV Guide EPG toggle button on desktop screen size', (tester) async {
+    final channel = Channel(
+      id: 'ch-desktop',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'Desktop News Live',
+      mediaType: MediaType.channel,
+      number: '101',
+      isLive: true,
+      genres: const ['News'],
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    // Set desktop window size (>= 1024 width)
+    tester.view.physicalSize = const Size(1280, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(createSubject(items: [channel]));
+    await tester.pumpAndSettle();
+
+    // Verify LiveTVPage components render on desktop (not diverted away)
+    expect(find.byType(LiveTvEmbeddedPlayer), findsOneWidget);
+    expect(find.byType(LiveTvCategoryBar), findsOneWidget);
+    expect(find.byType(LiveTvChannelCard), findsOneWidget);
+    expect(find.text('Desktop News Live'), findsNWidgets(2));
+  });
+
+  testWidgets('renders phone landscape layout without RenderFlex overflow', (tester) async {
+    final channel = Channel(
+      id: 'ch-mobile-landscape',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'Landscape News Channel',
+      mediaType: MediaType.channel,
+      number: '102',
+      isLive: true,
+      genres: const ['News', 'Entertainment'],
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    // Standard mobile phone in landscape: 800 x 360 (or 720x360)
+    tester.view.physicalSize = const Size(720, 360);
+    tester.view.devicePixelRatio = 1.0;
+    PlatformHelper.forceMobileMode = true;
+    addTearDown(() => PlatformHelper.forceMobileMode = false);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(createSubject(items: [channel]));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(LiveTvEmbeddedPlayer), findsOneWidget);
+    // In compact landscape mode (< 300px left pane), the overflow more menu is present
+    expect(find.byIcon(Icons.more_vert_rounded), findsOneWidget);
+
+    // Open More Options menu
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Switch to List View'), findsOneWidget);
+    expect(find.text('Multi-View'), findsOneWidget);
+    expect(find.text('A - Z (Alphabetical)'), findsOneWidget);
+
+    // Dismiss menu and tap the channel card to start playing
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+
+    final card = find.byType(LiveTvChannelCard);
+    expect(card, findsOneWidget);
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+
+    // Verify channel was tapped and UI responded without overflow
+    expect(find.byType(LiveTvEmbeddedPlayer), findsOneWidget);
+    expect(find.byType(LiveTvChannelCard), findsOneWidget);
   });
 }

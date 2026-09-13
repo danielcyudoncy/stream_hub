@@ -39,7 +39,7 @@ import 'package:stream_hub/data/models/media_statistics.dart';
 /// The source never talks to the UI or the player; it only produces normalized
 /// media models.
 class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
-  static const Duration _kRequestTimeout = Duration(seconds: 20);
+  static const Duration _kRequestTimeout = Duration(seconds: 45);
 
   static const String _kLiveCategoryPrefix = 'xtream-cat-';
   static const String _kVodCategoryPrefix = 'xtream-vod-cat-';
@@ -187,23 +187,25 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
         _accountMetadata = accountMetadata;
       }
 
-      final stage1Results = await Future.wait<dynamic>([
-        _fetchLiveChannels(syncStartedAt),
+      // Stage 1a: Fetch categories first (lightweight JSON arrays, fast)
+      final categoryResults = await Future.wait<dynamic>([
         _fetchLiveCategories(syncStartedAt),
         _fetchMovieCategories(syncStartedAt),
         _fetchSeriesCategories(syncStartedAt),
       ], eagerError: false);
 
-      final liveCategories = stage1Results[1] as List<MediaItem>;
-      final movieCategories = stage1Results[2] as List<MediaItem>;
-      final seriesCategories = stage1Results[3] as List<MediaItem>;
+      final liveCategories = categoryResults[0] as List<MediaItem>;
+      final movieCategories = categoryResults[1] as List<MediaItem>;
+      final seriesCategories = categoryResults[2] as List<MediaItem>;
 
-      _cachedChannels = stage1Results[0] as List<MediaItem>;
       _cachedCategories = [
         ...liveCategories,
         ...movieCategories,
         ...seriesCategories,
       ];
+
+      // Stage 1b: Fetch live channels now that categories are indexed
+      _cachedChannels = await _fetchLiveChannels(syncStartedAt);
 
       _cachedChannels = _resolveCategoryNames(
         _cachedChannels,
@@ -318,7 +320,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   }
 
   Future<List<MediaItem>> _fetchLiveChannels(DateTime createdAt) async {
-    var rawJson = await _getJsonAction('action=live');
+    var rawJson = await _getJsonAction('action=get_live_streams');
     var channels = <MediaItem>[];
     if (rawJson != null && rawJson.isNotEmpty) {
       channels = await compute(
@@ -334,7 +336,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       );
     }
     if (channels.isEmpty) {
-      final fallbackJson = await _getJsonAction('action=get_live_streams');
+      final fallbackJson = await _getJsonAction('action=live');
       if (fallbackJson != null && fallbackJson.isNotEmpty) {
         channels = await compute(
           _parseLiveChannelsIsolated,
@@ -456,12 +458,19 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
     if (nameById.isEmpty) return items;
     return [
       for (final item in items)
-        if (item.genres.isEmpty)
-          item
-        else
-          item.copyWith(
+        () {
+          final rawCatId = item.metadata['categoryId']?.toString() ??
+              item.metadata['category_id']?.toString() ??
+              (item.genres.isNotEmpty ? item.genres.first : null);
+          final resolvedCatName = rawCatId != null ? nameById[rawCatId] : null;
+          return item.copyWith(
             genres: [for (final genre in item.genres) nameById[genre] ?? genre],
-          ),
+            metadata: {
+              ...item.metadata,
+              'category_name': ?resolvedCatName,
+            },
+          );
+        }(),
     ];
   }
 
@@ -511,7 +520,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
   Future<String?> _getJson(Uri uri) async {
     final request = await _client.getUrl(uri).timeout(_kRequestTimeout);
     request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-    request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
+    request.headers.set(HttpHeaders.userAgentHeader, 'IPTVSmartersPro/1.0 (Linux; Android 11)');
 
     final response = await request.close().timeout(_kRequestTimeout);
     if (response.statusCode != 200) {
@@ -600,6 +609,7 @@ class XtreamMediaSource implements MediaSource, AccountMetadataProvider {
       final stopwatch = Stopwatch()..start();
       final request = await _client.getUrl(uri).timeout(_kRequestTimeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.set(HttpHeaders.userAgentHeader, 'IPTVSmartersPro/1.0 (Linux; Android 11)');
       final response = await request.close().timeout(_kRequestTimeout);
       stopwatch.stop();
 

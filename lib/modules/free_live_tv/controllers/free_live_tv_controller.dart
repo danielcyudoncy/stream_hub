@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/helpers/platform_helper.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
@@ -92,7 +91,6 @@ class FreeLiveTvController extends GetxController {
   PlayerController? get inlinePlayerController => _inlinePlayerController.value;
   set inlinePlayerController(PlayerController? ctrl) =>
       _inlinePlayerController.value = ctrl;
-  final GlobalKey playerKey = GlobalKey();
 
   StreamSubscription? _favoritesSubscription;
   StreamSubscription? _playerStateSubscription;

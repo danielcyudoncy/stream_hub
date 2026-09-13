@@ -83,8 +83,6 @@ class MediaKitPlayerAdapter implements PlayerAdapter, PipFloatingCapable {
   @override
   bool get isInitialized => _player != null;
 
-  final GlobalKey _videoKey = GlobalKey(debugLabel: 'mediakit_video');
-
   @override
   Widget buildPlayerWidget() {
     final controller = _videoController;
@@ -93,7 +91,6 @@ class MediaKitPlayerAdapter implements PlayerAdapter, PipFloatingCapable {
       valueListenable: _aspectRatioNotifier,
       builder: (context, aspectMode, child) {
         return Video(
-          key: _videoKey,
           controller: controller,
           fit: aspectMode.toBoxFit(),
           controls: NoVideoControls,

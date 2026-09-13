@@ -26,13 +26,13 @@ class CatalogRefreshCoordinator extends GetxService {
       StreamController<void>.broadcast();
   late final StreamSubscription<void> _catalogSubscription;
 
+  final Map<Object, Future<void> Function()> _pendingTasks = {};
+  final Set<Object> _runningTasks = {};
   Timer? _debounceTimer;
-  Future<void> Function()? _pendingTask;
-  bool _running = false;
 
   Stream<void> get refreshSignal => _signalController.stream;
 
-  bool get isRunning => _running;
+  bool get isRunning => _runningTasks.isNotEmpty;
 
   @override
   void onInit() {
@@ -56,21 +56,21 @@ class CatalogRefreshCoordinator extends GetxService {
     });
   }
 
-  /// Runs [task] without overlapping other coalesced tasks. If fresh work is
-  /// requested while a task is already running, it is collapsed into a single
-  /// trailing execution after the running task completes.
-  Future<void> runCoalesced(Future<void> Function() task) async {
-    _pendingTask = task;
-    if (_running) return;
-    _running = true;
+  /// Runs [task] without overlapping other coalesced tasks for the same caller [key].
+  /// If fresh work is requested while a task is already running, it is collapsed
+  /// into a single trailing execution after the running task completes.
+  Future<void> runCoalesced(Future<void> Function() task, [Object? key]) async {
+    final effectiveKey = key ?? task;
+    _pendingTasks[effectiveKey] = task;
+    if (_runningTasks.contains(effectiveKey)) return;
+    _runningTasks.add(effectiveKey);
     try {
-      while (_pendingTask != null) {
-        final current = _pendingTask!;
-        _pendingTask = null;
+      while (_pendingTasks.containsKey(effectiveKey)) {
+        final current = _pendingTasks.remove(effectiveKey)!;
         await current();
       }
     } finally {
-      _running = false;
+      _runningTasks.remove(effectiveKey);
     }
   }
 

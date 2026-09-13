@@ -112,6 +112,10 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
   final TextEditingController _newPinController = TextEditingController();
   final TextEditingController _confirmPinController = TextEditingController();
 
+  final FocusNode _currentPinFocus = FocusNode();
+  final FocusNode _newPinFocus = FocusNode();
+  final FocusNode _confirmPinFocus = FocusNode();
+
   bool _obscureCurrentPin = true;
   bool _obscureNewPin = true;
   bool _obscureConfirmPin = true;
@@ -124,6 +128,9 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
     _currentPinController.dispose();
     _newPinController.dispose();
     _confirmPinController.dispose();
+    _currentPinFocus.dispose();
+    _newPinFocus.dispose();
+    _confirmPinFocus.dispose();
     super.dispose();
   }
 
@@ -155,7 +162,7 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
         });
 
         if (valid) {
-          Navigator.of(context).pop(true);
+          Navigator.of(context).maybePop(true);
         } else {
           setState(() {
             _errorMessage = 'Incorrect PIN. Please try again.';
@@ -195,7 +202,7 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
         });
 
         if (success) {
-          Navigator.of(context).pop(true);
+          Navigator.of(context).maybePop(true);
         } else {
           setState(() {
             _errorMessage = 'Failed to save PIN. Please try again.';
@@ -243,7 +250,7 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
         });
 
         if (success) {
-          Navigator.of(context).pop(true);
+          Navigator.of(context).maybePop(true);
         } else {
           setState(() {
             _errorMessage = 'Incorrect current PIN. Please try again.';
@@ -260,7 +267,12 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
     required ColorScheme colorScheme,
     required bool obscureText,
     required VoidCallback onToggleObscure,
+    FocusNode? focusNode,
+    TextInputAction textInputAction = TextInputAction.done,
+    ValueChanged<String>? onSubmitted,
+    ValueChanged<String>? onChanged,
     bool autofocus = false,
+    bool isCompact = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,20 +283,27 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
             color: colorScheme.onSurface.withValues(alpha: 0.7),
           ),
         ),
-        AppSpacing.heightXS,
+        SizedBox(height: isCompact ? 2 : 4),
         TextField(
           controller: controller,
+          focusNode: focusNode,
+          textInputAction: textInputAction,
           autofocus: autofocus,
           keyboardType: TextInputType.number,
           maxLength: 4,
           obscureText: obscureText,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 22.0,
-            letterSpacing: 8.0,
+          style: TextStyle(
+            fontSize: isCompact ? 18.0 : 22.0,
+            letterSpacing: isCompact ? 6.0 : 8.0,
             fontWeight: FontWeight.bold,
           ),
           decoration: InputDecoration(
+            isDense: isCompact,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12.0,
+              vertical: isCompact ? 8.0 : 12.0,
+            ),
             hintText: obscureText ? '••••' : '0000',
             filled: true,
             fillColor: colorScheme.surfaceContainerHighest,
@@ -293,23 +312,19 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
               borderSide: BorderSide.none,
             ),
             counterText: '',
-            prefixIcon: const SizedBox(width: 48),
+            prefixIcon: SizedBox(width: isCompact ? 36 : 48),
             suffixIcon: IconButton(
               icon: Icon(
                 obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                size: 20,
+                size: isCompact ? 18 : 20,
                 color: colorScheme.onSurface.withValues(alpha: 0.6),
               ),
               onPressed: onToggleObscure,
               tooltip: obscureText ? 'Show PIN' : 'Hide PIN',
             ),
           ),
-          onSubmitted: (_) {
-            if (widget.mode == ParentalPinDialogMode.unlock ||
-                widget.mode == ParentalPinDialogMode.disable) {
-              _handleSubmit();
-            }
-          },
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
         ),
       ],
     );
@@ -317,7 +332,13 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final size = MediaQuery.sizeOf(context);
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape &&
+        size.height < 520;
+    final isCompactWidth = size.width < 420;
 
     String dialogTitle = widget.title ?? 'Parental PIN';
     String confirmButtonText = 'Confirm';
@@ -341,150 +362,236 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
         break;
     }
 
-    return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: AppRadius.large),
-      title: Row(
-        children: [
-          const Icon(Icons.lock_outline_rounded, color: AppColors.primary),
-          AppSpacing.widthSM,
-          Expanded(
-            child: Text(
-              dialogTitle,
-              style: AppTypography.getHeadline(color: colorScheme.onSurface),
-            ),
-          ),
-        ],
+    return Dialog(
+      insetPadding: EdgeInsets.symmetric(
+        horizontal: isCompactWidth ? 16.0 : 24.0,
+        vertical: isLandscape ? 8.0 : 24.0,
       ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.message != null && widget.message!.isNotEmpty) ...[
-              Text(
-                widget.message!,
-                style: AppTypography.getBody(
-                  color: colorScheme.onSurface.withValues(alpha: 0.8),
-                ),
-              ),
-              AppSpacing.heightMD,
-            ],
-            if (widget.mode == ParentalPinDialogMode.unlock ||
-                widget.mode == ParentalPinDialogMode.disable) ...[
-              _buildPinField(
-                controller: _currentPinController,
-                label: 'Enter 4-digit PIN',
-                colorScheme: colorScheme,
-                obscureText: _obscureCurrentPin,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureCurrentPin = !_obscureCurrentPin;
-                  });
-                },
-                autofocus: true,
-              ),
-            ] else if (widget.mode == ParentalPinDialogMode.setPin) ...[
-              _buildPinField(
-                controller: _newPinController,
-                label: 'Create 4-digit PIN',
-                colorScheme: colorScheme,
-                obscureText: _obscureNewPin,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureNewPin = !_obscureNewPin;
-                  });
-                },
-                autofocus: true,
-              ),
-              AppSpacing.heightSM,
-              _buildPinField(
-                controller: _confirmPinController,
-                label: 'Confirm 4-digit PIN',
-                colorScheme: colorScheme,
-                obscureText: _obscureConfirmPin,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureConfirmPin = !_obscureConfirmPin;
-                  });
-                },
-              ),
-            ] else if (widget.mode == ParentalPinDialogMode.changePin) ...[
-              _buildPinField(
-                controller: _currentPinController,
-                label: 'Current 4-digit PIN',
-                colorScheme: colorScheme,
-                obscureText: _obscureCurrentPin,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureCurrentPin = !_obscureCurrentPin;
-                  });
-                },
-                autofocus: true,
-              ),
-              AppSpacing.heightSM,
-              _buildPinField(
-                controller: _newPinController,
-                label: 'New 4-digit PIN',
-                colorScheme: colorScheme,
-                obscureText: _obscureNewPin,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureNewPin = !_obscureNewPin;
-                  });
-                },
-              ),
-              AppSpacing.heightSM,
-              _buildPinField(
-                controller: _confirmPinController,
-                label: 'Confirm New 4-digit PIN',
-                colorScheme: colorScheme,
-                obscureText: _obscureConfirmPin,
-                onToggleObscure: () {
-                  setState(() {
-                    _obscureConfirmPin = !_obscureConfirmPin;
-                  });
-                },
-              ),
-            ],
-            if (_errorMessage != null) ...[
-              AppSpacing.heightSM,
+      shape: RoundedRectangleBorder(borderRadius: AppRadius.large),
+      backgroundColor:
+          theme.dialogTheme.backgroundColor ?? colorScheme.surface,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: isCompactWidth ? AppSpacing.md : AppSpacing.lg,
+            vertical: isLandscape ? AppSpacing.sm : AppSpacing.lg,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Title Row
               Row(
                 children: [
-                  Icon(Icons.error_outline, size: 16, color: colorScheme.error),
-                  AppSpacing.widthXS,
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    color: AppColors.primary,
+                    size: isLandscape ? 20 : 24,
+                  ),
+                  AppSpacing.widthSM,
                   Expanded(
                     child: Text(
-                      _errorMessage!,
-                      style: AppTypography.getCaption(
-                        color: colorScheme.error,
+                      dialogTitle,
+                      style: isLandscape
+                          ? AppTypography.getTitle(color: colorScheme.onSurface)
+                          : AppTypography.getHeadline(color: colorScheme.onSurface),
+                    ),
+                  ),
+                ],
+              ),
+              if (widget.message != null && widget.message!.isNotEmpty && !isLandscape) ...[
+                AppSpacing.heightSM,
+                Text(
+                  widget.message!,
+                  style: AppTypography.getBody(
+                    color: colorScheme.onSurface.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
+              SizedBox(height: isLandscape ? 6 : 12),
+              if (widget.mode == ParentalPinDialogMode.unlock ||
+                  widget.mode == ParentalPinDialogMode.disable) ...[
+                _buildPinField(
+                  controller: _currentPinController,
+                  focusNode: _currentPinFocus,
+                  label: 'Enter 4-digit PIN',
+                  colorScheme: colorScheme,
+                  obscureText: _obscureCurrentPin,
+                  onToggleObscure: () {
+                    setState(() {
+                      _obscureCurrentPin = !_obscureCurrentPin;
+                    });
+                  },
+                  autofocus: true,
+                  isCompact: isLandscape,
+                  textInputAction: TextInputAction.done,
+                  onChanged: (val) {
+                    if (val.trim().length == 4) {
+                      _handleSubmit();
+                    }
+                  },
+                  onSubmitted: (_) => _handleSubmit(),
+                ),
+              ] else if (widget.mode == ParentalPinDialogMode.setPin) ...[
+                _buildPinField(
+                  controller: _newPinController,
+                  focusNode: _newPinFocus,
+                  label: 'Create 4-digit PIN',
+                  colorScheme: colorScheme,
+                  obscureText: _obscureNewPin,
+                  onToggleObscure: () {
+                    setState(() {
+                      _obscureNewPin = !_obscureNewPin;
+                    });
+                  },
+                  autofocus: true,
+                  isCompact: isLandscape,
+                  textInputAction: TextInputAction.next,
+                  onChanged: (val) {
+                    if (val.trim().length == 4) {
+                      _confirmPinFocus.requestFocus();
+                    }
+                  },
+                  onSubmitted: (_) => _confirmPinFocus.requestFocus(),
+                ),
+                SizedBox(height: isLandscape ? 4 : AppSpacing.sm),
+                _buildPinField(
+                  controller: _confirmPinController,
+                  focusNode: _confirmPinFocus,
+                  label: 'Confirm 4-digit PIN',
+                  colorScheme: colorScheme,
+                  obscureText: _obscureConfirmPin,
+                  onToggleObscure: () {
+                    setState(() {
+                      _obscureConfirmPin = !_obscureConfirmPin;
+                    });
+                  },
+                  isCompact: isLandscape,
+                  textInputAction: TextInputAction.done,
+                  onChanged: (val) {
+                    if (val.trim().length == 4 &&
+                        val.trim() == _newPinController.text.trim()) {
+                      _handleSubmit();
+                    }
+                  },
+                  onSubmitted: (_) => _handleSubmit(),
+                ),
+              ] else if (widget.mode == ParentalPinDialogMode.changePin) ...[
+                _buildPinField(
+                  controller: _currentPinController,
+                  focusNode: _currentPinFocus,
+                  label: 'Current 4-digit PIN',
+                  colorScheme: colorScheme,
+                  obscureText: _obscureCurrentPin,
+                  onToggleObscure: () {
+                    setState(() {
+                      _obscureCurrentPin = !_obscureCurrentPin;
+                    });
+                  },
+                  autofocus: true,
+                  isCompact: isLandscape,
+                  textInputAction: TextInputAction.next,
+                  onChanged: (val) {
+                    if (val.trim().length == 4) {
+                      _newPinFocus.requestFocus();
+                    }
+                  },
+                  onSubmitted: (_) => _newPinFocus.requestFocus(),
+                ),
+                SizedBox(height: isLandscape ? 4 : AppSpacing.sm),
+                _buildPinField(
+                  controller: _newPinController,
+                  focusNode: _newPinFocus,
+                  label: 'New 4-digit PIN',
+                  colorScheme: colorScheme,
+                  obscureText: _obscureNewPin,
+                  onToggleObscure: () {
+                    setState(() {
+                      _obscureNewPin = !_obscureNewPin;
+                    });
+                  },
+                  isCompact: isLandscape,
+                  textInputAction: TextInputAction.next,
+                  onChanged: (val) {
+                    if (val.trim().length == 4) {
+                      _confirmPinFocus.requestFocus();
+                    }
+                  },
+                  onSubmitted: (_) => _confirmPinFocus.requestFocus(),
+                ),
+                SizedBox(height: isLandscape ? 4 : AppSpacing.sm),
+                _buildPinField(
+                  controller: _confirmPinController,
+                  focusNode: _confirmPinFocus,
+                  label: 'Confirm New 4-digit PIN',
+                  colorScheme: colorScheme,
+                  obscureText: _obscureConfirmPin,
+                  onToggleObscure: () {
+                    setState(() {
+                      _obscureConfirmPin = !_obscureConfirmPin;
+                    });
+                  },
+                  isCompact: isLandscape,
+                  textInputAction: TextInputAction.done,
+                  onChanged: (val) {
+                    if (val.trim().length == 4 &&
+                        val.trim() == _newPinController.text.trim()) {
+                      _handleSubmit();
+                    }
+                  },
+                  onSubmitted: (_) => _handleSubmit(),
+                ),
+              ],
+              if (_errorMessage != null) ...[
+                SizedBox(height: isLandscape ? 4 : AppSpacing.sm),
+                Row(
+                  children: [
+                    Icon(Icons.error_outline, size: 16, color: colorScheme.error),
+                    AppSpacing.widthXS,
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: AppTypography.getCaption(
+                          color: colorScheme.error,
+                        ),
                       ),
+                    ),
+                  ],
+                ),
+              ],
+              SizedBox(height: isLandscape ? 8 : 16),
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: AppSpacing.sm,
+                runSpacing: 4.0,
+                children: [
+                  TextButton(
+                    onPressed: _isProcessing
+                        ? null
+                        : () => Navigator.of(context).maybePop(false),
+                    child: const Text('Cancel'),
+                  ),
+                  TvFocusable(
+                    borderRadius: AppRadius.medium,
+                    child: ElevatedButton(
+                      onPressed: _isProcessing ? null : _handleSubmit,
+                      child: _isProcessing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Text(confirmButtonText),
                     ),
                   ),
                 ],
               ),
             ],
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isProcessing ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        TvFocusable(
-          borderRadius: AppRadius.medium,
-          child: ElevatedButton(
-            onPressed: _isProcessing ? null : _handleSubmit,
-            child: _isProcessing
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(confirmButtonText),
           ),
         ),
-      ],
+      ),
     );
   }
 }

@@ -361,66 +361,78 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            TitleFormatter.formatChannelTitle(widget.channel.title),
-                            style: AppTypography.getBody(
-                              color: widget.isPlaying
-                                  ? AppColors.primary
-                                  : (_isFocused ? Colors.white : colorScheme.onSurface),
-                              scale: 0.88,
-                            ).copyWith(
-                              fontWeight: FontWeight.bold,
-                              shadows: widget.isPlaying
-                                  ? [
-                                      Shadow(
-                                        color: AppColors.primary.withValues(alpha: 0.8),
-                                        blurRadius: 10.0,
+                    LayoutBuilder(
+                      builder: (context, cardConstraints) {
+                        final isCompactCard = cardConstraints.maxWidth < 130;
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                TitleFormatter.formatChannelTitle(widget.channel.title),
+                                style: AppTypography.getBody(
+                                  color: widget.isPlaying
+                                      ? AppColors.primary
+                                      : (_isFocused ? Colors.white : colorScheme.onSurface),
+                                  scale: 0.88,
+                                ).copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  shadows: widget.isPlaying
+                                      ? [
+                                          Shadow(
+                                            color: AppColors.primary.withValues(alpha: 0.8),
+                                            blurRadius: 10.0,
+                                          ),
+                                        ]
+                                      : null,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (widget.isPlaying) ...[
+                              const SizedBox(width: 4.0),
+                              Container(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isCompactCard ? 4.0 : 6.0,
+                                  vertical: 2.0,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(4.0),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(alpha: 0.6),
+                                      blurRadius: 8.0,
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.graphic_eq_rounded,
+                                      color: Colors.black,
+                                      size: 10.0,
+                                    ),
+                                    if (!isCompactCard) ...[
+                                      const SizedBox(width: 3.0),
+                                      const Text(
+                                        'PLAYING',
+                                        style: TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 8.5,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.3,
+                                        ),
                                       ),
-                                    ]
-                                  : null,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (widget.isPlaying)
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary,
-                              borderRadius: BorderRadius.circular(4.0),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.6),
-                                  blurRadius: 8.0,
+                                    ],
+                                  ],
                                 ),
-                              ],
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.graphic_eq_rounded,
-                                  color: Colors.black,
-                                  size: 10.0,
-                                ),
-                                SizedBox(width: 3.0),
-                                Text(
-                                  'PLAYING',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.3,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
+                              ),
+                            ],
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 2),
                     // Current Program or Genre / Subtitle

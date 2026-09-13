@@ -42,6 +42,7 @@ class AppRoutes {
   static const String providerOverview = '/provider-overview';
   static const String libraryOverview = '/library-overview';
   static const String guideSearch = '/guide-search';
+  static const String tvGuide = '/tv-guide';
   static const String miniGuide = '/mini-guide';
   static const String programDetails = '/program-details';
   static const String channelTimeline = '/channel-timeline';
@@ -61,6 +62,7 @@ class AppRoutes {
     if (route == null) return false;
     return route == fullscreenPlayer ||
         route == liveTV ||
+        route == tvGuide ||
         route == freeLiveTV ||
         route == embeddedPlayer ||
         route == multiView ||

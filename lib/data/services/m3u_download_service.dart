@@ -154,6 +154,7 @@ class M3UDownloadService {
     StreamController<DownloadProgress>? progressController,
     CancellationToken? cancellationToken,
   ) async {
+    _logger.info('M3U downloading URL: $uri', tag: 'M3UDownloadService');
     final request = await _client.getUrl(uri);
 
     _applyAuth(request, config);
@@ -362,36 +363,19 @@ class M3UDownloadService {
 
   void _applyHeaders(HttpClientRequest request, M3UConfig config) {
     request.headers.set(HttpHeaders.acceptHeader, '*/*');
-    request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
 
-    // Many IPTV servers only serve playlists to requests carrying a Referer
-    // that matches their own origin. Send the playlist's own origin unless the
-    // user has configured an explicit Referer via [M3UConfig.headers].
-    final hasReferer =
-        config.headers.keys.any((k) => k.toLowerCase() == 'referer');
-    if (!hasReferer) {
-      final referer = _refererFor(config.sourceUrl);
-      if (referer != null) {
-        request.headers.set(HttpHeaders.refererHeader, referer);
-      }
-    }
+    final customUa = config.headers.entries
+        .where((e) => e.key.toLowerCase() == 'user-agent')
+        .map((e) => e.value)
+        .firstOrNull;
+    request.headers.set(
+      HttpHeaders.userAgentHeader,
+      customUa ?? 'IPTVSmartersPro/1.0 (Linux; Android 11)',
+    );
 
     for (final entry in config.headers.entries) {
+      if (entry.key.toLowerCase() == 'user-agent') continue;
       request.headers.set(entry.key, entry.value);
-    }
-  }
-
-  String? _refererFor(String url) {
-    try {
-      final uri = Uri.parse(url);
-      if (uri.scheme != 'http' && uri.scheme != 'https') return null;
-      if (uri.host.isEmpty) return null;
-      var origin = '${uri.scheme}://${uri.host}';
-      final defaultPort = uri.scheme == 'http' ? 80 : 443;
-      if (uri.port != defaultPort) origin = '$origin:${uri.port}';
-      return '$origin/';
-    } on FormatException {
-      return null;
     }
   }
 

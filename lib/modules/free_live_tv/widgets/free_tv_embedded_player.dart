@@ -560,30 +560,33 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                   child: Container(
                     color: Colors.black45,
                     child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _LoadingPercentIndicator(
-                            progress: widget.controller.loadProgress.value,
-                          ),
-                          AppSpacing.heightSM,
-                          Text(
-                            statusMsg.isNotEmpty
-                                ? statusMsg
-                                : (state == PlaybackState.loading
-                                      ? 'Connecting to live stream...'
-                                      : 'Buffering...'),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w600,
-                              shadows: [
-                                Shadow(color: Colors.black, blurRadius: 4.0),
-                              ],
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _LoadingPercentIndicator(
+                              progress: widget.controller.loadProgress.value,
                             ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                            AppSpacing.heightSM,
+                            Text(
+                              statusMsg.isNotEmpty
+                                  ? statusMsg
+                                  : (state == PlaybackState.loading
+                                        ? 'Connecting to live stream...'
+                                        : 'Buffering...'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                                shadows: [
+                                  Shadow(color: Colors.black, blurRadius: 4.0),
+                                ],
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -594,45 +597,48 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                   color: Colors.black87,
                   padding: const EdgeInsets.all(AppSpacing.md),
                   child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.error_outline_rounded,
-                          color: AppColors.error,
-                          size: 36.0,
-                        ),
-                        AppSpacing.heightXS,
-                        Text(
-                          statusMsg.isNotEmpty
-                              ? statusMsg
-                              : 'Unable to load live stream',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13.0,
-                            fontWeight: FontWeight.w600,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.error_outline_rounded,
+                            color: AppColors.error,
+                            size: 36.0,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        AppSpacing.heightSM,
-                        ElevatedButton.icon(
-                          onPressed: () =>
-                              widget.controller.openChannel(channel),
-                          icon: const Icon(Icons.refresh_rounded, size: 16),
-                          label: const Text(
-                            'Retry',
-                            style: TextStyle(fontSize: 12),
+                          AppSpacing.heightXS,
+                          Text(
+                            statusMsg.isNotEmpty
+                                ? statusMsg
+                                : 'Unable to load live stream',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13.0,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primaryContainer,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: AppSpacing.md,
-                              vertical: AppSpacing.xs,
+                          AppSpacing.heightSM,
+                          ElevatedButton.icon(
+                            onPressed: () =>
+                                widget.controller.openChannel(channel),
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text(
+                              'Retry',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primaryContainer,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.md,
+                                vertical: AppSpacing.xs,
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
