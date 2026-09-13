@@ -42,10 +42,10 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
 
   static bool get _isPiPSupported => Platform.isAndroid;
 
-  static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
-      GlobalKey();
-  static final GlobalKey<PopupMenuButtonState<String>> _countryPopupKey =
-      GlobalKey();
+  final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
+      GlobalKey<PopupMenuButtonState<String>>();
+  final GlobalKey<PopupMenuButtonState<String>> _countryPopupKey =
+      GlobalKey<PopupMenuButtonState<String>>();
 
   @override
   void initState() {
@@ -236,6 +236,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
         return AppScaffold(
           title: 'Free Live TV',
           showAppBar: false,
+          resizeToAvoidBottomInset: false,
           body: Column(
             children: [
               _buildTopAppBar(context, isList),
@@ -268,7 +269,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               width: double.infinity,
               height: double.infinity,
               child: FreeTvEmbeddedPlayer(
-                key: controller.playerKey,
+                key: const ValueKey('free_live_tv_player_fullscreen'),
                 controller: controller,
                 isFullscreen: true,
               ),
@@ -279,7 +280,9 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
 
       // TV / Large-Screen View: Mirrors the Live TV Guide design with a
       // prominent 16:9 mini-player on the right of a top showcase.
-      if (isTV || isDesktop) {
+      final isLargeScreen =
+          isTV || (isDesktop && MediaQuery.sizeOf(context).width >= 1024);
+      if (isLargeScreen) {
         return _buildTVLayout(
           context,
           filtered,
@@ -293,22 +296,24 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
       }
 
       // Landscape 2-Pane Side-by-Side View
-      if (isLandscape && !isDesktop && !isTV) {
+      if (isLandscape && !isLargeScreen) {
         return AppScaffold(
           title: 'Free Live TV',
           showAppBar: false,
-          showNavigation: false,
-          body: Row(
-            children: [
-              // Left Pane: Embedded Player + Category Bar
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.44,
-                child: Column(
-                  children: [
-                    _buildTopAppBar(context, isList),
+          resizeToAvoidBottomInset: false,
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                children: [
+                  // Left Pane: Embedded Player + Category Bar
+                  SizedBox(
+                    width: constraints.maxWidth * 0.44,
+                    child: Column(
+                      children: [
+                        _buildTopAppBar(context, isList),
                     Expanded(
                       child: FreeTvEmbeddedPlayer(
-                        key: controller.playerKey,
+                        key: const ValueKey('free_live_tv_player_landscape'),
                         controller: controller,
                         isFullscreen: false,
                       ),
@@ -372,14 +377,17 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                 ),
               ),
             ],
-          ),
-        );
-      }
+          );
+        },
+      ),
+    );
+  }
 
       // Default Portrait View: Sticky Player + Category Bar + Scrollable Channels
       return AppScaffold(
         title: 'Free Live TV',
         showAppBar: false,
+        resizeToAvoidBottomInset: false,
         body: Column(
           children: [
             // 1. Top App Bar
@@ -387,7 +395,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
 
             // 2. Embedded Player / Hero
             FreeTvEmbeddedPlayer(
-              key: controller.playerKey,
+              key: const ValueKey('free_live_tv_player_portrait'),
               controller: controller,
               isFullscreen: false,
             ),
@@ -562,45 +570,52 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
         AppSpacing.xl,
         AppSpacing.xs,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Left Pane: Header + Active Channel Information Showcase
-          Expanded(
-            child: _buildShowcaseInfo(context),
-          ),
-
-          AppSpacing.widthLG,
-
-          // Right Pane: Prominent 16:9 Live Mini-Player (440x248 on TV)
-          Container(
-            width: 440,
-            height: 248,
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.primary.withValues(alpha: 0.35),
-                width: 2.0,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final playerWidth =
+              (constraints.maxWidth * 0.42).clamp(280.0, 440.0);
+          final playerHeight = playerWidth * (9.0 / 16.0);
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left Pane: Header + Active Channel Information Showcase
+              Expanded(
+                child: _buildShowcaseInfo(context),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.2),
-                  blurRadius: 20,
-                  spreadRadius: 2,
+
+              AppSpacing.widthLG,
+
+              // Right Pane: Prominent 16:9 Live Mini-Player
+              Container(
+                width: playerWidth,
+                height: playerHeight,
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.35),
+                    width: 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.2),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: FreeTvEmbeddedPlayer(
-                key: controller.playerKey,
-                controller: controller,
-                isFullscreen: false,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: FreeTvEmbeddedPlayer(
+                    key: const ValueKey('free_live_tv_player_tv_preview'),
+                    controller: controller,
+                    isFullscreen: false,
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -620,106 +635,125 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           // 1. Top Action Row: Title, "FREE" Badge, View Mode Toggle, Search, Refresh
-          Row(
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            alignment: WrapAlignment.spaceBetween,
+            spacing: AppSpacing.sm,
+            runSpacing: 6,
             children: [
-              Flexible(
-                child: Text(
-                  'Free Live TV',
-                  style: AppTypography.getDisplay(
-                    color: AppColors.primary,
-                  ).copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 26,
-                    shadows: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.4),
-                        blurRadius: 8.0,
-                      ),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              AppSpacing.widthMD,
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: AppColors.surface.withValues(alpha: 0.8),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
-                  ),
-                ),
-                child: Text(
-                  'FREE',
-                  style: AppTypography.getLabel(
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              TvFocusable(
-                onTap: () => controller.setView(isList ? 'grid' : 'list'),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isList
-                            ? Icons.grid_view_rounded
-                            : Icons.view_agenda_rounded,
-                        size: 16,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Free Live TV',
+                      style: AppTypography.getDisplay(
                         color: AppColors.primary,
+                      ).copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 26,
+                        shadows: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.4),
+                            blurRadius: 8.0,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 6),
-                      Text(
-                        isList ? 'Grid View' : 'List View',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    AppSpacing.widthMD,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.1),
                         ),
                       ),
-                    ],
-                  ),
+                      child: Text(
+                        'FREE',
+                        style: AppTypography.getLabel(
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              AppSpacing.widthSM,
-              TvFocusable(
-                onTap: () => _showSearchDialog(context),
-                scale: 1.15,
-                borderRadius: BorderRadius.circular(24),
-                child: const IconButton(
-                  icon: Icon(Icons.search),
-                  color: AppColors.textSecondary,
-                  onPressed: null,
-                ),
-              ),
-              AppSpacing.widthSM,
-              TvFocusable(
-                onTap: controller.refresh,
-                scale: 1.15,
-                borderRadius: BorderRadius.circular(24),
-                child: const IconButton(
-                  icon: Icon(Icons.refresh),
-                  color: AppColors.textSecondary,
-                  onPressed: null,
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TvFocusable(
+                      onTap: () => controller.setView(isList ? 'grid' : 'list'),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isList
+                                  ? Icons.grid_view_rounded
+                                  : Icons.view_agenda_rounded,
+                              size: 16,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              isList ? 'Grid View' : 'List View',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    AppSpacing.widthSM,
+                    TvFocusable(
+                      onTap: () => _showSearchDialog(context),
+                      scale: 1.15,
+                      borderRadius: BorderRadius.circular(24),
+                      child: const IconButton(
+                        icon: Icon(Icons.search),
+                        color: AppColors.textSecondary,
+                        onPressed: null,
+                      ),
+                    ),
+                    AppSpacing.widthSM,
+                    TvFocusable(
+                      onTap: controller.refresh,
+                      scale: 1.15,
+                      borderRadius: BorderRadius.circular(24),
+                      child: const IconButton(
+                        icon: Icon(Icons.refresh),
+                        color: AppColors.textSecondary,
+                        onPressed: null,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -1067,17 +1101,20 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
           top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
-          AppSpacing.widthLG,
-          _legendItem(Icons.star_rounded, 'STAR: Favorite Channel'),
-          AppSpacing.widthLG,
-          _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Filters'),
-          AppSpacing.widthLG,
-          _legendItem(Icons.grid_view_rounded, 'View: Toggle Grid / List'),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
+            AppSpacing.widthLG,
+            _legendItem(Icons.star_rounded, 'STAR: Favorite Channel'),
+            AppSpacing.widthLG,
+            _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Filters'),
+            AppSpacing.widthLG,
+            _legendItem(Icons.grid_view_rounded, 'View: Toggle Grid / List'),
+          ],
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
@@ -44,8 +45,10 @@ class _LiveTVPageState extends State<LiveTVPage> {
 
   static bool get _isPiPSupported => Platform.isAndroid;
 
-  static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
-      GlobalKey();
+  final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
+      GlobalKey<PopupMenuButtonState<String>>();
+  final GlobalKey<PopupMenuButtonState<String>> _morePopupKey =
+      GlobalKey<PopupMenuButtonState<String>>();
 
   @override
   void initState() {
@@ -191,8 +194,8 @@ class _LiveTVPageState extends State<LiveTVPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isTV = ResponsiveHelper.isTV(context);
-    final isDesktop = ResponsiveHelper.isDesktop(context);
+    final isDesktop = PlatformHelper.isDesktop || ResponsiveHelper.isDesktop(context);
+    final isTV = !isDesktop && (PlatformHelper.isTV || ResponsiveHelper.isTV(context));
     final isTablet = ResponsiveHelper.isTablet(context);
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
@@ -202,12 +205,15 @@ class _LiveTVPageState extends State<LiveTVPage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!controller.isLoading.value) {
+        if (controller.channels.isEmpty) {
+          controller.reloadLiveTVData();
+        }
         controller.syncHiddenCategories();
         controller.handleNavigationArguments();
       }
     });
 
-    if (isTV || isDesktop) {
+    if (isTV) {
       return const TVGuidePage();
     }
 
@@ -238,7 +244,10 @@ class _LiveTVPageState extends State<LiveTVPage> {
       },
       child: Obx(() {
         if (controller.isLoading.value) {
-          return const Scaffold(
+          return const AppScaffold(
+            title: 'Live TV',
+            showAppBar: false,
+            resizeToAvoidBottomInset: false,
             body: LiveTvSkeleton(),
           );
         }
@@ -260,7 +269,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
               width: double.infinity,
               height: double.infinity,
               child: LiveTvEmbeddedPlayer(
-                key: controller.playerKey,
+                key: const ValueKey('live_tv_player_fullscreen'),
                 controller: controller,
                 isFullscreen: true,
               ),
@@ -273,18 +282,20 @@ class _LiveTVPageState extends State<LiveTVPage> {
         return AppScaffold(
           title: 'Live TV',
           showAppBar: false,
-          showNavigation: false,
-          body: Row(
-            children: [
-              // Left Pane (45%): Top Bar + Featured Hero / Embedded Player + Category Bar
-              SizedBox(
-                width: MediaQuery.of(context).size.width * 0.44,
-                child: Column(
-                  children: [
-                    _buildTopAppBar(context, isList),
+          resizeToAvoidBottomInset: false,
+          body: LayoutBuilder(
+            builder: (context, constraints) {
+              return Row(
+                children: [
+                  // Left Pane (44%): Top Bar + Featured Hero / Embedded Player + Category Bar
+                  SizedBox(
+                    width: constraints.maxWidth * 0.44,
+                    child: Column(
+                      children: [
+                        _buildTopAppBar(context, isList),
                     Expanded(
                       child: LiveTvEmbeddedPlayer(
-                        key: controller.playerKey,
+                        key: const ValueKey('live_tv_player_landscape'),
                         controller: controller,
                         isFullscreen: false,
                       ),
@@ -375,24 +386,34 @@ class _LiveTVPageState extends State<LiveTVPage> {
                 ),
               ),
             ],
-          ),
-        );
-      }
+          );
+        },
+      ),
+    );
+  }
 
       // Default Portrait View: Pinned Top Section + Independent Channel List Below
       return AppScaffold(
         title: 'Live TV',
         showAppBar: false,
+        resizeToAvoidBottomInset: false,
         body: Column(
           children: [
             // 1. Fixed Sticky App Bar at Top
             _buildTopAppBar(context, isList),
 
             // 2. Fixed Pinned Top Player (Never scrolls away!)
-            LiveTvEmbeddedPlayer(
-              key: controller.playerKey,
-              controller: controller,
-              isFullscreen: false,
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: isDesktop || isTablet
+                    ? (MediaQuery.sizeOf(context).height * 0.40).clamp(200.0, 360.0)
+                    : double.infinity,
+              ),
+              child: LiveTvEmbeddedPlayer(
+                key: const ValueKey('live_tv_player_portrait'),
+                controller: controller,
+                isFullscreen: false,
+              ),
             ),
 
             // 3. Fixed Pinned Category Bar (Never scrolls away!)
@@ -614,161 +635,358 @@ class _LiveTVPageState extends State<LiveTVPage> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 325;
+          final isUltraCompact = constraints.maxWidth < 240;
+
+          return Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Live TV',
+                      style: AppTypography.getDisplay(
+                        color: AppColors.primary,
+                      ).copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: isCompact ? 17.0 : 19.0,
+                        shadows: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.4),
+                            blurRadius: 8.0,
+                          )
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (!isUltraCompact)
+                      Text(
+                        '${controller.channels.length} Channels',
+                        style: const TextStyle(
+                          fontSize: 10.0,
+                          color: AppColors.darkTextMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 4.0),
+
+              // Provider Switcher Button (Compact Initial Avatar)
+              ProviderSelectorButton(
+                selectedProviderId: controller.selectedProvider.value,
+                onSelectProvider: (providerId) =>
+                    controller.setProvider(providerId),
+                sheetTitle: 'Live TV Provider',
+                isCompact: true,
+              ),
+
+              if (!isCompact) ...[
+                // View Mode Toggle (Grid vs List)
+                TvFocusable(
+                  onTap: () {
+                    controller.setView(isList ? 'grid' : 'list');
+                  },
+                  scale: 1.15,
+                  borderRadius: BorderRadius.circular(24),
+                  child: IconButton(
+                    padding: const EdgeInsets.all(6.0),
+                    constraints: const BoxConstraints(),
+                    icon: Icon(
+                      isList
+                          ? Icons.grid_view_rounded
+                          : Icons.view_agenda_rounded,
+                      size: 18.0,
+                    ),
+                    color: isList ? AppColors.primary : Colors.white,
+                    tooltip:
+                        isList ? 'Switch to Grid View' : 'Switch to List View',
+                    onPressed: null,
+                  ),
+                ),
+
+                // Sort Menu
+                _buildSortMenu(),
+
+                // Multi-View (2-4 Concurrent Screens)
+                _buildMultiViewButton(),
+              ],
+
+              // TV Guide / EPG Timeline Switcher
+              TvFocusable(
+                onTap: () {
+                  controller.stopInlinePlayer();
+                  Get.toNamed(AppRoutes.tvGuide);
+                },
+                scale: 1.15,
+                borderRadius: BorderRadius.circular(24),
+                child: const IconButton(
+                  padding: EdgeInsets.all(6.0),
+                  constraints: BoxConstraints(),
+                  icon: Icon(
+                    Icons.calendar_view_week_rounded,
+                    size: 18.0,
+                    color: Colors.white,
+                  ),
+                  tooltip: 'EPG TV Guide',
+                  onPressed: null,
+                ),
+              ),
+
+              // Search Guide
+              TvFocusable(
+                onTap: () {
+                  Get.toNamed(AppRoutes.guideSearch);
+                },
+                scale: 1.15,
+                borderRadius: BorderRadius.circular(24),
+                child: const IconButton(
+                  padding: EdgeInsets.all(6.0),
+                  constraints: BoxConstraints(),
+                  icon: Icon(
+                    Icons.search_rounded,
+                    size: 18.0,
+                    color: Colors.white,
+                  ),
+                  tooltip: 'Search Channels',
+                  onPressed: null,
+                ),
+              ),
+
+              if (isCompact) ...[
+                // Overflow Menu for compact widths
+                _buildMoreMenu(isList),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSortMenu() {
+    return TvFocusable(
+      onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
+      scale: 1.15,
+      borderRadius: BorderRadius.circular(24),
+      child: PopupMenuButton<String>(
+        key: _sortPopupKey,
+        padding: const EdgeInsets.all(6.0),
+        constraints: const BoxConstraints(),
+        icon: const Icon(
+          Icons.sort_rounded,
+          size: 18.0,
+          color: Colors.white,
+        ),
+        tooltip: 'Sort Channels',
+        color: AppColors.darkSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.medium,
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        initialValue: controller.selectedSort.value,
+        onSelected: (val) => controller.setSort(val),
+        itemBuilder: (context) => [
+          const PopupMenuItem(
+            value: 'alphabetical',
+            child: Text('A - Z (Alphabetical)'),
+          ),
+          const PopupMenuItem(
+            value: 'recentlyAdded',
+            child: Text('Recently Added'),
+          ),
+          const PopupMenuItem(
+            value: 'provider',
+            child: Text('By Source / Provider'),
+          ),
+          const PopupMenuItem(
+            value: 'country',
+            child: Text('By Country'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMultiViewButton() {
+    return TvFocusable(
+      onTap: () async {
+        final activeChannel = controller.activePlayingChannel.value ??
+            controller.featuredChannel.value;
+        controller.stopInlinePlayer();
+        await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
+      },
+      scale: 1.15,
+      borderRadius: BorderRadius.circular(24),
+      child: const IconButton(
+        padding: EdgeInsets.all(6.0),
+        constraints: BoxConstraints(),
+        icon: Icon(
+          Icons.grid_view_rounded,
+          size: 18.0,
+          color: Colors.white,
+        ),
+        tooltip: 'Multi-View (Multi-Screen)',
+        onPressed: null,
+      ),
+    );
+  }
+
+  Widget _buildMoreMenu(bool isList) {
+    return TvFocusable(
+      onTap: () => _morePopupKey.currentState?.showButtonMenu(),
+      scale: 1.15,
+      borderRadius: BorderRadius.circular(24),
+      child: PopupMenuButton<String>(
+        key: _morePopupKey,
+        padding: const EdgeInsets.all(6.0),
+        constraints: const BoxConstraints(),
+        icon: const Icon(
+          Icons.more_vert_rounded,
+          size: 18.0,
+          color: Colors.white,
+        ),
+        tooltip: 'More Options',
+        color: AppColors.darkSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.medium,
+          side: BorderSide(
+            color: Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        onSelected: (val) async {
+          if (val == 'toggle_view') {
+            controller.setView(isList ? 'grid' : 'list');
+          } else if (val == 'multi_view') {
+            final activeChannel = controller.activePlayingChannel.value ??
+                controller.featuredChannel.value;
+            controller.stopInlinePlayer();
+            await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
+          } else if (val.startsWith('sort_')) {
+            controller.setSort(val.replaceFirst('sort_', ''));
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(
+            value: 'toggle_view',
+            child: Row(
               children: [
-                Text(
-                  'Live TV',
-                  style: AppTypography.getDisplay(
-                    color: AppColors.primary,
-                  ).copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 19.0,
-                    shadows: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.4),
-                        blurRadius: 8.0,
-                      )
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Icon(
+                  isList ? Icons.grid_view_rounded : Icons.view_agenda_rounded,
+                  size: 18,
+                  color: AppColors.primary,
                 ),
-                Text(
-                  '${controller.channels.length} Channels',
-                  style: const TextStyle(
-                    fontSize: 10.0,
-                    color: AppColors.darkTextMuted,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
+                AppSpacing.widthSM,
+                Text(isList ? 'Switch to Grid View' : 'Switch to List View'),
               ],
             ),
           ),
-          const SizedBox(width: 4.0),
-
-          // Provider Switcher Button (Compact Initial Avatar)
-          ProviderSelectorButton(
-            selectedProviderId: controller.selectedProvider.value,
-            onSelectProvider: (providerId) =>
-                controller.setProvider(providerId),
-            sheetTitle: 'Live TV Provider',
-            isCompact: true,
-          ),
-
-          // View Mode Toggle (Grid vs List)
-          TvFocusable(
-            onTap: () {
-              controller.setView(isList ? 'grid' : 'list');
-            },
-            scale: 1.15,
-            borderRadius: BorderRadius.circular(24),
-            child: IconButton(
-              padding: const EdgeInsets.all(6.0),
-              constraints: const BoxConstraints(),
-              icon: Icon(
-                isList
-                    ? Icons.grid_view_rounded
-                    : Icons.view_agenda_rounded,
-                size: 18.0,
-              ),
-              color: isList ? AppColors.primary : Colors.white,
-              tooltip: isList ? 'Switch to Grid View' : 'Switch to List View',
-              onPressed: null,
-            ),
-          ),
-
-          // Sort Menu
-          TvFocusable(
-            onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
-            scale: 1.15,
-            borderRadius: BorderRadius.circular(24),
-            child: PopupMenuButton<String>(
-              key: _sortPopupKey,
-              padding: const EdgeInsets.all(6.0),
-              constraints: const BoxConstraints(),
-              icon: const Icon(
-                Icons.sort_rounded,
-                size: 18.0,
-                color: Colors.white,
-              ),
-              tooltip: 'Sort Channels',
-              color: AppColors.darkSurface,
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.medium,
-                side: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+          const PopupMenuItem(
+            value: 'multi_view',
+            child: Row(
+              children: [
+                Icon(
+                  Icons.grid_view_rounded,
+                  size: 18,
+                  color: AppColors.primary,
                 ),
-              ),
-              initialValue: controller.selectedSort.value,
-              onSelected: (val) => controller.setSort(val),
-              itemBuilder: (context) => [
-                const PopupMenuItem(
-                  value: 'alphabetical',
-                  child: Text('A - Z (Alphabetical)'),
-                ),
-                const PopupMenuItem(
-                  value: 'recentlyAdded',
-                  child: Text('Recently Added'),
-                ),
-                const PopupMenuItem(
-                  value: 'provider',
-                  child: Text('By Source / Provider'),
-                ),
-                const PopupMenuItem(
-                  value: 'country',
-                  child: Text('By Country'),
-                ),
+                AppSpacing.widthSM,
+                Text('Multi-View'),
               ],
             ),
           ),
-
-          // Multi-View (2-4 Concurrent Screens)
-          TvFocusable(
-            onTap: () async {
-              final activeChannel = controller.activePlayingChannel.value ??
-                  controller.featuredChannel.value;
-              controller.stopInlinePlayer();
-              await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
-            },
-            scale: 1.15,
-            borderRadius: BorderRadius.circular(24),
-            child: const IconButton(
-              padding: EdgeInsets.all(6.0),
-              constraints: BoxConstraints(),
-              icon: Icon(
-                Icons.grid_view_rounded,
-                size: 18.0,
-                color: Colors.white,
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            enabled: false,
+            child: Text(
+              'SORT BY',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.darkTextMuted,
               ),
-              tooltip: 'Multi-View (Multi-Screen)',
-              onPressed: null,
             ),
           ),
-
-          // Search Guide
-          TvFocusable(
-            onTap: () {
-              Get.toNamed(AppRoutes.guideSearch);
-            },
-            scale: 1.15,
-            borderRadius: BorderRadius.circular(24),
-            child: const IconButton(
-              padding: EdgeInsets.all(6.0),
-              constraints: BoxConstraints(),
-              icon: Icon(
-                Icons.search_rounded,
-                size: 18.0,
-                color: Colors.white,
-              ),
-              tooltip: 'Search Channels',
-              onPressed: null,
+          PopupMenuItem(
+            value: 'sort_alphabetical',
+            child: Row(
+              children: [
+                Icon(
+                  controller.selectedSort.value == 'alphabetical'
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  size: 16,
+                  color: controller.selectedSort.value == 'alphabetical'
+                      ? AppColors.primary
+                      : Colors.white54,
+                ),
+                AppSpacing.widthSM,
+                const Text('A - Z (Alphabetical)'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'sort_recentlyAdded',
+            child: Row(
+              children: [
+                Icon(
+                  controller.selectedSort.value == 'recentlyAdded'
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  size: 16,
+                  color: controller.selectedSort.value == 'recentlyAdded'
+                      ? AppColors.primary
+                      : Colors.white54,
+                ),
+                AppSpacing.widthSM,
+                const Text('Recently Added'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'sort_provider',
+            child: Row(
+              children: [
+                Icon(
+                  controller.selectedSort.value == 'provider'
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  size: 16,
+                  color: controller.selectedSort.value == 'provider'
+                      ? AppColors.primary
+                      : Colors.white54,
+                ),
+                AppSpacing.widthSM,
+                const Text('By Provider'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            value: 'sort_country',
+            child: Row(
+              children: [
+                Icon(
+                  controller.selectedSort.value == 'country'
+                      ? Icons.radio_button_checked_rounded
+                      : Icons.radio_button_off_rounded,
+                  size: 16,
+                  color: controller.selectedSort.value == 'country'
+                      ? AppColors.primary
+                      : Colors.white54,
+                ),
+                AppSpacing.widthSM,
+                const Text('By Country'),
+              ],
             ),
           ),
         ],

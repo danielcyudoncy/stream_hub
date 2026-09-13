@@ -55,7 +55,7 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
   EventChannel? _events;
   StreamSubscription<dynamic>? _eventSub;
   final Completer<int> _viewReady = Completer<int>();
-  final GlobalKey _platformViewKey = GlobalKey(debugLabel: 'exo_surface_view');
+  final UniqueKey _platformViewKey = UniqueKey();
   Floating? _floating;
   bool _inPip = false;
   bool _initialized = false;

@@ -1,17 +1,21 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 import '../../../core/media/repositories/playback_repository.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/theme/app_icons.dart';
 import '../../../data/models/curated_genre.dart';
 import '../../../data/models/media_item.dart';
+import '../../../data/models/movie_category.dart';
 import '../../../data/models/playback_session_model.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
 
 import '../../../core/services/tmdb_catalog_service.dart';
+import 'widgets/movie_category_sheet.dart';
 
 class MoviesController extends GetxController {
   final MediaEngine mediaEngine;
@@ -47,6 +51,10 @@ class MoviesController extends GetxController {
   final RxString selectedProvider = ''.obs;
   final RxList<MediaItem> movies = <MediaItem>[].obs;
   final List<MediaItem> _allMovies = <MediaItem>[];
+  final List<MediaItem> _allCollections = <MediaItem>[];
+
+  // Movie Categories
+  final RxList<MovieCategory> movieCategories = <MovieCategory>[].obs;
 
   // Curated & Dynamic Sections
   final Rx<MediaItem?> heroMovie = Rx<MediaItem?>(null);
@@ -144,10 +152,31 @@ class MoviesController extends GetxController {
           topRatedMovies.assignAll(topRated);
           newThisWeekMovies.assignAll(popular);
 
-          // Build genres
+          // Build genres & categories
           final genreNames = tmdb.movieGenres.values.toList();
           if (genreNames.isNotEmpty) {
             availableGenres.assignAll(genreNames);
+            final tmdbCats = <MovieCategory>[
+              MovieCategory(
+                id: 'all',
+                name: 'All Movies',
+                count: unique.length,
+                icon: AppIcons.movies,
+              ),
+            ];
+            for (final g in genreNames) {
+              final count = unique
+                  .where((m) => m.genres.any((mg) =>
+                      mg.toLowerCase().trim() == g.toLowerCase().trim()))
+                  .length;
+              tmdbCats.add(MovieCategory(
+                id: 'tmdb-genre-$g',
+                name: g,
+                count: count,
+                icon: MovieCategory.defaultIconForName(g),
+              ));
+            }
+            movieCategories.assignAll(tmdbCats);
           }
 
           await _loadWatchSessions();
@@ -158,6 +187,12 @@ class MoviesController extends GetxController {
       }
 
       isTmdbDiscovery.value = false;
+      final rawCollections =
+          await catalogRepository.getByType(MediaType.collection);
+      _allCollections
+        ..clear()
+        ..addAll(rawCollections);
+
       movieItems.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       _allMovies
         ..clear()
@@ -226,6 +261,7 @@ class MoviesController extends GetxController {
     }
     movies.assignAll(filtered);
     _computeSections(filtered);
+    _computeCategories(filtered);
     _computeGenres(filtered);
   }
 
@@ -422,7 +458,135 @@ class MoviesController extends GetxController {
   static final RegExp _kDigitsOnly = RegExp(r'^\d+$');
   static final RegExp _kGenreSplitter = RegExp(r'[,/|]');
 
+  void _computeCategories(List<MediaItem> currentMovies) {
+    final List<MovieCategory> results = [];
+    results.add(MovieCategory(
+      id: 'all',
+      name: 'All Movies',
+      count: currentMovies.length,
+      icon: AppIcons.movies,
+    ));
+
+    // 1. Build counts per category ID, category name, and genre across currentMovies
+    final Map<String, int> countByCatId = {};
+    final Map<String, int> countByCatName = {};
+
+    for (final m in currentMovies) {
+      final catId = (m.metadata['categoryId'] ??
+              m.metadata['category_id'] ??
+              m.metadata['genreId'])
+          ?.toString()
+          .trim();
+      if (catId != null && catId.isNotEmpty) {
+        countByCatId[catId] = (countByCatId[catId] ?? 0) + 1;
+      }
+
+      final catName = (m.metadata['category_name'] ??
+              m.metadata['categoryName'] ??
+              m.metadata['genre'] ??
+              m.metadata['group'])
+          ?.toString()
+          .trim();
+      if (catName != null && catName.isNotEmpty) {
+        for (final part in catName.split(_kGenreSplitter)) {
+          final trimmed = part.trim();
+          if (trimmed.isNotEmpty &&
+              !_kDigitsOnly.hasMatch(trimmed) &&
+              !_kLiveTvMarkerPattern.hasMatch(trimmed)) {
+            countByCatName[trimmed] = (countByCatName[trimmed] ?? 0) + 1;
+          }
+        }
+      }
+
+      for (final g in m.genres) {
+        final clean = g.trim();
+        if (clean.isNotEmpty) {
+          for (final part in clean.split(_kGenreSplitter)) {
+            final trimmed = part.trim();
+            if (trimmed.isNotEmpty &&
+                !_kDigitsOnly.hasMatch(trimmed) &&
+                !_kLiveTvMarkerPattern.hasMatch(trimmed)) {
+              countByCatName[trimmed] = (countByCatName[trimmed] ?? 0) + 1;
+            }
+          }
+        }
+      }
+    }
+
+    final Set<String> seenCategoryNames = {'all movies'};
+
+    // 2. Add from provider VOD collections
+    for (final col in _allCollections) {
+      final matchesProvider = selectedProvider.value.isEmpty ||
+          col.providerId == selectedProvider.value ||
+          col.providerType.displayName == selectedProvider.value ||
+          col.providerType.name == selectedProvider.value;
+      if (!matchesProvider) continue;
+
+      final isVod = col.id.contains('xtream-vod-cat-') ||
+          col.id.contains('-cat-vod-') ||
+          col.metadata['type'] == 'vod' ||
+          col.metadata['type'] == 'movie';
+
+      final title = col.title.trim();
+      if (title.isEmpty ||
+          _kDigitsOnly.hasMatch(title) ||
+          _kLiveTvMarkerPattern.hasMatch(title)) {
+        continue;
+      }
+
+      final normalizedTitle = title.toLowerCase();
+      if (seenCategoryNames.contains(normalizedTitle)) continue;
+
+      final rawCatId = col.metadata['categoryId']?.toString() ??
+          col.metadata['genreId']?.toString();
+      final count = (rawCatId != null ? countByCatId[rawCatId] : null) ??
+          countByCatName[title] ??
+          0;
+
+      if (isVod || count > 0) {
+        seenCategoryNames.add(normalizedTitle);
+        results.add(MovieCategory(
+          id: col.id,
+          name: title,
+          count: count,
+          icon: MovieCategory.defaultIconForName(title),
+        ));
+      }
+    }
+
+    // 3. Add any distinct categories discovered directly from currentMovies
+    for (final entry in countByCatName.entries) {
+      final name = entry.key.trim();
+      final normalized = name.toLowerCase();
+      if (seenCategoryNames.contains(normalized)) continue;
+      if (_kDigitsOnly.hasMatch(name) || _kLiveTvMarkerPattern.hasMatch(name)) {
+        continue;
+      }
+
+      seenCategoryNames.add(normalized);
+      results.add(MovieCategory(
+        id: 'cat-${entry.key}',
+        name: name,
+        count: entry.value,
+        icon: MovieCategory.defaultIconForName(name),
+      ));
+    }
+
+    // Sort categories (keeping 'All Movies' at index 0)
+    final allCategory = results.first;
+    final otherCategories = results.sublist(1)
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
+    movieCategories.assignAll([allCategory, ...otherCategories]);
+
+    // Keep availableGenres synced
+    final genreList = otherCategories.map((c) => c.name).toList();
+    availableGenres.assignAll(genreList);
+  }
+
   void _computeGenres(List<MediaItem> allMovies) {
+    if (availableGenres.isNotEmpty) return;
     final genreSet = <String>{};
     final sample = allMovies.take(500);
     for (final m in sample) {
@@ -476,13 +640,91 @@ class MoviesController extends GetxController {
     );
   }
 
+  void openCategory(MovieCategory category) {
+    if (category.id == 'all') {
+      openGenre('All Movies', movies);
+      return;
+    }
+
+    final targetName = category.name.toLowerCase().trim();
+    final targetId = category.id.toLowerCase().trim();
+
+    String? strippedId;
+    if (category.id.contains('xtream-vod-cat-')) {
+      strippedId =
+          category.id.replaceFirst('xtream-vod-cat-', '').toLowerCase().trim();
+    } else if (category.id.contains('-cat-vod-')) {
+      final parts = category.id.split('-cat-vod-');
+      if (parts.length > 1) strippedId = parts.last.toLowerCase().trim();
+    }
+
+    final matching = movies.where((m) {
+      final mCatId = (m.metadata['categoryId'] ??
+              m.metadata['category_id'] ??
+              m.metadata['genreId'])
+          ?.toString()
+          .toLowerCase()
+          .trim();
+      if (mCatId != null && mCatId.isNotEmpty) {
+        if (mCatId == targetId || (strippedId != null && mCatId == strippedId)) {
+          return true;
+        }
+      }
+
+      final mCatName = (m.metadata['category_name'] ??
+              m.metadata['categoryName'] ??
+              m.metadata['genre'] ??
+              m.metadata['group'])
+          ?.toString()
+          .toLowerCase()
+          .trim();
+      if (mCatName != null && mCatName.isNotEmpty) {
+        if (mCatName == targetName ||
+            mCatName.contains(targetName) ||
+            targetName.contains(mCatName)) {
+          return true;
+        }
+      }
+
+      for (final g in m.genres) {
+        final gl = g.toLowerCase().trim();
+        if (gl == targetName ||
+            gl.contains(targetName) ||
+            targetName.contains(gl)) {
+          return true;
+        }
+      }
+
+      return false;
+    }).toList();
+
+    openGenre(category.name, matching.isNotEmpty ? matching : movies);
+  }
+
+  void showCategoriesSheet(BuildContext context) {
+    MovieCategorySheet.show(
+      context,
+      categories: movieCategories,
+      onSelectCategory: openCategory,
+    );
+  }
+
   void openGenreByName(String genreName) {
+    final cat = movieCategories.firstWhereOrNull(
+      (c) => c.name.toLowerCase().trim() == genreName.toLowerCase().trim(),
+    );
+    if (cat != null) {
+      openCategory(cat);
+      return;
+    }
+
     final target = genreName.toLowerCase().trim();
     final matching = movies.where((m) {
       final inGenres = m.genres.any((g) => g.toLowerCase().contains(target));
       final inCat = (m.metadata['category_name']?.toString() ??
               m.metadata['categoryName']?.toString() ??
               m.metadata['genre']?.toString() ??
+              m.metadata['group']?.toString() ??
               '')
           .toLowerCase()
           .contains(target);

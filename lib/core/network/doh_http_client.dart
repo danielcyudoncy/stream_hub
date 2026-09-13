@@ -107,7 +107,7 @@ class DohResolver {
 
         final request = await _client.getUrl(uri).timeout(_kRequestTimeout);
         request.headers.set(HttpHeaders.acceptHeader, 'application/dns-json');
-        request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
+        request.headers.set(HttpHeaders.userAgentHeader, 'IPTVSmartersPro/1.0 (Linux; Android 11)');
 
         final response = await request.close().timeout(_kRequestTimeout);
         if (response.statusCode != HttpStatus.ok) continue;
@@ -163,15 +163,14 @@ HttpClient createDohAwareHttpClient({DohResolver? resolver}) {
     final isSecure = uri.isScheme('https');
     final host = uri.host;
     final port = uri.port;
+    const connectTimeout = Duration(seconds: 20);
 
     // First try the standard platform resolver.
     SocketException? platformError;
     try {
       final socket = isSecure
-          ? await SecureSocket.connect(host, port,
-              timeout: const Duration(seconds: 5))
-          : await Socket.connect(host, port,
-              timeout: const Duration(seconds: 5));
+          ? await SecureSocket.connect(host, port, timeout: connectTimeout)
+          : await Socket.connect(host, port, timeout: connectTimeout);
       return ConnectionTask.fromSocket(Future.value(socket), socket.destroy);
     } on SocketException catch (e) {
       // Platform resolution/connection failed, attempt DoH fallback.
@@ -185,8 +184,7 @@ HttpClient createDohAwareHttpClient({DohResolver? resolver}) {
       SocketException? lastError;
       for (final address in addresses) {
         try {
-          final raw = await Socket.connect(address, port,
-              timeout: const Duration(seconds: 5));
+          final raw = await Socket.connect(address, port, timeout: connectTimeout);
           if (!isSecure) {
             return ConnectionTask.fromSocket(Future.value(raw), raw.destroy);
           }

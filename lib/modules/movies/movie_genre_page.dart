@@ -12,10 +12,18 @@ import '../../../shared/widgets/tv_focusable.dart';
 import 'movie_genre_controller.dart';
 import 'widgets/movie_grid.dart';
 
-class MovieGenrePage extends GetView<MovieGenreController> {
+class MovieGenrePage extends StatefulWidget {
   const MovieGenrePage({super.key});
 
-  static final GlobalKey<PopupMenuButtonState<MovieGenreSortOption>> _sortPopupKey = GlobalKey();
+  @override
+  State<MovieGenrePage> createState() => _MovieGenrePageState();
+}
+
+class _MovieGenrePageState extends State<MovieGenrePage> {
+  final GlobalKey<PopupMenuButtonState<MovieGenreSortOption>> _sortPopupKey =
+      GlobalKey<PopupMenuButtonState<MovieGenreSortOption>>();
+
+  MovieGenreController get controller => Get.find<MovieGenreController>();
 
   @override
   Widget build(BuildContext context) {

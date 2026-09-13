@@ -8,6 +8,7 @@ import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/core/utils/responsive_helper.dart';
+import 'package:stream_hub/data/models/channel.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/repositories/provider_repository.dart';
 import 'package:stream_hub/modules/epg/controllers/guide_controller.dart';
@@ -34,6 +35,17 @@ class TVGuidePage extends GetView<GuideController> {
   Widget build(BuildContext context) {
     final isTV = ResponsiveHelper.isTV(context);
     final isDesktop = ResponsiveHelper.isDesktop(context);
+    final liveCtrl =
+        Get.isRegistered<LiveTVController>() ? Get.find<LiveTVController>() : null;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (liveCtrl != null && !liveCtrl.isLoading.value) {
+        if (liveCtrl.channels.isEmpty) {
+          liveCtrl.reloadLiveTVData();
+        }
+        liveCtrl.handleNavigationArguments();
+      }
+    });
 
     // If on phone/small screen, show the mobile layout
     if (!isTV && !isDesktop) {
@@ -41,7 +53,10 @@ class TVGuidePage extends GetView<GuideController> {
         title: 'TV Guide',
         actions: [
           TvFocusable(
-            onTap: controller.refreshGuide,
+            onTap: () {
+              controller.refreshGuide();
+              liveCtrl?.reloadLiveTVData();
+            },
             scale: 1.0,
             borderRadius: BorderRadius.circular(8),
             child: const IconButton(
@@ -62,25 +77,23 @@ class TVGuidePage extends GetView<GuideController> {
         body: Column(
           children: [
             _buildTimeNavigation(context),
+            _buildMobileCategoryBar(context, liveCtrl),
             Expanded(
               child: Obx(() {
-                if (controller.isLoading.value) {
+                if (controller.isLoading.value || (liveCtrl != null && liveCtrl.isLoading.value)) {
                   return const Center(child: LoadingIndicator());
                 }
-                if (controller.error.value.isNotEmpty) {
+                if (controller.error.value.isNotEmpty &&
+                    (liveCtrl == null || liveCtrl.channels.isEmpty)) {
                   return ErrorView(
                     message: controller.error.value,
-                    onRetry: controller.loadGuide,
+                    onRetry: () {
+                      controller.loadGuide();
+                      liveCtrl?.reloadLiveTVData();
+                    },
                   );
                 }
-                if (controller.channels.isEmpty) {
-                  return const EmptyView(
-                    title: 'No Guide Available',
-                    description:
-                        'No EPG guide data is available at the moment. Try refreshing or adding an XMLTV source.',
-                  );
-                }
-                return _buildMobileLayout(context);
+                return _buildMobileLayout(context, liveCtrl);
               }),
             ),
           ],
@@ -89,14 +102,6 @@ class TVGuidePage extends GetView<GuideController> {
     }
 
     // TV Layout (Cinematic Neon)
-    final liveCtrl =
-        Get.isRegistered<LiveTVController>() ? Get.find<LiveTVController>() : null;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (liveCtrl != null && !liveCtrl.isLoading.value) {
-        liveCtrl.handleNavigationArguments();
-      }
-    });
 
     return Obx(() {
       if (liveCtrl != null && liveCtrl.isFullscreenMode.value) {
@@ -110,7 +115,7 @@ class TVGuidePage extends GetView<GuideController> {
             backgroundColor: Colors.black,
             body: SizedBox.expand(
               child: LiveTvEmbeddedPlayer(
-                key: liveCtrl.playerKey,
+                key: const ValueKey('tv_guide_player_fullscreen'),
                 controller: liveCtrl,
                 isFullscreen: true,
               ),
@@ -299,10 +304,14 @@ class TVGuidePage extends GetView<GuideController> {
                         active.description ?? active.subtitle ?? 'Live Broadcast';
 
                     final now = DateTime.now();
-                    final currentProgram = controller.programs.firstWhereOrNull(
+                    final guideCtrl = Get.isRegistered<GuideController>()
+                        ? Get.find<GuideController>()
+                        : null;
+                    final guidePrograms = guideCtrl?.programs ?? <EPGProgram>[];
+                    final currentProgram = guidePrograms.firstWhereOrNull(
                       (p) => p.channelId == active.id && p.isCurrentlyPlaying,
                     );
-                    final nextProgram = controller.programs.firstWhereOrNull(
+                    final nextProgram = guidePrograms.firstWhereOrNull(
                       (p) => p.channelId == active.id && p.startTime.isAfter(now),
                     );
                     final double progPercent = currentProgram != null
@@ -501,7 +510,7 @@ class TVGuidePage extends GetView<GuideController> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: LiveTvEmbeddedPlayer(
-                  key: liveCtrl.playerKey,
+                  key: const ValueKey('tv_guide_player_inline'),
                   controller: liveCtrl,
                   isFullscreen: false,
                 ),
@@ -647,8 +656,19 @@ class TVGuidePage extends GetView<GuideController> {
             }
 
             // TV Live Channel Catalog Grid based on selected category & filters
-            final List<MediaItem> channels =
-                liveCtrl != null ? liveCtrl.filteredChannels.toList() : <MediaItem>[];
+            List<MediaItem> channels = <MediaItem>[];
+            if (liveCtrl != null) {
+              if (liveCtrl.filteredChannels.isNotEmpty) {
+                channels = liveCtrl.filteredChannels.toList();
+              } else if (liveCtrl.channels.isNotEmpty &&
+                  (liveCtrl.selectedCategory.value == 'All Channels' ||
+                      liveCtrl.selectedCategory.value.isEmpty)) {
+                channels = liveCtrl.channels.toList();
+              }
+            }
+            if (channels.isEmpty && controller.channels.isNotEmpty) {
+              channels = controller.channels.toList();
+            }
 
             if (channels.isNotEmpty) {
               if (liveCtrl?.selectedView.value == 'timeline') {
@@ -657,7 +677,7 @@ class TVGuidePage extends GetView<GuideController> {
               return _buildTvChannelCatalogGrid(channels, liveCtrl!);
             }
 
-            if (liveCtrl != null && liveCtrl.channels.isEmpty) {
+            if (liveCtrl != null && liveCtrl.channels.isEmpty && controller.channels.isEmpty) {
               return const EmptyView(
                 title: 'No Live Channels Available',
                 description: 'Connect an IPTV provider to start watching Live TV.',
@@ -666,6 +686,7 @@ class TVGuidePage extends GetView<GuideController> {
 
             if (channels.isEmpty &&
                 liveCtrl != null &&
+                liveCtrl.channels.isNotEmpty &&
                 liveCtrl.selectedCategory.value != 'All Channels') {
               return Center(
                 child: Column(
@@ -676,6 +697,16 @@ class TVGuidePage extends GetView<GuideController> {
                     Text(
                       'No channels in "${liveCtrl.selectedCategory.value}"',
                       style: AppTypography.getHeadline(color: Colors.white),
+                    ),
+                    AppSpacing.heightMD,
+                    ElevatedButton.icon(
+                      onPressed: () => liveCtrl.setCategory('All Channels'),
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: const Text('Show All Channels'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
                     ),
                   ],
                 ),
@@ -740,7 +771,11 @@ class TVGuidePage extends GetView<GuideController> {
 
     // Group available programs by channelId in a single O(N) pass
     final Map<String, List<EPGProgram>> channelProgramsMap = {};
-    for (final p in controller.programs) {
+    final guideCtrl = Get.isRegistered<GuideController>()
+        ? Get.find<GuideController>()
+        : null;
+    final guidePrograms = guideCtrl?.programs ?? <EPGProgram>[];
+    for (final p in guidePrograms) {
       final chId = p.channelId;
       if (chId != null &&
           chId.isNotEmpty &&
@@ -751,7 +786,7 @@ class TVGuidePage extends GetView<GuideController> {
 
     return GuideGrid(
       channels: epgChannels,
-      programs: controller.programs,
+      programs: guidePrograms,
       channelProgramsMap: channelProgramsMap,
       activePlayingChannelId: liveCtrl.activePlayingChannel.value?.id,
       onChannelTap: (epgChannel) {
@@ -772,17 +807,20 @@ class TVGuidePage extends GetView<GuideController> {
         color: Colors.black.withValues(alpha: 0.6),
         border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
-          AppSpacing.widthLG,
-          _legendItem(Icons.touch_app, 'Long-press OK: Channel Info'),
-          AppSpacing.widthLG,
-          _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Hours'),
-          AppSpacing.widthLG,
-          _legendItem(Icons.grid_view, 'View: Toggle Grid / Timeline EPG'),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
+            AppSpacing.widthLG,
+            _legendItem(Icons.touch_app, 'Long-press OK: Channel Info'),
+            AppSpacing.widthLG,
+            _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Hours'),
+            AppSpacing.widthLG,
+            _legendItem(Icons.grid_view, 'View: Toggle Grid / Timeline EPG'),
+          ],
+        ),
       ),
     );
   }
@@ -854,36 +892,185 @@ class TVGuidePage extends GetView<GuideController> {
     );
   }
 
-  Widget _buildMobileLayout(BuildContext context) {
-    return Column(
-      children: [
-        MiniGuide(
-          programs: controller.filteredPrograms.take(5).toList(),
-          onViewAll: () {},
+  Widget _buildMobileCategoryBar(BuildContext context, LiveTVController? liveCtrl) {
+    final providerRepo =
+        Get.isRegistered<ProviderRepository>() ? Get.find<ProviderRepository>() : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.xs,
+      ),
+      child: SizedBox(
+        height: 38,
+        child: Row(
+          children: [
+            if (liveCtrl != null || providerRepo != null)
+              Obx(() {
+                final currentProvider = liveCtrl?.selectedProvider.value ??
+                    providerRepo?.activeProviderId.value ??
+                    '';
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: ProviderSelectorButton(
+                    selectedProviderId: currentProvider,
+                    onSelectProvider: (newProviderId) {
+                      liveCtrl?.setProvider(newProviderId);
+                      controller.setProvider(newProviderId);
+                      providerRepo?.setActiveProviderId(newProviderId);
+                    },
+                    sheetTitle: 'TV Guide Provider',
+                    isCompact: true,
+                  ),
+                );
+              }),
+            Expanded(
+              child: Obx(() {
+                final categories = liveCtrl != null && liveCtrl.categories.isNotEmpty
+                    ? liveCtrl.categories
+                    : (controller.categories.isNotEmpty
+                        ? controller.categories
+                        : ['All Channels']);
+
+                final selectedCat =
+                    liveCtrl?.selectedCategory.value ?? controller.selectedCategory.value;
+
+                return ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: categories.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8.0),
+                  itemBuilder: (context, index) {
+                    final cat = categories[index];
+                    final isSelected =
+                        (selectedCat.isEmpty && index == 0) || selectedCat == cat;
+                    return _buildFilterPill(cat, isSelected, () {
+                      liveCtrl?.setCategory(cat);
+                      controller.setCategory(cat);
+                    });
+                  },
+                );
+              }),
+            ),
+          ],
         ),
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            itemCount: controller.channels.length,
-            itemBuilder: (context, index) {
-              final channel = controller.channels[index];
-              final channelPrograms = controller.filteredPrograms
-                  .where((p) => p.channelId == channel.id)
-                  .toList();
-              return ChannelColumn(
-                channel: channel,
-                currentProgram: channelPrograms.firstWhereOrNull(
-                  (p) => p.isCurrentlyPlaying,
+      ),
+    );
+  }
+
+  Widget _buildMobileLayout(BuildContext context, LiveTVController? liveCtrl) {
+    List<MediaItem> activeChannels = <MediaItem>[];
+    if (liveCtrl != null) {
+      if (liveCtrl.filteredChannels.isNotEmpty) {
+        activeChannels = liveCtrl.filteredChannels.toList();
+      } else if (liveCtrl.channels.isNotEmpty &&
+          (liveCtrl.selectedCategory.value == 'All Channels' ||
+              liveCtrl.selectedCategory.value.isEmpty)) {
+        activeChannels = liveCtrl.channels.toList();
+      }
+    }
+    final isFilteringCategory = liveCtrl != null &&
+        liveCtrl.selectedCategory.value.isNotEmpty &&
+        liveCtrl.selectedCategory.value != 'All Channels';
+
+    if (activeChannels.isEmpty && !isFilteringCategory && controller.channels.isNotEmpty) {
+      activeChannels = controller.channels.toList();
+    }
+
+    if (activeChannels.isEmpty) {
+      if (liveCtrl != null &&
+          liveCtrl.channels.isNotEmpty &&
+          liveCtrl.selectedCategory.value != 'All Channels') {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.tv_off, size: 48, color: AppColors.textSecondary),
+              AppSpacing.heightMD,
+              Text(
+                'No channels in "${liveCtrl.selectedCategory.value}"',
+                style: AppTypography.getHeadline(color: Colors.white),
+              ),
+              AppSpacing.heightMD,
+              ElevatedButton.icon(
+                onPressed: () {
+                  liveCtrl.setCategory('All Channels');
+                  controller.setCategory('All');
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Show All Channels'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
                 ),
-                nextProgram: channelPrograms.firstWhereOrNull(
-                  (p) => p.startTime.isAfter(DateTime.now()),
-                ),
-                onTap: () {},
-              );
-            },
+              ),
+            ],
           ),
-        ),
-      ],
+        );
+      }
+      return const EmptyView(
+        title: 'No Guide Available',
+        description:
+            'No EPG guide data is available at the moment. Try refreshing or adding an XMLTV source.',
+      );
+    }
+
+    final hasPrograms = controller.filteredPrograms.isNotEmpty;
+    final headerCount = hasPrograms ? 1 : 0;
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      itemCount: activeChannels.length + headerCount,
+      itemBuilder: (context, index) {
+        if (hasPrograms && index == 0) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: MiniGuide(
+              programs: controller.filteredPrograms.take(5).toList(),
+              onViewAll: () {
+                liveCtrl?.setCategory('All Channels');
+                controller.setCategory('All');
+              },
+            ),
+          );
+        }
+        final item = activeChannels[index - headerCount];
+        final channel = item is EPGChannel
+            ? item
+            : EPGChannel(
+                id: item.id,
+                providerId: item.providerId,
+                providerType: item.providerType,
+                title: item.title,
+                mediaType: item.mediaType,
+                poster: item.poster,
+                thumbnail: item.thumbnail,
+                createdAt: item.createdAt,
+                updatedAt: item.updatedAt,
+                number: item.metadata['number']?.toString() ??
+                    (item is Channel ? item.number : null),
+              );
+
+        final channelPrograms = controller.filteredPrograms
+            .where((p) => p.channelId == channel.id)
+            .toList();
+        return ChannelColumn(
+          channel: channel,
+          currentProgram: channelPrograms.firstWhereOrNull(
+            (p) => p.isCurrentlyPlaying,
+          ),
+          nextProgram: channelPrograms.firstWhereOrNull(
+            (p) => p.startTime.isAfter(DateTime.now()),
+          ),
+          onTap: () {
+            if (liveCtrl != null) {
+              liveCtrl.openChannel(item);
+              Get.back();
+            } else {
+              Get.toNamed(AppRoutes.fullscreenPlayer, arguments: item);
+            }
+          },
+        );
+      },
     );
   }
 }

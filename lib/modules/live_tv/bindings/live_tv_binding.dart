@@ -10,6 +10,9 @@ import '../controllers/category_controller.dart';
 import '../controllers/favorites_controller.dart';
 import '../controllers/provider_controller.dart';
 import '../controllers/live_tv_library_controller.dart';
+import '../../epg/controllers/guide_controller.dart';
+import '../../epg/repositories/guide_repository.dart';
+import '../../epg/repositories/guide_repository_impl.dart';
 
 class LiveTVBinding extends Bindings {
   @override
@@ -75,6 +78,16 @@ class LiveTVBinding extends Bindings {
             favoriteRepository: Get.isRegistered<FavoriteRepository>()
                 ? Get.find<FavoriteRepository>()
                 : null,
+          ));
+    }
+    if (!Get.isRegistered<GuideRepository>()) {
+      Get.lazyPut<GuideRepository>(() => GuideRepositoryImpl(
+            catalogRepository: Get.find<CatalogRepository>(),
+          ));
+    }
+    if (!Get.isRegistered<GuideController>()) {
+      Get.lazyPut<GuideController>(() => GuideController(
+            guideRepository: Get.find<GuideRepository>(),
           ));
     }
   }

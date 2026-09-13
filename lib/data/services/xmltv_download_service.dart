@@ -365,7 +365,7 @@ class XMLTVDownloadService {
 
   void _applyHeaders(HttpClientRequest request, XMLTVConfig config) {
     request.headers.set(HttpHeaders.acceptHeader, '*/*');
-    request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
+    request.headers.set(HttpHeaders.userAgentHeader, 'IPTVSmartersPro/1.0 (Linux; Android 11)');
 
     for (final entry in config.headers.entries) {
       request.headers.set(entry.key, entry.value);

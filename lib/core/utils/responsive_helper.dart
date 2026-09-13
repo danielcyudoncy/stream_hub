@@ -17,12 +17,15 @@ class ResponsiveHelper {
   }
 
   static bool isDesktop(BuildContext context) {
+    if (PlatformHelper.isDesktop) return true;
     final w = MediaQuery.sizeOf(context).width;
     return w > tabletMaxWidth && w <= desktopMaxWidth;
   }
 
-  static bool isTV(BuildContext context) =>
-      PlatformHelper.isTV || MediaQuery.sizeOf(context).width > desktopMaxWidth;
+  static bool isTV(BuildContext context) {
+    if (PlatformHelper.isDesktop) return false;
+    return PlatformHelper.isTV || MediaQuery.sizeOf(context).width > desktopMaxWidth;
+  }
 
   /// Whether the app is rendering the 10-foot (TV/desktop) layout.
   ///

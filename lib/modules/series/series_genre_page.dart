@@ -10,10 +10,18 @@ import '../../../shared/widgets/tv_focusable.dart';
 import 'series_genre_controller.dart';
 import 'widgets/series_card.dart';
 
-class SeriesGenrePage extends GetView<SeriesGenreController> {
-  static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey = GlobalKey();
-
+class SeriesGenrePage extends StatefulWidget {
   const SeriesGenrePage({super.key});
+
+  @override
+  State<SeriesGenrePage> createState() => _SeriesGenrePageState();
+}
+
+class _SeriesGenrePageState extends State<SeriesGenrePage> {
+  final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
+      GlobalKey<PopupMenuButtonState<String>>();
+
+  SeriesGenreController get controller => Get.find<SeriesGenreController>();
 
   @override
   Widget build(BuildContext context) {

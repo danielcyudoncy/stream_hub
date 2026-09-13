@@ -98,11 +98,15 @@ class HomeQuickActions extends StatelessWidget {
                           ),
                         ),
                         AppSpacing.widthSM,
-                        Text(
-                          action.label,
-                          style: AppTypography.getLabel(
-                            color: colorScheme.onSurface,
-                          ).copyWith(fontWeight: FontWeight.w600),
+                        Flexible(
+                          child: Text(
+                            action.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.getLabel(
+                              color: colorScheme.onSurface,
+                            ).copyWith(fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ],
                     ),

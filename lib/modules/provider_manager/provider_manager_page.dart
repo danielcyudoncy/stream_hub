@@ -15,11 +15,19 @@ import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'provider_manager_controller.dart';
 import 'provider_details_page.dart';
 
-class ProviderManagerPage extends GetView<ProviderManagerController> {
+class ProviderManagerPage extends StatefulWidget {
   const ProviderManagerPage({super.key});
 
-  static final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
-      GlobalKey();
+  @override
+  State<ProviderManagerPage> createState() => _ProviderManagerPageState();
+}
+
+class _ProviderManagerPageState extends State<ProviderManagerPage> {
+  final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
+      GlobalKey<PopupMenuButtonState<String>>();
+
+  ProviderManagerController get controller =>
+      Get.find<ProviderManagerController>();
 
   @override
   Widget build(BuildContext context) {

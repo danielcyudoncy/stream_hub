@@ -51,13 +51,18 @@ class MediaBinding extends Bindings {
       permanent: true,
     );
 
-    Get.lazyPut<M3UDownloadService>(() => M3UDownloadService(Get.find()));
-    Get.lazyPut<M3UParser>(() => M3UParser());
-    Get.lazyPut<PlaylistValidationService>(
-      () => PlaylistValidationService(Get.find()),
+    Get.put<M3UDownloadService>(
+      M3UDownloadService(Get.find<LoggingService>()),
+      permanent: true,
     );
-    Get.lazyPut<PlaylistStatisticsService>(
-      () => PlaylistStatisticsService(Get.find()),
+    Get.put<M3UParser>(M3UParser(), permanent: true);
+    Get.put<PlaylistValidationService>(
+      PlaylistValidationService(Get.find<LoggingService>()),
+      permanent: true,
+    );
+    Get.put<PlaylistStatisticsService>(
+      PlaylistStatisticsService(Get.find<LoggingService>()),
+      permanent: true,
     );
     Get.lazyPut<MediaSourceFactory>(
       () => DefaultMediaSourceFactory(),

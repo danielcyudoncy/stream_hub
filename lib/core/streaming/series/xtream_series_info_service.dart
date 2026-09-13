@@ -229,7 +229,7 @@ class XtreamSeriesInfoService {
     try {
       final request = await _client.getUrl(uri).timeout(_kRequestTimeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(HttpHeaders.userAgentHeader, 'StreamHubPro/1.0');
+      request.headers.set(HttpHeaders.userAgentHeader, 'IPTVSmartersPro/1.0 (Linux; Android 11)');
       final response = await request.close().timeout(_kRequestTimeout);
       _logger.debug(
         'Series info response for $seriesId: HTTP ${response.statusCode}',

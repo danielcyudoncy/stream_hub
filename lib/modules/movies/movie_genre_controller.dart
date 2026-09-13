@@ -105,7 +105,12 @@ class MovieGenreController extends GetxController {
           }
         }
 
-        final category = item.metadata['category_name']?.toString().toLowerCase() ?? '';
+        final category = (item.metadata['category_name'] ??
+                item.metadata['categoryName'] ??
+                item.metadata['genre'] ??
+                item.metadata['group'])
+            ?.toString()
+            .toLowerCase() ?? '';
         return category.contains(normalizedGenre);
       }).toList();
 

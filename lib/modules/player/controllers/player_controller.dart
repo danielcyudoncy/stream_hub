@@ -524,12 +524,33 @@ class PlayerController extends GetxController {
         await playbackController.engine.initialize();
       }
 
+      var targetItem = item;
+      if (targetItem.metadata.isEmpty) {
+        if (catalogRepository != null) {
+          try {
+            final full = await catalogRepository!.getItem(item.id);
+            if (full != null && full.metadata.isNotEmpty) {
+              targetItem = full;
+            }
+          } catch (_) {}
+        }
+        if (targetItem.metadata.isEmpty && Get.isRegistered<MediaLibrary>()) {
+          try {
+            final allChannels = Get.find<MediaLibrary>().getLiveTV();
+            final full = allChannels.firstWhereOrNull((c) => c.id == item.id);
+            if (full != null && full.metadata.isNotEmpty) {
+              targetItem = full;
+            }
+          } catch (_) {}
+        }
+      }
+
       // Check if there is a resume position to use
       Duration? resume = resumePosition ?? this.resumePosition;
       if (resume == null &&
-          item.mediaType != MediaType.channel &&
+          targetItem.mediaType != MediaType.channel &&
           playbackRepository != null) {
-        final saved = await playbackRepository!.getWatchProgress(item.id);
+        final saved = await playbackRepository!.getWatchProgress(targetItem.id);
         if (saved != null && saved > Duration.zero) {
           resume = saved;
         }
@@ -540,19 +561,19 @@ class PlayerController extends GetxController {
       // caused a StreamResolutionException for every channel whose metadata
       // does not include a pre-resolved 'streamUrl' key (Xtream, canonical, etc.).
       final fallbackUrl =
-          item.metadata['streamUrl']?.toString() ??
-          item.metadata['stream_url']?.toString() ??
-          item.metadata['url']?.toString();
+          targetItem.metadata['streamUrl']?.toString() ??
+          targetItem.metadata['stream_url']?.toString() ??
+          targetItem.metadata['url']?.toString();
 
       final resolved = await streamRepository.resolvePlayback(
-        mediaItemId: item.id,
-        providerType: item.providerType,
-        itemMetadata: item.metadata,
-        providerId: item.providerId,
+        mediaItemId: targetItem.id,
+        providerType: targetItem.providerType,
+        itemMetadata: targetItem.metadata,
+        providerId: targetItem.providerId,
         fallbackUrl: fallbackUrl,
       );
       playableSession = resolved;
-      await playWithSession(item, resolved, resumePosition: resume);
+      await playWithSession(targetItem, resolved, resumePosition: resume);
     } catch (e, st) {
       await _handlePlaybackFailure(item, playableSession, e, st, startedAt, generation);
     }
