@@ -13,6 +13,23 @@ class GuideController extends GetxController {
   final RxList<EPGChannel> channels = <EPGChannel>[].obs;
   final RxList<EPGProgram> programs = <EPGProgram>[].obs;
   final RxList<EPGProgram> filteredPrograms = <EPGProgram>[].obs;
+
+  /// EPG programs grouped by their channel id, rebuilt when [programs] changes.
+  /// Grid cards resolve the now-playing program by looking up one channel's
+  /// slice instead of scanning the full EPG on every card build.
+  final Map<String, List<EPGProgram>> _programsByChannel =
+      <String, List<EPGProgram>>{};
+  Map<String, List<EPGProgram>> get programsByChannel => _programsByChannel;
+
+  void _rebuildProgramsByChannelIndex() {
+    _programsByChannel.clear();
+    for (final p in programs) {
+      final key = p.channelId;
+      if (key == null || key.isEmpty) continue;
+      _programsByChannel.putIfAbsent(key, () => <EPGProgram>[]).add(p);
+    }
+  }
+
   final RxList<String> categories = <String>[].obs;
   final RxList<String> languages = <String>[].obs;
   final RxList<String> countries = <String>[].obs;
@@ -57,6 +74,7 @@ class GuideController extends GetxController {
       channels.assignAll(guide.channels);
       programs.assignAll(guide.programs);
       filteredPrograms.assignAll(guide.programs);
+      _rebuildProgramsByChannelIndex();
       categories.assignAll(['All', ...guide.categories.toList()..sort()]);
       languages.assignAll(['All', ...guide.languages.toList()..sort()]);
       countries.assignAll(['All', ...guide.countries.toList()..sort()]);
@@ -65,18 +83,22 @@ class GuideController extends GetxController {
       if (channels.isEmpty && Get.isRegistered<LiveTVController>()) {
         final liveCtrl = Get.find<LiveTVController>();
         if (liveCtrl.channels.isNotEmpty) {
-          final liveMapped = liveCtrl.channels.map((item) => EPGChannel(
-            id: item.id,
-            providerId: item.providerId,
-            providerType: item.providerType,
-            title: item.title,
-            mediaType: item.mediaType,
-            poster: item.poster,
-            thumbnail: item.thumbnail,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-            number: item.metadata['number']?.toString(),
-          )).toList();
+          final liveMapped = liveCtrl.channels
+              .map(
+                (item) => EPGChannel(
+                  id: item.id,
+                  providerId: item.providerId,
+                  providerType: item.providerType,
+                  title: item.title,
+                  mediaType: item.mediaType,
+                  poster: item.poster,
+                  thumbnail: item.thumbnail,
+                  createdAt: item.createdAt,
+                  updatedAt: item.updatedAt,
+                  number: item.metadata['number']?.toString(),
+                ),
+              )
+              .toList();
           channels.assignAll(liveMapped);
         }
       }
@@ -84,7 +106,11 @@ class GuideController extends GetxController {
       if (Get.isRegistered<LiveTVController>()) {
         final liveCtrl = Get.find<LiveTVController>();
         if (liveCtrl.categories.isNotEmpty) {
-          final merged = <String>{'All', ...liveCtrl.categories, ...guide.categories};
+          final merged = <String>{
+            'All',
+            ...liveCtrl.categories,
+            ...guide.categories,
+          };
           categories.assignAll(merged.toList());
         }
       }
@@ -144,7 +170,7 @@ class GuideController extends GetxController {
     _applyFilters();
   }
 
-void setSearchQuery(String query) {
+  void setSearchQuery(String query) {
     searchQuery.value = query;
     _applyFilters();
   }
@@ -190,9 +216,7 @@ void setSearchQuery(String query) {
     }
 
     if (selectedCountry.value != 'All' && selectedCountry.value.isNotEmpty) {
-      result = result
-          .where((p) => p.country == selectedCountry.value)
-          .toList();
+      result = result.where((p) => p.country == selectedCountry.value).toList();
     }
 
     if (selectedGenre.value != 'All' && selectedGenre.value.isNotEmpty) {
@@ -208,14 +232,16 @@ void setSearchQuery(String query) {
     if (searchQuery.value.isNotEmpty) {
       final query = searchQuery.value.toLowerCase();
       result = result
-          .where((p) =>
-              p.title.toLowerCase().contains(query) ||
-              (p.subtitle != null &&
-                  p.subtitle!.toLowerCase().contains(query)) ||
-              (p.description != null &&
-                  p.description!.toLowerCase().contains(query)) ||
-              (p.cast ?? []).any((c) => c.toLowerCase().contains(query)) ||
-              (p.directors ?? []).any((d) => d.toLowerCase().contains(query)))
+          .where(
+            (p) =>
+                p.title.toLowerCase().contains(query) ||
+                (p.subtitle != null &&
+                    p.subtitle!.toLowerCase().contains(query)) ||
+                (p.description != null &&
+                    p.description!.toLowerCase().contains(query)) ||
+                (p.cast ?? []).any((c) => c.toLowerCase().contains(query)) ||
+                (p.directors ?? []).any((d) => d.toLowerCase().contains(query)),
+          )
           .toList();
     }
 

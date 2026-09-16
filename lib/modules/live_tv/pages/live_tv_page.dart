@@ -298,6 +298,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
                         key: const ValueKey('live_tv_player_landscape'),
                         controller: controller,
                         isFullscreen: false,
+                        autofocus: false,
                       ),
                     ),
                     Padding(
@@ -413,6 +414,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
                 key: const ValueKey('live_tv_player_portrait'),
                 controller: controller,
                 isFullscreen: false,
+                autofocus: false,
               ),
             ),
 

@@ -15,10 +15,17 @@ class TvBodyFocusRegistry extends InheritedWidget {
     required this.register,
     required this.unregister,
     required super.child,
+    this.openSidebar,
   });
 
   final ValueChanged<FocusNode> register;
   final ValueChanged<FocusNode> unregister;
+
+  /// Opens the sidebar with the current nav item focused. Provided by
+  /// TvScaffold so leftmost body elements (first filter pill, "All
+  /// Categories" chip, leftmost grid column) can deterministically open the
+  /// sidebar when D-pad Left is pressed at the body's left edge.
+  final VoidCallback? openSidebar;
 
   static TvBodyFocusRegistry? maybeOf(BuildContext context) =>
       context.getInheritedWidgetOfExactType<TvBodyFocusRegistry>();

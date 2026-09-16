@@ -33,9 +33,16 @@ class DatabaseService extends GetxService {
       recentSearchesBox = await _openBoxSafe(AppConstants.boxRecentSearches);
 
       _initialized = true;
-      _logger.info('Hive Database successfully initialized.', tag: 'DatabaseService');
+      _logger.info(
+        'Hive Database successfully initialized.',
+        tag: 'DatabaseService',
+      );
     } catch (e) {
-      _logger.error('Hive Database initialization failed.', tag: 'DatabaseService', error: e);
+      _logger.error(
+        'Hive Database initialization failed.',
+        tag: 'DatabaseService',
+        error: e,
+      );
       rethrow;
     }
     return this;
@@ -45,9 +52,23 @@ class DatabaseService extends GetxService {
     try {
       return await Hive.openBox(name);
     } catch (e) {
-      _logger.warning('Failed to open box: $name. Attempting recovery...', tag: 'DatabaseService', error: e);
-      // Delete old box and recreate in case of corruption
-      await Hive.deleteBoxFromDisk(name);
+      _logger.warning(
+        'Failed to open box: $name. Attempting recovery...',
+        tag: 'DatabaseService',
+        error: e,
+      );
+      // Delete old box and recreate in case of corruption. A stale lock file
+      // (left by a crashed/duplicate instance) is rarely itself the cause, so
+      // tolerate a failed cleanup and still attempt to open the box again.
+      try {
+        await Hive.deleteBoxFromDisk(name);
+      } catch (cleanupError) {
+        _logger.warning(
+          'Failed to clean box: $name. Continuing with retry...',
+          tag: 'DatabaseService',
+          error: cleanupError,
+        );
+      }
       return await Hive.openBox(name);
     }
   }

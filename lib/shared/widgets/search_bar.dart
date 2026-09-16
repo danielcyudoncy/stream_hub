@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../core/helpers/platform_helper.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
+import '../../core/utils/responsive_helper.dart';
+import 'tv_focusable.dart';
 
 class AppSearchBar extends StatefulWidget {
   final TextEditingController? controller;
@@ -10,6 +13,7 @@ class AppSearchBar extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onClear;
+  final FocusNode? focusNode;
 
   const AppSearchBar({
     super.key,
@@ -18,6 +22,7 @@ class AppSearchBar extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.onClear,
+    this.focusNode,
   });
 
   @override
@@ -26,7 +31,11 @@ class AppSearchBar extends StatefulWidget {
 
 class _AppSearchBarState extends State<AppSearchBar> {
   late final TextEditingController _controller;
+  late final FocusNode _textFocusNode;
+  final FocusNode _tvBarFocusNode = FocusNode(debugLabel: 'AppSearchBar_TvBar');
+  bool _internalFocusNode = false;
   bool _showClear = false;
+  bool _isEditing = false;
 
   @override
   void initState() {
@@ -34,10 +43,30 @@ class _AppSearchBarState extends State<AppSearchBar> {
     _controller = widget.controller ?? TextEditingController();
     _controller.addListener(_onTextChanged);
     _showClear = _controller.text.isNotEmpty;
+
+    if (widget.focusNode != null) {
+      _textFocusNode = widget.focusNode!;
+    } else {
+      _textFocusNode = FocusNode(debugLabel: 'AppSearchBar_TextField');
+      _internalFocusNode = true;
+    }
+
+    _textFocusNode.addListener(_onTextFocusChanged);
+  }
+
+  void _onTextFocusChanged() {
+    if (!_textFocusNode.hasFocus && _isEditing && mounted) {
+      setState(() => _isEditing = false);
+    }
   }
 
   @override
   void dispose() {
+    _textFocusNode.removeListener(_onTextFocusChanged);
+    if (_internalFocusNode) {
+      _textFocusNode.dispose();
+    }
+    _tvBarFocusNode.dispose();
     if (widget.controller == null) {
       _controller.dispose();
     } else {
@@ -53,12 +82,33 @@ class _AppSearchBarState extends State<AppSearchBar> {
     }
   }
 
+  void _activateEditing() {
+    setState(() => _isEditing = true);
+    _textFocusNode.canRequestFocus = true;
+    _textFocusNode.requestFocus();
+  }
+
+  void _handleSubmitted(String value) {
+    widget.onSubmitted?.call(value);
+    if (mounted) {
+      setState(() => _isEditing = false);
+      _textFocusNode.canRequestFocus = false;
+      _tvBarFocusNode.requestFocus();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isTv = PlatformHelper.isTV || ResponsiveHelper.isTV(context);
 
-    return Container(
+    // If on TV and not actively editing, disable text field focus so D-pad navigates over the search bar
+    if (isTv) {
+      _textFocusNode.canRequestFocus = _isEditing;
+    }
+
+    final barContent = Container(
       height: 48.0,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
@@ -80,11 +130,14 @@ class _AppSearchBarState extends State<AppSearchBar> {
           Expanded(
             child: TextField(
               controller: _controller,
+              focusNode: _textFocusNode,
               onChanged: widget.onChanged,
-              onSubmitted: widget.onSubmitted,
+              onSubmitted: _handleSubmitted,
               style: AppTypography.getBody(color: colorScheme.onSurface),
               decoration: InputDecoration(
-                hintText: widget.hintText,
+                hintText: isTv && !_isEditing
+                    ? '${widget.hintText} (Press OK to type)'
+                    : widget.hintText,
                 hintStyle: AppTypography.getBody(
                   color: colorScheme.onSurface.withValues(alpha: 0.4),
                 ),
@@ -111,6 +164,19 @@ class _AppSearchBarState extends State<AppSearchBar> {
             ),
         ],
       ),
+    );
+
+    if (!isTv) {
+      return barContent;
+    }
+
+    return TvFocusable(
+      focusNode: _tvBarFocusNode,
+      canRequestFocus: !_isEditing,
+      onTap: _activateEditing,
+      borderRadius: AppRadius.medium,
+      scale: 1.01,
+      child: barContent,
     );
   }
 }

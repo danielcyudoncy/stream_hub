@@ -32,9 +32,12 @@ class _TvScaffoldState extends State<TvScaffold> {
   Timer? _clockTimer;
   DateTime _currentTime = DateTime.now();
 
-  final FocusScopeNode _bodyFocusNode = FocusScopeNode(debugLabel: 'TvScaffoldBody')
-    ..directionalTraversalEdgeBehavior = TraversalEdgeBehavior.stop;
-  final FocusNode _sidebarContainerFocusNode = FocusNode(debugLabel: 'TvScaffoldSidebar');
+  final FocusScopeNode _bodyFocusNode = FocusScopeNode(
+    debugLabel: 'TvScaffoldBody',
+  )..directionalTraversalEdgeBehavior = TraversalEdgeBehavior.stop;
+  final FocusNode _sidebarContainerFocusNode = FocusNode(
+    debugLabel: 'TvScaffoldSidebar',
+  );
   final Map<int, FocusNode> _navFocusNodes = {};
   final FocusNode _profileFocusNode = FocusNode(debugLabel: 'Nav_Profile');
   FocusNode? _lastBodyFocusedNode;
@@ -154,7 +157,9 @@ class _TvScaffoldState extends State<TvScaffold> {
     if (!isLeft) return KeyEventResult.ignored;
 
     final currentFocus = FocusManager.instance.primaryFocus;
-    if (currentFocus != null && currentFocus != node && currentFocus != _bodyFocusNode) {
+    if (currentFocus != null &&
+        currentFocus != node &&
+        currentFocus != _bodyFocusNode) {
       _lastBodyFocusedNode = currentFocus;
 
       // Try moving left inside the body first (e.g. from card 3 to card 2).
@@ -171,14 +176,6 @@ class _TvScaffoldState extends State<TvScaffold> {
         return KeyEventResult.handled;
       }
 
-      // Directional left failed. Fall through to opening the sidebar when
-      // nothing actionable remains to the left within the body. A plain
-      // pixel-boundary check is unreliable for centered or vertically-scrolled
-      // content (e.g. the home page CTA inside a SingleChildScrollView), where
-      // the leftmost widget never touches the scrollable's edge. When another
-      // body target does sit to the left we keep `ignored` so a directional
-      // traversal that merely failed to resolve a leftward neighbor (common
-      // inside flat GridView.builder trees) does not leave the body.
       if (_hasFocusableToLeft(currentFocus)) {
         return KeyEventResult.ignored;
       }
@@ -207,10 +204,9 @@ class _TvScaffoldState extends State<TvScaffold> {
   }
 
   /// Returns true when any registered body focusable sits strictly to the left
-  /// of [node]. When no such target exists, a Left press should open the
-  /// sidebar — even for centered or vertically-scrolled content where a
-  /// pixel-boundary test cannot detect a "left edge" (e.g. the home page's
-  /// centered hero CTA inside a SingleChildScrollView).
+  /// of [node] in the same horizontal band. When no such target exists or when
+  /// [node] is located near the leftmost boundary of the body, a Left press
+  /// should open the sidebar.
   bool _hasFocusableToLeft(FocusNode node) {
     RenderBox? currentBox;
     try {
@@ -221,7 +217,18 @@ class _TvScaffoldState extends State<TvScaffold> {
     }
     if (currentBox == null || !currentBox.hasSize) return false;
 
-    final currentLeft = currentBox.localToGlobal(Offset.zero).dx;
+    final currentOffset = currentBox.localToGlobal(Offset.zero);
+    final currentLeft = currentOffset.dx;
+    final currentTop = currentOffset.dy;
+    final currentBottom = currentTop + currentBox.size.height;
+
+    // The collapsed sidebar has width 96.0. Any widget positioned near the left edge
+    // (within 100px of the sidebar boundary) is already in the leftmost column.
+    const bodyLeft = 96.0;
+    if (currentLeft <= bodyLeft + 100.0) {
+      return false;
+    }
+
     const epsilon = 8.0;
     for (final candidate in _bodyFocusables) {
       if (identical(node, candidate) || !candidate.canRequestFocus) continue;
@@ -233,8 +240,17 @@ class _TvScaffoldState extends State<TvScaffold> {
         candidateBox = null;
       }
       if (candidateBox == null || !candidateBox.hasSize) continue;
-      final candidateLeft = candidateBox.localToGlobal(Offset.zero).dx;
-      if (candidateLeft < currentLeft - epsilon) return true;
+      final candidateOffset = candidateBox.localToGlobal(Offset.zero);
+      final candidateLeft = candidateOffset.dx;
+      final candidateTop = candidateOffset.dy;
+      final candidateBottom = candidateTop + candidateBox.size.height;
+
+      // Only consider candidates that share vertical overlap with the current widget
+      final hasVerticalOverlap =
+          candidateTop < currentBottom && candidateBottom > currentTop;
+      if (hasVerticalOverlap && candidateLeft < currentLeft - epsilon) {
+        return true;
+      }
     }
     return false;
   }
@@ -291,8 +307,10 @@ class _TvScaffoldState extends State<TvScaffold> {
 
   /// The D-pad ordering of sidebar targets: the nine root nav items followed by
   /// the profile entry, wrapping in a closed loop.
-  List<FocusNode> get _sidebarDpadOrder =>
-      [...List.generate(9, (i) => _navFocusNodes[i]!), _profileFocusNode];
+  List<FocusNode> get _sidebarDpadOrder => [
+    ...List.generate(9, (i) => _navFocusNodes[i]!),
+    _profileFocusNode,
+  ];
 
   /// Moves sidebar focus [delta] positions forward (1) or backward (-1) with
   /// wrap-around.
@@ -372,6 +390,7 @@ class _TvScaffoldState extends State<TvScaffold> {
                       child: TvBodyFocusRegistry(
                         register: _registerBodyFocusable,
                         unregister: _unregisterBodyFocusable,
+                        openSidebar: _openSidebarWithFocus,
                         child: widget.body,
                       ),
                     ),
@@ -403,52 +422,52 @@ class _TvScaffoldState extends State<TvScaffold> {
                 }
               },
               child: MouseRegion(
-                  onEnter: (_) {
-                    if (mounted && !_isExpanded) {
-                      setState(() => _isExpanded = true);
-                    }
-                  },
-                  onExit: (_) {
-                    if (mounted && _isExpanded) {
-                      setState(() => _isExpanded = false);
-                    }
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeOutCubic,
-                    width: _isExpanded ? 270.0 : 96.0,
-                    decoration: BoxDecoration(
-                      color: const Color(0xEE0E1116),
-                      border: Border(
-                        right: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          width: 1,
-                        ),
+                onEnter: (_) {
+                  if (mounted && !_isExpanded) {
+                    setState(() => _isExpanded = true);
+                  }
+                },
+                onExit: (_) {
+                  if (mounted && _isExpanded) {
+                    setState(() => _isExpanded = false);
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutCubic,
+                  width: _isExpanded ? 270.0 : 96.0,
+                  decoration: BoxDecoration(
+                    color: const Color(0xEE0E1116),
+                    border: Border(
+                      right: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        width: 1,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          blurRadius: 32,
-                          spreadRadius: -4,
-                          offset: const Offset(8, 0),
-                        ),
-                      ],
                     ),
-                    child: ClipRect(
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
-                        child: SizedBox(
-                          width: _isExpanded ? 270.0 : 96.0,
-                          child: _buildSidebarContent(),
-                        ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        blurRadius: 32,
+                        spreadRadius: -4,
+                        offset: const Offset(8, 0),
+                      ),
+                    ],
+                  ),
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
+                      child: SizedBox(
+                        width: _isExpanded ? 270.0 : 96.0,
+                        child: _buildSidebarContent(),
                       ),
                     ),
                   ),
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 

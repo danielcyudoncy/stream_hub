@@ -60,7 +60,8 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
   KeyEventResult _handleCardKeyEvent(FocusNode node, KeyEvent event) {
     if (widget.onFavorite == null) return KeyEventResult.ignored;
 
-    final isSelect = event.logicalKey == LogicalKeyboardKey.select ||
+    final isSelect =
+        event.logicalKey == LogicalKeyboardKey.select ||
         event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter ||
         event.logicalKey == LogicalKeyboardKey.gameButtonA;
@@ -93,6 +94,19 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     return KeyEventResult.ignored;
   }
 
+  void _ensureVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        Scrollable.ensureVisible(
+          context,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.isList) {
@@ -111,24 +125,35 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final resolution = widget.channel.metadata['resolution'] as String?;
     final isTV = PlatformHelper.isTV;
 
-    final GuideController? guideController =
-        Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
+    final GuideController? guideController = Get.isRegistered<GuideController>()
+        ? Get.find<GuideController>()
+        : null;
     final now = DateTime.now();
     final String tvgId = widget.channel.metadata['tvgId']?.toString() ?? '';
     final String channelTitle = widget.channel.title;
-    
-    final EPGProgram? currentProgram = guideController?.programs
-        .firstWhereOrNull((p) => 
-          (p.channelId == tvgId || p.channelId == channelTitle || p.channelId == widget.channel.id) 
-          && p.isCurrentlyPlaying
+
+    final EPGProgram? currentProgram =
+        guideController?.programsByChannel[tvgId]?.firstWhereOrNull(
+          (p) => p.isCurrentlyPlaying,
+        ) ??
+        guideController?.programsByChannel[channelTitle]?.firstWhereOrNull(
+          (p) => p.isCurrentlyPlaying,
+        ) ??
+        guideController?.programsByChannel[widget.channel.id]?.firstWhereOrNull(
+          (p) => p.isCurrentlyPlaying,
         );
 
     final double progress = currentProgram != null
         ? (now.difference(currentProgram.startTime).inSeconds /
-                (currentProgram.endTime.difference(currentProgram.startTime).inSeconds > 0
-                    ? currentProgram.endTime.difference(currentProgram.startTime).inSeconds
-                    : 1))
-            .clamp(0.0, 1.0)
+                  (currentProgram.endTime
+                              .difference(currentProgram.startTime)
+                              .inSeconds >
+                          0
+                      ? currentProgram.endTime
+                            .difference(currentProgram.startTime)
+                            .inSeconds
+                      : 1))
+              .clamp(0.0, 1.0)
         : (widget.isPlaying ? 0.45 : 0.0);
 
     final gridNode = _gridFocusNode ??= FocusNode();
@@ -140,34 +165,13 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
         if (mounted && _isFocused != hasKeyboardFocus) {
           setState(() => _isFocused = hasKeyboardFocus);
           if (hasKeyboardFocus) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                Scrollable.ensureVisible(
-                  context,
-                  alignment: 0.5,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                );
-              }
-            });
+            _ensureVisible();
           }
         }
       },
       onShowFocusHighlight: (show) {
         if (mounted && _isFocused != show) {
           setState(() => _isFocused = show);
-          if (show) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                Scrollable.ensureVisible(
-                  context,
-                  alignment: 0.5,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                );
-              }
-            });
-          }
         }
       },
       actions: <Type, Action<Intent>>{
@@ -204,8 +208,8 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                 color: widget.isPlaying
                     ? AppColors.primary
                     : (_isFocused
-                        ? colorScheme.primary
-                        : colorScheme.outline.withValues(alpha: 0.1)),
+                          ? colorScheme.primary
+                          : colorScheme.outline.withValues(alpha: 0.1)),
                 width: widget.isPlaying ? 2.5 : (_isFocused ? 2.0 : 1.0),
               ),
               boxShadow: [
@@ -235,7 +239,9 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                     decoration: BoxDecoration(
                       color: widget.isPlaying
                           ? AppColors.primary.withValues(alpha: 0.18)
-                          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                          : colorScheme.surfaceContainerHighest.withValues(
+                              alpha: 0.35,
+                            ),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(10.0),
                       ),
@@ -271,210 +277,230 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                         else
                           _buildFallbackLogo(colorScheme),
 
-                      // Top-Left: Channel number
-                      if (widget.showChannelNumber && channelNum != null && channelNum.isNotEmpty)
-                        Positioned(
-                          top: AppSpacing.xxs,
-                          left: AppSpacing.xxs,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5.0,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.75),
-                              borderRadius: AppRadius.small,
-                            ),
-                            child: Text(
-                              channelNum,
-                              style: TextStyle(
-                                fontSize: 9.0,
-                                fontWeight: FontWeight.w700,
-                                color: colorScheme.primary,
+                        // Top-Left: Channel number
+                        if (widget.showChannelNumber &&
+                            channelNum != null &&
+                            channelNum.isNotEmpty)
+                          Positioned(
+                            top: AppSpacing.xxs,
+                            left: AppSpacing.xxs,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5.0,
+                                vertical: 1.5,
                               ),
-                            ),
-                          ),
-                        ),
-
-                      // Bottom-Left: Resolution badge
-                      if (widget.showHD && resolution != null && resolution.isNotEmpty)
-                        Positioned(
-                          bottom: AppSpacing.xxs,
-                          left: AppSpacing.xxs,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5.0,
-                              vertical: 1.5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.8),
-                              borderRadius: AppRadius.small,
-                            ),
-                            child: Text(
-                              resolution.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 8.5,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.75),
+                                borderRadius: AppRadius.small,
                               ),
-                            ),
-                          ),
-                        ),
-
-                      // Top-Right: Favorite Button
-                      if (widget.showFavoriteButton)
-                        Positioned(
-                          top: AppSpacing.xxs,
-                          right: AppSpacing.xxs,
-                          child: ExcludeFocus(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: widget.onFavorite,
-                              child: Container(
-                                padding: const EdgeInsets.all(5.0),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.65),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  widget.channel.favorite
-                                      ? Icons.favorite_rounded
-                                      : Icons.favorite_border_rounded,
-                                  color: widget.channel.favorite
-                                      ? AppColors.darkError
-                                      : Colors.white70,
-                                  size: 16.0,
+                              child: Text(
+                                channelNum,
+                                style: TextStyle(
+                                  fontSize: 9.0,
+                                  fontWeight: FontWeight.w700,
+                                  color: colorScheme.primary,
                                 ),
                               ),
                             ),
                           ),
-                        ),
+
+                        // Bottom-Left: Resolution badge
+                        if (widget.showHD &&
+                            resolution != null &&
+                            resolution.isNotEmpty)
+                          Positioned(
+                            bottom: AppSpacing.xxs,
+                            left: AppSpacing.xxs,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5.0,
+                                vertical: 1.5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.8),
+                                borderRadius: AppRadius.small,
+                              ),
+                              child: Text(
+                                resolution.toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+
+                        // Top-Right: Favorite Button
+                        if (widget.showFavoriteButton)
+                          Positioned(
+                            top: AppSpacing.xxs,
+                            right: AppSpacing.xxs,
+                            child: ExcludeFocus(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: widget.onFavorite,
+                                child: Container(
+                                  padding: const EdgeInsets.all(5.0),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.65),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    widget.channel.favorite
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_border_rounded,
+                                    color: widget.channel.favorite
+                                        ? AppColors.darkError
+                                        : Colors.white70,
+                                    size: 16.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
+                    ),
                   ),
                 ),
-              ),
 
-              // Channel metadata section below image
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 6.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    LayoutBuilder(
-                      builder: (context, cardConstraints) {
-                        final isCompactCard = cardConstraints.maxWidth < 130;
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                TitleFormatter.formatChannelTitle(widget.channel.title),
-                                style: AppTypography.getBody(
-                                  color: widget.isPlaying
-                                      ? AppColors.primary
-                                      : (_isFocused ? Colors.white : colorScheme.onSurface),
-                                  scale: 0.88,
-                                ).copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  shadows: widget.isPlaying
-                                      ? [
-                                          Shadow(
-                                            color: AppColors.primary.withValues(alpha: 0.8),
-                                            blurRadius: 10.0,
-                                          ),
-                                        ]
-                                      : null,
+                // Channel metadata section below image
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8.0, 4.0, 8.0, 6.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      LayoutBuilder(
+                        builder: (context, cardConstraints) {
+                          final isCompactCard = cardConstraints.maxWidth < 130;
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  TitleFormatter.formatChannelTitle(
+                                    widget.channel.title,
+                                  ),
+                                  style:
+                                      AppTypography.getBody(
+                                        color: widget.isPlaying
+                                            ? AppColors.primary
+                                            : (_isFocused
+                                                  ? Colors.white
+                                                  : colorScheme.onSurface),
+                                        scale: 0.88,
+                                      ).copyWith(
+                                        fontWeight: FontWeight.bold,
+                                        shadows: widget.isPlaying
+                                            ? [
+                                                Shadow(
+                                                  color: AppColors.primary
+                                                      .withValues(alpha: 0.8),
+                                                  blurRadius: 10.0,
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            if (widget.isPlaying) ...[
-                              const SizedBox(width: 4.0),
-                              Container(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: isCompactCard ? 4.0 : 6.0,
-                                  vertical: 2.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  borderRadius: BorderRadius.circular(4.0),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withValues(alpha: 0.6),
-                                      blurRadius: 8.0,
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(
-                                      Icons.graphic_eq_rounded,
-                                      color: Colors.black,
-                                      size: 10.0,
-                                    ),
-                                    if (!isCompactCard) ...[
-                                      const SizedBox(width: 3.0),
-                                      const Text(
-                                        'PLAYING',
-                                        style: TextStyle(
-                                          color: Colors.black,
-                                          fontSize: 8.5,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 0.3,
+                              if (widget.isPlaying) ...[
+                                const SizedBox(width: 4.0),
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isCompactCard ? 4.0 : 6.0,
+                                    vertical: 2.0,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary,
+                                    borderRadius: BorderRadius.circular(4.0),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.6,
                                         ),
+                                        blurRadius: 8.0,
                                       ),
                                     ],
-                                  ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.graphic_eq_rounded,
+                                        color: Colors.black,
+                                        size: 10.0,
+                                      ),
+                                      if (!isCompactCard) ...[
+                                        const SizedBox(width: 3.0),
+                                        const Text(
+                                          'PLAYING',
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 8.5,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
-                          ],
-                        );
-                      },
-                    ),
-                    const SizedBox(height: 2),
-                    // Current Program or Genre / Subtitle
-                    Text(
-                      currentProgram?.title ??
-                          (widget.channel.subtitle?.isNotEmpty == true
-                              ? widget.channel.subtitle!
-                              : (widget.channel.genres.isNotEmpty
-                                  ? widget.channel.genres.first
-                                  : 'Live Broadcast')),
-                      style: AppTypography.getCaption(
-                        color: _isFocused || widget.isPlaying ? AppColors.primary : AppColors.darkTextMuted,
-                      ).copyWith(
-                        fontSize: 10.5,
-                        fontWeight: currentProgram != null || widget.isPlaying ? FontWeight.w600 : FontWeight.normal,
+                          );
+                        },
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    // Progress Bar
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: progress,
-                        backgroundColor: colorScheme.surfaceContainerHighest,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          widget.isPlaying ? AppColors.primary : colorScheme.primary,
+                      const SizedBox(height: 2),
+                      // Current Program or Genre / Subtitle
+                      Text(
+                        currentProgram?.title ??
+                            (widget.channel.subtitle?.isNotEmpty == true
+                                ? widget.channel.subtitle!
+                                : (widget.channel.genres.isNotEmpty
+                                      ? widget.channel.genres.first
+                                      : 'Live Broadcast')),
+                        style:
+                            AppTypography.getCaption(
+                              color: _isFocused || widget.isPlaying
+                                  ? AppColors.primary
+                                  : AppColors.darkTextMuted,
+                            ).copyWith(
+                              fontSize: 10.5,
+                              fontWeight:
+                                  currentProgram != null || widget.isPlaying
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      // Progress Bar
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: progress,
+                          backgroundColor: colorScheme.surfaceContainerHighest,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            widget.isPlaying
+                                ? AppColors.primary
+                                : colorScheme.primary,
+                          ),
+                          minHeight: 2.5,
                         ),
-                        minHeight: 2.5,
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildListTile(BuildContext context) {
     final theme = Theme.of(context);
@@ -485,32 +511,44 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
     final hasPoster = posterUrl != null && posterUrl.isNotEmpty;
     final isTV = PlatformHelper.isTV;
 
-    final GuideController? guideController =
-        Get.isRegistered<GuideController>() ? Get.find<GuideController>() : null;
+    final GuideController? guideController = Get.isRegistered<GuideController>()
+        ? Get.find<GuideController>()
+        : null;
     final now = DateTime.now();
     final String tvgId = widget.channel.metadata['tvgId']?.toString() ?? '';
     final String channelTitle = widget.channel.title;
-    
-    final EPGProgram? currentProgram = guideController?.programs
-        .firstWhereOrNull((p) => 
-          (p.channelId == tvgId || p.channelId == channelTitle || p.channelId == widget.channel.id) 
-          && p.isCurrentlyPlaying
+
+    final EPGProgram? currentProgram =
+        guideController?.programsByChannel[tvgId]?.firstWhereOrNull(
+          (p) => p.isCurrentlyPlaying,
+        ) ??
+        guideController?.programsByChannel[channelTitle]?.firstWhereOrNull(
+          (p) => p.isCurrentlyPlaying,
+        ) ??
+        guideController?.programsByChannel[widget.channel.id]?.firstWhereOrNull(
+          (p) => p.isCurrentlyPlaying,
         );
 
     final double progress = currentProgram != null
         ? (now.difference(currentProgram.startTime).inSeconds /
-                (currentProgram.endTime.difference(currentProgram.startTime).inSeconds > 0
-                    ? currentProgram.endTime.difference(currentProgram.startTime).inSeconds
-                    : 1))
-            .clamp(0.0, 1.0)
+                  (currentProgram.endTime
+                              .difference(currentProgram.startTime)
+                              .inSeconds >
+                          0
+                      ? currentProgram.endTime
+                            .difference(currentProgram.startTime)
+                            .inSeconds
+                      : 1))
+              .clamp(0.0, 1.0)
         : (widget.isPlaying ? 0.45 : 0.0);
 
-    final String titleStr = currentProgram?.title ??
+    final String titleStr =
+        currentProgram?.title ??
         (widget.channel.subtitle?.isNotEmpty == true
             ? widget.channel.subtitle!
             : (widget.channel.genres.isNotEmpty
-                ? widget.channel.genres.first
-                : 'Live Broadcast'));
+                  ? widget.channel.genres.first
+                  : 'Live Broadcast'));
 
     final String timeStr = currentProgram != null
         ? '${DateFormatter.formatTime(currentProgram.startTime)} - ${DateFormatter.formatTime(currentProgram.endTime)}'
@@ -525,34 +563,13 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
         if (mounted && _isFocused != hasKeyboardFocus) {
           setState(() => _isFocused = hasKeyboardFocus);
           if (hasKeyboardFocus) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                Scrollable.ensureVisible(
-                  context,
-                  alignment: 0.5,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                );
-              }
-            });
+            _ensureVisible();
           }
         }
       },
       onShowFocusHighlight: (show) {
         if (mounted && _isFocused != show) {
           setState(() => _isFocused = show);
-          if (show) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                Scrollable.ensureVisible(
-                  context,
-                  alignment: 0.5,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                );
-              }
-            });
-          }
         }
       },
       actions: <Type, Action<Intent>>{
@@ -579,7 +596,10 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             margin: const EdgeInsets.only(bottom: 6.0),
-            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10.0,
+              vertical: 7.0,
+            ),
             decoration: BoxDecoration(
               // Glassmorphism Card with neon glow when playing
               color: widget.isPlaying
@@ -590,8 +610,8 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                 color: widget.isPlaying
                     ? AppColors.primary
                     : (_isFocused
-                        ? colorScheme.primary
-                        : Colors.white.withValues(alpha: 0.08)),
+                          ? colorScheme.primary
+                          : Colors.white.withValues(alpha: 0.08)),
                 width: widget.isPlaying ? 2.0 : (_isFocused ? 1.5 : 1.0),
               ),
               boxShadow: [
@@ -654,17 +674,23 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                             child: Text(
                               channelNum != null && channelNum.isNotEmpty
                                   ? '$channelNum • ${TitleFormatter.formatChannelTitle(widget.channel.title)}'
-                                  : TitleFormatter.formatChannelTitle(widget.channel.title),
+                                  : TitleFormatter.formatChannelTitle(
+                                      widget.channel.title,
+                                    ),
                               style: TextStyle(
                                 fontSize: 13.0,
                                 fontWeight: FontWeight.w700,
                                 color: widget.isPlaying
                                     ? AppColors.primary
-                                    : (_isFocused ? colorScheme.primary : Colors.white),
+                                    : (_isFocused
+                                          ? colorScheme.primary
+                                          : Colors.white),
                                 shadows: widget.isPlaying
                                     ? [
                                         Shadow(
-                                          color: AppColors.primary.withValues(alpha: 0.8),
+                                          color: AppColors.primary.withValues(
+                                            alpha: 0.8,
+                                          ),
                                           blurRadius: 10.0,
                                         ),
                                       ]

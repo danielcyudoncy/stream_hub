@@ -17,6 +17,7 @@ import '../../../data/repositories/provider_repository.dart';
 import '../../../core/media/repositories/playback_repository.dart';
 import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../data/services/home_snapshot_service.dart';
+import '../../../core/services/tmdb_catalog_service.dart';
 
 enum SectionLoadState { idle, loading, loaded, error }
 
@@ -92,6 +93,11 @@ class HomeController extends GetxController {
   CatalogRefreshCoordinator? get _catalogCoordinator =>
       Get.isRegistered<CatalogRefreshCoordinator>()
           ? Get.find<CatalogRefreshCoordinator>()
+          : null;
+
+  TMDBCatalogService? get _tmdbService =>
+      Get.isRegistered<TMDBCatalogService>()
+          ? Get.find<TMDBCatalogService>()
           : null;
 
   void _subscribeToCatalogUpdates() {
@@ -285,6 +291,14 @@ class HomeController extends GetxController {
       } else {
         result = _computeFeaturedFromVod(moviePool, seriesPool);
       }
+      if (result.isEmpty && _tmdbService != null) {
+        try {
+          final tmdbTrending = await _tmdbService!.getTrendingMovies();
+          if (tmdbTrending.isNotEmpty) {
+            result = tmdbTrending.take(5).toList();
+          }
+        } catch (_) {}
+      }
       if (result.isNotEmpty && !_areMediaListsEqual(featuredHeroItems, result)) {
         featuredHeroItems.assignAll(result);
       }
@@ -302,7 +316,14 @@ class HomeController extends GetxController {
         providerId: _providerOrNull(providerId),
         limit: 20,
       );
-      if (newItems.isNotEmpty && !_areMediaListsEqual(movies, newItems)) {
+      if (newItems.isEmpty && _tmdbService != null) {
+        try {
+          final tmdbMovies = await _tmdbService!.getTrendingMovies();
+          if (tmdbMovies.isNotEmpty && !_areMediaListsEqual(movies, tmdbMovies)) {
+            movies.assignAll(tmdbMovies.take(20).toList());
+          }
+        } catch (_) {}
+      } else if (newItems.isNotEmpty && !_areMediaListsEqual(movies, newItems)) {
         movies.assignAll(newItems);
       }
       moviesState.value = SectionLoadState.loaded;
@@ -319,7 +340,14 @@ class HomeController extends GetxController {
         providerId: _providerOrNull(providerId),
         limit: 20,
       );
-      if (newItems.isNotEmpty && !_areMediaListsEqual(series, newItems)) {
+      if (newItems.isEmpty && _tmdbService != null) {
+        try {
+          final tmdbSeries = await _tmdbService!.getPopularSeries();
+          if (tmdbSeries.isNotEmpty && !_areMediaListsEqual(series, tmdbSeries)) {
+            series.assignAll(tmdbSeries.take(20).toList());
+          }
+        } catch (_) {}
+      } else if (newItems.isNotEmpty && !_areMediaListsEqual(series, newItems)) {
         series.assignAll(newItems);
       }
       seriesState.value = SectionLoadState.loaded;

@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
@@ -26,6 +27,7 @@ import 'package:stream_hub/shared/widgets/empty_view.dart';
 import 'package:stream_hub/shared/loading/loading_indicator.dart';
 import 'package:stream_hub/shared/widgets/error_view.dart';
 import 'package:stream_hub/shared/widgets/provider_selector_button.dart';
+import 'package:stream_hub/shared/widgets/tv_body_focus_registry.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class TVGuidePage extends GetView<GuideController> {
@@ -35,8 +37,9 @@ class TVGuidePage extends GetView<GuideController> {
   Widget build(BuildContext context) {
     final isTV = ResponsiveHelper.isTV(context);
     final isDesktop = ResponsiveHelper.isDesktop(context);
-    final liveCtrl =
-        Get.isRegistered<LiveTVController>() ? Get.find<LiveTVController>() : null;
+    final liveCtrl = Get.isRegistered<LiveTVController>()
+        ? Get.find<LiveTVController>()
+        : null;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (liveCtrl != null && !liveCtrl.isLoading.value) {
@@ -59,19 +62,13 @@ class TVGuidePage extends GetView<GuideController> {
             },
             scale: 1.0,
             borderRadius: BorderRadius.circular(8),
-            child: const IconButton(
-              icon: Icon(Icons.refresh),
-              onPressed: null,
-            ),
+            child: const IconButton(icon: Icon(Icons.refresh), onPressed: null),
           ),
           TvFocusable(
             onTap: () => Get.toNamed(AppRoutes.guideSearch),
             scale: 1.0,
             borderRadius: BorderRadius.circular(8),
-            child: const IconButton(
-              icon: Icon(Icons.search),
-              onPressed: null,
-            ),
+            child: const IconButton(icon: Icon(Icons.search), onPressed: null),
           ),
         ],
         body: Column(
@@ -80,7 +77,8 @@ class TVGuidePage extends GetView<GuideController> {
             _buildMobileCategoryBar(context, liveCtrl),
             Expanded(
               child: Obx(() {
-                if (controller.isLoading.value || (liveCtrl != null && liveCtrl.isLoading.value)) {
+                if (controller.isLoading.value ||
+                    (liveCtrl != null && liveCtrl.isLoading.value)) {
                   return const Center(child: LoadingIndicator());
                 }
                 if (controller.error.value.isNotEmpty &&
@@ -128,7 +126,10 @@ class TVGuidePage extends GetView<GuideController> {
         title: 'TV Guide',
         showAppBar: false,
         body: Obx(() {
-          if (liveCtrl != null && liveCtrl.isLoading.value) {
+          if (liveCtrl != null &&
+              liveCtrl.isLoading.value &&
+              liveCtrl.channels.isEmpty &&
+              liveCtrl.filteredChannels.isEmpty) {
             return const LiveTvSkeleton();
           }
           return FocusTraversalGroup(
@@ -137,23 +138,37 @@ class TVGuidePage extends GetView<GuideController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. Top Showcase: Channel Info on Left, Large 16:9 Live Player on Right
-                _buildTopShowcase(context),
+                FocusTraversalGroup(
+                  policy: ReadingOrderTraversalPolicy(),
+                  child: _buildTopShowcase(context),
+                ),
 
                 // 2. Full-Width Category Rail Below the Player
-                _buildCategoryBar(context),
+                FocusTraversalGroup(
+                  policy: ReadingOrderTraversalPolicy(),
+                  child: _buildCategoryBar(context),
+                ),
 
                 AppSpacing.heightXS,
 
                 // 3. Full Guide / Channel Catalog Grid Below
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
-                    child: _buildTVLayout(context),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.xl,
+                    ),
+                    child: FocusTraversalGroup(
+                      policy: ReadingOrderTraversalPolicy(),
+                      child: _buildTVLayout(context),
+                    ),
                   ),
                 ),
 
                 // 4. TV Remote D-Pad Navigation Legend Bar
-                _buildRemoteLegendBar(),
+                FocusTraversalGroup(
+                  policy: ReadingOrderTraversalPolicy(),
+                  child: _buildRemoteLegendBar(),
+                ),
               ],
             ),
           );
@@ -163,8 +178,9 @@ class TVGuidePage extends GetView<GuideController> {
   }
 
   Widget _buildTopShowcase(BuildContext context) {
-    final liveCtrl =
-        Get.isRegistered<LiveTVController>() ? Get.find<LiveTVController>() : null;
+    final liveCtrl = Get.isRegistered<LiveTVController>()
+        ? Get.find<LiveTVController>()
+        : null;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
@@ -192,27 +208,39 @@ class TVGuidePage extends GetView<GuideController> {
                         children: [
                           Text(
                             'Live TV Guide',
-                            style: AppTypography.getDisplay(color: AppColors.primary).copyWith(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 26,
-                              shadows: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(alpha: 0.4),
-                                  blurRadius: 8.0,
+                            style:
+                                AppTypography.getDisplay(
+                                  color: AppColors.primary,
+                                ).copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 26,
+                                  shadows: [
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.4,
+                                      ),
+                                      blurRadius: 8.0,
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.surface.withValues(alpha: 0.8),
                               borderRadius: BorderRadius.circular(16),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.1),
+                              ),
                             ),
                             child: Text(
                               'Live',
-                              style: AppTypography.getLabel(color: AppColors.textSecondary),
+                              style: AppTypography.getLabel(
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                           ),
                         ],
@@ -222,12 +250,18 @@ class TVGuidePage extends GetView<GuideController> {
                     // Dual View Mode Toggle Button (Grid ↔ Timeline)
                     if (liveCtrl != null)
                       Obx(() {
-                        final isTimeline = liveCtrl.selectedView.value == 'timeline';
+                        final isTimeline =
+                            liveCtrl.selectedView.value == 'timeline';
                         return TvFocusable(
-                          onTap: () => liveCtrl.setView(isTimeline ? 'grid' : 'timeline'),
+                          onTap: () => liveCtrl.setView(
+                            isTimeline ? 'grid' : 'timeline',
+                          ),
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
                               color: AppColors.surface.withValues(alpha: 0.7),
                               borderRadius: BorderRadius.circular(8),
@@ -241,7 +275,9 @@ class TVGuidePage extends GetView<GuideController> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Icon(
-                                  isTimeline ? Icons.grid_view_rounded : Icons.view_timeline_outlined,
+                                  isTimeline
+                                      ? Icons.grid_view_rounded
+                                      : Icons.view_timeline_outlined,
                                   size: 16,
                                   color: AppColors.primary,
                                 ),
@@ -289,19 +325,28 @@ class TVGuidePage extends GetView<GuideController> {
                 // 2. Active Playing / Focused Channel Showcase Info with Live Progress
                 if (liveCtrl != null)
                   Obx(() {
-                    final active = liveCtrl.activePlayingChannel.value ??
+                    final active =
+                        liveCtrl.activePlayingChannel.value ??
                         liveCtrl.featuredChannel.value ??
-                        (liveCtrl.channels.isNotEmpty ? liveCtrl.channels.first : null);
+                        (liveCtrl.channels.isNotEmpty
+                            ? liveCtrl.channels.first
+                            : null);
 
                     if (active == null) {
                       return const SizedBox(height: 100);
                     }
 
-                    final categoryName = active.metadata['category_name']?.toString() ??
-                        (active.genres.isNotEmpty ? active.genres.first : 'Live TV');
-                    final resolution = active.metadata['resolution']?.toString() ?? 'HD';
+                    final categoryName =
+                        active.metadata['category_name']?.toString() ??
+                        (active.genres.isNotEmpty
+                            ? active.genres.first
+                            : 'Live TV');
+                    final resolution =
+                        active.metadata['resolution']?.toString() ?? 'HD';
                     final description =
-                        active.description ?? active.subtitle ?? 'Live Broadcast';
+                        active.description ??
+                        active.subtitle ??
+                        'Live Broadcast';
 
                     final now = DateTime.now();
                     final guideCtrl = Get.isRegistered<GuideController>()
@@ -312,14 +357,24 @@ class TVGuidePage extends GetView<GuideController> {
                       (p) => p.channelId == active.id && p.isCurrentlyPlaying,
                     );
                     final nextProgram = guidePrograms.firstWhereOrNull(
-                      (p) => p.channelId == active.id && p.startTime.isAfter(now),
+                      (p) =>
+                          p.channelId == active.id && p.startTime.isAfter(now),
                     );
                     final double progPercent = currentProgram != null
                         ? (now.difference(currentProgram.startTime).inSeconds /
-                                (currentProgram.endTime.difference(currentProgram.startTime).inSeconds > 0
-                                    ? currentProgram.endTime.difference(currentProgram.startTime).inSeconds
-                                    : 1))
-                            .clamp(0.0, 1.0)
+                                  (currentProgram.endTime
+                                              .difference(
+                                                currentProgram.startTime,
+                                              )
+                                              .inSeconds >
+                                          0
+                                      ? currentProgram.endTime
+                                            .difference(
+                                              currentProgram.startTime,
+                                            )
+                                            .inSeconds
+                                      : 1))
+                              .clamp(0.0, 1.0)
                         : 0.35;
 
                     return Container(
@@ -327,7 +382,9 @@ class TVGuidePage extends GetView<GuideController> {
                       decoration: BoxDecoration(
                         color: AppColors.surface.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.08),
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -340,27 +397,32 @@ class TVGuidePage extends GetView<GuideController> {
                                 width: 52,
                                 height: 52,
                                 decoration: BoxDecoration(
-                                  color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                                  color: AppColors.surfaceVariant.withValues(
+                                    alpha: 0.6,
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
                                     color: Colors.white.withValues(alpha: 0.15),
                                   ),
                                 ),
                                 child: Center(
-                                  child: (active.poster != null &&
+                                  child:
+                                      (active.poster != null &&
                                           active.poster!.isNotEmpty)
                                       ? Image.network(
                                           active.poster!,
                                           width: 38,
                                           height: 38,
-                                          errorBuilder: (_, _, _) =>
-                                              const Icon(Icons.tv, color: Colors.white),
+                                          errorBuilder: (_, _, _) => const Icon(
+                                            Icons.tv,
+                                            color: Colors.white,
+                                          ),
                                         )
                                       : Text(
                                           active.title.isNotEmpty
                                               ? active.title
-                                                  .substring(0, 1)
-                                                  .toUpperCase()
+                                                    .substring(0, 1)
+                                                    .toUpperCase()
                                               : 'TV',
                                           style: AppTypography.getTitle(
                                             color: AppColors.primary,
@@ -378,12 +440,13 @@ class TVGuidePage extends GetView<GuideController> {
                                         Flexible(
                                           child: Text(
                                             active.title,
-                                            style: AppTypography.getHeadline(
-                                              color: Colors.white,
-                                            ).copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 20,
-                                            ),
+                                            style:
+                                                AppTypography.getHeadline(
+                                                  color: Colors.white,
+                                                ).copyWith(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 20,
+                                                ),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -397,7 +460,9 @@ class TVGuidePage extends GetView<GuideController> {
                                           decoration: BoxDecoration(
                                             color: AppColors.primaryContainer
                                                 .withValues(alpha: 0.4),
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius: BorderRadius.circular(
+                                              4,
+                                            ),
                                             border: Border.all(
                                               color: AppColors.primary
                                                   .withValues(alpha: 0.5),
@@ -435,19 +500,27 @@ class TVGuidePage extends GetView<GuideController> {
                               Expanded(
                                 child: Text(
                                   currentProgram?.title ?? description,
-                                  style: AppTypography.getBody(
-                                    color: Colors.white.withValues(alpha: 0.9),
-                                  ).copyWith(
-                                    fontSize: 13,
-                                    fontWeight: currentProgram != null ? FontWeight.w600 : FontWeight.normal,
-                                  ),
+                                  style:
+                                      AppTypography.getBody(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.9,
+                                        ),
+                                      ).copyWith(
+                                        fontSize: 13,
+                                        fontWeight: currentProgram != null
+                                            ? FontWeight.w600
+                                            : FontWeight.normal,
+                                      ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               if (currentProgram != null)
                                 Text(
-                                  DateFormatter.formatTimeRange(currentProgram.startTime, currentProgram.endTime),
+                                  DateFormatter.formatTimeRange(
+                                    currentProgram.startTime,
+                                    currentProgram.endTime,
+                                  ),
                                   style: const TextStyle(
                                     color: AppColors.textSecondary,
                                     fontSize: 11,
@@ -461,8 +534,12 @@ class TVGuidePage extends GetView<GuideController> {
                             child: LinearProgressIndicator(
                               value: progPercent,
                               minHeight: 3.0,
-                              backgroundColor: Colors.white.withValues(alpha: 0.1),
-                              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                              backgroundColor: Colors.white.withValues(
+                                alpha: 0.1,
+                              ),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppColors.primary,
+                              ),
                             ),
                           ),
                           if (nextProgram != null) ...[
@@ -513,6 +590,7 @@ class TVGuidePage extends GetView<GuideController> {
                   key: const ValueKey('tv_guide_player_inline'),
                   controller: liveCtrl,
                   isFullscreen: false,
+                  autofocus: false,
                 ),
               ),
             ),
@@ -522,10 +600,12 @@ class TVGuidePage extends GetView<GuideController> {
   }
 
   Widget _buildCategoryBar(BuildContext context) {
-    final liveCtrl =
-        Get.isRegistered<LiveTVController>() ? Get.find<LiveTVController>() : null;
-    final providerRepo =
-        Get.isRegistered<ProviderRepository>() ? Get.find<ProviderRepository>() : null;
+    final liveCtrl = Get.isRegistered<LiveTVController>()
+        ? Get.find<LiveTVController>()
+        : null;
+    final providerRepo = Get.isRegistered<ProviderRepository>()
+        ? Get.find<ProviderRepository>()
+        : null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -538,7 +618,8 @@ class TVGuidePage extends GetView<GuideController> {
           children: [
             if (liveCtrl != null || providerRepo != null)
               Obx(() {
-                final currentProvider = liveCtrl?.selectedProvider.value ??
+                final currentProvider =
+                    liveCtrl?.selectedProvider.value ??
                     providerRepo?.activeProviderId.value ??
                     '';
                 return Padding(
@@ -557,14 +638,16 @@ class TVGuidePage extends GetView<GuideController> {
               }),
             Expanded(
               child: Obx(() {
-                final categories = liveCtrl != null && liveCtrl.categories.isNotEmpty
+                final categories =
+                    liveCtrl != null && liveCtrl.categories.isNotEmpty
                     ? liveCtrl.categories
                     : (controller.categories.isNotEmpty
-                        ? controller.categories
-                        : ['All Channels']);
+                          ? controller.categories
+                          : ['All Channels']);
 
                 final selectedCat =
-                    liveCtrl?.selectedCategory.value ?? controller.selectedCategory.value;
+                    liveCtrl?.selectedCategory.value ??
+                    controller.selectedCategory.value;
 
                 return ListView.separated(
                   scrollDirection: Axis.horizontal,
@@ -573,11 +656,19 @@ class TVGuidePage extends GetView<GuideController> {
                   itemBuilder: (context, index) {
                     final cat = categories[index];
                     final isSelected =
-                        (selectedCat.isEmpty && index == 0) || selectedCat == cat;
-                    return _buildFilterPill(cat, isSelected, () {
-                      liveCtrl?.setCategory(cat);
-                      controller.setCategory(cat);
-                    });
+                        (selectedCat.isEmpty && index == 0) ||
+                        selectedCat == cat;
+                    return _buildFilterPill(
+                      cat,
+                      isSelected,
+                      () {
+                        liveCtrl?.setCategory(cat);
+                        controller.setCategory(cat);
+                      },
+                      onKeyEvent: index == 0
+                          ? _openSidebarOnLeft(context)
+                          : null,
+                    );
                   },
                 );
               }),
@@ -588,10 +679,30 @@ class TVGuidePage extends GetView<GuideController> {
     );
   }
 
-  Widget _buildFilterPill(String label, bool isSelected, VoidCallback onTap) {
+  FocusOnKeyEventCallback _openSidebarOnLeft(BuildContext context) {
+    return (node, event) {
+      if (event is KeyDownEvent &&
+          event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        final registry = TvBodyFocusRegistry.maybeOf(context);
+        if (registry != null) {
+          registry.openSidebar?.call();
+          return KeyEventResult.handled;
+        }
+      }
+      return KeyEventResult.ignored;
+    };
+  }
+
+  Widget _buildFilterPill(
+    String label,
+    bool isSelected,
+    VoidCallback onTap, {
+    FocusOnKeyEventCallback? onKeyEvent,
+  }) {
     return TvFocusable(
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
+      onKeyEvent: onKeyEvent,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         decoration: BoxDecoration(
@@ -617,12 +728,14 @@ class TVGuidePage extends GetView<GuideController> {
         child: Center(
           child: Text(
             label,
-            style: AppTypography.getLabel(
-              color:
-                  isSelected ? AppColors.onPrimaryContainer : AppColors.textSecondary,
-            ).copyWith(
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
+            style:
+                AppTypography.getLabel(
+                  color: isSelected
+                      ? AppColors.onPrimaryContainer
+                      : AppColors.textSecondary,
+                ).copyWith(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
           ),
         ),
       ),
@@ -630,8 +743,9 @@ class TVGuidePage extends GetView<GuideController> {
   }
 
   Widget _buildTVLayout(BuildContext context) {
-    final liveCtrl =
-        Get.isRegistered<LiveTVController>() ? Get.find<LiveTVController>() : null;
+    final liveCtrl = Get.isRegistered<LiveTVController>()
+        ? Get.find<LiveTVController>()
+        : null;
 
     return Container(
       decoration: BoxDecoration(
@@ -677,10 +791,13 @@ class TVGuidePage extends GetView<GuideController> {
               return _buildTvChannelCatalogGrid(channels, liveCtrl!);
             }
 
-            if (liveCtrl != null && liveCtrl.channels.isEmpty && controller.channels.isEmpty) {
+            if (liveCtrl != null &&
+                liveCtrl.channels.isEmpty &&
+                controller.channels.isEmpty) {
               return const EmptyView(
                 title: 'No Live Channels Available',
-                description: 'Connect an IPTV provider to start watching Live TV.',
+                description:
+                    'Connect an IPTV provider to start watching Live TV.',
               );
             }
 
@@ -692,7 +809,11 @@ class TVGuidePage extends GetView<GuideController> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.tv_off, size: 48, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.tv_off,
+                      size: 48,
+                      color: AppColors.textSecondary,
+                    ),
                     AppSpacing.heightMD,
                     Text(
                       'No channels in "${liveCtrl.selectedCategory.value}"',
@@ -715,7 +836,8 @@ class TVGuidePage extends GetView<GuideController> {
 
             return const EmptyView(
               title: 'No Live Channels Available',
-              description: 'Connect an IPTV provider to start watching Live TV.',
+              description:
+                  'Connect an IPTV provider to start watching Live TV.',
             );
           }),
         ),
@@ -739,8 +861,7 @@ class TVGuidePage extends GetView<GuideController> {
       itemBuilder: (context, index) {
         final item = channels[index];
         return Obx(() {
-          final isPlaying =
-              liveCtrl.activePlayingChannel.value?.id == item.id;
+          final isPlaying = liveCtrl.activePlayingChannel.value?.id == item.id;
           return LiveTvChannelCard(
             channel: item,
             isPlaying: isPlaying,
@@ -756,18 +877,22 @@ class TVGuidePage extends GetView<GuideController> {
     List<MediaItem> channels,
     LiveTVController liveCtrl,
   ) {
-    final List<EPGChannel> epgChannels = channels.map((c) => EPGChannel(
-      id: c.id,
-      providerId: c.providerId,
-      providerType: c.providerType,
-      title: c.title,
-      mediaType: c.mediaType,
-      poster: c.poster,
-      thumbnail: c.thumbnail,
-      createdAt: c.createdAt,
-      updatedAt: c.updatedAt,
-      number: c.metadata['number']?.toString(),
-    )).toList();
+    final List<EPGChannel> epgChannels = channels
+        .map(
+          (c) => EPGChannel(
+            id: c.id,
+            providerId: c.providerId,
+            providerType: c.providerType,
+            title: c.title,
+            mediaType: c.mediaType,
+            poster: c.poster,
+            thumbnail: c.thumbnail,
+            createdAt: c.createdAt,
+            updatedAt: c.updatedAt,
+            number: c.metadata['number']?.toString(),
+          ),
+        )
+        .toList();
 
     // Group available programs by channelId in a single O(N) pass
     final Map<String, List<EPGProgram>> channelProgramsMap = {};
@@ -802,10 +927,15 @@ class TVGuidePage extends GetView<GuideController> {
 
   Widget _buildRemoteLegendBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl, vertical: 10),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.xl,
+        vertical: 10,
+      ),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.6),
-        border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -892,9 +1022,13 @@ class TVGuidePage extends GetView<GuideController> {
     );
   }
 
-  Widget _buildMobileCategoryBar(BuildContext context, LiveTVController? liveCtrl) {
-    final providerRepo =
-        Get.isRegistered<ProviderRepository>() ? Get.find<ProviderRepository>() : null;
+  Widget _buildMobileCategoryBar(
+    BuildContext context,
+    LiveTVController? liveCtrl,
+  ) {
+    final providerRepo = Get.isRegistered<ProviderRepository>()
+        ? Get.find<ProviderRepository>()
+        : null;
 
     return Padding(
       padding: const EdgeInsets.symmetric(
@@ -907,7 +1041,8 @@ class TVGuidePage extends GetView<GuideController> {
           children: [
             if (liveCtrl != null || providerRepo != null)
               Obx(() {
-                final currentProvider = liveCtrl?.selectedProvider.value ??
+                final currentProvider =
+                    liveCtrl?.selectedProvider.value ??
                     providerRepo?.activeProviderId.value ??
                     '';
                 return Padding(
@@ -926,14 +1061,16 @@ class TVGuidePage extends GetView<GuideController> {
               }),
             Expanded(
               child: Obx(() {
-                final categories = liveCtrl != null && liveCtrl.categories.isNotEmpty
+                final categories =
+                    liveCtrl != null && liveCtrl.categories.isNotEmpty
                     ? liveCtrl.categories
                     : (controller.categories.isNotEmpty
-                        ? controller.categories
-                        : ['All Channels']);
+                          ? controller.categories
+                          : ['All Channels']);
 
                 final selectedCat =
-                    liveCtrl?.selectedCategory.value ?? controller.selectedCategory.value;
+                    liveCtrl?.selectedCategory.value ??
+                    controller.selectedCategory.value;
 
                 return ListView.separated(
                   scrollDirection: Axis.horizontal,
@@ -942,11 +1079,19 @@ class TVGuidePage extends GetView<GuideController> {
                   itemBuilder: (context, index) {
                     final cat = categories[index];
                     final isSelected =
-                        (selectedCat.isEmpty && index == 0) || selectedCat == cat;
-                    return _buildFilterPill(cat, isSelected, () {
-                      liveCtrl?.setCategory(cat);
-                      controller.setCategory(cat);
-                    });
+                        (selectedCat.isEmpty && index == 0) ||
+                        selectedCat == cat;
+                    return _buildFilterPill(
+                      cat,
+                      isSelected,
+                      () {
+                        liveCtrl?.setCategory(cat);
+                        controller.setCategory(cat);
+                      },
+                      onKeyEvent: index == 0
+                          ? _openSidebarOnLeft(context)
+                          : null,
+                    );
                   },
                 );
               }),
@@ -968,11 +1113,14 @@ class TVGuidePage extends GetView<GuideController> {
         activeChannels = liveCtrl.channels.toList();
       }
     }
-    final isFilteringCategory = liveCtrl != null &&
+    final isFilteringCategory =
+        liveCtrl != null &&
         liveCtrl.selectedCategory.value.isNotEmpty &&
         liveCtrl.selectedCategory.value != 'All Channels';
 
-    if (activeChannels.isEmpty && !isFilteringCategory && controller.channels.isNotEmpty) {
+    if (activeChannels.isEmpty &&
+        !isFilteringCategory &&
+        controller.channels.isNotEmpty) {
       activeChannels = controller.channels.toList();
     }
 
@@ -984,7 +1132,11 @@ class TVGuidePage extends GetView<GuideController> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.tv_off, size: 48, color: AppColors.textSecondary),
+              const Icon(
+                Icons.tv_off,
+                size: 48,
+                color: AppColors.textSecondary,
+              ),
               AppSpacing.heightMD,
               Text(
                 'No channels in "${liveCtrl.selectedCategory.value}"',
@@ -1046,7 +1198,8 @@ class TVGuidePage extends GetView<GuideController> {
                 thumbnail: item.thumbnail,
                 createdAt: item.createdAt,
                 updatedAt: item.updatedAt,
-                number: item.metadata['number']?.toString() ??
+                number:
+                    item.metadata['number']?.toString() ??
                     (item is Channel ? item.number : null),
               );
 
@@ -1074,4 +1227,3 @@ class TVGuidePage extends GetView<GuideController> {
     );
   }
 }
-

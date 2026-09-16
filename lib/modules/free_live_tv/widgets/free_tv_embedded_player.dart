@@ -22,11 +22,13 @@ import 'package:stream_hub/shared/widgets/tv_player_keyboard_hint.dart';
 class FreeTvEmbeddedPlayer extends StatefulWidget {
   final FreeLiveTvController controller;
   final bool isFullscreen;
+  final bool autofocus;
 
   const FreeTvEmbeddedPlayer({
     super.key,
     required this.controller,
     this.isFullscreen = false,
+    this.autofocus = true,
   });
 
   @override
@@ -39,6 +41,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
   bool _quickZapperOpen = false;
   String? _hudToastText;
   Timer? _hudToastTimer;
+  final FocusNode _playPauseFocusNode = FocusNode(debugLabel: 'FreeTvPlayPause');
 
   @override
   void initState() {
@@ -48,11 +51,25 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
 
   void _startControlsTimer() {
     _controlsTimer?.cancel();
-    _controlsTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted && _controlsVisible) {
-        setState(() => _controlsVisible = false);
-      }
+    final seconds = widget.isFullscreen ? 5 : 8;
+    _controlsTimer = Timer(Duration(seconds: seconds), () {
+      if (!mounted || !_controlsVisible) return;
+      final ctrl = widget.controller.inlinePlayerController;
+      final state = ctrl?.playbackController.engine.stateRx.value;
+      // Keep controls on screen while paused; hiding them hides the resume button.
+      if (state == PlaybackState.paused) return;
+      setState(() => _controlsVisible = false);
     });
+  }
+
+  void _focusPlayPauseIfControlsVisible() {
+    if (_controlsVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _controlsVisible) {
+          _playPauseFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
   void _toggleControls() {
@@ -60,6 +77,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
       _controlsVisible = !_controlsVisible;
       if (_controlsVisible) {
         _startControlsTimer();
+        _focusPlayPauseIfControlsVisible();
       } else {
         _controlsTimer?.cancel();
       }
@@ -71,6 +89,19 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
       setState(() => _controlsVisible = true);
     }
     _startControlsTimer();
+    _focusPlayPauseIfControlsVisible();
+  }
+
+  /// Remote Select/OK handling. While controls are visible it hides them; while
+  /// they are hidden it reveals them AND acts as play/pause so the first OK on
+  /// the remote always responds (the press bubbles up to `TvPlayerKeyboard`).
+  void _handleSelectKey() {
+    if (_controlsVisible) {
+      _toggleControls();
+      return;
+    }
+    widget.controller.inlinePlayerController?.togglePlayPause();
+    _showControlsTemporarily();
   }
 
   IconData _getAspectRatioIcon(AspectRatioMode mode) {
@@ -411,6 +442,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
   void dispose() {
     _hudToastTimer?.cancel();
     _controlsTimer?.cancel();
+    _playPauseFocusNode.dispose();
     super.dispose();
   }
 
@@ -502,8 +534,9 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
               : 'Free Live TV');
 
     return TvPlayerKeyboard(
+      autofocus: widget.autofocus,
       onAnyKey: _showControlsTemporarily,
-      onToggleControls: _toggleControls,
+      onToggleControls: _handleSelectKey,
       onPlayPause: () {
         playerCtrl.togglePlayPause();
         final isPlaying =
@@ -661,6 +694,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                       final isPlaying = state == PlaybackState.playing;
 
                       return TvFocusable(
+                        focusNode: _playPauseFocusNode,
                         onTap: () {
                           _showControlsTemporarily();
                           playerCtrl.togglePlayPause();
@@ -962,7 +996,9 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                             ? Icons.pause_circle_filled_rounded
                                             : Icons.play_circle_filled_rounded,
                                         color: AppColors.primary,
-                                        size: 26.0,
+                                        size: isCompact
+                                            ? 22.0
+                                            : (isFullscreen ? 26.0 : 30.0),
                                       ),
                                       onPressed: null,
                                     ),

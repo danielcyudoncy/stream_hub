@@ -119,6 +119,7 @@ class _SeriesInlinePlayerState extends State<SeriesInlinePlayer> {
 
               // 2. Touch Gestures, TV Remote & Controls Layer
               TvPlayerKeyboard(
+                autofocus: widget.isFullscreen,
                 onAnyKey: _showControlsTemporarily,
                 onToggleControls: _toggleControls,
                 onPlayPause: () {
