@@ -8,7 +8,6 @@ import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
-import '../../../core/utils/image_url_formatter.dart';
 import '../../../core/utils/responsive_helper.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/app_scaffold.dart';
@@ -19,6 +18,8 @@ import '../../../shared/widgets/tv_focusable.dart';
 import '../free_live_tv/controllers/free_live_tv_controller.dart';
 import '../live_tv/controllers/live_tv_controller.dart';
 import 'home_controller.dart';
+import '../../../core/streaming/vod/xtream_vod_info_service.dart';
+import '../../../shared/widgets/cached_home_image.dart';
 import 'widgets/home_content_rail.dart';
 import 'widgets/home_continue_watching_card.dart';
 import 'widgets/home_live_channel_card.dart';
@@ -34,12 +35,50 @@ class TvHomePage extends StatefulWidget {
 class _TvHomePageState extends State<TvHomePage> {
   final HomeController controller = Get.find<HomeController>();
   MediaItem? _focusedItem;
+  String? _resolvedBackdropUrl;
+  String? _lastResolvedItemId;
 
   void _onItemFocus(MediaItem item, bool isFocused) {
     if (isFocused && _focusedItem?.id != item.id) {
       setState(() {
         _focusedItem = item;
       });
+    }
+  }
+
+  void _resolveBackdrop(MediaItem? item) {
+    if (item == null) {
+      if (_lastResolvedItemId != null) {
+        _resolvedBackdropUrl = null;
+        _lastResolvedItemId = null;
+      }
+      return;
+    }
+    if (_lastResolvedItemId == item.id) return;
+    _lastResolvedItemId = item.id;
+
+    final direct = item.resolvedBackdropUrl;
+    _resolvedBackdropUrl = direct;
+
+    if ((item.mediaType == MediaType.movie || item.mediaType == MediaType.series) &&
+        Get.isRegistered<XtreamVodInfoService>()) {
+      final vodService = Get.find<XtreamVodInfoService>();
+      final cached = vodService.getCachedBackdrop(item);
+      if (cached != null && cached.isNotEmpty) {
+        _resolvedBackdropUrl = cached;
+      } else {
+        vodService.fetchForMediaItem(item).then((info) {
+          if (!mounted || _lastResolvedItemId != item.id) return;
+          final bd = (info?.backdrop != null && info!.backdrop!.trim().isNotEmpty)
+              ? info.backdrop!.trim()
+              : null;
+          if (bd != null && bd.isNotEmpty) {
+            setState(() {
+              _resolvedBackdropUrl = bd;
+            });
+          }
+        }).catchError((_) {});
+      }
     }
   }
 
@@ -143,10 +182,12 @@ class _TvHomePageState extends State<TvHomePage> {
                                   ? controller.series.first
                                   : null))));
 
-        final rawBackdrop = backgroundItem?.backdrop ?? backgroundItem?.poster;
-        final backdrop = backgroundItem != null
-            ? ImageUrlFormatter.format(rawBackdrop, item: backgroundItem)
-            : null;
+        _resolveBackdrop(backgroundItem);
+
+        final backdrop = _resolvedBackdropUrl ?? backgroundItem?.resolvedBackdropUrl;
+        final screenHeight = MediaQuery.of(context).size.height;
+        final spotlightHeight = (screenHeight * 0.82).clamp(640.0, 800.0);
+        final heroHeaderHeight = (screenHeight * 0.58).clamp(480.0, 560.0);
 
         return Stack(
           children: [
@@ -156,54 +197,91 @@ class _TvHomePageState extends State<TvHomePage> {
                 top: 0,
                 left: 0,
                 right: 0,
-                height: 760.0,
+                height: spotlightHeight,
                 child: AnimatedSwitcher(
                   duration: const Duration(milliseconds: 600),
-                  child: Image.network(
-                    backdrop,
+                  layoutBuilder: (currentChild, previousChildren) {
+                    return Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        ...previousChildren,
+                        ?currentChild,
+                      ],
+                    );
+                  },
+                  child: SizedBox.expand(
                     key: ValueKey(backdrop),
-                    fit: BoxFit.cover,
-                    alignment: Alignment.topCenter,
-                    errorBuilder: (_, _, _) => const SizedBox.expand(),
+                    child: CachedHomeImage(
+                      imageUrl: backdrop,
+                      fit: BoxFit.cover,
+                      alignment: Alignment.topRight,
+                      errorBuilder: (_, _) => const SizedBox.expand(),
+                    ),
                   ),
                 ),
               ),
 
             // 2. Rich Multi-Layer Gradient Overlays (Vignette + Readability)
+            // Layer A: Left-to-right gradient ensuring perfect readability of text/buttons on the left,
+            // while leaving the right 40% crisp and clear.
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              height: 760.0,
-              child: DecoratedBox(
+              height: spotlightHeight,
+              child: const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
-                    stops: const [0.0, 0.45, 1.0],
+                    stops: [0.0, 0.38, 0.58, 0.82, 1.0],
                     colors: [
                       AppColors.background,
-                      AppColors.background.withValues(alpha: 0.85),
+                      Color(0xF50B0E14),
+                      Color(0x750B0E14),
+                      Color(0x100B0E14),
                       Colors.transparent,
                     ],
                   ),
                 ),
               ),
             ),
+            // Layer B: Bottom-to-top gradient blending seamlessly into the content rails.
             Positioned(
               top: 0,
               left: 0,
               right: 0,
-              height: 760.0,
-              child: DecoratedBox(
+              height: spotlightHeight,
+              child: const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.bottomCenter,
                     end: Alignment.topCenter,
-                    stops: const [0.0, 0.35, 1.0],
+                    stops: [0.0, 0.22, 0.55, 1.0],
                     colors: [
                       AppColors.background,
-                      AppColors.background.withValues(alpha: 0.75),
+                      Color(0xD00B0E14),
+                      Color(0x200B0E14),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Layer C: Subtle top shadow for status / header actions.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 120.0,
+              child: const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0.0, 1.0],
+                    colors: [
+                      Color(0x99000000),
                       Colors.transparent,
                     ],
                   ),
@@ -218,12 +296,12 @@ class _TvHomePageState extends State<TvHomePage> {
                   // Hero Spotlight Header
                   SliverToBoxAdapter(
                     child: SizedBox(
-                      height: 560,
+                      height: heroHeaderHeight,
                       child: Padding(
                         padding: const EdgeInsets.only(
-                          left: 64.0,
-                          right: 64.0,
-                          bottom: 48.0,
+                          left: 56.0,
+                          right: 56.0,
+                          bottom: 36.0,
                         ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.end,
@@ -239,8 +317,8 @@ class _TvHomePageState extends State<TvHomePage> {
 
                   // Rails Section
                   SliverToBoxAdapter(
-                    child: Transform.translate(
-                      offset: const Offset(0, -32),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -266,6 +344,8 @@ class _TvHomePageState extends State<TvHomePage> {
                             HomeContentRail(
                               title: 'Live TV Quick Picks',
                               items: controller.liveChannels.take(15).toList(),
+                              cardWidth: 160.0,
+                              cardHeight: 125.0,
                               onSeeAll: () => Get.toNamed(AppRoutes.liveTV),
                               itemBuilder: (context, item, index) {
                                 return HomeLiveChannelCard(
@@ -275,6 +355,9 @@ class _TvHomePageState extends State<TvHomePage> {
                                 );
                               },
                             ),
+                            AppSpacing.heightXL,
+                          ] else if (controller.channelsState.value == SectionLoadState.loading || controller.isLoading.value) ...[
+                            _buildLiveTvSkeletonRail(context),
                             AppSpacing.heightXL,
                           ],
 
@@ -287,7 +370,7 @@ class _TvHomePageState extends State<TvHomePage> {
                               itemBuilder: (context, item, index) {
                                 return PremiumMediaCard(
                                   item: item,
-                                  width: 200,
+                                  width: 155,
                                   aspectRatio: 2 / 3,
                                   onTap: () => _openItem(item),
                                   onFocusChange: (f) => _onItemFocus(item, f),
@@ -306,7 +389,7 @@ class _TvHomePageState extends State<TvHomePage> {
                               itemBuilder: (context, item, index) {
                                 return PremiumMediaCard(
                                   item: item,
-                                  width: 200,
+                                  width: 155,
                                   aspectRatio: 2 / 3,
                                   onTap: () => _openItem(item),
                                   onFocusChange: (f) => _onItemFocus(item, f),
@@ -331,7 +414,7 @@ class _TvHomePageState extends State<TvHomePage> {
                                 }
                                 return PremiumMediaCard(
                                   item: item,
-                                  width: 200,
+                                  width: 155,
                                   aspectRatio: 2 / 3,
                                   onTap: () => _openItem(item),
                                   onFocusChange: (f) => _onItemFocus(item, f),
@@ -502,8 +585,9 @@ autofocus: ResponsiveHelper.isTvLayout(context),
     final rating = item.formattedRating;
     final genre = item.resolvedGenre;
 
+    final textWidth = (MediaQuery.of(context).size.width * 0.52).clamp(420.0, 780.0);
     return SizedBox(
-      width: MediaQuery.of(context).size.width * 0.58,
+      width: textWidth,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -751,6 +835,46 @@ autofocus: ResponsiveHelper.isTvLayout(context),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildLiveTvSkeletonRail(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.lg,
+            vertical: AppSpacing.xs,
+          ),
+          child: Container(
+            width: 180,
+            height: 18,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+        AppSpacing.heightSM,
+        SizedBox(
+          height: 125.0,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            scrollDirection: Axis.horizontal,
+            itemCount: 6,
+            separatorBuilder: (context, index) => AppSpacing.widthMD,
+            itemBuilder: (context, index) => Container(
+              width: 160.0,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceVariant.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

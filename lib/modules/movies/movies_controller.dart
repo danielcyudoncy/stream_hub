@@ -32,18 +32,21 @@ class MoviesController extends GetxController {
     PlaybackRepository? playbackRepository,
     FavoriteRepository? favoriteRepository,
     TMDBCatalogService? tmdbCatalogService,
-  })  : playbackRepository = playbackRepository ??
-            (Get.isRegistered<PlaybackRepository>()
-                ? Get.find<PlaybackRepository>()
-                : null),
-        favoriteRepository = favoriteRepository ??
-            (Get.isRegistered<FavoriteRepository>()
-                ? Get.find<FavoriteRepository>()
-                : null),
-        tmdbCatalogService = tmdbCatalogService ??
-            (Get.isRegistered<TMDBCatalogService>()
-                ? Get.find<TMDBCatalogService>()
-                : null);
+  }) : playbackRepository =
+           playbackRepository ??
+           (Get.isRegistered<PlaybackRepository>()
+               ? Get.find<PlaybackRepository>()
+               : null),
+       favoriteRepository =
+           favoriteRepository ??
+           (Get.isRegistered<FavoriteRepository>()
+               ? Get.find<FavoriteRepository>()
+               : null),
+       tmdbCatalogService =
+           tmdbCatalogService ??
+           (Get.isRegistered<TMDBCatalogService>()
+               ? Get.find<TMDBCatalogService>()
+               : null);
 
   final RxBool isLoading = true.obs;
   bool _isLoadingMovies = false;
@@ -103,12 +106,6 @@ class MoviesController extends GetxController {
     });
   }
 
-  @override
-  void onReady() {
-    super.onReady();
-    _loadWatchSessions().then((_) => _computeSections(movies));
-  }
-
   Future<void> reloadMovies() => _loadMovies();
 
   void setProvider(String providerId) {
@@ -126,14 +123,24 @@ class MoviesController extends GetxController {
   Future<void> _loadMovies() async {
     if (_isLoadingMovies) return;
     _isLoadingMovies = true;
-    isLoading.value = true;
+    // Cached-first render: keep the existing catalog visible while a refresh or
+    // provider switch reloads data instead of blanking the screen.
+    final hasCached = _allMovies.isNotEmpty;
+    if (!hasCached) {
+      isLoading.value = true;
+    }
     try {
+      // Kick off the watch-session read in parallel with the catalog fetches so
+      // sections are not delayed serially after the catalog load completes.
+      final sessionsFuture = _loadWatchSessions();
       var movieItems = await catalogRepository.getByType(MediaType.movie);
       if (movieItems.isEmpty) {
         movieItems = mediaLibrary.getMovies();
       }
 
-      if (movieItems.isEmpty && selectedProvider.value.isEmpty && tmdbCatalogService != null) {
+      if (movieItems.isEmpty &&
+          selectedProvider.value.isEmpty &&
+          tmdbCatalogService != null) {
         isTmdbDiscovery.value = true;
         final tmdb = tmdbCatalogService!;
         final trending = await tmdb.getTrendingMovies();
@@ -166,20 +173,25 @@ class MoviesController extends GetxController {
             ];
             for (final g in genreNames) {
               final count = unique
-                  .where((m) => m.genres.any((mg) =>
-                      mg.toLowerCase().trim() == g.toLowerCase().trim()))
+                  .where(
+                    (m) => m.genres.any(
+                      (mg) => mg.toLowerCase().trim() == g.toLowerCase().trim(),
+                    ),
+                  )
                   .length;
-              tmdbCats.add(MovieCategory(
-                id: 'tmdb-genre-$g',
-                name: g,
-                count: count,
-                icon: MovieCategory.defaultIconForName(g),
-              ));
+              tmdbCats.add(
+                MovieCategory(
+                  id: 'tmdb-genre-$g',
+                  name: g,
+                  count: count,
+                  icon: MovieCategory.defaultIconForName(g),
+                ),
+              );
             }
             movieCategories.assignAll(tmdbCats);
           }
 
-          await _loadWatchSessions();
+          await sessionsFuture;
           _computeContinueWatchingFromSessions();
           isLoading.value = false;
           return;
@@ -187,8 +199,9 @@ class MoviesController extends GetxController {
       }
 
       isTmdbDiscovery.value = false;
-      final rawCollections =
-          await catalogRepository.getByType(MediaType.collection);
+      final rawCollections = await catalogRepository.getByType(
+        MediaType.collection,
+      );
       _allCollections
         ..clear()
         ..addAll(rawCollections);
@@ -198,7 +211,7 @@ class MoviesController extends GetxController {
         ..clear()
         ..addAll(movieItems);
 
-      await _loadWatchSessions();
+      await sessionsFuture;
       _applyProviderFilter();
     } catch (e) {
       // Non-critical logging
@@ -245,7 +258,9 @@ class MoviesController extends GetxController {
   }
 
   void _applyProviderFilter() {
-    if (selectedProvider.value.isEmpty && tmdbCatalogService != null && _allMovies.isEmpty) {
+    if (selectedProvider.value.isEmpty &&
+        tmdbCatalogService != null &&
+        _allMovies.isEmpty) {
       _loadMovies();
       return;
     }
@@ -268,8 +283,9 @@ class MoviesController extends GetxController {
   void _computeSections(List<MediaItem> allMovies) {
     final now = DateTime.now();
     final weekAgo = now.subtract(const Duration(days: 7));
-    final candidateSample =
-        allMovies.length > 500 ? allMovies.take(500).toList() : allMovies;
+    final candidateSample = allMovies.length > 500
+        ? allMovies.take(500).toList()
+        : allMovies;
 
     // 1. Featured Movies (Top rated or trending)
     final featured = _takePreferred(
@@ -315,7 +331,9 @@ class MoviesController extends GetxController {
     newThisWeekMovies.assignAll(
       _takePreferred(
         preferred:
-            candidateSample.where((item) => item.createdAt.isAfter(weekAgo)).toList()
+            candidateSample
+                .where((item) => item.createdAt.isAfter(weekAgo))
+                .toList()
               ..sort((a, b) => b.createdAt.compareTo(a.createdAt)),
         fallback: candidateSample,
         limit: 15,
@@ -460,33 +478,40 @@ class MoviesController extends GetxController {
 
   void _computeCategories(List<MediaItem> currentMovies) {
     final List<MovieCategory> results = [];
-    results.add(MovieCategory(
-      id: 'all',
-      name: 'All Movies',
-      count: currentMovies.length,
-      icon: AppIcons.movies,
-    ));
+    results.add(
+      MovieCategory(
+        id: 'all',
+        name: 'All Movies',
+        count: currentMovies.length,
+        icon: AppIcons.movies,
+      ),
+    );
 
     // 1. Build counts per category ID, category name, and genre across currentMovies
     final Map<String, int> countByCatId = {};
     final Map<String, int> countByCatName = {};
 
-    for (final m in currentMovies) {
-      final catId = (m.metadata['categoryId'] ??
-              m.metadata['category_id'] ??
-              m.metadata['genreId'])
-          ?.toString()
-          .trim();
+    final candidateSample = currentMovies.length > 500
+        ? currentMovies.take(500)
+        : currentMovies;
+    for (final m in candidateSample) {
+      final catId =
+          (m.metadata['categoryId'] ??
+                  m.metadata['category_id'] ??
+                  m.metadata['genreId'])
+              ?.toString()
+              .trim();
       if (catId != null && catId.isNotEmpty) {
         countByCatId[catId] = (countByCatId[catId] ?? 0) + 1;
       }
 
-      final catName = (m.metadata['category_name'] ??
-              m.metadata['categoryName'] ??
-              m.metadata['genre'] ??
-              m.metadata['group'])
-          ?.toString()
-          .trim();
+      final catName =
+          (m.metadata['category_name'] ??
+                  m.metadata['categoryName'] ??
+                  m.metadata['genre'] ??
+                  m.metadata['group'])
+              ?.toString()
+              .trim();
       if (catName != null && catName.isNotEmpty) {
         for (final part in catName.split(_kGenreSplitter)) {
           final trimmed = part.trim();
@@ -517,13 +542,15 @@ class MoviesController extends GetxController {
 
     // 2. Add from provider VOD collections
     for (final col in _allCollections) {
-      final matchesProvider = selectedProvider.value.isEmpty ||
+      final matchesProvider =
+          selectedProvider.value.isEmpty ||
           col.providerId == selectedProvider.value ||
           col.providerType.displayName == selectedProvider.value ||
           col.providerType.name == selectedProvider.value;
       if (!matchesProvider) continue;
 
-      final isVod = col.id.contains('xtream-vod-cat-') ||
+      final isVod =
+          col.id.contains('xtream-vod-cat-') ||
           col.id.contains('-cat-vod-') ||
           col.metadata['type'] == 'vod' ||
           col.metadata['type'] == 'movie';
@@ -538,20 +565,24 @@ class MoviesController extends GetxController {
       final normalizedTitle = title.toLowerCase();
       if (seenCategoryNames.contains(normalizedTitle)) continue;
 
-      final rawCatId = col.metadata['categoryId']?.toString() ??
+      final rawCatId =
+          col.metadata['categoryId']?.toString() ??
           col.metadata['genreId']?.toString();
-      final count = (rawCatId != null ? countByCatId[rawCatId] : null) ??
+      final count =
+          (rawCatId != null ? countByCatId[rawCatId] : null) ??
           countByCatName[title] ??
           0;
 
       if (isVod || count > 0) {
         seenCategoryNames.add(normalizedTitle);
-        results.add(MovieCategory(
-          id: col.id,
-          name: title,
-          count: count,
-          icon: MovieCategory.defaultIconForName(title),
-        ));
+        results.add(
+          MovieCategory(
+            id: col.id,
+            name: title,
+            count: count,
+            icon: MovieCategory.defaultIconForName(title),
+          ),
+        );
       }
     }
 
@@ -565,12 +596,14 @@ class MoviesController extends GetxController {
       }
 
       seenCategoryNames.add(normalized);
-      results.add(MovieCategory(
-        id: 'cat-${entry.key}',
-        name: name,
-        count: entry.value,
-        icon: MovieCategory.defaultIconForName(name),
-      ));
+      results.add(
+        MovieCategory(
+          id: 'cat-${entry.key}',
+          name: name,
+          count: entry.value,
+          icon: MovieCategory.defaultIconForName(name),
+        ),
+      );
     }
 
     // Sort categories (keeping 'All Movies' at index 0)
@@ -605,7 +638,8 @@ class MoviesController extends GetxController {
         }
       }
 
-      final cat = m.metadata['category_name']?.toString().trim() ??
+      final cat =
+          m.metadata['category_name']?.toString().trim() ??
           m.metadata['categoryName']?.toString().trim() ??
           m.metadata['genre']?.toString().trim();
       if (cat != null && cat.isNotEmpty) {
@@ -624,19 +658,13 @@ class MoviesController extends GetxController {
   }
 
   void openMovie(MediaItem item) {
-    Get.toNamed(
-      AppRoutes.movieDetails,
-      arguments: item,
-    );
+    Get.toNamed(AppRoutes.movieDetails, arguments: item);
   }
 
   void openGenre(String genreTitle, List<MediaItem> items) {
     Get.toNamed(
       AppRoutes.movieGenre,
-      arguments: {
-        'title': genreTitle,
-        'items': items,
-      },
+      arguments: {'title': genreTitle, 'items': items},
     );
   }
 
@@ -651,33 +679,38 @@ class MoviesController extends GetxController {
 
     String? strippedId;
     if (category.id.contains('xtream-vod-cat-')) {
-      strippedId =
-          category.id.replaceFirst('xtream-vod-cat-', '').toLowerCase().trim();
+      strippedId = category.id
+          .replaceFirst('xtream-vod-cat-', '')
+          .toLowerCase()
+          .trim();
     } else if (category.id.contains('-cat-vod-')) {
       final parts = category.id.split('-cat-vod-');
       if (parts.length > 1) strippedId = parts.last.toLowerCase().trim();
     }
 
     final matching = movies.where((m) {
-      final mCatId = (m.metadata['categoryId'] ??
-              m.metadata['category_id'] ??
-              m.metadata['genreId'])
-          ?.toString()
-          .toLowerCase()
-          .trim();
+      final mCatId =
+          (m.metadata['categoryId'] ??
+                  m.metadata['category_id'] ??
+                  m.metadata['genreId'])
+              ?.toString()
+              .toLowerCase()
+              .trim();
       if (mCatId != null && mCatId.isNotEmpty) {
-        if (mCatId == targetId || (strippedId != null && mCatId == strippedId)) {
+        if (mCatId == targetId ||
+            (strippedId != null && mCatId == strippedId)) {
           return true;
         }
       }
 
-      final mCatName = (m.metadata['category_name'] ??
-              m.metadata['categoryName'] ??
-              m.metadata['genre'] ??
-              m.metadata['group'])
-          ?.toString()
-          .toLowerCase()
-          .trim();
+      final mCatName =
+          (m.metadata['category_name'] ??
+                  m.metadata['categoryName'] ??
+                  m.metadata['genre'] ??
+                  m.metadata['group'])
+              ?.toString()
+              .toLowerCase()
+              .trim();
       if (mCatName != null && mCatName.isNotEmpty) {
         if (mCatName == targetName ||
             mCatName.contains(targetName) ||
@@ -721,13 +754,14 @@ class MoviesController extends GetxController {
     final target = genreName.toLowerCase().trim();
     final matching = movies.where((m) {
       final inGenres = m.genres.any((g) => g.toLowerCase().contains(target));
-      final inCat = (m.metadata['category_name']?.toString() ??
-              m.metadata['categoryName']?.toString() ??
-              m.metadata['genre']?.toString() ??
-              m.metadata['group']?.toString() ??
-              '')
-          .toLowerCase()
-          .contains(target);
+      final inCat =
+          (m.metadata['category_name']?.toString() ??
+                  m.metadata['categoryName']?.toString() ??
+                  m.metadata['genre']?.toString() ??
+                  m.metadata['group']?.toString() ??
+                  '')
+              .toLowerCase()
+              .contains(target);
       return inGenres || inCat;
     }).toList();
 

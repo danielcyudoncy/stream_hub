@@ -82,7 +82,8 @@ class HomePage extends GetView<HomeController> {
                         items: controller.featuredHeroItems,
                         onWatch: (item) => _openItem(item),
                         onDetails: (item) => _openItem(item),
-                        onToggleFavorite: (item) => controller.toggleFavorite(item),
+                        onToggleFavorite: (item) =>
+                            controller.toggleFavorite(item),
                         isFavorite: controller.isItemFavorite,
                       ),
                       AppSpacing.heightMD,
@@ -329,7 +330,9 @@ class HomePage extends GetView<HomeController> {
                       vertical: AppSpacing.xs,
                     ),
                     decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                      color: colorScheme.surfaceContainerHighest.withValues(
+                        alpha: 0.6,
+                      ),
                       borderRadius: AppRadius.pill,
                       border: Border.all(
                         color: colorScheme.outline.withValues(alpha: 0.15),
@@ -338,11 +341,7 @@ class HomePage extends GetView<HomeController> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          genre.icon,
-                          size: 18,
-                          color: colorScheme.primary,
-                        ),
+                        Icon(genre.icon, size: 18, color: colorScheme.primary),
                         const SizedBox(width: 8),
                         Text(
                           genre.title,
@@ -375,7 +374,11 @@ class HomePage extends GetView<HomeController> {
                 shape: BoxShape.circle,
                 color: colorScheme.primary.withValues(alpha: 0.15),
               ),
-              child: Icon(AppIcons.play, size: 48.0, color: colorScheme.primary),
+              child: Icon(
+                AppIcons.play,
+                size: 48.0,
+                color: colorScheme.primary,
+              ),
             ),
             AppSpacing.heightMD,
             Text(
@@ -493,22 +496,17 @@ class HomePage extends GetView<HomeController> {
   }
 
   void _openMovie(MediaItem item) {
-    Get.toNamed(
-      AppRoutes.movieDetails,
-      arguments: item,
-    );
+    Get.toNamed(AppRoutes.movieDetails, arguments: item);
   }
 
   void _openSeries(MediaItem item) {
-    Get.toNamed(
-      AppRoutes.seriesDetails,
-      arguments: {'item': item},
-    );
+    Get.toNamed(AppRoutes.seriesDetails, arguments: {'item': item});
   }
 
   void _playChannel(MediaItem item) {
     final provider = item.providerType.displayName.toLowerCase();
-    final isFreeLiveTv = provider.contains('freelivetv') ||
+    final isFreeLiveTv =
+        provider.contains('freelivetv') ||
         provider.contains('free_live_tv') ||
         provider.contains('iptv-org') ||
         item.providerId.toLowerCase().contains('freelivetv') ||
@@ -516,25 +514,25 @@ class HomePage extends GetView<HomeController> {
         item.providerId.toLowerCase().contains('portal5458') ||
         item.id.startsWith('free_tv_') ||
         item.id.toLowerCase().contains('portal5458') ||
-        (item.metadata['source']?.toString().toLowerCase().contains('portal5458') ?? false) ||
-        (item.metadata['streamUrl']?.toString().toLowerCase().contains('portal5458') ?? false);
+        (item.metadata['source']?.toString().toLowerCase().contains(
+              'portal5458',
+            ) ??
+            false) ||
+        (item.metadata['streamUrl']?.toString().toLowerCase().contains(
+              'portal5458',
+            ) ??
+            false);
 
     if (isFreeLiveTv) {
       if (Get.isRegistered<LiveTVController>()) {
         Get.find<LiveTVController>().stopInlinePlayer();
       }
-      Get.toNamed(
-        AppRoutes.freeLiveTV,
-        arguments: {'channel': item},
-      );
+      Get.toNamed(AppRoutes.freeLiveTV, arguments: {'channel': item});
     } else {
       if (Get.isRegistered<FreeLiveTvController>()) {
         Get.find<FreeLiveTvController>().stopInlinePlayer();
       }
-      Get.toNamed(
-        AppRoutes.liveTV,
-        arguments: {'channel': item},
-      );
+      Get.toNamed(AppRoutes.liveTV, arguments: {'channel': item});
     }
   }
 
@@ -558,8 +556,9 @@ class HomePage extends GetView<HomeController> {
     Duration? startPosition;
     if (Get.isRegistered<PlaybackRepository>()) {
       try {
-        final session =
-            await Get.find<PlaybackRepository>().getWatchSession(item.id);
+        final session = await Get.find<PlaybackRepository>().getWatchSession(
+          item.id,
+        );
         if (session != null && session.resumePosition > Duration.zero) {
           startPosition = session.resumePosition;
         }
@@ -567,8 +566,7 @@ class HomePage extends GetView<HomeController> {
     }
 
     if (startPosition == null) {
-      final posMs =
-          item.metadata['position'] ?? item.metadata['watchProgress'];
+      final posMs = item.metadata['position'] ?? item.metadata['watchProgress'];
       if (posMs is num && posMs > 1000) {
         startPosition = Duration(milliseconds: posMs.toInt());
       }

@@ -97,7 +97,9 @@ class AppScaffold extends StatelessWidget {
         confirmText: 'Exit',
         cancelText: 'Stay',
         isDestructive: true,
-        autofocusCancel: true,
+        // On phone/desktop the safe default ("Stay") is pre-focused; on TV the
+        // primary action is focused so the remote can reach "Exit" immediately.
+        autofocusCancel: !PlatformHelper.isTV,
         onCancel: () => Navigator.of(dialogContext).pop(),
         onConfirm: () {
           Navigator.of(dialogContext).pop();
@@ -109,6 +111,20 @@ class AppScaffold extends StatelessWidget {
         },
       ),
     );
+  }
+
+  void _handleRootBack(BuildContext context) {
+    if (Get.currentRoute == AppRoutes.home) {
+      _confirmExit(context);
+    } else {
+      if (Get.isRegistered<LiveTVController>()) {
+        Get.find<LiveTVController>().stopInlinePlayer();
+      }
+      if (Get.isRegistered<FreeLiveTvController>()) {
+        Get.find<FreeLiveTvController>().stopInlinePlayer();
+      }
+      Get.offAllNamed(AppRoutes.home);
+    }
   }
 
   @override
@@ -127,7 +143,7 @@ class AppScaffold extends StatelessWidget {
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
-            if (!didPop) _confirmExit(context);
+            if (!didPop) _handleRootBack(context);
           },
           child: tvWidget,
         );
@@ -345,7 +361,7 @@ class AppScaffold extends StatelessWidget {
       return PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, result) {
-          if (!didPop) _confirmExit(context);
+          if (!didPop) _handleRootBack(context);
         },
         child: scaffold,
       );

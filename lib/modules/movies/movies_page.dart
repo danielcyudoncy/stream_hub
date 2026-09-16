@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/routes/app_routes.dart';
@@ -11,6 +12,7 @@ import '../../../data/models/movie_category.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/provider_selector_button.dart';
+import '../../../shared/widgets/tv_body_focus_registry.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import 'movies_controller.dart';
 import 'widgets/continue_watching_movie_card.dart';
@@ -67,8 +69,7 @@ class MoviesPage extends GetView<MoviesController> {
           return EmptyLibrary(
             icon: AppIcons.movies,
             title: 'No Movies Yet',
-            description:
-                'Add a provider with movie content to start watching.',
+            description: 'Add a provider with movie content to start watching.',
             actionLabel: 'Add Media Source',
             onAction: () => Get.toNamed(AppRoutes.providerManager),
           );
@@ -98,7 +99,9 @@ class MoviesPage extends GetView<MoviesController> {
                     onToggleFavorite: controller.toggleFavorite,
                   ),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppSpacing.sm),
+                ),
               ],
 
               // 2. Movie Categories & Genres Filter Chips Bar
@@ -110,10 +113,12 @@ class MoviesPage extends GetView<MoviesController> {
                 }
 
                 final displayCategories = hasCategories
-                    ? controller.movieCategories.where((c) => c.id != 'all').toList()
+                    ? controller.movieCategories
+                          .where((c) => c.id != 'all')
+                          .toList()
                     : controller.availableGenres
-                        .map((g) => MovieCategory(id: 'cat-$g', name: g))
-                        .toList();
+                          .map((g) => MovieCategory(id: 'cat-$g', name: g))
+                          .toList();
 
                 // Total items = 1 ("All Categories" sheet trigger) + individual category chips
                 final totalItems = 1 + displayCategories.length;
@@ -122,22 +127,105 @@ class MoviesPage extends GetView<MoviesController> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        height: 38,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                          ),
-                          itemCount: totalItems,
-                          separatorBuilder: (context, index) =>
-                              AppSpacing.widthXS,
-                          itemBuilder: (context, index) {
-                            if (index == 0) {
-                              // "All Categories" chip opens the full category browser sheet / dialog
+                      FocusTraversalGroup(
+                        policy: ReadingOrderTraversalPolicy(),
+                        child: SizedBox(
+                          height: 38,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.lg,
+                            ),
+                            itemCount: totalItems,
+                            separatorBuilder: (context, index) =>
+                                AppSpacing.widthXS,
+                            itemBuilder: (context, index) {
+                              if (index == 0) {
+                                // "All Categories" chip opens the full category browser sheet / dialog
+                                return TvFocusable(
+                                  onTap: () =>
+                                      controller.showCategoriesSheet(context),
+                                  borderRadius: AppRadius.pill,
+                                  onKeyEvent: (node, event) {
+                                    if (event is KeyDownEvent &&
+                                        event.logicalKey ==
+                                            LogicalKeyboardKey.arrowLeft) {
+                                      final registry =
+                                          TvBodyFocusRegistry.maybeOf(context);
+                                      if (registry != null) {
+                                        registry.openSidebar?.call();
+                                        return KeyEventResult.handled;
+                                      }
+                                    }
+                                    return KeyEventResult.ignored;
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AppSpacing.md,
+                                      vertical: AppSpacing.xxs,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colorScheme.primaryContainer
+                                          .withValues(alpha: 0.35),
+                                      borderRadius: AppRadius.pill,
+                                      border: Border.all(
+                                        color: colorScheme.primary.withValues(
+                                          alpha: 0.4,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          AppIcons.category,
+                                          size: 14,
+                                          color: colorScheme.primary,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'All Categories',
+                                          style:
+                                              AppTypography.getLabel(
+                                                color: colorScheme.primary,
+                                              ).copyWith(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                        if (displayCategories.isNotEmpty) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 1,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: colorScheme.primary
+                                                  .withValues(alpha: 0.15),
+                                              borderRadius: AppRadius.pill,
+                                            ),
+                                            child: Text(
+                                              '${displayCategories.length}',
+                                              style:
+                                                  AppTypography.getLabel(
+                                                    color: colorScheme.primary,
+                                                  ).copyWith(
+                                                    fontSize: 10,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }
+
+                              final cat = displayCategories[index - 1];
                               return TvFocusable(
-                                onTap: () =>
-                                    controller.showCategoriesSheet(context),
+                                onTap: () => controller.openCategory(cat),
                                 borderRadius: AppRadius.pill,
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
@@ -145,89 +233,25 @@ class MoviesPage extends GetView<MoviesController> {
                                     vertical: AppSpacing.xxs,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: colorScheme.primaryContainer
-                                        .withValues(alpha: 0.35),
+                                    color: colorScheme.surfaceContainerLow,
                                     borderRadius: AppRadius.pill,
                                     border: Border.all(
-                                      color: colorScheme.primary
+                                      color: colorScheme.outlineVariant
                                           .withValues(alpha: 0.4),
                                     ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        AppIcons.category,
-                                        size: 14,
-                                        color: colorScheme.primary,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'All Categories',
-                                        style: AppTypography.getLabel(
-                                          color: colorScheme.primary,
-                                        ).copyWith(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      if (displayCategories.isNotEmpty) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 1,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: colorScheme.primary
-                                                .withValues(alpha: 0.15),
-                                            borderRadius: AppRadius.pill,
-                                          ),
-                                          child: Text(
-                                            '${displayCategories.length}',
-                                            style: AppTypography.getLabel(
-                                              color: colorScheme.primary,
-                                            ).copyWith(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ],
+                                  child: Center(
+                                    child: Text(
+                                      cat.name,
+                                      style: AppTypography.getLabel(
+                                        color: colorScheme.onSurface,
+                                      ).copyWith(fontSize: 12),
+                                    ),
                                   ),
                                 ),
                               );
-                            }
-
-                            final cat = displayCategories[index - 1];
-                            return TvFocusable(
-                              onTap: () => controller.openCategory(cat),
-                              borderRadius: AppRadius.pill,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppSpacing.md,
-                                  vertical: AppSpacing.xxs,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colorScheme.surfaceContainerLow,
-                                  borderRadius: AppRadius.pill,
-                                  border: Border.all(
-                                    color: colorScheme.outlineVariant
-                                        .withValues(alpha: 0.4),
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    cat.name,
-                                    style: AppTypography.getLabel(
-                                      color: colorScheme.onSurface,
-                                    ).copyWith(fontSize: 12),
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
+                            },
+                          ),
                         ),
                       ),
                       AppSpacing.heightMD,
@@ -241,7 +265,9 @@ class MoviesPage extends GetView<MoviesController> {
                 SliverToBoxAdapter(
                   child: _buildContinueWatchingSection(context),
                 ),
-                const SliverToBoxAdapter(child: SizedBox(height: AppSpacing.sm)),
+                const SliverToBoxAdapter(
+                  child: SizedBox(height: AppSpacing.sm),
+                ),
               ],
 
               // 3. Trending Movies Carousel
@@ -307,10 +333,8 @@ class MoviesPage extends GetView<MoviesController> {
                     progressMap: controller.progressMap,
                     completedIds: controller.completedIds,
                     onMovieTap: controller.openMovie,
-                    onSeeAll: () => controller.openGenre(
-                      entry.key,
-                      entry.value,
-                    ),
+                    onSeeAll: () =>
+                        controller.openGenre(entry.key, entry.value),
                     onToggleFavorite: controller.toggleFavorite,
                   ),
                 ),
@@ -397,23 +421,19 @@ class MoviesPage extends GetView<MoviesController> {
                     mainAxisSpacing: AppSpacing.md,
                     childAspectRatio: 0.65,
                   ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final item = controller.movies[index];
-                      final progress = controller.progressMap[item.id];
-                      final isDone = controller.completedIds.contains(item.id);
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final item = controller.movies[index];
+                    final progress = controller.progressMap[item.id];
+                    final isDone = controller.completedIds.contains(item.id);
 
-                      return MovieCard(
-                        item: item,
-                        progressPercentage: progress,
-                        isCompleted: isDone,
-                        onTap: () => controller.openMovie(item),
-                        onToggleFavorite: () =>
-                            controller.toggleFavorite(item),
-                      );
-                    },
-                    childCount: controller.movies.length,
-                  ),
+                    return MovieCard(
+                      item: item,
+                      progressPercentage: progress,
+                      isCompleted: isDone,
+                      onTap: () => controller.openMovie(item),
+                      onToggleFavorite: () => controller.toggleFavorite(item),
+                    );
+                  }, childCount: controller.movies.length),
                 ),
               ),
             ],
@@ -458,12 +478,13 @@ class MoviesPage extends GetView<MoviesController> {
               final duration = movie.durationMinutes != null
                   ? Duration(minutes: movie.durationMinutes!)
                   : (position > Duration.zero
-                      ? Duration(
-                          milliseconds: (position.inMilliseconds /
-                                  (session?.completionPercentage ?? 0.5))
-                              .round(),
-                        )
-                      : Duration.zero);
+                        ? Duration(
+                            milliseconds:
+                                (position.inMilliseconds /
+                                        (session?.completionPercentage ?? 0.5))
+                                    .round(),
+                          )
+                        : Duration.zero);
 
               return ContinueWatchingMovieCard(
                 item: movie,

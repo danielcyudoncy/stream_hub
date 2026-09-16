@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/playback_state.dart';
 import '../../../core/theme/app_colors.dart';
@@ -35,6 +36,7 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
   Timer? _controlsTimer;
   bool _isDraggingSlider = false;
   double _dragSliderValue = 0.0;
+  final FocusNode _playPauseFocusNode = FocusNode(debugLabel: 'MovieInlinePlayPause');
 
   @override
   void initState() {
@@ -44,11 +46,25 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
 
   void _startControlsTimer() {
     _controlsTimer?.cancel();
-    _controlsTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted && _controlsVisible && !_isDraggingSlider) {
-        setState(() => _controlsVisible = false);
-      }
+    final seconds = widget.isFullscreen ? 5 : 8;
+    _controlsTimer = Timer(Duration(seconds: seconds), () {
+      if (!mounted || !_controlsVisible || _isDraggingSlider) return;
+      final ctrl = widget.controller.inlinePlayerController;
+      final state = ctrl?.playbackController.engine.stateRx.value;
+      // Keep controls on screen while paused; hiding them hides the resume button.
+      if (state == PlaybackState.paused) return;
+      setState(() => _controlsVisible = false);
     });
+  }
+
+  void _focusPlayPauseIfControlsVisible() {
+    if (_controlsVisible) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _controlsVisible) {
+          _playPauseFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
   void _showControlsTemporarily() {
@@ -57,6 +73,7 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
       setState(() => _controlsVisible = true);
     }
     _startControlsTimer();
+    _focusPlayPauseIfControlsVisible();
   }
 
   void _toggleControls() {
@@ -64,10 +81,23 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
       _controlsVisible = !_controlsVisible;
       if (_controlsVisible) {
         _startControlsTimer();
+        _focusPlayPauseIfControlsVisible();
       } else {
         _controlsTimer?.cancel();
       }
     });
+  }
+
+  /// Remote Select/OK handling. While controls are visible it hides them; while
+  /// they are hidden it reveals them AND acts as play/pause so the first OK on
+  /// the remote always responds (the press bubbles up to `TvPlayerKeyboard`).
+  void _handleSelectKey() {
+    if (_controlsVisible) {
+      _toggleControls();
+      return;
+    }
+    widget.controller.inlinePlayerController?.togglePlayPause();
+    _showControlsTemporarily();
   }
 
   String _formatDuration(Duration duration) {
@@ -83,6 +113,7 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
   @override
   void dispose() {
     _controlsTimer?.cancel();
+    _playPauseFocusNode.dispose();
     super.dispose();
   }
 
@@ -123,8 +154,9 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
 
               // 2. Touch Gestures & Controls Layer
               TvPlayerKeyboard(
+                autofocus: widget.isFullscreen,
                 onAnyKey: _showControlsTemporarily,
-                onToggleControls: _toggleControls,
+                onToggleControls: _handleSelectKey,
                 onPlayPause: () {
                   playerCtrl.togglePlayPause();
                   _showControlsTemporarily();
@@ -350,10 +382,9 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
             onTap: () => _openSubtitlePicker(context, playerCtrl),
             borderRadius: AppRadius.pill,
             scale: 1.1,
-            child: const IconButton(
-              icon: Icon(Icons.subtitles_rounded, color: Colors.white, size: 19.0),
-              tooltip: 'Subtitles',
-              onPressed: null,
+            child: const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Icon(Icons.subtitles_rounded, color: Colors.white, size: 19.0),
             ),
           ),
           // Audio Track Selector Button
@@ -361,10 +392,9 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
             onTap: () => _openAudioTrackPicker(context, playerCtrl),
             borderRadius: AppRadius.pill,
             scale: 1.1,
-            child: const IconButton(
-              icon: Icon(Icons.audiotrack_rounded, color: Colors.white, size: 19.0),
-              tooltip: 'Audio Tracks',
-              onPressed: null,
+            child: const Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Icon(Icons.audiotrack_rounded, color: Colors.white, size: 19.0),
             ),
           ),
           // Fullscreen Toggle Button
@@ -372,14 +402,13 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
             onTap: () => widget.controller.toggleFullscreen(),
             borderRadius: AppRadius.pill,
             scale: 1.1,
-            child: IconButton(
-              icon: Icon(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Icon(
                 widget.isFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
                 color: Colors.white,
                 size: 22.0,
               ),
-              tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Fullscreen',
-              onPressed: null,
             ),
           ),
         ],
@@ -403,15 +432,15 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
             },
             borderRadius: AppRadius.pill,
             scale: 1.15,
-            child: const IconButton(
-              icon: Icon(Icons.replay_10_rounded, color: Colors.white, size: 28.0),
-              tooltip: 'Rewind 10s',
-              onPressed: null,
+            child: const Padding(
+              padding: EdgeInsets.all(10.0),
+              child: Icon(Icons.replay_10_rounded, color: Colors.white, size: 28.0),
             ),
           ),
           AppSpacing.widthMD,
           // Play / Pause Circle
           TvFocusable(
+            focusNode: _playPauseFocusNode,
             onTap: () {
               playerCtrl.togglePlayPause();
               _startControlsTimer();
@@ -450,10 +479,9 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
             },
             borderRadius: AppRadius.pill,
             scale: 1.15,
-            child: const IconButton(
-              icon: Icon(Icons.forward_10_rounded, color: Colors.white, size: 28.0),
-              tooltip: 'Forward 10s',
-              onPressed: null,
+            child: const Padding(
+              padding: EdgeInsets.all(10.0),
+              child: Icon(Icons.forward_10_rounded, color: Colors.white, size: 28.0),
             ),
           ),
         ],
@@ -487,39 +515,59 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Custom Seekbar Slider
-            SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 3.0,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
-                activeTrackColor: Theme.of(context).colorScheme.primary,
-                inactiveTrackColor: Colors.white24,
-                thumbColor: Colors.white,
-                overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
-              ),
-              child: Slider(
-                value: currentMs.clamp(0.0, maxSlider),
-                min: 0.0,
-                max: maxSlider,
-                onChangeStart: (val) {
-                  setState(() {
-                    _isDraggingSlider = true;
-                    _dragSliderValue = val;
-                  });
-                  _controlsTimer?.cancel();
-                },
-                onChanged: (val) {
-                  setState(() {
-                    _dragSliderValue = val;
-                  });
-                },
-                onChangeEnd: (val) {
-                  setState(() {
-                    _isDraggingSlider = false;
-                  });
-                  playerCtrl.seek(Duration(milliseconds: val.toInt()));
+            TvFocusable(
+              scale: 1.02,
+              borderRadius: AppRadius.small,
+              onKeyEvent: (node, event) {
+                if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+                  final pos = playerCtrl.playbackController.engine.positionRx.value;
+                  playerCtrl.seek(pos - const Duration(seconds: 10));
                   _startControlsTimer();
-                },
+                  return KeyEventResult.handled;
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  final pos = playerCtrl.playbackController.engine.positionRx.value;
+                  playerCtrl.seek(pos + const Duration(seconds: 10));
+                  _startControlsTimer();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  trackHeight: 3.0,
+                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6.0),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 12.0),
+                  activeTrackColor: Theme.of(context).colorScheme.primary,
+                  inactiveTrackColor: Colors.white24,
+                  thumbColor: Colors.white,
+                  overlayColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                ),
+                child: Slider(
+                  value: currentMs.clamp(0.0, maxSlider),
+                  min: 0.0,
+                  max: maxSlider,
+                  onChangeStart: (val) {
+                    setState(() {
+                      _isDraggingSlider = true;
+                      _dragSliderValue = val;
+                    });
+                    _controlsTimer?.cancel();
+                  },
+                  onChanged: (val) {
+                    setState(() {
+                      _dragSliderValue = val;
+                    });
+                  },
+                  onChangeEnd: (val) {
+                    setState(() {
+                      _isDraggingSlider = false;
+                    });
+                    playerCtrl.seek(Duration(milliseconds: val.toInt()));
+                    _startControlsTimer();
+                  },
+                ),
               ),
             ),
             // Time Labels & Fullscreen Trigger Row

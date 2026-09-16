@@ -9,6 +9,7 @@ import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../shared/widgets/premium_media_card.dart';
+import '../../../shared/widgets/search_bar.dart';
 import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import 'search_hub_controller.dart';
@@ -47,9 +48,7 @@ class SearchHubPage extends GetView<SearchHubController> {
                 }
 
                 if (isLoading) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 if (results.isEmpty) {
@@ -62,7 +61,8 @@ class SearchHubPage extends GetView<SearchHubController> {
                   );
                 }
 
-                final isLiveTvFilter = controller.selectedFilter.value == 'Live TV';
+                final isLiveTvFilter =
+                    controller.selectedFilter.value == 'Live TV';
 
                 return GridView.builder(
                   padding: const EdgeInsets.fromLTRB(
@@ -115,7 +115,9 @@ class SearchHubPage extends GetView<SearchHubController> {
             child: Container(
               padding: const EdgeInsets.all(AppSpacing.sm),
               decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                color: colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.6,
+                ),
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: colorScheme.outline.withValues(alpha: 0.1),
@@ -130,68 +132,12 @@ class SearchHubPage extends GetView<SearchHubController> {
           ),
           AppSpacing.widthSM,
           Expanded(
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.xxs,
-              ),
-              decoration: BoxDecoration(
-                color: colorScheme.surfaceContainerHighest,
-                borderRadius: AppRadius.medium,
-                border: Border.all(
-                  color: colorScheme.outline.withValues(alpha: 0.2),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    AppIcons.search,
-                    color: colorScheme.primary,
-                    size: 22.0,
-                  ),
-                  AppSpacing.widthSM,
-                  Expanded(
-                    child: TextField(
-                      controller: controller.textController,
-                      focusNode: controller.searchFocusNode,
-                      style: AppTypography.getBody(color: colorScheme.onSurface),
-                      textInputAction: TextInputAction.search,
-                      onChanged: controller.onSearchChanged,
-                      onSubmitted: controller.performSearch,
-                      decoration: InputDecoration(
-                        hintText: 'Search movies, series, channels...',
-                        hintStyle: AppTypography.getBody(
-                          color: colorScheme.onSurface.withValues(alpha: 0.5),
-                        ),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 12.0),
-                      ),
-                    ),
-                  ),
-                  ListenableBuilder(
-                    listenable: controller.textController,
-                    builder: (context, _) {
-                      if (controller.textController.text.isEmpty) {
-                        return const SizedBox.shrink();
-                      }
-                      return TvFocusable(
-                        onTap: controller.clearSearch,
-                        scale: 1.15,
-                        borderRadius: BorderRadius.circular(16),
-                        child: Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xs),
-                          child: Icon(
-                            Icons.close,
-                            size: 20.0,
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
+            child: AppSearchBar(
+              controller: controller.textController,
+              hintText: 'Search movies, series, channels...',
+              onChanged: controller.onSearchChanged,
+              onSubmitted: controller.performSearch,
+              onClear: controller.clearSearch,
             ),
           ),
         ],
@@ -203,7 +149,7 @@ class SearchHubPage extends GetView<SearchHubController> {
     final filters = ['All', 'Movies', 'Series', 'Live TV'];
 
     return SizedBox(
-      height: 36.0,
+      height: 44.0,
       child: Obx(() {
         final selected = controller.selectedFilter.value;
         final query = controller.searchQuery.value;
@@ -216,63 +162,66 @@ class SearchHubPage extends GetView<SearchHubController> {
           padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           children: [
             // Provider Filter Button
-            TvFocusable(
-              onTap: () => _showProviderPicker(context, colorScheme),
-              borderRadius: AppRadius.large,
-              scale: 1.05,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: isProviderFiltered
-                      ? colorScheme.primaryContainer
-                      : colorScheme.surfaceContainerHighest,
-                  borderRadius: AppRadius.large,
-                  border: Border.all(
-                    color: isProviderFiltered
-                        ? colorScheme.primary
-                        : colorScheme.outline.withValues(alpha: 0.15),
+            Center(
+              child: TvFocusable(
+                onTap: () => _showProviderPicker(context, colorScheme),
+                borderRadius: AppRadius.large,
+                scale: 1.05,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.xs,
                   ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.dns_rounded,
-                      size: 15.0,
+                  decoration: BoxDecoration(
+                    color: isProviderFiltered
+                        ? colorScheme.primaryContainer
+                        : colorScheme.surfaceContainerHighest,
+                    borderRadius: AppRadius.large,
+                    border: Border.all(
                       color: isProviderFiltered
-                          ? colorScheme.onPrimaryContainer
-                          : colorScheme.primary,
+                          ? colorScheme.primary
+                          : colorScheme.outline.withValues(alpha: 0.15),
                     ),
-                    const SizedBox(width: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 130),
-                      child: Text(
-                        selectedProviderName,
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                        style: AppTypography.getCaption(
-                          color: isProviderFiltered
-                              ? colorScheme.onPrimaryContainer
-                              : colorScheme.onSurface,
-                        ).copyWith(
-                          fontWeight: isProviderFiltered
-                              ? FontWeight.bold
-                              : FontWeight.w600,
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.dns_rounded,
+                        size: 15.0,
+                        color: isProviderFiltered
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 130),
+                        child: Text(
+                          selectedProviderName,
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          style:
+                              AppTypography.getCaption(
+                                color: isProviderFiltered
+                                    ? colorScheme.onPrimaryContainer
+                                    : colorScheme.onSurface,
+                              ).copyWith(
+                                fontWeight: isProviderFiltered
+                                    ? FontWeight.bold
+                                    : FontWeight.w600,
+                              ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 4),
-                    Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 16.0,
-                      color: isProviderFiltered
-                          ? colorScheme.onPrimaryContainer
-                          : colorScheme.onSurfaceVariant,
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16.0,
+                        color: isProviderFiltered
+                            ? colorScheme.onPrimaryContainer
+                            : colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -284,65 +233,73 @@ class SearchHubPage extends GetView<SearchHubController> {
 
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: TvFocusable(
-                  onTap: () => controller.setFilter(filter),
-                  borderRadius: AppRadius.large,
-                  scale: 1.05,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                      vertical: AppSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? colorScheme.primary
-                          : colorScheme.surfaceContainerHighest,
-                      borderRadius: AppRadius.large,
-                      border: Border.all(
+                child: Center(
+                  child: TvFocusable(
+                    onTap: () => controller.setFilter(filter),
+                    borderRadius: AppRadius.large,
+                    scale: 1.05,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
                         color: isSelected
                             ? colorScheme.primary
-                            : colorScheme.outline.withValues(alpha: 0.1),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          filter,
-                          style: AppTypography.getCaption(
-                            color: isSelected
-                                ? colorScheme.onPrimary
-                                : colorScheme.onSurface,
-                          ).copyWith(
-                            fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.normal,
-                          ),
+                            : colorScheme.surfaceContainerHighest,
+                        borderRadius: AppRadius.large,
+                        border: Border.all(
+                          color: isSelected
+                              ? colorScheme.primary
+                              : colorScheme.outline.withValues(alpha: 0.1),
                         ),
-                        if (query.isNotEmpty && count > 0) ...[
-                          AppSpacing.widthXS,
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6.0,
-                              vertical: 2.0,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? colorScheme.onPrimary.withValues(alpha: 0.2)
-                                  : colorScheme.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10.0),
-                            ),
-                            child: Text(
-                              '$count',
-                              style: AppTypography.getCaption(
-                                color: isSelected
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.primary,
-                                scale: 0.8,
-                              ).copyWith(fontWeight: FontWeight.bold),
-                            ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            filter,
+                            style:
+                                AppTypography.getCaption(
+                                  color: isSelected
+                                      ? colorScheme.onPrimary
+                                      : colorScheme.onSurface,
+                                ).copyWith(
+                                  fontWeight: isSelected
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
+                                ),
                           ),
+                          if (query.isNotEmpty && count > 0) ...[
+                            AppSpacing.widthXS,
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6.0,
+                                vertical: 2.0,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? colorScheme.onPrimary.withValues(
+                                        alpha: 0.2,
+                                      )
+                                    : colorScheme.primary.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                borderRadius: BorderRadius.circular(10.0),
+                              ),
+                              child: Text(
+                                '$count',
+                                style: AppTypography.getCaption(
+                                  color: isSelected
+                                      ? colorScheme.onPrimary
+                                      : colorScheme.primary,
+                                  scale: 0.8,
+                                ).copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -359,7 +316,9 @@ class SearchHubPage extends GetView<SearchHubController> {
       context: context,
       backgroundColor: colorScheme.surfaceContainerHigh,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.extraLargeValue)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadius.extraLargeValue),
+        ),
       ),
       builder: (context) {
         return SafeArea(
@@ -370,14 +329,17 @@ class SearchHubPage extends GetView<SearchHubController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                  ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
                         'Filter by Provider',
-                        style: AppTypography.getTitle(color: colorScheme.onSurface)
-                            .copyWith(fontWeight: FontWeight.bold),
+                        style: AppTypography.getTitle(
+                          color: colorScheme.onSurface,
+                        ).copyWith(fontWeight: FontWeight.bold),
                       ),
                       TvFocusable(
                         onTap: () => Navigator.pop(context),
@@ -425,8 +387,10 @@ class SearchHubPage extends GetView<SearchHubController> {
                               ),
                             ),
                             trailing: selectedId == 'all'
-                                ? Icon(Icons.check_circle,
-                                    color: colorScheme.primary)
+                                ? Icon(
+                                    Icons.check_circle,
+                                    color: colorScheme.primary,
+                                  )
                                 : null,
                             onTap: () {
                               controller.setProvider('all', 'All Providers');
@@ -459,8 +423,10 @@ class SearchHubPage extends GetView<SearchHubController> {
                                 ),
                               ),
                               trailing: isSelected
-                                  ? Icon(Icons.check_circle,
-                                      color: colorScheme.primary)
+                                  ? Icon(
+                                      Icons.check_circle,
+                                      color: colorScheme.primary,
+                                    )
                                   : null,
                               onTap: () {
                                 controller.setProvider(p.id, p.name);
@@ -489,9 +455,7 @@ class SearchHubPage extends GetView<SearchHubController> {
         children: [
           if (controller.recentSearches.isNotEmpty) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.lg,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: SectionHeader(
                 title: 'Recent Searches',
                 trailing: TvFocusable(
@@ -499,7 +463,10 @@ class SearchHubPage extends GetView<SearchHubController> {
                   borderRadius: AppRadius.small,
                   scale: 1.05,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4.0,
+                      vertical: 2.0,
+                    ),
                     child: Text(
                       'Clear All',
                       style: AppTypography.getCaption(
@@ -515,18 +482,14 @@ class SearchHubPage extends GetView<SearchHubController> {
             AppSpacing.heightMD,
           ],
           const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: SectionHeader(title: 'Trending Categories'),
           ),
           AppSpacing.heightXS,
           _buildTrendingSearches(context, colorScheme),
           AppSpacing.heightMD,
           const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: AppSpacing.lg,
-            ),
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: SectionHeader(title: 'Suggestions'),
           ),
           AppSpacing.heightXS,

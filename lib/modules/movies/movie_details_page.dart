@@ -165,16 +165,22 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                   pinned: true,
                   delegate: _StickyMoviePlayerHeaderDelegate(
                     height: playerHeight,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(
-                        AppSpacing.md,
-                        AppSpacing.xs,
-                        AppSpacing.md,
-                        AppSpacing.sm,
-                      ),
-                      child: MovieInlinePlayer(
-                        key: const ValueKey('movie_wide_player'),
-                        controller: controller,
+                    child: Center(
+                      child: SizedBox(
+                        width: playerWidth,
+                        height: playerHeight,
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.md,
+                            AppSpacing.xs,
+                            AppSpacing.md,
+                            AppSpacing.sm,
+                          ),
+                          child: MovieInlinePlayer(
+                            key: const ValueKey('movie_wide_player'),
+                            controller: controller,
+                          ),
+                        ),
                       ),
                     ),
                   ),

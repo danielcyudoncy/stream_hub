@@ -48,6 +48,12 @@ class LiveTVController extends GetxController {
   final List<MediaItem> _allChannels = <MediaItem>[];
   final List<MediaItem> _allCategories = <MediaItem>[];
 
+  /// Normalized category token -> channel ids that carry that token in their
+  /// genre / group / category metadata. Built once per catalog load so category
+  /// filtering becomes set lookups instead of per-channel string scans.
+  final Map<String, Set<String>> _categoryChannelIndex =
+      <String, Set<String>>{};
+
   final RxList<MediaItem> channels = <MediaItem>[].obs;
   final RxList<MediaItem> filteredChannels = <MediaItem>[].obs;
   final RxList<MediaItem> favorites = <MediaItem>[].obs;
@@ -79,7 +85,6 @@ class LiveTVController extends GetxController {
   final Rxn<String> scrollToChannelId = Rxn<String>();
 
   StreamSubscription? _favoriteSubscription;
-  StreamSubscription? _directCatalogSub;
   bool _isLoadingLiveTv = false;
   bool _needsLiveTvReload = false;
 
@@ -116,13 +121,17 @@ class LiveTVController extends GetxController {
     _loadLiveTVData();
     _subscribeToCatalogUpdates();
     if (favoriteRepository != null) {
-      _favoriteSubscription = favoriteRepository!
-          .watchUpdates()
-          .listen((_) => _syncFavoritesFromRepo());
+      _favoriteSubscription = favoriteRepository!.watchUpdates().listen(
+        (_) => _syncFavoritesFromRepo(),
+      );
     }
   }
 
   void _subscribeToCatalogUpdates() {
+    // Subscribe exactly once. When the CatalogRefreshCoordinator is registered
+    // it already consumes catalogRepository.watchUpdates() (debounced), so a
+    // second raw subscription used to fire a duplicate full reload after every
+    // catalog refresh burst.
     if (Get.isRegistered<CatalogRefreshCoordinator>()) {
       final coordinator = Get.find<CatalogRefreshCoordinator>();
       _catalogSubscription = coordinator.refreshSignal.listen((_) {
@@ -133,10 +142,6 @@ class LiveTVController extends GetxController {
         reloadLiveTVData();
       });
     }
-    // Fail-safe direct subscription to ensure no catalog ingestion events are missed
-    _directCatalogSub = catalogRepository.watchUpdates().listen((_) {
-      reloadLiveTVData();
-    });
   }
 
   void _initInlinePlayer() {
@@ -179,7 +184,8 @@ class LiveTVController extends GetxController {
       streamRepository: Get.isRegistered<StreamRepository>()
           ? Get.find<StreamRepository>()
           : null,
-      historyRepository: historyRepository ??
+      historyRepository:
+          historyRepository ??
           (Get.isRegistered<HistoryRepository>()
               ? Get.find<HistoryRepository>()
               : null),
@@ -207,7 +213,6 @@ class LiveTVController extends GetxController {
   @override
   void onClose() {
     _catalogSubscription?.cancel();
-    _directCatalogSub?.cancel();
     _favoriteSubscription?.cancel();
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -218,8 +223,7 @@ class LiveTVController extends GetxController {
     inlinePlayerController?.stop();
     inlinePlayerController?.onClose();
     if (Get.isRegistered<ScreenAwakeService>()) {
-      Get.find<ScreenAwakeService>()
-          .release(owner: 'LiveTVController.onClose');
+      Get.find<ScreenAwakeService>().release(owner: 'LiveTVController.onClose');
     }
     super.onClose();
   }
@@ -256,10 +260,14 @@ class LiveTVController extends GetxController {
     // Prefer the fully-loaded Channel instance from _allChannels (which has
     // streamUrl, correct metadata, etc.) over the raw MediaItem passed from
     // search results, which may be missing URL metadata.
-    final matched = _allChannels.firstWhereOrNull((c) => c.id == targetChannel.id)
-        ?? _allChannels.firstWhereOrNull(
-            (c) => c.title.trim().toLowerCase() == targetChannel.title.trim().toLowerCase())
-        ?? targetChannel;
+    final matched =
+        _allChannels.firstWhereOrNull((c) => c.id == targetChannel.id) ??
+        _allChannels.firstWhereOrNull(
+          (c) =>
+              c.title.trim().toLowerCase() ==
+              targetChannel.title.trim().toLowerCase(),
+        ) ??
+        targetChannel;
 
     String? foundCat;
     final candidates = [
@@ -304,9 +312,7 @@ class LiveTVController extends GetxController {
   Future<void> _loadLiveTVData() async {
     isLoading.value = true;
     try {
-      final liveChannels = await catalogRepository.getByType(
-        MediaType.channel,
-      );
+      final liveChannels = await catalogRepository.getByType(MediaType.channel);
 
       final favList = await favoriteRepository?.getAll() ?? [];
       final favIds = favList.map((f) => f.id).toSet();
@@ -322,9 +328,9 @@ class LiveTVController extends GetxController {
         ..clear()
         ..addAll(mappedChannels);
 
-
-
-      final allCategories = await catalogRepository.getByType(MediaType.collection);
+      final allCategories = await catalogRepository.getByType(
+        MediaType.collection,
+      );
       _allCategories
         ..clear()
         ..addAll(allCategories);
@@ -346,6 +352,7 @@ class LiveTVController extends GetxController {
       }
 
       await _loadRecentChannels();
+      _rebuildCategoryChannelIndex();
       _updateCategoriesAndFilters(favIds);
 
       // Process any channel passed via navigation arguments now that
@@ -357,17 +364,20 @@ class LiveTVController extends GetxController {
         handleNavigationArguments();
       } else {
         // Restore last-watched channel from history if available
-        final historyRepo = historyRepository ??
+        final historyRepo =
+            historyRepository ??
             (Get.isRegistered<HistoryRepository>()
                 ? Get.find<HistoryRepository>()
                 : null);
         if (historyRepo != null) {
           final recentItems = await historyRepo.getRecent(limit: 20);
           final lastWatched = recentItems.firstWhereOrNull(
-              (item) => item.mediaType == MediaType.channel);
+            (item) => item.mediaType == MediaType.channel,
+          );
           if (lastWatched != null) {
-            final matched = _allChannels
-                .firstWhereOrNull((c) => c.id == lastWatched.id);
+            final matched = _allChannels.firstWhereOrNull(
+              (c) => c.id == lastWatched.id,
+            );
             featuredChannel.value = matched ?? lastWatched;
           } else if (_allChannels.isNotEmpty) {
             featuredChannel.value = _allChannels.first;
@@ -396,19 +406,24 @@ class LiveTVController extends GetxController {
             expanded.add(trimmed);
             expanded.add(trimmed.toLowerCase());
             expanded.add(trimmed.toLowerCase().replaceAll(' ', '_'));
-            expanded.add(trimmed.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''));
+            expanded.add(
+              trimmed.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''),
+            );
 
             for (final cat in _allCategories) {
               if (cat.id == raw ||
                   cat.title == raw ||
                   cat.title.toLowerCase() == raw.toLowerCase() ||
-                  cat.title.toLowerCase().replaceAll(' ', '_') == raw.toLowerCase()) {
+                  cat.title.toLowerCase().replaceAll(' ', '_') ==
+                      raw.toLowerCase()) {
                 expanded.add(cat.id);
                 expanded.add(cat.title);
                 expanded.add(cat.title.trim());
                 expanded.add(cat.title.toLowerCase());
                 expanded.add(cat.title.toLowerCase().replaceAll(' ', '_'));
-                expanded.add(cat.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''));
+                expanded.add(
+                  cat.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''),
+                );
               }
             }
           }
@@ -432,6 +447,57 @@ class LiveTVController extends GetxController {
     return <String>{};
   }
 
+  /// Rebuilds [_categoryChannelIndex] from the current [_allChannels]. Every
+  /// genre/group/category metadata value a channel carries is normalized
+  /// (trimmed, lower-cased) and used as a lookup key. Per-channel strings are
+  /// scanned only here, not on every filter change.
+  void _rebuildCategoryChannelIndex() {
+    _categoryChannelIndex.clear();
+    for (final item in _allChannels) {
+      final channelId = item.id;
+      final rawTokens = <String>{
+        for (final genre in item.genres) genre,
+        item.metadata['genre']?.toString() ?? '',
+        item.metadata['category_name']?.toString() ?? '',
+        item.metadata['category_id']?.toString() ?? '',
+        item.metadata['categoryId']?.toString() ?? '',
+        item.metadata['genreId']?.toString() ?? '',
+        item.metadata['group_title']?.toString() ?? '',
+        item.metadata['group-title']?.toString() ?? '',
+        item.metadata['group']?.toString() ?? '',
+      };
+      for (final raw in rawTokens) {
+        final token = raw.trim().toLowerCase();
+        if (token.isEmpty) continue;
+        _categoryChannelIndex
+            .putIfAbsent(token, () => <String>{})
+            .add(channelId);
+      }
+    }
+  }
+
+  /// True when [a] and [b] hold the same channels, in the same order, with the
+  /// same favorite state — i.e. calling `assignAll` again would be a no-op.
+  bool _sameChannelList(List<MediaItem> a, List<MediaItem> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      final left = a[i];
+      final right = b[i];
+      if (left.id != right.id || left.favorite != right.favorite) return false;
+    }
+    return true;
+  }
+
+  bool _sameStringList(List<String> a, List<String> b) {
+    if (identical(a, b)) return true;
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
   bool _isCategoryHidden(String categoryName, Set<String> hiddenCategories) {
     if (hiddenCategories.isEmpty) return false;
     final trimmed = categoryName.trim();
@@ -447,15 +513,23 @@ class LiveTVController extends GetxController {
     return false;
   }
 
-  bool _isChannelHidden(MediaItem item, Set<String> hiddenChannels, Set<String> hiddenCategories) {
+  bool _isChannelHidden(
+    MediaItem item,
+    Set<String> hiddenChannels,
+    Set<String> hiddenCategories,
+  ) {
     if (hiddenChannels.contains(item.id)) return true;
     if (hiddenCategories.isEmpty) return false;
 
     final genreId = item.metadata['genreId']?.toString();
-    if (genreId != null && _isCategoryHidden(genreId, hiddenCategories)) return true;
+    if (genreId != null && _isCategoryHidden(genreId, hiddenCategories)) {
+      return true;
+    }
 
     final catId = item.metadata['category_id']?.toString();
-    if (catId != null && _isCategoryHidden(catId, hiddenCategories)) return true;
+    if (catId != null && _isCategoryHidden(catId, hiddenCategories)) {
+      return true;
+    }
 
     for (final genre in item.genres) {
       if (_isCategoryHidden(genre, hiddenCategories)) return true;
@@ -482,7 +556,9 @@ class LiveTVController extends GetxController {
     final hiddenChannels = _loadHiddenChannels();
 
     final unhiddenChannels = _allChannels
-        .where((item) => !_isChannelHidden(item, hiddenChannels, hiddenCategories))
+        .where(
+          (item) => !_isChannelHidden(item, hiddenChannels, hiddenCategories),
+        )
         .toList();
 
     List<MediaItem> activeChannels = selectedProvider.value.isEmpty
@@ -498,29 +574,32 @@ class LiveTVController extends GetxController {
       selectedProvider.value = '';
     }
 
-    channels.assignAll(activeChannels);
+    if (!_sameChannelList(channels, activeChannels)) {
+      channels.assignAll(activeChannels);
+    }
 
     if (activeChannels.isNotEmpty) {
       final currentFeatured = featuredChannel.value;
       if (currentFeatured == null ||
           !activeChannels.any((c) => c.id == currentFeatured.id)) {
-        final liveCandidate =
-            activeChannels.firstWhereOrNull((c) => c is Channel && c.isLive);
+        final liveCandidate = activeChannels.firstWhereOrNull(
+          (c) => c is Channel && c.isLive,
+        );
         featuredChannel.value = liveCandidate ?? activeChannels.first;
       }
     } else {
       featuredChannel.value = null;
     }
 
-    final effectiveFavIds = favIds ??
+    final effectiveFavIds =
+        favIds ??
         (favoriteRepository != null
             ? (favorites.map((f) => f.id).toSet())
             : <String>{});
 
     favorites.assignAll(
       activeChannels
-          .where((item) =>
-              effectiveFavIds.contains(item.id) || item.favorite)
+          .where((item) => effectiveFavIds.contains(item.id) || item.favorite)
           .toList(),
     );
 
@@ -541,7 +620,8 @@ class LiveTVController extends GetxController {
         resolutionSet.add(res);
       }
       for (final genre in item.genres) {
-        if (genre.trim().isNotEmpty && !_isCategoryHidden(genre, hiddenCategories)) {
+        if (genre.trim().isNotEmpty &&
+            !_isCategoryHidden(genre, hiddenCategories)) {
           categorySet.add(genre.trim());
         }
       }
@@ -560,14 +640,16 @@ class LiveTVController extends GetxController {
     }
 
     for (final cat in _allCategories) {
-      final isLive = cat.id.startsWith('xtream-live-cat-') ||
+      final isLive =
+          cat.id.startsWith('xtream-live-cat-') ||
           cat.metadata['type'] == 'live' ||
           (!cat.id.startsWith('xtream-vod-cat-') &&
               !cat.id.startsWith('xtream-series-cat-') &&
               cat.metadata['type'] != 'movie' &&
               cat.metadata['type'] != 'series' &&
               cat.metadata['isVod'] != true);
-      final matchesProvider = selectedProvider.value.isEmpty ||
+      final matchesProvider =
+          selectedProvider.value.isEmpty ||
           cat.providerId == selectedProvider.value ||
           cat.providerType.displayName == selectedProvider.value ||
           cat.providerType.name == selectedProvider.value;
@@ -582,7 +664,15 @@ class LiveTVController extends GetxController {
 
     final sortedCategories = categorySet.toList()
       ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-    categories.assignAll(['All Channels', '★ Favorites', '🕒 Recent', ...sortedCategories]);
+    final newCategories = [
+      'All Channels',
+      '★ Favorites',
+      '🕒 Recent',
+      ...sortedCategories,
+    ];
+    if (!_sameStringList(categories, newCategories)) {
+      categories.assignAll(newCategories);
+    }
 
     if (!categories.contains(selectedCategory.value)) {
       selectedCategory.value = 'All Channels';
@@ -597,7 +687,8 @@ class LiveTVController extends GetxController {
 
   Future<void> _loadRecentChannels() async {
     try {
-      final historyRepo = historyRepository ??
+      final historyRepo =
+          historyRepository ??
           (Get.isRegistered<HistoryRepository>()
               ? Get.find<HistoryRepository>()
               : null);
@@ -680,9 +771,13 @@ class LiveTVController extends GetxController {
       final q = searchQuery.value.trim().toLowerCase();
       result = result.where((item) {
         final titleMatch = item.title.toLowerCase().contains(q);
-        final subtitleMatch = item.subtitle != null && item.subtitle!.toLowerCase().contains(q);
+        final subtitleMatch =
+            item.subtitle != null && item.subtitle!.toLowerCase().contains(q);
         final genreMatch = item.genres.any((g) => g.toLowerCase().contains(q));
-        final numberMatch = item is Channel && item.number != null && item.number!.toLowerCase().contains(q);
+        final numberMatch =
+            item is Channel &&
+            item.number != null &&
+            item.number!.toLowerCase().contains(q);
         return titleMatch || subtitleMatch || genreMatch || numberMatch;
       }).toList();
     }
@@ -696,82 +791,50 @@ class LiveTVController extends GetxController {
       final recentIds = recentChannels.map((r) => r.id).toSet();
       result = result.where((item) => recentIds.contains(item.id)).toList();
       final idOrder = {
-        for (int i = 0; i < recentChannels.length; i++) recentChannels[i].id: i
+        for (int i = 0; i < recentChannels.length; i++) recentChannels[i].id: i,
       };
-      result.sort((a, b) => (idOrder[a.id] ?? 999).compareTo(idOrder[b.id] ?? 999));
+      result.sort(
+        (a, b) => (idOrder[a.id] ?? 999).compareTo(idOrder[b.id] ?? 999),
+      );
     } else if (selectedCategory.value != 'All Channels' &&
         selectedCategory.value.trim().isNotEmpty) {
       final selectedCat = selectedCategory.value.trim().toLowerCase();
 
-      // Find all associated category IDs and titles from _allCategories
-      final matchingCatIds = <String>{};
+      // Expand the selected category into every normalized token that can map
+      // a channel to it (category title/id + raw categoryId) and resolve the
+      // matching channel ids from the precomputed index.
+      final matchingTokens = <String>{selectedCat};
       for (final cat in _allCategories) {
         if (cat.title.trim().toLowerCase() == selectedCat ||
             cat.id.trim().toLowerCase() == selectedCat) {
-          matchingCatIds.add(cat.id.trim().toLowerCase());
-          matchingCatIds.add(cat.title.trim().toLowerCase());
-          final rawId = cat.metadata['categoryId']?.toString().trim().toLowerCase();
+          matchingTokens.add(cat.title.trim().toLowerCase());
+          matchingTokens.add(cat.id.trim().toLowerCase());
+          final rawId = cat.metadata['categoryId']?.toString().trim();
           if (rawId != null && rawId.isNotEmpty) {
-            matchingCatIds.add(rawId);
+            matchingTokens.add(rawId.toLowerCase());
           }
         }
       }
 
-      result = result.where((item) {
-        // Direct genre / category name match
-        for (final g in item.genres) {
-          final gLower = g.trim().toLowerCase();
-          if (gLower == selectedCat || matchingCatIds.contains(gLower)) return true;
+      final matchingIds = <String>{};
+      for (final token in matchingTokens) {
+        final ids = _categoryChannelIndex[token];
+        if (ids != null) {
+          matchingIds.addAll(ids);
         }
+      }
 
-        final genreMeta =
-            item.metadata['genre']?.toString().trim().toLowerCase();
-        if (genreMeta != null &&
-            (genreMeta == selectedCat || matchingCatIds.contains(genreMeta))) {
-          return true;
-        }
-
-        final catNameMeta =
-            item.metadata['category_name']?.toString().trim().toLowerCase();
-        if (catNameMeta != null &&
-            (catNameMeta == selectedCat || matchingCatIds.contains(catNameMeta))) {
-          return true;
-        }
-
-        final catIdMeta =
-            item.metadata['category_id']?.toString().trim().toLowerCase() ??
-            item.metadata['categoryId']?.toString().trim().toLowerCase();
-        if (catIdMeta != null &&
-            (catIdMeta == selectedCat || matchingCatIds.contains(catIdMeta))) {
-          return true;
-        }
-
-        final genreIdMeta =
-            item.metadata['genreId']?.toString().trim().toLowerCase();
-        if (genreIdMeta != null &&
-            (genreIdMeta == selectedCat || matchingCatIds.contains(genreIdMeta))) {
-          return true;
-        }
-
-        final groupTitleMeta =
-            item.metadata['group_title']?.toString().trim().toLowerCase() ??
-            item.metadata['group-title']?.toString().trim().toLowerCase() ??
-            item.metadata['group']?.toString().trim().toLowerCase();
-        if (groupTitleMeta != null &&
-            (groupTitleMeta == selectedCat || matchingCatIds.contains(groupTitleMeta))) {
-          return true;
-        }
-
-        return false;
-      }).toList();
+      result = result.where((item) => matchingIds.contains(item.id)).toList();
     }
 
     if (selectedProvider.value.isNotEmpty) {
       final provMatches = result
-          .where((item) =>
-              item.providerId == selectedProvider.value ||
-              item.providerType.displayName == selectedProvider.value ||
-              item.providerType.name == selectedProvider.value)
+          .where(
+            (item) =>
+                item.providerId == selectedProvider.value ||
+                item.providerType.displayName == selectedProvider.value ||
+                item.providerType.name == selectedProvider.value,
+          )
           .toList();
       if (provMatches.isNotEmpty) {
         result = provMatches;
@@ -792,8 +855,9 @@ class LiveTVController extends GetxController {
 
     if (selectedResolution.value.isNotEmpty) {
       result = result
-          .where((item) =>
-              item.metadata['resolution'] == selectedResolution.value)
+          .where(
+            (item) => item.metadata['resolution'] == selectedResolution.value,
+          )
           .toList();
     }
 
@@ -808,22 +872,27 @@ class LiveTVController extends GetxController {
 
     switch (selectedSort.value) {
       case 'alphabetical':
-        result.sort((a, b) =>
-            a.title.toLowerCase().compareTo(b.title.toLowerCase()));
+        result.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
         break;
       case 'recentlyAdded':
         result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
       case 'provider':
-        result.sort((a, b) => a.providerType.displayName
-            .compareTo(b.providerType.displayName));
+        result.sort(
+          (a, b) =>
+              a.providerType.displayName.compareTo(b.providerType.displayName),
+        );
         break;
       case 'country':
         result.sort((a, b) => (a.country ?? '').compareTo(b.country ?? ''));
         break;
     }
 
-    filteredChannels.assignAll(result);
+    if (!_sameChannelList(filteredChannels, result)) {
+      filteredChannels.assignAll(result);
+    }
   }
 
   int _openChannelGeneration = 0;
@@ -853,12 +922,14 @@ class LiveTVController extends GetxController {
       // Claim the wake lock for the lifetime of the inline player so the
       // device does not turn the screen off while a channel is being watched.
       Get.isRegistered<ScreenAwakeService>()
-          ? Get.find<ScreenAwakeService>()
-              .acquire(owner: 'LiveTVController.openChannel')
+          ? Get.find<ScreenAwakeService>().acquire(
+              owner: 'LiveTVController.openChannel',
+            )
           : null;
 
       // Record last played channel in history
-      final historyRepo = historyRepository ??
+      final historyRepo =
+          historyRepository ??
           (Get.isRegistered<HistoryRepository>()
               ? Get.find<HistoryRepository>()
               : null);
@@ -869,7 +940,10 @@ class LiveTVController extends GetxController {
       final itemsToPass = filteredChannels.isNotEmpty
           ? filteredChannels.toList()
           : (channels.isNotEmpty ? channels.toList() : [resolvedChannel]);
-      inlinePlayerController?.setChannelList(itemsToPass, currentId: resolvedChannel.id);
+      inlinePlayerController?.setChannelList(
+        itemsToPass,
+        currentId: resolvedChannel.id,
+      );
     });
   }
 
@@ -917,8 +991,9 @@ class LiveTVController extends GetxController {
     ]);
     inlinePlayerController?.stop();
     if (Get.isRegistered<ScreenAwakeService>()) {
-      Get.find<ScreenAwakeService>()
-          .release(owner: 'LiveTVController.stopInlinePlayer');
+      Get.find<ScreenAwakeService>().release(
+        owner: 'LiveTVController.stopInlinePlayer',
+      );
     }
   }
 

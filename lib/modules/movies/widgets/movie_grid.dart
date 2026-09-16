@@ -46,8 +46,14 @@ class MovieGrid extends StatelessWidget {
           crossAxisCount = 2;
         }
 
-        if (isTv && crossAxisCount > 5) {
-          crossAxisCount = 5;
+        if (isTv) {
+          if (width >= 1400) {
+            crossAxisCount = 7;
+          } else if (width >= 1100) {
+            crossAxisCount = 6;
+          } else {
+            crossAxisCount = 5;
+          }
         }
 
         return GridView.builder(

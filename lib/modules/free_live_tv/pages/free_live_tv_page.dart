@@ -316,6 +316,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                         key: const ValueKey('free_live_tv_player_landscape'),
                         controller: controller,
                         isFullscreen: false,
+                        autofocus: false,
                       ),
                     ),
                     Padding(
@@ -398,6 +399,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               key: const ValueKey('free_live_tv_player_portrait'),
               controller: controller,
               isFullscreen: false,
+              autofocus: false,
             ),
 
             // 3. Category & Country Bar
@@ -610,6 +612,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                     key: const ValueKey('free_live_tv_player_tv_preview'),
                     controller: controller,
                     isFullscreen: false,
+                    autofocus: false,
                   ),
                 ),
               ),
