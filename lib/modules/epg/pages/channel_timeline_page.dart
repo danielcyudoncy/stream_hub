@@ -14,7 +14,9 @@ import 'package:stream_hub/shared/widgets/error_view.dart';
 import 'package:stream_hub/shared/widgets/empty_view.dart';
 
 class ChannelTimelinePage extends GetView<ChannelTimelineController> {
-  const ChannelTimelinePage({super.key});
+  ChannelTimelinePage({super.key});
+
+  final _windowPopupKey = GlobalKey<PopupMenuButtonState<int>>();
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +30,9 @@ class ChannelTimelinePage extends GetView<ChannelTimelineController> {
         TvFocusable(
           scale: 1.0,
           borderRadius: BorderRadius.circular(8),
+          onTap: () => _windowPopupKey.currentState?.showButtonMenu(),
           child: PopupMenuButton<int>(
+            key: _windowPopupKey,
             onSelected: (hours) {
               controller.visibleHours.value = hours;
               controller.loadTimeline();

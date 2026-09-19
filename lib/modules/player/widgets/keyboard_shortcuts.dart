@@ -1,7 +1,8 @@
+// modules/player/widgets/keyboard_shortcuts.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-class PlayerKeyboardShortcuts extends StatelessWidget {
+class PlayerKeyboardShortcuts extends StatefulWidget {
   final Widget child;
   final VoidCallback? onPlayPause;
   final VoidCallback? onStop;
@@ -32,21 +33,50 @@ class PlayerKeyboardShortcuts extends StatelessWidget {
   });
 
   static bool _isDirectional(KeyEvent event) => switch (event.logicalKey) {
-        LogicalKeyboardKey.arrowUp ||
-        LogicalKeyboardKey.arrowDown ||
-        LogicalKeyboardKey.arrowLeft ||
-        LogicalKeyboardKey.arrowRight =>
-        true,
-        _ => false,
-      };
+    LogicalKeyboardKey.arrowUp ||
+    LogicalKeyboardKey.arrowDown ||
+    LogicalKeyboardKey.arrowLeft ||
+    LogicalKeyboardKey.arrowRight => true,
+    _ => false,
+  };
+
+  @override
+  State<PlayerKeyboardShortcuts> createState() =>
+      _PlayerKeyboardShortcutsState();
+}
+
+class _PlayerKeyboardShortcutsState extends State<PlayerKeyboardShortcuts> {
+  late final FocusNode _rootFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _rootFocusNode = FocusNode(debugLabel: 'PlayerKeyboardShortcutsRoot');
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_rootFocusNode.hasFocus) {
+        _rootFocusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _rootFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Focus(
+      focusNode: _rootFocusNode,
       autofocus: true,
+      canRequestFocus: true,
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && onDpadPress != null && _isDirectional(event)) {
-          onDpadPress!();
+        if (event is KeyDownEvent &&
+            widget.onDpadPress != null &&
+            PlayerKeyboardShortcuts._isDirectional(event)) {
+          widget.onDpadPress!();
           // Do NOT mark directional keys as handled: returning `ignored`
           // allows Flutter's directional focus traversal to move between the
           // player controls (favorite, aspect ratio, channel list, audio…).
@@ -59,61 +89,79 @@ class PlayerKeyboardShortcuts extends StatelessWidget {
         shortcuts: <LogicalKeySet, Intent>{
           LogicalKeySet(LogicalKeyboardKey.space): const PlayPauseIntent(),
           LogicalKeySet(LogicalKeyboardKey.enter): const PlayPauseIntent(),
-          LogicalKeySet(LogicalKeyboardKey.numpadEnter): const PlayPauseIntent(),
+          LogicalKeySet(LogicalKeyboardKey.numpadEnter):
+              const PlayPauseIntent(),
           LogicalKeySet(LogicalKeyboardKey.select): const PlayPauseIntent(),
-          LogicalKeySet(LogicalKeyboardKey.gameButtonA): const PlayPauseIntent(),
-          LogicalKeySet(LogicalKeyboardKey.mediaPlayPause): const PlayPauseIntent(),
+          LogicalKeySet(LogicalKeyboardKey.gameButtonA):
+              const PlayPauseIntent(),
+          LogicalKeySet(LogicalKeyboardKey.mediaPlayPause):
+              const PlayPauseIntent(),
           LogicalKeySet(LogicalKeyboardKey.mediaPlay): const PlayPauseIntent(),
           LogicalKeySet(LogicalKeyboardKey.mediaPause): const PlayPauseIntent(),
           LogicalKeySet(LogicalKeyboardKey.mediaStop): const StopIntent(),
           LogicalKeySet(LogicalKeyboardKey.escape): const StopIntent(),
           LogicalKeySet(LogicalKeyboardKey.keyR): const ReplayIntent(),
           LogicalKeySet(LogicalKeyboardKey.keyF): const FullscreenIntent(),
-          LogicalKeySet(LogicalKeyboardKey.contextMenu): const FullscreenIntent(),
+          LogicalKeySet(LogicalKeyboardKey.contextMenu):
+              const FullscreenIntent(),
           LogicalKeySet(LogicalKeyboardKey.keyM): const MuteIntent(),
-          LogicalKeySet(LogicalKeyboardKey.mediaTrackNext): const ChannelUpIntent(),
-          LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious): const ChannelDownIntent(),
-          LogicalKeySet(LogicalKeyboardKey.mediaFastForward): const SeekForwardIntent(),
-          LogicalKeySet(LogicalKeyboardKey.mediaRewind): const SeekBackwardIntent(),
+          LogicalKeySet(LogicalKeyboardKey.mediaTrackNext):
+              const ChannelUpIntent(),
+          LogicalKeySet(LogicalKeyboardKey.mediaTrackPrevious):
+              const ChannelDownIntent(),
+          LogicalKeySet(LogicalKeyboardKey.mediaFastForward):
+              const SeekForwardIntent(),
+          LogicalKeySet(LogicalKeyboardKey.mediaRewind):
+              const SeekBackwardIntent(),
           LogicalKeySet(LogicalKeyboardKey.keyS): const SpeedCycleIntent(),
         },
         child: Actions(
           actions: <Type, Action<Intent>>{
             PlayPauseIntent: CallbackAction<PlayPauseIntent>(
-              onInvoke: (intent) => onPlayPause?.call(),
+              onInvoke: (intent) {
+                final primary = FocusManager.instance.primaryFocus;
+                if (primary != null && primary.context != null) {
+                  final w = primary.context!.widget;
+                  if (w is! Focus && w is! Shortcuts && w is! Actions) {
+                    return null;
+                  }
+                }
+                widget.onPlayPause?.call();
+                return null;
+              },
             ),
             StopIntent: CallbackAction<StopIntent>(
-              onInvoke: (intent) => onStop?.call(),
+              onInvoke: (intent) => widget.onStop?.call(),
             ),
             ReplayIntent: CallbackAction<ReplayIntent>(
-              onInvoke: (intent) => onReplay?.call(),
+              onInvoke: (intent) => widget.onReplay?.call(),
             ),
             FullscreenIntent: CallbackAction<FullscreenIntent>(
-              onInvoke: (intent) => onFullscreen?.call(),
+              onInvoke: (intent) => widget.onFullscreen?.call(),
             ),
             MuteIntent: CallbackAction<MuteIntent>(
-              onInvoke: (intent) => onMute?.call(),
+              onInvoke: (intent) => widget.onMute?.call(),
             ),
             ChannelUpIntent: CallbackAction<ChannelUpIntent>(
-              onInvoke: (intent) => onChannelUp?.call(),
+              onInvoke: (intent) => widget.onChannelUp?.call(),
             ),
             ChannelDownIntent: CallbackAction<ChannelDownIntent>(
-              onInvoke: (intent) => onChannelDown?.call(),
+              onInvoke: (intent) => widget.onChannelDown?.call(),
             ),
             SeekForwardIntent: CallbackAction<SeekForwardIntent>(
-              onInvoke: (intent) => onSeekForward?.call(),
+              onInvoke: (intent) => widget.onSeekForward?.call(),
             ),
             SeekBackwardIntent: CallbackAction<SeekBackwardIntent>(
-              onInvoke: (intent) => onSeekBackward?.call(),
+              onInvoke: (intent) => widget.onSeekBackward?.call(),
             ),
             SpeedCycleIntent: CallbackAction<SpeedCycleIntent>(
               onInvoke: (intent) {
-                onSpeedChange?.call(1.5);
+                widget.onSpeedChange?.call(1.5);
                 return null;
               },
             ),
           },
-          child: child,
+          child: widget.child,
         ),
       ),
     );

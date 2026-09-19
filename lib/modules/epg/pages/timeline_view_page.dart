@@ -14,7 +14,9 @@ import 'package:stream_hub/shared/widgets/error_view.dart';
 import 'package:stream_hub/shared/widgets/empty_view.dart';
 
 class TimelineViewPage extends GetView<TimelineController> {
-  const TimelineViewPage({super.key});
+  TimelineViewPage({super.key});
+
+  final _windowPopupKey = GlobalKey<PopupMenuButtonState<int>>();
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,9 @@ class TimelineViewPage extends GetView<TimelineController> {
         TvFocusable(
           scale: 1.0,
           borderRadius: BorderRadius.circular(8),
+          onTap: () => _windowPopupKey.currentState?.showButtonMenu(),
           child: PopupMenuButton<int>(
+            key: _windowPopupKey,
             onSelected: (hours) => controller.setTimelineWindowHours(hours),
             itemBuilder: (context) => [
               const PopupMenuItem(value: 1, child: Text('30 min')),

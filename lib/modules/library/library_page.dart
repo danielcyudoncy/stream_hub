@@ -140,13 +140,10 @@ class LibraryPage extends GetView<LibraryController> {
           SectionHeader(
             title: 'Movies',
             trailing: TvFocusable(
-              onTap: () {},
+              onTap: () => Get.toNamed(AppRoutes.movies),
               borderRadius: AppRadius.medium,
               scale: 1.05,
-              child: const TextButton(
-                onPressed: null,
-                child: Text('See All'),
-              ),
+              child: const TextButton(onPressed: null, child: Text('See All')),
             ),
           ),
           AppSpacing.heightXS,
@@ -189,13 +186,10 @@ class LibraryPage extends GetView<LibraryController> {
           SectionHeader(
             title: 'Series',
             trailing: TvFocusable(
-              onTap: () {},
+              onTap: () => Get.toNamed(AppRoutes.series),
               borderRadius: AppRadius.medium,
               scale: 1.05,
-              child: const TextButton(
-                onPressed: null,
-                child: Text('See All'),
-              ),
+              child: const TextButton(onPressed: null, child: Text('See All')),
             ),
           ),
           AppSpacing.heightXS,
@@ -238,13 +232,10 @@ class LibraryPage extends GetView<LibraryController> {
           SectionHeader(
             title: 'Favorites',
             trailing: TvFocusable(
-              onTap: () {},
+              onTap: () => Get.toNamed(AppRoutes.favorites),
               borderRadius: AppRadius.medium,
               scale: 1.05,
-              child: const TextButton(
-                onPressed: null,
-                child: Text('See All'),
-              ),
+              child: const TextButton(onPressed: null, child: Text('See All')),
             ),
           ),
           AppSpacing.heightXS,
@@ -263,7 +254,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.favorites[index];
-                      return _buildMediaCard(context, item, width: 160, height: 180);
+                      return _buildMediaCard(
+                        context,
+                        item,
+                        width: 160,
+                        height: 180,
+                      );
                     },
                   ),
                 ),
@@ -281,18 +277,7 @@ class LibraryPage extends GetView<LibraryController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            title: 'Continue Watching',
-            trailing: TvFocusable(
-              onTap: () {},
-              borderRadius: AppRadius.medium,
-              scale: 1.05,
-              child: const TextButton(
-                onPressed: null,
-                child: Text('See All'),
-              ),
-            ),
-          ),
+          SectionHeader(title: 'Continue Watching'),
           AppSpacing.heightXS,
           controller.continueWatching.isEmpty
               ? _buildEmptyLibrary(
@@ -309,7 +294,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.continueWatching[index];
-                      return _buildMediaCard(context, item, width: 160, height: 180);
+                      return _buildMediaCard(
+                        context,
+                        item,
+                        width: 160,
+                        height: 180,
+                      );
                     },
                   ),
                 ),
@@ -327,13 +317,10 @@ class LibraryPage extends GetView<LibraryController> {
           SectionHeader(
             title: 'Downloads',
             trailing: TvFocusable(
-              onTap: () {},
+              onTap: () => Get.toNamed(AppRoutes.downloads),
               borderRadius: AppRadius.medium,
               scale: 1.05,
-              child: const TextButton(
-                onPressed: null,
-                child: Text('See All'),
-              ),
+              child: const TextButton(onPressed: null, child: Text('See All')),
             ),
           ),
           AppSpacing.heightXS,
@@ -352,7 +339,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.downloads[index];
-                      return _buildMediaCard(context, item, width: 140, height: 180);
+                      return _buildMediaCard(
+                        context,
+                        item,
+                        width: 140,
+                        height: 180,
+                      );
                     },
                   ),
                 ),
@@ -367,18 +359,7 @@ class LibraryPage extends GetView<LibraryController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SectionHeader(
-            title: 'History',
-            trailing: TvFocusable(
-              onTap: () {},
-              borderRadius: AppRadius.medium,
-              scale: 1.05,
-              child: const TextButton(
-                onPressed: null,
-                child: Text('See All'),
-              ),
-            ),
-          ),
+          SectionHeader(title: 'History'),
           AppSpacing.heightXS,
           controller.history.isEmpty
               ? _buildEmptyLibrary(
@@ -395,7 +376,12 @@ class LibraryPage extends GetView<LibraryController> {
                     padding: const EdgeInsets.only(right: AppSpacing.lg),
                     itemBuilder: (context, index) {
                       final item = controller.history[index];
-                      return _buildMediaCard(context, item, width: 160, height: 180);
+                      return _buildMediaCard(
+                        context,
+                        item,
+                        width: 160,
+                        height: 180,
+                      );
                     },
                   ),
                 ),
@@ -445,8 +431,8 @@ class LibraryPage extends GetView<LibraryController> {
     final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
         ? item.poster!.trim()
         : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
-            ? item.thumbnail!.trim()
-            : item.backdrop?.trim());
+              ? item.thumbnail!.trim()
+              : item.backdrop?.trim());
     final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
         ? formattedPoster
         : rawPoster;
@@ -540,18 +526,13 @@ class LibraryPage extends GetView<LibraryController> {
 
   void _openItem(MediaItem item) {
     if (item.mediaType == MediaType.series) {
-      Get.toNamed(
-        AppRoutes.seriesDetails,
-        arguments: {'item': item},
-      );
+      Get.toNamed(AppRoutes.seriesDetails, arguments: {'item': item});
     } else if (item.mediaType == MediaType.movie) {
-      Get.toNamed(
-        AppRoutes.movieDetails,
-        arguments: item,
-      );
+      Get.toNamed(AppRoutes.movieDetails, arguments: item);
     } else if (item.mediaType == MediaType.channel) {
       final provider = item.providerType.displayName.toLowerCase();
-      final isFreeLiveTv = provider.contains('freelivetv') ||
+      final isFreeLiveTv =
+          provider.contains('freelivetv') ||
           provider.contains('free_live_tv') ||
           provider.contains('iptv-org') ||
           item.providerId.toLowerCase().contains('freelivetv') ||
@@ -562,18 +543,12 @@ class LibraryPage extends GetView<LibraryController> {
         if (Get.isRegistered<LiveTVController>()) {
           Get.find<LiveTVController>().stopInlinePlayer();
         }
-        Get.toNamed(
-          AppRoutes.freeLiveTV,
-          arguments: {'channel': item},
-        );
+        Get.toNamed(AppRoutes.freeLiveTV, arguments: {'channel': item});
       } else {
         if (Get.isRegistered<FreeLiveTvController>()) {
           Get.find<FreeLiveTvController>().stopInlinePlayer();
         }
-        Get.toNamed(
-          AppRoutes.liveTV,
-          arguments: {'channel': item},
-        );
+        Get.toNamed(AppRoutes.liveTV, arguments: {'channel': item});
       }
     } else {
       Get.toNamed(

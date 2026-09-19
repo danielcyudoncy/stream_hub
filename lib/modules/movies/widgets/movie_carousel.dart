@@ -1,10 +1,13 @@
+// modules/movies/widgets/movie_carousel.dart
 import 'package:flutter/material.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
+import '../../../core/services/tv_navigation_service.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../../../shared/widgets/tv_navigation_region.dart';
 import 'movie_card.dart';
 
 class MovieCarousel extends StatelessWidget {
@@ -107,29 +110,37 @@ class MovieCarousel extends StatelessWidget {
         ),
         SizedBox(
           height: cardHeight,
-          child: FocusTraversalGroup(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              scrollDirection: Axis.horizontal,
-              itemCount: movies.length,
-              separatorBuilder: (context, index) => AppSpacing.widthSM,
-              itemBuilder: (context, index) {
-                final movie = movies[index];
-                final progress = progressMap?[movie.id];
-                final isDone = completedIds?.contains(movie.id) ?? false;
+          child: TvNavigationRegion(
+            regionId:
+                'rail_movie_${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')}',
+            type: TvFocusRegionType.rail,
+            child: FocusTraversalGroup(
+              child: ListView.separated(
+                cacheExtent: 600.0,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                scrollDirection: Axis.horizontal,
+                itemCount: movies.length,
+                separatorBuilder: (context, index) => AppSpacing.widthSM,
+                itemBuilder: (context, index) {
+                  final movie = movies[index];
+                  final progress = progressMap?[movie.id];
+                  final isDone = completedIds?.contains(movie.id) ?? false;
 
-                return MovieCard(
-                  item: movie,
-                  width: cardWidth,
-                  height: cardHeight,
-                  progressPercentage: progress,
-                  isCompleted: isDone,
-                  onTap: () => onMovieTap(movie),
-                  onToggleFavorite: onToggleFavorite != null
-                      ? () => onToggleFavorite!(movie)
-                      : null,
-                );
-              },
+                  return MovieCard(
+                    item: movie,
+                    width: cardWidth,
+                    height: cardHeight,
+                    progressPercentage: progress,
+                    isCompleted: isDone,
+                    onTap: () => onMovieTap(movie),
+                    onToggleFavorite: onToggleFavorite != null
+                        ? () => onToggleFavorite!(movie)
+                        : null,
+                    itemId: movie.id,
+                    itemIndex: index,
+                  );
+                },
+              ),
             ),
           ),
         ),

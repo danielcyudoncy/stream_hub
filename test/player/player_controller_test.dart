@@ -116,8 +116,9 @@ class _FakePlayerAdapter implements PlayerAdapter {
   Future<List<dynamic>> getAvailableSubtitleTracks() async => subtitleTracks;
 
   @override
-  Future<List<PlayerQuality>> getAvailableQualities() async =>
-      const [PlayerQuality.auto];
+  Future<List<PlayerQuality>> getAvailableQualities() async => const [
+    PlayerQuality.auto,
+  ];
 
   @override
   Future<void> setAudioTrack(String trackId) async {
@@ -146,12 +147,12 @@ class _FakePlayerAdapter implements PlayerAdapter {
 
   @override
   Future<BufferInfo> getBufferInfo() async => BufferInfo(
-        currentBuffer: Duration.zero,
-        totalDuration: Duration.zero,
-        bufferPercentage: 0,
-        bufferHealthMs: 0,
-        measuredAt: DateTime.now(),
-      );
+    currentBuffer: Duration.zero,
+    totalDuration: Duration.zero,
+    bufferPercentage: 0,
+    bufferHealthMs: 0,
+    measuredAt: DateTime.now(),
+  );
 
   @override
   Stream<PlaybackState> get stateStream => const Stream.empty();
@@ -270,170 +271,223 @@ void main() {
   });
 
   group('PlayerController channel playback', () {
-    test('setChannelList triggers playback without engine access failures',
-        () async {
-      final adapter = _FakePlayerAdapter();
-      final repository = _FakeStreamRepository();
-      final controller = PlayerController(
-        adapter: adapter,
-        streamRepository: repository,
-      );
+    test(
+      'setChannelList triggers playback without engine access failures',
+      () async {
+        final adapter = _FakePlayerAdapter();
+        final repository = _FakeStreamRepository();
+        final controller = PlayerController(
+          adapter: adapter,
+          streamRepository: repository,
+        );
 
-      final item = MediaItem(
-        id: 'chan-1',
-        providerId: 'provider-1',
-        providerType: MediaSourceType.stalker,
-        mediaType: MediaType.channel,
-        title: 'News',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+        final item = MediaItem(
+          id: 'chan-1',
+          providerId: 'provider-1',
+          providerType: MediaSourceType.stalker,
+          mediaType: MediaType.channel,
+          title: 'News',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
 
-      controller.setChannelList([item], currentId: item.id);
-      await pumpEventQueue();
+        controller.setChannelList([item], currentId: item.id);
+        await pumpEventQueue();
 
-      expect(repository.resolvePlaybackCount, 1);
-      expect(adapter.playSessionCount, 1);
-      expect(adapter.playedSessions.first.mediaItemId, 'chan-1');
-      expect(controller.state, PlaybackState.playing);
+        expect(repository.resolvePlaybackCount, 1);
+        expect(adapter.playSessionCount, 1);
+        expect(adapter.playedSessions.first.mediaItemId, 'chan-1');
+        expect(controller.state, PlaybackState.playing);
 
-      await controller.playbackController.stop();
-      await controller.playbackController.engine.dispose();
-    });
+        await controller.playbackController.stop();
+        await controller.playbackController.engine.dispose();
+      },
+    );
 
-    test('resolution failure surfaces through the engine error state',
-        () async {
-      final adapter = _FakePlayerAdapter();
-      final repository = _FakeStreamRepository()..errorToThrow = 'dns failed';
-      final controller = PlayerController(
-        adapter: adapter,
-        streamRepository: repository,
-      );
+    test(
+      'resolution failure surfaces through the engine error state',
+      () async {
+        final adapter = _FakePlayerAdapter();
+        final repository = _FakeStreamRepository()..errorToThrow = 'dns failed';
+        final controller = PlayerController(
+          adapter: adapter,
+          streamRepository: repository,
+        );
 
-      final item = MediaItem(
-        id: 'chan-2',
-        providerId: 'provider-1',
-        providerType: MediaSourceType.stalker,
-        mediaType: MediaType.channel,
-        title: 'Movies',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+        final item = MediaItem(
+          id: 'chan-2',
+          providerId: 'provider-1',
+          providerType: MediaSourceType.stalker,
+          mediaType: MediaType.channel,
+          title: 'Movies',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
 
-      controller.setChannelList([item], currentId: item.id);
-      await pumpEventQueue();
+        controller.setChannelList([item], currentId: item.id);
+        await pumpEventQueue();
 
-      expect(repository.resolvePlaybackCount, 1);
-      expect(adapter.playSessionCount, 0);
-      expect(controller.state, PlaybackState.error);
-      expect(
-        controller.playbackController.engine.errorMessageRx.value,
-        contains('chan-2'),
-      );
+        expect(repository.resolvePlaybackCount, 1);
+        expect(adapter.playSessionCount, 0);
+        expect(controller.state, PlaybackState.error);
+        expect(
+          controller.playbackController.engine.errorMessageRx.value,
+          contains('chan-2'),
+        );
 
-      await controller.playbackController.engine.dispose();
-    });
+        await controller.playbackController.engine.dispose();
+      },
+    );
 
-    test('switchToNextChannel and switchToPreviousChannel continuously cycle through channels',
-        () async {
-      final adapter = _FakePlayerAdapter();
-      final repository = _FakeStreamRepository();
-      final controller = PlayerController(
-        adapter: adapter,
-        streamRepository: repository,
-      );
+    test(
+      'switchToNextChannel and switchToPreviousChannel continuously cycle through channels',
+      () async {
+        final adapter = _FakePlayerAdapter();
+        final repository = _FakeStreamRepository();
+        final controller = PlayerController(
+          adapter: adapter,
+          streamRepository: repository,
+        );
 
-      final item1 = MediaItem(
-        id: 'chan-1',
-        providerId: 'p1',
-        providerType: MediaSourceType.xtream,
-        mediaType: MediaType.channel,
-        title: 'Channel 1',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      final item2 = MediaItem(
-        id: 'chan-2',
-        providerId: 'p1',
-        providerType: MediaSourceType.xtream,
-        mediaType: MediaType.channel,
-        title: 'Channel 2',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
+        final item1 = MediaItem(
+          id: 'chan-1',
+          providerId: 'p1',
+          providerType: MediaSourceType.xtream,
+          mediaType: MediaType.channel,
+          title: 'Channel 1',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+        final item2 = MediaItem(
+          id: 'chan-2',
+          providerId: 'p1',
+          providerType: MediaSourceType.xtream,
+          mediaType: MediaType.channel,
+          title: 'Channel 2',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
 
-      controller.setChannelList([item1, item2], currentId: item1.id);
-      await pumpEventQueue();
+        controller.setChannelList([item1, item2], currentId: item1.id);
+        await pumpEventQueue();
 
-      expect(adapter.playedSessions.last.mediaItemId, 'chan-1');
+        expect(adapter.playedSessions.last.mediaItemId, 'chan-1');
 
-      // Next -> Channel 2
-      await controller.switchToNextChannel();
-      await pumpEventQueue();
-      expect(adapter.playedSessions.last.mediaItemId, 'chan-2');
+        // Next -> Channel 2
+        await controller.switchToNextChannel();
+        await pumpEventQueue();
+        expect(adapter.playedSessions.last.mediaItemId, 'chan-2');
 
-      // Next -> wraps to Channel 1
-      await controller.switchToNextChannel();
-      await pumpEventQueue();
-      expect(adapter.playedSessions.last.mediaItemId, 'chan-1');
+        // Next -> wraps to Channel 1
+        await controller.switchToNextChannel();
+        await pumpEventQueue();
+        expect(adapter.playedSessions.last.mediaItemId, 'chan-1');
 
-      // Previous -> wraps to Channel 2
-      await controller.switchToPreviousChannel();
-      await pumpEventQueue();
-      expect(adapter.playedSessions.last.mediaItemId, 'chan-2');
+        // Previous -> wraps to Channel 2
+        await controller.switchToPreviousChannel();
+        await pumpEventQueue();
+        expect(adapter.playedSessions.last.mediaItemId, 'chan-2');
 
-      await controller.playbackController.engine.dispose();
-    });
+        await controller.playbackController.engine.dispose();
+      },
+    );
 
-    test('getAvailableSubtitleTracks and setSubtitleTrack update player state and observable',
-        () async {
-      final adapter = _FakePlayerAdapter();
-      adapter.subtitleTracks = [
-        {'id': '1', 'label': 'English', 'language': 'eng'},
-        {'id': '2', 'label': 'Spanish', 'language': 'spa'},
-      ];
-      final repository = _FakeStreamRepository();
-      final controller = PlayerController(
-        adapter: adapter,
-        streamRepository: repository,
-      );
+    test(
+      'getAvailableSubtitleTracks and setSubtitleTrack update player state and observable',
+      () async {
+        final adapter = _FakePlayerAdapter();
+        adapter.subtitleTracks = [
+          {'id': '1', 'label': 'English', 'language': 'eng'},
+          {'id': '2', 'label': 'Spanish', 'language': 'spa'},
+        ];
+        final repository = _FakeStreamRepository();
+        final controller = PlayerController(
+          adapter: adapter,
+          streamRepository: repository,
+        );
 
-      final tracks = await controller.getAvailableSubtitleTracks();
-      expect(tracks, hasLength(2));
-      expect(tracks.first['label'], 'English');
+        final tracks = await controller.getAvailableSubtitleTracks();
+        expect(tracks, hasLength(2));
+        expect(tracks.first['label'], 'English');
 
-      await controller.setSubtitleTrack('1');
-      expect(controller.selectedSubtitleTrackRx.value, '1');
-      expect(adapter.lastSubtitleTrack, '1');
+        await controller.setSubtitleTrack('1');
+        expect(controller.selectedSubtitleTrackRx.value, '1');
+        expect(adapter.lastSubtitleTrack, '1');
 
-      await controller.setSubtitleTrack('no');
-      expect(controller.selectedSubtitleTrackRx.value, 'no');
-      expect(adapter.lastSubtitleTrack, 'no');
+        await controller.setSubtitleTrack('no');
+        expect(controller.selectedSubtitleTrackRx.value, 'no');
+        expect(adapter.lastSubtitleTrack, 'no');
 
-      await controller.playbackController.engine.dispose();
-    });
+        await controller.playbackController.engine.dispose();
+      },
+    );
 
-    test('getAvailableAudioTracks and setAudioTrack update player state and observable',
-        () async {
-      final adapter = _FakePlayerAdapter();
-      adapter.audioTracks = [
-        {'id': '1', 'label': 'English (AAC)', 'language': 'eng'},
-        {'id': '2', 'label': 'French (AC3)', 'language': 'fra'},
-      ];
-      final repository = _FakeStreamRepository();
-      final controller = PlayerController(
-        adapter: adapter,
-        streamRepository: repository,
-      );
+    test(
+      'getAvailableAudioTracks and setAudioTrack update player state and observable',
+      () async {
+        final adapter = _FakePlayerAdapter();
+        adapter.audioTracks = [
+          {'id': '1', 'label': 'English (AAC)', 'language': 'eng'},
+          {'id': '2', 'label': 'French (AC3)', 'language': 'fra'},
+        ];
+        final repository = _FakeStreamRepository();
+        final controller = PlayerController(
+          adapter: adapter,
+          streamRepository: repository,
+        );
 
-      final tracks = await controller.getAvailableAudioTracks();
-      expect(tracks, hasLength(2));
+        final tracks = await controller.getAvailableAudioTracks();
+        expect(tracks, hasLength(2));
 
-      await controller.setAudioTrack('2');
-      expect(controller.selectedAudioTrackRx.value, '2');
-      expect(adapter.lastAudioTrack, '2');
+        await controller.setAudioTrack('2');
+        expect(controller.selectedAudioTrackRx.value, '2');
+        expect(adapter.lastAudioTrack, '2');
 
-      await controller.playbackController.engine.dispose();
-    });
+        await controller.playbackController.engine.dispose();
+      },
+    );
+
+    test(
+      'setSpeed and setQuality record analytics changes without throwing',
+      () async {
+        final adapter = _FakePlayerAdapter();
+        final repository = _FakeStreamRepository();
+        final controller = PlayerController(
+          adapter: adapter,
+          streamRepository: repository,
+        );
+
+        final item = MediaItem(
+          id: 'chan-analytics',
+          providerId: 'provider-1',
+          providerType: MediaSourceType.xtream,
+          mediaType: MediaType.channel,
+          title: 'Analytics',
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        controller.setChannelList([item], currentId: item.id);
+        await pumpEventQueue();
+
+        final engine = controller.playbackController.engine;
+        expect(engine.analytics, isNotNull);
+
+        // Regression: the analytics maps default to `const {}`, so mutating them
+        // in place threw `Unsupported operation: Cannot modify unmodifiable map`
+        // whenever a user changed speed or quality.
+        await engine.setSpeed(PlaybackSpeed.speed1_5);
+        await engine.setSpeed(PlaybackSpeed.speed1_5);
+        await engine.setQuality(PlayerQuality.p1080);
+
+        expect(engine.analytics!.speedChanges[PlaybackSpeed.speed1_5.label], 2);
+        expect(
+          engine.analytics!.qualityChanges[PlayerQuality.p1080.displayName],
+          1,
+        );
+
+        await engine.dispose();
+      },
+    );
   });
 }

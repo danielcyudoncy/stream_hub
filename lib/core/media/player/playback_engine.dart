@@ -490,8 +490,12 @@ class PlaybackEngine {
   Future<void> setSpeed(PlaybackSpeed speed) async {
     await adapter.setSpeed(speed);
     speedRx.value = speed;
-    _analytics?.speedChanges[speed.label] =
-        (_analytics?.speedChanges[speed.label] ?? 0) + 1;
+    final analytics = _analytics;
+    if (analytics != null) {
+      final speedChanges = Map<String, int>.from(analytics.speedChanges);
+      speedChanges[speed.label] = (speedChanges[speed.label] ?? 0) + 1;
+      _analytics = analytics.copyWith(speedChanges: speedChanges);
+    }
   }
 
   Future<void> setAspectRatio(AspectRatioMode mode) async {
@@ -502,8 +506,13 @@ class PlaybackEngine {
   Future<void> setQuality(PlayerQuality quality) async {
     await adapter.setQuality(quality);
     qualityRx.value = quality;
-    _analytics?.qualityChanges[quality.displayName] =
-        (_analytics?.qualityChanges[quality.displayName] ?? 0) + 1;
+    final analytics = _analytics;
+    if (analytics != null) {
+      final qualityChanges = Map<String, int>.from(analytics.qualityChanges);
+      qualityChanges[quality.displayName] =
+          (qualityChanges[quality.displayName] ?? 0) + 1;
+      _analytics = analytics.copyWith(qualityChanges: qualityChanges);
+    }
     _publishEvent(QualityChangedEvent(
       sessionId: _currentSession?.id ?? '',
       quality: quality,

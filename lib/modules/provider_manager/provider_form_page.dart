@@ -443,19 +443,22 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
   }
 
   Widget _buildPasteButton(TextEditingController controller) {
+    Future<void> paste() async {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      final text = data?.text;
+      if (text != null && text.trim().isNotEmpty) {
+        controller.text = text.trim();
+      }
+    }
+
     return TvFocusable(
       borderRadius: AppRadius.small,
       scale: 1.0,
+      onTap: paste,
       child: IconButton(
         icon: const Icon(AppIcons.paste, size: 20),
         tooltip: 'Paste',
-        onPressed: () async {
-          final data = await Clipboard.getData(Clipboard.kTextPlain);
-          final text = data?.text;
-          if (text != null && text.trim().isNotEmpty) {
-            controller.text = text.trim();
-          }
-        },
+        onPressed: paste,
       ),
     );
   }

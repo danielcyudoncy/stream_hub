@@ -15,6 +15,7 @@ class ChannelColumn extends StatelessWidget {
   final EPGProgram? currentProgram;
   final EPGProgram? nextProgram;
   final VoidCallback? onTap;
+  final VoidCallback? onFavorite;
   final bool showFavoriteButton;
   final bool showProviderBadge;
   final bool showChannelNumber;
@@ -25,6 +26,7 @@ class ChannelColumn extends StatelessWidget {
     this.currentProgram,
     this.nextProgram,
     this.onTap,
+    this.onFavorite,
     this.showFavoriteButton = true,
     this.showProviderBadge = true,
     this.showChannelNumber = true,
@@ -105,7 +107,7 @@ class ChannelColumn extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (showFavoriteButton)
+                if (showFavoriteButton && onFavorite != null)
                   IconButton(
                     icon: Icon(
                       channel.isFavorite
@@ -116,7 +118,7 @@ class ChannelColumn extends StatelessWidget {
                           : colorScheme.onSurfaceVariant,
                       size: 20,
                     ),
-                    onPressed: () {},
+                    onPressed: onFavorite,
                   ),
               ],
             ),

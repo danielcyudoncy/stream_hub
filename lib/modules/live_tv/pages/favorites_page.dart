@@ -15,7 +15,9 @@ import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
 class FavoritesPage extends GetView<FavoritesController> {
-  const FavoritesPage({super.key});
+  FavoritesPage({super.key});
+
+  final _sortPopupKey = GlobalKey<PopupMenuButtonState<String>>();
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,9 @@ class FavoritesPage extends GetView<FavoritesController> {
         TvFocusable(
           scale: 1.0,
           borderRadius: BorderRadius.circular(8),
+          onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
           child: PopupMenuButton<String>(
+            key: _sortPopupKey,
             onSelected: (value) => controller.setSort(value),
             itemBuilder: (context) => [
               const PopupMenuItem(

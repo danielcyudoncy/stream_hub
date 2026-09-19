@@ -36,20 +36,22 @@ class AppAppBar extends StatelessWidget implements PreferredSizeWidget {
 
     Widget? effectiveLeading = leading;
     if (effectiveLeading == null && showBackButton) {
+      void goBack() {
+        if (Navigator.canPop(context)) {
+          Get.back();
+        } else {
+          Get.offAllNamed(AppRoutes.home);
+        }
+      }
+
       effectiveLeading = TvFocusable(
         scale: 1.0,
         borderRadius: BorderRadius.circular(8),
+        onTap: onBack ?? goBack,
         child: IconButton(
           icon: const Icon(AppIcons.back),
           tooltip: 'Back',
-          onPressed: onBack ??
-              () {
-                if (Navigator.canPop(context)) {
-                  Get.back();
-                } else {
-                  Get.offAllNamed(AppRoutes.home);
-                }
-              },
+          onPressed: onBack ?? goBack,
         ),
       );
     }

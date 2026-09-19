@@ -189,7 +189,9 @@ class _MovieHeroCarouselState extends State<MovieHeroCarousel> {
                         mainAxisSize: MainAxisSize.min,
                         children: List.generate(widget.movies.length, (index) {
                           final isActive = index == _currentPage;
-                          return GestureDetector(
+                          return TvFocusable(
+                            scale: 1.4,
+                            borderRadius: AppRadius.pill,
                             onTap: () {
                               _restartAutoPlay();
                               _pageController.animateToPage(

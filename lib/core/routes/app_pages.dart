@@ -281,7 +281,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.favorites,
-      page: () => const FavoritesPage(),
+      page: () => FavoritesPage(),
       binding: LiveTVBinding(),
       transition: Transition.noTransition,
     ),
@@ -297,7 +297,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.libraryOverview,
-      page: () => const LibraryOverviewPage(),
+      page: () => LibraryOverviewPage(),
       binding: LiveTVBinding(),
     ),
     GetPage(
@@ -325,7 +325,7 @@ class AppPages {
     ),
     GetPage(
       name: AppRoutes.channelTimeline,
-      page: () => const ChannelTimelinePage(),
+      page: () => ChannelTimelinePage(),
       binding: EPGBinding(),
     ),
     GetPage(

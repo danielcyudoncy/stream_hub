@@ -11,6 +11,7 @@ import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 class ProgramCard extends StatelessWidget {
   final EPGProgram program;
   final VoidCallback? onTap;
+  final VoidCallback? onFavorite;
   final bool showFavorite;
   final bool showProgress;
 
@@ -18,6 +19,7 @@ class ProgramCard extends StatelessWidget {
     super.key,
     required this.program,
     this.onTap,
+    this.onFavorite,
     this.showFavorite = true,
     this.showProgress = true,
   });
@@ -73,7 +75,9 @@ class ProgramCard extends StatelessWidget {
                                 horizontal: AppSpacing.xxs,
                                 vertical: AppSpacing.xxs,
                               ),
-                              margin: const EdgeInsets.only(left: AppSpacing.xxs),
+                              margin: const EdgeInsets.only(
+                                left: AppSpacing.xxs,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppColors.darkSuccess,
                                 borderRadius: AppRadius.small,
@@ -89,7 +93,7 @@ class ProgramCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    if (showFavorite)
+                    if (showFavorite && onFavorite != null)
                       Positioned(
                         top: AppSpacing.xs,
                         right: AppSpacing.xs,
@@ -103,7 +107,7 @@ class ProgramCard extends StatelessWidget {
                                 : colorScheme.onSurfaceVariant,
                             size: 20,
                           ),
-                          onPressed: () {},
+                          onPressed: onFavorite,
                         ),
                       ),
                     if (showProgress && program.isCurrentlyPlaying)
@@ -141,7 +145,8 @@ class ProgramCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: AppSpacing.xxs),
-                    if (program.subtitle != null && program.subtitle!.isNotEmpty)
+                    if (program.subtitle != null &&
+                        program.subtitle!.isNotEmpty)
                       Text(
                         program.subtitle!,
                         style: AppTypography.getCaption(
@@ -154,7 +159,10 @@ class ProgramCard extends StatelessWidget {
                     Row(
                       children: [
                         Text(
-                          DateFormatter.formatTimeRange(program.startTime, program.endTime),
+                          DateFormatter.formatTimeRange(
+                            program.startTime,
+                            program.endTime,
+                          ),
                           style: AppTypography.getCaption(
                             color: colorScheme.onSurfaceVariant,
                           ),

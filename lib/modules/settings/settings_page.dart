@@ -394,6 +394,9 @@ class SettingsPage extends GetView<SettingsController> {
                 () => TvFocusable(
                   borderRadius: AppRadius.medium,
                   scale: 1.01,
+                  onTap: () => controller.toggleAutoplayNextEpisode(
+                    !controller.autoplayNextEpisode.value,
+                  ),
                   child: SwitchListTile(
                     title: Text(
                       'Autoplay Next Episode',
@@ -415,6 +418,9 @@ class SettingsPage extends GetView<SettingsController> {
                 () => TvFocusable(
                   borderRadius: AppRadius.medium,
                   scale: 1.01,
+                  onTap: () => controller.toggleAutoSkipIntro(
+                    !controller.autoSkipIntro.value,
+                  ),
                   child: SwitchListTile(
                     title: Text(
                       'Auto-Skip Intro',
@@ -456,6 +462,9 @@ class SettingsPage extends GetView<SettingsController> {
           child: TvFocusable(
             borderRadius: AppRadius.medium,
             scale: 1.01,
+            onTap: () => controller.toggleNotifications(
+              !controller.notificationsEnabled.value,
+            ),
             child: SwitchListTile(
               title: Text(
                 'Enable Notifications',
@@ -491,6 +500,14 @@ class SettingsPage extends GetView<SettingsController> {
               TvFocusable(
                 borderRadius: AppRadius.medium,
                 scale: 1.01,
+                onTap: () {
+                  final next = !controller.parentalLockEnabled.value;
+                  if (next) {
+                    _showSetParentalPinDialog(context);
+                  } else {
+                    _showDisableParentalLockDialog(context);
+                  }
+                },
                 child: SwitchListTile(
                   title: Text(
                     'Parental Lock',
