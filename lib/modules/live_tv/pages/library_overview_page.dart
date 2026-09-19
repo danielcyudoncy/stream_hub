@@ -16,7 +16,9 @@ import '../../../modules/movies/widgets/movie_card.dart';
 import '../../../modules/series/widgets/series_card.dart';
 
 class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
-  const LibraryOverviewPage({super.key});
+  LibraryOverviewPage({super.key});
+
+  final _filterPopupKey = GlobalKey<PopupMenuButtonState<String>>();
 
   @override
   Widget build(BuildContext context) {
@@ -27,7 +29,9 @@ class LibraryOverviewPage extends GetView<LiveTVLibraryController> {
         TvFocusable(
           scale: 1.0,
           borderRadius: BorderRadius.circular(8),
+          onTap: () => _filterPopupKey.currentState?.showButtonMenu(),
           child: PopupMenuButton<String>(
+            key: _filterPopupKey,
             onSelected: (value) => controller.setFilter(value),
             itemBuilder: (context) => [
               const PopupMenuItem(

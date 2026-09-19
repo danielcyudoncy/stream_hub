@@ -1,54 +1,46 @@
-// test/modules/live_tv/live_tv_embedded_player_narrow_test.dart
+// test/modules/free_live_tv/free_tv_embedded_player_narrow_test.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
-import 'package:stream_hub/core/media/enums/media_source_type.dart';
-import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/player_quality.dart';
-import 'package:stream_hub/core/media/media_engine.dart';
-import 'package:stream_hub/core/media/media_library.dart';
 import 'package:stream_hub/core/media/player/buffer_info.dart';
 import 'package:stream_hub/core/media/player/playable_media_session.dart';
 import 'package:stream_hub/core/media/player/player_adapter.dart';
 import 'package:stream_hub/core/streaming/models/playable_session.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
-import 'package:stream_hub/data/models/channel.dart';
-import 'package:stream_hub/data/models/media_item.dart';
-import 'package:stream_hub/data/repositories/catalog_repository.dart';
-import 'package:stream_hub/data/repositories/favorite_repository.dart';
-import 'package:stream_hub/modules/live_tv/controllers/live_tv_controller.dart';
-import 'package:stream_hub/modules/live_tv/widgets/live_tv_embedded_player.dart';
+import 'package:stream_hub/data/models/free_tv_channel.dart';
+import 'package:stream_hub/data/repositories/free_tv_repository.dart';
+import 'package:stream_hub/modules/free_live_tv/controllers/free_live_tv_controller.dart';
+import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_embedded_player.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 
-class _FakeCatalogRepository implements CatalogRepository {
+class _FakeFreeTvRepository implements FreeTvRepository {
   @override
-  Stream<void> watchUpdates() => const Stream.empty();
+  Future<List<FreeTvChannel>> getCatalog({bool forceRefresh = false}) async =>
+      const [];
 
   @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeMediaEngine implements MediaEngine {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeMediaLibrary implements MediaLibrary {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
-}
-
-class _FakeFavoriteRepository implements FavoriteRepository {
-  @override
-  Stream<void> watchUpdates() => const Stream.empty();
+  Set<String> getFavoriteIds() => <String>{};
 
   @override
-  Future<List<MediaItem>> getAll() async => [];
+  Future<bool> isFavorite(String channelId) async => false;
+
+  @override
+  Future<bool> toggleFavorite(String channelId) async => true;
+
+  @override
+  Stream<Set<String>> watchFavorites() => const Stream.empty();
+
+  @override
+  Future<List<FreeTvChannel>> getRecentlyWatched() async => const [];
+
+  @override
+  Future<void> recordWatch(FreeTvChannel channel) async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -60,8 +52,6 @@ class _StubStreamRepository implements StreamRepository {
 }
 
 class _StubPlayerAdapter implements PlayerAdapter {
-  final _stateController = StreamController<PlaybackState>.broadcast();
-
   @override
   PlaybackEngineKind get kind => PlaybackEngineKind.mediaKit;
   @override
@@ -93,14 +83,11 @@ class _StubPlayerAdapter implements PlayerAdapter {
   @override
   Future<void> retry() async {}
   @override
-  Future<void> dispose() async {
-    await _stateController.close();
-  }
-
+  Future<void> dispose() async {}
   @override
   PlaybackState get state => PlaybackState.playing;
   @override
-  Stream<PlaybackState> get stateStream => _stateController.stream;
+  Stream<PlaybackState> get stateStream => const Stream.empty();
   @override
   Duration get position => Duration.zero;
   @override
@@ -167,41 +154,32 @@ void main() {
   });
 
   testWidgets(
-    'renders player overlay controls in narrow landscape container without RenderFlex overflow',
+    'keeps free TV mini-player controls usable in narrow landscape without overflow',
     (tester) async {
-      final channel = Channel(
-        id: 'ch-test-1',
-        providerId: 'prov-1',
-        providerType: MediaSourceType.m3u,
-        title: 'Sky Sports Premier League Ultra HD',
-        mediaType: MediaType.channel,
-        number: '101',
-        isLive: true,
-        genres: const ['Sports & Entertainment'],
-        createdAt: DateTime(2025, 1, 1),
-        updatedAt: DateTime(2025, 1, 1),
+      final channel = const FreeTvChannel(
+        id: 'free-ng-1',
+        name: 'Channels Television',
+        country: 'Nigeria',
+        countryCode: 'NG',
+        categories: ['News'],
+        streamUrls: ['https://example.com/live.m3u8'],
       );
 
-      final liveTvCtrl = LiveTVController(
-        mediaEngine: _FakeMediaEngine(),
-        mediaLibrary: _FakeMediaLibrary(),
-        catalogRepository: _FakeCatalogRepository(),
-        favoriteRepository: _FakeFavoriteRepository(),
+      final controller = FreeLiveTvController(
+        repository: _FakeFreeTvRepository(),
       );
-      Get.put<LiveTVController>(liveTvCtrl);
+      Get.put<FreeLiveTvController>(controller);
 
       final playerCtrl = PlayerController(
         adapter: _StubPlayerAdapter(),
         engineKind: PlaybackEngineKind.mediaKit,
         streamRepository: _StubStreamRepository(),
       );
-      Get.put<PlayerController>(playerCtrl);
-      liveTvCtrl.inlinePlayerController = playerCtrl;
-      liveTvCtrl.activePlayingChannel.value = channel;
+      controller.inlinePlayerController = playerCtrl;
+      controller.activePlayingChannel.value = channel;
       playerCtrl.playbackController.engine.stateRx.value =
           PlaybackState.playing;
 
-      // Pump inside a tight 170.3px constraint (the exact width from the user's landscape overflow)
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -209,9 +187,10 @@ void main() {
               child: SizedBox(
                 width: 170.3,
                 height: 149.0,
-                child: LiveTvEmbeddedPlayer(
-                  controller: liveTvCtrl,
+                child: FreeTvEmbeddedPlayer(
+                  controller: controller,
                   isFullscreen: false,
+                  autofocus: false,
                 ),
               ),
             ),
@@ -220,73 +199,11 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 200));
 
-      // In micro width (170.3px), the player should still expose the primary
-      // control actions needed for TV remote navigation without clipping.
-      expect(find.text('Sky Sports Premier League Ultra HD'), findsOneWidget);
+      expect(tester.takeException(), isNull);
       expect(find.byIcon(Icons.close_rounded), findsOneWidget);
       expect(find.byIcon(Icons.pause_circle_filled_rounded), findsOneWidget);
       expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
       expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
     },
   );
-
-  testWidgets('renders all controls when space permits (>= 350px)', (
-    tester,
-  ) async {
-    final channel = Channel(
-      id: 'ch-test-2',
-      providerId: 'prov-1',
-      providerType: MediaSourceType.m3u,
-      title: 'Sky Sports Main Event',
-      mediaType: MediaType.channel,
-      number: '102',
-      isLive: true,
-      genres: const ['Sports'],
-      createdAt: DateTime(2025, 1, 1),
-      updatedAt: DateTime(2025, 1, 1),
-    );
-
-    final liveTvCtrl = LiveTVController(
-      mediaEngine: _FakeMediaEngine(),
-      mediaLibrary: _FakeMediaLibrary(),
-      catalogRepository: _FakeCatalogRepository(),
-      favoriteRepository: _FakeFavoriteRepository(),
-    );
-    Get.put<LiveTVController>(liveTvCtrl);
-
-    final playerCtrl = PlayerController(
-      adapter: _StubPlayerAdapter(),
-      engineKind: PlaybackEngineKind.mediaKit,
-      streamRepository: _StubStreamRepository(),
-    );
-    Get.put<PlayerController>(playerCtrl);
-    liveTvCtrl.inlinePlayerController = playerCtrl;
-    liveTvCtrl.activePlayingChannel.value = channel;
-    playerCtrl.playbackController.engine.stateRx.value = PlaybackState.playing;
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 400.0,
-              height: 250.0,
-              child: LiveTvEmbeddedPlayer(
-                controller: liveTvCtrl,
-                isFullscreen: false,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 200));
-
-    expect(find.text('LIVE'), findsOneWidget);
-    expect(find.text('102'), findsOneWidget);
-    expect(find.text('Sky Sports Main Event'), findsOneWidget);
-    expect(find.byIcon(Icons.close_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.pause_circle_filled_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
-  });
 }

@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 
+import '../../core/services/tv_navigation_service.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_shadows.dart';
 import 'tv_body_focus_registry.dart';
+import 'tv_navigation_region.dart';
 
 class TvFocusable extends StatefulWidget {
   final Widget child;
@@ -20,6 +23,9 @@ class TvFocusable extends StatefulWidget {
   final bool descendantsAreFocusable;
   final FocusNode? focusNode;
   final FocusOnKeyEventCallback? onKeyEvent;
+  final String? regionId;
+  final String? itemId;
+  final int? itemIndex;
 
   const TvFocusable({
     super.key,
@@ -36,6 +42,9 @@ class TvFocusable extends StatefulWidget {
     this.descendantsAreFocusable = true,
     this.focusNode,
     this.onKeyEvent,
+    this.regionId,
+    this.itemId,
+    this.itemIndex,
   });
 
   @override
@@ -46,53 +55,112 @@ class _TvFocusableState extends State<TvFocusable> {
   bool _hasFocus = false;
   Timer? _longPressTimer;
   bool _longPressTriggered = false;
-  bool _registered = false;
+  bool _registeredWithBody = false;
+  bool _registeredWithNavService = false;
+  String? _activeRegionId;
 
   FocusNode? _internalFocusNode;
-  FocusNode get _effectiveFocusNode =>
-      widget.focusNode ?? (_internalFocusNode ??= FocusNode());
+  FocusNode? _handlerBoundNode;
+  FocusNode get _effectiveFocusNode => widget.focusNode ?? _internalFocusNode!;
 
   TvBodyFocusRegistry? _registry;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.focusNode == null) {
+      _internalFocusNode = FocusNode();
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _syncBodyRegistration();
+    _syncRegistrations();
   }
 
   @override
   void didUpdateWidget(TvFocusable oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.focusNode != widget.focusNode) {
-      _unregisterWithBody();
-      _syncBodyRegistration();
+      // Recreate the internal node when migrating between an external and an
+      // internally owned focus node so the effective node is never null.
+      if (widget.focusNode == null) {
+        _internalFocusNode ??= FocusNode();
+      } else {
+        _internalFocusNode?.dispose();
+        _internalFocusNode = null;
+      }
+      _unregister();
+      _syncRegistrations();
+    } else if (oldWidget.regionId != widget.regionId) {
+      _unregister();
+      _syncRegistrations();
     }
   }
 
-  void _syncBodyRegistration() {
+  void _syncRegistrations() {
+    // Bind the key handler once per effective node. Binding here (rather than
+    // in build()) keeps the handler attached across rebuilds without mutating
+    // widget state during the build phase.
+    _bindKeyHandler();
+    // 1. TvBodyFocusRegistry sync (for TvScaffold)
     final registry = TvBodyFocusRegistry.maybeOf(context);
-    if (registry == null) {
+    if (registry != null) {
+      _registry = registry;
+      if (!_registeredWithBody) {
+        _registeredWithBody = true;
+        registry.register(_effectiveFocusNode);
+      }
+    } else {
       _unregisterWithBody();
-      _registry = null;
-      return;
     }
-    _registry = registry;
-    if (!_registered) {
-      _registered = true;
-      registry.register(_effectiveFocusNode);
+
+    // 2. TvNavigationService sync
+    final regionScope = TvNavigationRegion.maybeOf(context);
+    final effectiveRegion = widget.regionId ?? regionScope?.regionId;
+    _activeRegionId = effectiveRegion;
+
+    if (effectiveRegion != null && Get.isRegistered<TvNavigationService>()) {
+      Get.find<TvNavigationService>().registerNode(
+        effectiveRegion,
+        _effectiveFocusNode,
+      );
+      _registeredWithNavService = true;
     }
   }
 
   void _unregisterWithBody() {
-    if (!_registered) return;
+    if (!_registeredWithBody) return;
     _registry?.unregister(_effectiveFocusNode);
-    _registered = false;
+    _registeredWithBody = false;
     _registry = null;
+  }
+
+  void _bindKeyHandler() {
+    final node = _effectiveFocusNode;
+    if (_handlerBoundNode != node) {
+      node.onKeyEvent = _handleKeyEvent;
+      _handlerBoundNode = node;
+    }
+  }
+
+  void _unregister() {
+    _unregisterWithBody();
+    if (_registeredWithNavService &&
+        _activeRegionId != null &&
+        Get.isRegistered<TvNavigationService>()) {
+      Get.find<TvNavigationService>().unregisterNode(
+        _activeRegionId!,
+        _effectiveFocusNode,
+      );
+      _registeredWithNavService = false;
+    }
   }
 
   @override
   void dispose() {
-    _unregisterWithBody();
+    _unregister();
     _longPressTimer?.cancel();
     _internalFocusNode?.dispose();
     super.dispose();
@@ -104,7 +172,16 @@ class _TvFocusableState extends State<TvFocusable> {
       if (res != KeyEventResult.ignored) return res;
     }
 
-    final isSelect = event.logicalKey == LogicalKeyboardKey.select ||
+    // Without an activation handler this wrapper must not claim Select/Enter:
+    // an interactive descendant (IconButton, PopupMenuButton, SwitchListTile…)
+    // may own the activation. Swallowing the key here is what made such
+    // controls dead on remote Enter while still showing a focus ring.
+    if (widget.onTap == null && widget.onLongPress == null) {
+      return KeyEventResult.ignored;
+    }
+
+    final isSelect =
+        event.logicalKey == LogicalKeyboardKey.select ||
         event.logicalKey == LogicalKeyboardKey.enter ||
         event.logicalKey == LogicalKeyboardKey.numpadEnter ||
         event.logicalKey == LogicalKeyboardKey.gameButtonA;
@@ -113,11 +190,7 @@ class _TvFocusableState extends State<TvFocusable> {
 
     if (event is KeyDownEvent) {
       if (widget.onLongPress == null) {
-        // No long-press behavior: activate immediately on press (key down).
-        // Returning `handled` stops the event from bubbling to ancestor key
-        // handlers — e.g. a full-screen player wrapper that toggles its
-        // control overlay on Select and would otherwise swallow the button's
-        // activation, leaving remote-focused controls unresponsive.
+        // Activate immediately on press (key down).
         widget.onTap?.call();
         return KeyEventResult.handled;
       }
@@ -149,6 +222,45 @@ class _TvFocusableState extends State<TvFocusable> {
     return KeyEventResult.ignored;
   }
 
+  void _onFocusChanged(bool hasKeyboardFocus) {
+    if (!mounted || _hasFocus == hasKeyboardFocus) return;
+
+    setState(() => _hasFocus = hasKeyboardFocus);
+
+    if (hasKeyboardFocus) {
+      // Record focus in TvNavigationService
+      final effectiveRegion = _activeRegionId;
+      if (effectiveRegion != null && Get.isRegistered<TvNavigationService>()) {
+        Get.find<TvNavigationService>().recordFocus(
+          regionId: effectiveRegion,
+          node: _effectiveFocusNode,
+          itemId: widget.itemId,
+          itemIndex: widget.itemIndex,
+        );
+      }
+
+      // Smooth scroll visibility in parent scrollables
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (Get.isRegistered<TvNavigationService>()) {
+          Get.find<TvNavigationService>().ensureVisible(
+            context,
+            alignment: 0.5,
+          );
+        } else {
+          Scrollable.ensureVisible(
+            context,
+            alignment: 0.5,
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      });
+    }
+
+    widget.onFocusChange?.call(hasKeyboardFocus);
+  }
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
@@ -156,31 +268,13 @@ class _TvFocusableState extends State<TvFocusable> {
     final borderRadius = widget.borderRadius ?? AppRadius.medium;
 
     final node = _effectiveFocusNode;
-    node.onKeyEvent = _handleKeyEvent;
 
     return FocusableActionDetector(
       autofocus: widget.autofocus,
       focusNode: node,
       descendantsAreFocusable: widget.descendantsAreFocusable,
       enabled: widget.canRequestFocus,
-      onFocusChange: (hasKeyboardFocus) {
-        if (mounted && _hasFocus != hasKeyboardFocus) {
-          setState(() => _hasFocus = hasKeyboardFocus);
-          if (hasKeyboardFocus) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                Scrollable.ensureVisible(
-                  context,
-                  alignment: 0.5,
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutCubic,
-                );
-              }
-            });
-          }
-          widget.onFocusChange?.call(hasKeyboardFocus);
-        }
-      },
+      onFocusChange: _onFocusChanged,
       actions: widget.onLongPress != null
           ? const <Type, Action<Intent>>{}
           : <Type, Action<Intent>>{

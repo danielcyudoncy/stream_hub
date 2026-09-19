@@ -575,6 +575,7 @@ class _ParentalPinDialogState extends State<ParentalPinDialog> {
                   ),
                   TvFocusable(
                     borderRadius: AppRadius.medium,
+                    onTap: _isProcessing ? null : _handleSubmit,
                     child: ElevatedButton(
                       onPressed: _isProcessing ? null : _handleSubmit,
                       child: _isProcessing

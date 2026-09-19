@@ -1,10 +1,13 @@
+// modules/series/widgets/series_carousel.dart
 import 'package:flutter/material.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
+import '../../../core/services/tv_navigation_service.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../../../shared/widgets/tv_navigation_region.dart';
 import 'series_card.dart';
 
 class SeriesCarousel extends StatelessWidget {
@@ -106,31 +109,39 @@ class SeriesCarousel extends StatelessWidget {
         AppSpacing.heightSM,
         SizedBox(
           height: carouselHeight,
-          child: FocusTraversalGroup(
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              itemCount: series.length,
-              separatorBuilder: (context, index) => AppSpacing.widthMD,
-              itemBuilder: (context, index) {
-                final item = series[index];
-                final progress = progressMap?[item.id];
-                final isCompleted = completedIds?.contains(item.id) ?? false;
+          child: TvNavigationRegion(
+            regionId:
+                'rail_series_${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')}',
+            type: TvFocusRegionType.rail,
+            child: FocusTraversalGroup(
+              child: ListView.separated(
+                cacheExtent: 600.0,
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: series.length,
+                separatorBuilder: (context, index) => AppSpacing.widthMD,
+                itemBuilder: (context, index) {
+                  final item = series[index];
+                  final progress = progressMap?[item.id];
+                  final isCompleted = completedIds?.contains(item.id) ?? false;
 
-                return SeriesCard(
-                  key: ValueKey('series-card-${item.id}'),
-                  item: item,
-                  width: cardWidth,
-                  height: cardHeight,
-                  progressPercentage: progress,
-                  isCompleted: isCompleted,
-                  onToggleFavorite: onToggleFavorite != null
-                      ? () => onToggleFavorite!(item)
-                      : null,
-                  onTap: () => onSeriesTap(item),
-                );
-              },
+                  return SeriesCard(
+                    key: ValueKey('series-card-${item.id}'),
+                    item: item,
+                    width: cardWidth,
+                    height: cardHeight,
+                    progressPercentage: progress,
+                    isCompleted: isCompleted,
+                    onToggleFavorite: onToggleFavorite != null
+                        ? () => onToggleFavorite!(item)
+                        : null,
+                    onTap: () => onSeriesTap(item),
+                    itemId: item.id,
+                    itemIndex: index,
+                  );
+                },
+              ),
             ),
           ),
         ),

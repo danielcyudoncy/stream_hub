@@ -4,7 +4,9 @@ import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../data/models/media_item.dart';
+import '../../../core/services/tv_navigation_service.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../../../shared/widgets/tv_navigation_region.dart';
 
 class HomeContentRail extends StatelessWidget {
   final String title;
@@ -108,21 +110,27 @@ class HomeContentRail extends StatelessWidget {
         ClipRect(
           child: SizedBox(
             height: effectiveHeight,
-            child: FocusTraversalGroup(
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                itemCount: items.length,
-                itemBuilder: (context, index) {
-                  final item = items[index];
-                  return SizedBox(
-                    width: effectiveCardWidth,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: AppSpacing.md),
-                      child: itemBuilder(context, item, index),
-                    ),
-                  );
-                },
+            child: TvNavigationRegion(
+              regionId:
+                  'rail_${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')}',
+              type: TvFocusRegionType.rail,
+              child: FocusTraversalGroup(
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  cacheExtent: 600.0,
+                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  itemCount: items.length,
+                  itemBuilder: (context, index) {
+                    final item = items[index];
+                    return SizedBox(
+                      width: effectiveCardWidth,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: AppSpacing.md),
+                        child: itemBuilder(context, item, index),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           ),

@@ -1,3 +1,4 @@
+// modules/live_tv/pages/live_tv_page.dart
 import 'dart:async';
 import 'dart:io';
 import 'package:floating/floating.dart';
@@ -95,8 +96,8 @@ class _LiveTVPageState extends State<LiveTVPage> {
 
       _engineKindSub = playerCtrl.playbackController.engine.engineKindRx.stream
           .listen((_) {
-        _injectFloatingIntoAdapter();
-      });
+            _injectFloatingIntoAdapter();
+          });
 
       _stateSub = playerCtrl.playbackController.engine.stateRx.listen((state) {
         if (state == PlaybackState.playing) {
@@ -144,15 +145,15 @@ class _LiveTVPageState extends State<LiveTVPage> {
   void _triggerScrollToChannel(String channelId) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
-      final index =
-          controller.filteredChannels.indexWhere((c) => c.id == channelId);
+      final index = controller.filteredChannels.indexWhere(
+        (c) => c.id == channelId,
+      );
       if (index < 0) return;
 
       final isTV = ResponsiveHelper.isTV(context);
       final isDesktop = ResponsiveHelper.isDesktop(context);
       final isTablet = ResponsiveHelper.isTablet(context);
-      final crossAxisCount =
-          isTV ? 5 : (isDesktop ? 4 : (isTablet ? 3 : 2));
+      final crossAxisCount = isTV ? 5 : (isDesktop ? 4 : (isTablet ? 3 : 2));
       final isList = controller.selectedView.value == 'list';
 
       double offset = 0;
@@ -194,14 +195,15 @@ class _LiveTVPageState extends State<LiveTVPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isDesktop = PlatformHelper.isDesktop || ResponsiveHelper.isDesktop(context);
-    final isTV = !isDesktop && (PlatformHelper.isTV || ResponsiveHelper.isTV(context));
+    final isDesktop =
+        PlatformHelper.isDesktop || ResponsiveHelper.isDesktop(context);
+    final isTV =
+        !isDesktop && (PlatformHelper.isTV || ResponsiveHelper.isTV(context));
     final isTablet = ResponsiveHelper.isTablet(context);
-    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final isLandscape =
+        MediaQuery.of(context).orientation == Orientation.landscape;
 
-    final crossAxisCount = isTV
-        ? 5
-        : (isDesktop ? 4 : (isTablet ? 3 : 2));
+    final crossAxisCount = isTV ? 5 : (isDesktop ? 4 : (isTablet ? 3 : 2));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!controller.isLoading.value) {
@@ -223,9 +225,15 @@ class _LiveTVPageState extends State<LiveTVPage> {
     }
 
     // Auto-exit fullscreen only if device was actually in landscape and is now rotated back to portrait
-    if (!isLandscape && controller.isFullscreenMode.value && !isTV && !isDesktop) {
+    if (!isLandscape &&
+        controller.isFullscreenMode.value &&
+        !isTV &&
+        !isDesktop) {
       if (controller.hasBeenLandscapeInFullscreen &&
-          DateTime.now().difference(controller.lastFullscreenEntered).inMilliseconds > 800) {
+          DateTime.now()
+                  .difference(controller.lastFullscreenEntered)
+                  .inMilliseconds >
+              800) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (controller.isFullscreenMode.value) {
             controller.exitFullscreen();
@@ -277,234 +285,247 @@ class _LiveTVPageState extends State<LiveTVPage> {
           );
         }
 
-      // Landscape 2-Pane Side-by-Side View (Player on left, channels on right)
-      if (isLandscape && !isDesktop) {
-        return AppScaffold(
-          title: 'Live TV',
-          showAppBar: false,
-          resizeToAvoidBottomInset: false,
-          body: LayoutBuilder(
-            builder: (context, constraints) {
-              return Row(
-                children: [
-                  // Left Pane (44%): Top Bar + Featured Hero / Embedded Player + Category Bar
-                  SizedBox(
-                    width: constraints.maxWidth * 0.44,
-                    child: Column(
-                      children: [
-                        _buildTopAppBar(context, isList),
-                    Expanded(
-                      child: LiveTvEmbeddedPlayer(
-                        key: const ValueKey('live_tv_player_landscape'),
-                        controller: controller,
-                        isFullscreen: false,
-                        autofocus: false,
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
-                      child: LiveTvCategoryBar(
-                        categories: controller.categories,
-                        selectedCategory: controller.selectedCategory.value,
-                        showFavoritesOnly: controller.showFavoritesOnly.value,
-                        favoritesCount: controller.favorites.length,
-                        onCategorySelected: (cat) => controller.setCategory(cat),
-                        onFavoritesToggle: (fav) => controller.setFavoritesOnly(fav),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Vertical subtle separator
-              Container(
-                width: 1.0,
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-
-              // Right Pane (56%): Channels header + Independent list/grid
-              Expanded(
-                child: Column(
+        // Landscape 2-Pane Side-by-Side View (Player on left, channels on right)
+        if (isLandscape && !isDesktop) {
+          return AppScaffold(
+            title: 'Live TV',
+            showAppBar: false,
+            resizeToAvoidBottomInset: false,
+            body: LayoutBuilder(
+              builder: (context, constraints) {
+                return Row(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: 3.0,
-                      ),
-                      child: Row(
+                    // Left Pane (44%): Top Bar + Featured Hero / Embedded Player + Category Bar
+                    SizedBox(
+                      width: constraints.maxWidth * 0.44,
+                      child: Column(
                         children: [
+                          _buildTopAppBar(context, isList),
                           Expanded(
-                            child: Text(
-                              favoritesOnly ? 'Favorite Channels' : selectedCat,
-                              style: const TextStyle(
-                                fontSize: 13.0,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                            child: LiveTvEmbeddedPlayer(
+                              key: const ValueKey('live_tv_player_landscape'),
+                              controller: controller,
+                              isFullscreen: false,
+                              autofocus: false,
                             ),
                           ),
-                          const SizedBox(width: AppSpacing.xs),
-                          Container(
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              top: 2.0,
+                              bottom: 2.0,
+                            ),
+                            child: LiveTvCategoryBar(
+                              categories: controller.categories,
+                              selectedCategory:
+                                  controller.selectedCategory.value,
+                              showFavoritesOnly:
+                                  controller.showFavoritesOnly.value,
+                              favoritesCount: controller.favorites.length,
+                              onCategorySelected: (cat) =>
+                                  controller.setCategory(cat),
+                              onFavoritesToggle: (fav) =>
+                                  controller.setFavoritesOnly(fav),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Vertical subtle separator
+                    Container(
+                      width: 1.0,
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+
+                    // Right Pane (56%): Channels header + Independent list/grid
+                    Expanded(
+                      child: Column(
+                        children: [
+                          Padding(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 7.0,
-                              vertical: 1.5,
+                              horizontal: AppSpacing.md,
+                              vertical: 3.0,
                             ),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderRadius: AppRadius.pill,
-                              border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.3),
-                              ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    favoritesOnly
+                                        ? 'Favorite Channels'
+                                        : selectedCat,
+                                    style: const TextStyle(
+                                      fontSize: 13.0,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: AppSpacing.xs),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 7.0,
+                                    vertical: 1.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.15,
+                                    ),
+                                    borderRadius: AppRadius.pill,
+                                    border: Border.all(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.3,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '${filtered.length}',
+                                    style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 10.0,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            child: Text(
-                              '${filtered.length}',
-                              style: const TextStyle(
-                                color: AppColors.primary,
-                                fontSize: 10.0,
-                                fontWeight: FontWeight.w800,
+                          ),
+                          Expanded(
+                            child: RefreshIndicator(
+                              onRefresh: () async => controller.refresh(),
+                              child: _buildChannelListView(
+                                filtered,
+                                isList,
+                                isTV,
+                                crossAxisCount,
+                                query,
+                                favoritesOnly,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
+                  ],
+                );
+              },
+            ),
+          );
+        }
+
+        // Default Portrait View: Pinned Top Section + Independent Channel List Below
+        return AppScaffold(
+          title: 'Live TV',
+          showAppBar: false,
+          resizeToAvoidBottomInset: false,
+          body: Column(
+            children: [
+              // 1. Fixed Sticky App Bar at Top
+              _buildTopAppBar(context, isList),
+
+              // 2. Fixed Pinned Top Player (Never scrolls away!)
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: isDesktop || isTablet
+                      ? (MediaQuery.sizeOf(context).height * 0.40).clamp(
+                          200.0,
+                          360.0,
+                        )
+                      : double.infinity,
+                ),
+                child: LiveTvEmbeddedPlayer(
+                  key: const ValueKey('live_tv_player_portrait'),
+                  controller: controller,
+                  isFullscreen: false,
+                  autofocus: false,
+                ),
+              ),
+
+              // 3. Fixed Pinned Category Bar (Never scrolls away!)
+              Padding(
+                padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
+                child: LiveTvCategoryBar(
+                  categories: controller.categories,
+                  selectedCategory: controller.selectedCategory.value,
+                  showFavoritesOnly: controller.showFavoritesOnly.value,
+                  favoritesCount: controller.favorites.length,
+                  onCategorySelected: (cat) {
+                    controller.setCategory(cat);
+                  },
+                  onFavoritesToggle: (fav) {
+                    controller.setFavoritesOnly(fav);
+                  },
+                ),
+              ),
+
+              // 4. Fixed Category Header with Channel Count
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 2.0,
+                ),
+                child: Row(
+                  children: [
                     Expanded(
-                      child: RefreshIndicator(
-                        onRefresh: () async => controller.refresh(),
-                        child: _buildChannelListView(
-                          filtered,
-                          isList,
-                          isTV,
-                          crossAxisCount,
-                          query,
-                          favoritesOnly,
+                      child: Text(
+                        favoritesOnly ? 'Favorite Channels' : selectedCat,
+                        style: const TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7.0,
+                        vertical: 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        '${filtered.length}',
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ],
-          );
-        },
-      ),
-    );
-  }
 
-      // Default Portrait View: Pinned Top Section + Independent Channel List Below
-      return AppScaffold(
-        title: 'Live TV',
-        showAppBar: false,
-        resizeToAvoidBottomInset: false,
-        body: Column(
-          children: [
-            // 1. Fixed Sticky App Bar at Top
-            _buildTopAppBar(context, isList),
+              const SizedBox(height: 2.0),
 
-            // 2. Fixed Pinned Top Player (Never scrolls away!)
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: isDesktop || isTablet
-                    ? (MediaQuery.sizeOf(context).height * 0.40).clamp(200.0, 360.0)
-                    : double.infinity,
-              ),
-              child: LiveTvEmbeddedPlayer(
-                key: const ValueKey('live_tv_player_portrait'),
-                controller: controller,
-                isFullscreen: false,
-                autofocus: false,
-              ),
-            ),
-
-            // 3. Fixed Pinned Category Bar (Never scrolls away!)
-            Padding(
-              padding: const EdgeInsets.only(
-                top: 2.0,
-                bottom: 2.0,
-              ),
-              child: LiveTvCategoryBar(
-                categories: controller.categories,
-                selectedCategory: controller.selectedCategory.value,
-                showFavoritesOnly: controller.showFavoritesOnly.value,
-                favoritesCount: controller.favorites.length,
-                onCategorySelected: (cat) {
-                  controller.setCategory(cat);
-                },
-                onFavoritesToggle: (fav) {
-                  controller.setFavoritesOnly(fav);
-                },
-              ),
-            ),
-
-            // 4. Fixed Category Header with Channel Count
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: 2.0,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      favoritesOnly ? 'Favorite Channels' : selectedCat,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+              // 5. Scrollable Channel List / Grid Below Pinned Section
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: () async => controller.refresh(),
+                  child: _buildChannelListView(
+                    filtered,
+                    isList,
+                    isTV,
+                    crossAxisCount,
+                    query,
+                    favoritesOnly,
                   ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 7.0,
-                      vertical: 1.5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      borderRadius: AppRadius.pill,
-                      border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Text(
-                      '${filtered.length}',
-                      style: const TextStyle(
-                        color: AppColors.primary,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 2.0),
-
-            // 5. Scrollable Channel List / Grid Below Pinned Section
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: () async => controller.refresh(),
-                child: _buildChannelListView(
-                  filtered,
-                  isList,
-                  isTV,
-                  crossAxisCount,
-                  query,
-                  favoritesOnly,
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-    }),
-  );
+            ],
+          ),
+        );
+      }),
+    );
 
     if (!_isPiPSupported || _floating == null || isTV || isDesktop) {
       return mainScaffold;
@@ -549,13 +570,13 @@ class _LiveTVPageState extends State<LiveTVPage> {
               title: query.isNotEmpty
                   ? 'No Matching Channels'
                   : (favoritesOnly
-                      ? 'No Favorite Channels'
-                      : 'No Channels in This Category'),
+                        ? 'No Favorite Channels'
+                        : 'No Channels in This Category'),
               description: query.isNotEmpty
                   ? 'No channels matched "$query". Try a different search keyword or clear the search.'
                   : (favoritesOnly
-                      ? 'You haven\'t added any channels to your favorites yet. Tap the heart on any channel to favorite it.'
-                      : 'No channels were found in this category. Try selecting another category or resetting filters.'),
+                        ? 'You haven\'t added any channels to your favorites yet. Tap the heart on any channel to favorite it.'
+                        : 'No channels were found in this category. Try selecting another category or resetting filters.'),
               actionLabel: 'Reset Filters',
               onAction: _clearFilters,
             ),
@@ -576,11 +597,15 @@ class _LiveTVPageState extends State<LiveTVPage> {
         itemBuilder: (context, index) {
           final item = filtered[index];
           return Obx(() {
-            final isPlaying = controller.activePlayingChannel.value?.id == item.id;
+            final isPlaying =
+                controller.activePlayingChannel.value?.id == item.id;
             return LiveTvChannelCard(
               channel: item,
               isList: true,
               isPlaying: isPlaying,
+              regionId: 'live_channels',
+              itemId: item.id,
+              itemIndex: index,
               onTap: isPlaying
                   ? controller.expandToFullscreen
                   : () => controller.openChannel(item),
@@ -605,11 +630,15 @@ class _LiveTVPageState extends State<LiveTVPage> {
       itemBuilder: (context, index) {
         final item = filtered[index];
         return Obx(() {
-          final isPlaying = controller.activePlayingChannel.value?.id == item.id;
+          final isPlaying =
+              controller.activePlayingChannel.value?.id == item.id;
           return LiveTvChannelCard(
             channel: item,
             isList: false,
             isPlaying: isPlaying,
+            regionId: 'live_channels',
+            itemId: item.id,
+            itemIndex: index,
             onTap: isPlaying
                 ? controller.expandToFullscreen
                 : () => controller.openChannel(item),
@@ -651,18 +680,17 @@ class _LiveTVPageState extends State<LiveTVPage> {
                   children: [
                     Text(
                       'Live TV',
-                      style: AppTypography.getDisplay(
-                        color: AppColors.primary,
-                      ).copyWith(
-                        fontWeight: FontWeight.bold,
-                        fontSize: isCompact ? 17.0 : 19.0,
-                        shadows: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.4),
-                            blurRadius: 8.0,
-                          )
-                        ],
-                      ),
+                      style: AppTypography.getDisplay(color: AppColors.primary)
+                          .copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: isCompact ? 17.0 : 19.0,
+                            shadows: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(alpha: 0.4),
+                                blurRadius: 8.0,
+                              ),
+                            ],
+                          ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -709,8 +737,9 @@ class _LiveTVPageState extends State<LiveTVPage> {
                       size: 18.0,
                     ),
                     color: isList ? AppColors.primary : Colors.white,
-                    tooltip:
-                        isList ? 'Switch to Grid View' : 'Switch to List View',
+                    tooltip: isList
+                        ? 'Switch to Grid View'
+                        : 'Switch to List View',
                     onPressed: null,
                   ),
                 ),
@@ -783,18 +812,12 @@ class _LiveTVPageState extends State<LiveTVPage> {
         key: _sortPopupKey,
         padding: const EdgeInsets.all(6.0),
         constraints: const BoxConstraints(),
-        icon: const Icon(
-          Icons.sort_rounded,
-          size: 18.0,
-          color: Colors.white,
-        ),
+        icon: const Icon(Icons.sort_rounded, size: 18.0, color: Colors.white),
         tooltip: 'Sort Channels',
         color: AppColors.darkSurface,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.medium,
-          side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         initialValue: controller.selectedSort.value,
         onSelected: (val) => controller.setSort(val),
@@ -811,10 +834,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
             value: 'provider',
             child: Text('By Source / Provider'),
           ),
-          const PopupMenuItem(
-            value: 'country',
-            child: Text('By Country'),
-          ),
+          const PopupMenuItem(value: 'country', child: Text('By Country')),
         ],
       ),
     );
@@ -823,7 +843,8 @@ class _LiveTVPageState extends State<LiveTVPage> {
   Widget _buildMultiViewButton() {
     return TvFocusable(
       onTap: () async {
-        final activeChannel = controller.activePlayingChannel.value ??
+        final activeChannel =
+            controller.activePlayingChannel.value ??
             controller.featuredChannel.value;
         controller.stopInlinePlayer();
         await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
@@ -833,11 +854,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
       child: const IconButton(
         padding: EdgeInsets.all(6.0),
         constraints: BoxConstraints(),
-        icon: Icon(
-          Icons.grid_view_rounded,
-          size: 18.0,
-          color: Colors.white,
-        ),
+        icon: Icon(Icons.grid_view_rounded, size: 18.0, color: Colors.white),
         tooltip: 'Multi-View (Multi-Screen)',
         onPressed: null,
       ),
@@ -862,15 +879,14 @@ class _LiveTVPageState extends State<LiveTVPage> {
         color: AppColors.darkSurface,
         shape: RoundedRectangleBorder(
           borderRadius: AppRadius.medium,
-          side: BorderSide(
-            color: Colors.white.withValues(alpha: 0.1),
-          ),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
         onSelected: (val) async {
           if (val == 'toggle_view') {
             controller.setView(isList ? 'grid' : 'list');
           } else if (val == 'multi_view') {
-            final activeChannel = controller.activePlayingChannel.value ??
+            final activeChannel =
+                controller.activePlayingChannel.value ??
                 controller.featuredChannel.value;
             controller.stopInlinePlayer();
             await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);

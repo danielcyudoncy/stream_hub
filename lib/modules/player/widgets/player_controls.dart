@@ -1,5 +1,7 @@
+// modules/player/widgets/player_controls.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
 import 'package:stream_hub/core/media/enums/playback_speed.dart';
@@ -57,7 +59,8 @@ class PlayerControls extends StatelessWidget {
                   ),
                   Expanded(
                     child: Obx(() {
-                      final title = controller.sessionRx.value?.metadata.title ?? '';
+                      final title =
+                          controller.sessionRx.value?.metadata.title ?? '';
                       return Text(
                         title,
                         style: AppTypography.getBody(color: Colors.white),
@@ -83,18 +86,19 @@ class PlayerControls extends StatelessWidget {
   }
 
   Widget _buildControlsRow(BuildContext context) {
+    final buttonScale = isFullscreen ? 1.2 : 1.12;
     final leftButtons = <Widget>[
       _ControlButton(
         icon: AppIcons.previous,
         onPressed: controller.previous,
-        size: isFullscreen ? 32 : 24,
+        size: isFullscreen ? 38 : 28,
+        autofocus: isFullscreen,
       ),
       _ControlButton(
         icon: AppIcons.rewind,
-        onPressed: () => controller.seek(
-          controller.position - const Duration(seconds: 10),
-        ),
-        size: isFullscreen ? 32 : 24,
+        onPressed: () =>
+            controller.seek(controller.position - const Duration(seconds: 10)),
+        size: isFullscreen ? 38 : 28,
       ),
       Obx(() {
         final state = controller.stateRx.value;
@@ -102,25 +106,26 @@ class PlayerControls extends StatelessWidget {
         return _ControlButton(
           icon: isPlaying ? AppIcons.pause : AppIcons.play,
           onPressed: isPlaying ? controller.pause : controller.play,
-          size: isFullscreen ? 48 : 36,
+          size: isFullscreen ? 60 : 42,
+          autofocus: isFullscreen,
+          accent: true,
         );
       }),
       _ControlButton(
         icon: AppIcons.stop,
         onPressed: controller.stopAndClose,
-        size: isFullscreen ? 32 : 24,
+        size: isFullscreen ? 38 : 28,
       ),
       _ControlButton(
         icon: AppIcons.forward,
-        onPressed: () => controller.seek(
-          controller.position + const Duration(seconds: 10),
-        ),
-        size: isFullscreen ? 32 : 24,
+        onPressed: () =>
+            controller.seek(controller.position + const Duration(seconds: 10)),
+        size: isFullscreen ? 38 : 28,
       ),
       _ControlButton(
         icon: AppIcons.next,
         onPressed: controller.next,
-        size: isFullscreen ? 32 : 24,
+        size: isFullscreen ? 38 : 28,
       ),
     ];
 
@@ -130,12 +135,14 @@ class PlayerControls extends StatelessWidget {
         items: AspectRatioMode.values,
         labelBuilder: (mode) => Text(mode.displayName),
         onSelected: (mode) => controller.setAspectRatio(mode),
+        scale: buttonScale,
       ),
       _PopupMenuButton<PlaybackSpeed>(
         icon: AppIcons.speed,
         items: PlaybackSpeed.values,
         labelBuilder: (speed) => Text(speed.label),
         onSelected: (speed) => controller.setSpeed(speed),
+        scale: buttonScale,
       ),
       if (isFullscreen) ...[
         _PopupMenuButton<PlayerQuality>(
@@ -143,91 +150,97 @@ class PlayerControls extends StatelessWidget {
           items: PlayerQuality.values,
           labelBuilder: (q) => Text(q.displayName),
           onSelected: (q) => controller.setQuality(q),
+          scale: buttonScale,
         ),
         TvFocusable(
+          autofocus: false,
           onTap: () => _showSubtitlesSheet(context),
-          scale: 1.15,
+          scale: buttonScale,
           borderRadius: BorderRadius.circular(24),
           child: IconButton(
             onPressed: () => _showSubtitlesSheet(context),
-            icon: const Icon(AppIcons.subtitles,
-                color: Colors.white),
+            icon: const Icon(AppIcons.subtitles, color: Colors.white),
             tooltip: 'Subtitles',
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
         ),
         TvFocusable(
+          autofocus: false,
           onTap: () => _showAudioTracksSheet(context),
-          scale: 1.15,
+          scale: buttonScale,
           borderRadius: BorderRadius.circular(24),
           child: IconButton(
             onPressed: () => _showAudioTracksSheet(context),
-            icon: const Icon(AppIcons.audioTrack,
-                color: Colors.white),
+            icon: const Icon(AppIcons.audioTrack, color: Colors.white),
             tooltip: 'Audio Tracks',
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
         ),
         if (onPiPPressed != null || Platform.isAndroid)
           TvFocusable(
-            onTap: onPiPPressed ??
-                () => controller.enterPictureInPicture(),
-            scale: 1.15,
+            autofocus: false,
+            onTap: onPiPPressed ?? () => controller.enterPictureInPicture(),
+            scale: buttonScale,
             borderRadius: BorderRadius.circular(24),
             child: IconButton(
-              onPressed: onPiPPressed ??
-                  () => controller.enterPictureInPicture(),
-              icon: const Icon(Icons.picture_in_picture_alt,
-                  color: Colors.white),
+              onPressed:
+                  onPiPPressed ?? () => controller.enterPictureInPicture(),
+              icon: const Icon(
+                Icons.picture_in_picture_alt,
+                color: Colors.white,
+              ),
               tooltip: 'Picture-in-Picture',
+              constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
             ),
           ),
         TvFocusable(
+          autofocus: false,
           onTap: () => _toggleFullscreen(context),
-          scale: 1.15,
+          scale: buttonScale,
           borderRadius: BorderRadius.circular(24),
           child: IconButton(
             onPressed: () => _toggleFullscreen(context),
-            icon: const Icon(AppIcons.fullscreenExit,
-                color: Colors.white),
+            icon: const Icon(AppIcons.fullscreenExit, color: Colors.white),
+            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
           ),
         ),
       ],
     ];
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth;
-        final leftWidth = leftButtons.fold<double>(
-          0,
-          (sum, w) => sum + (_estimateButtonWidth(w) ?? 0),
-        );
-        final rightWidth = rightButtons.fold<double>(
-          0,
-          (sum, w) => sum + (_estimateButtonWidth(w) ?? 0),
-        );
-        final minGap = 12.0;
-
-        if (availableWidth > leftWidth + rightWidth + minGap + 40) {
-          return Row(
-            children: [
-              ...leftButtons,
-              const Spacer(),
-              ...rightButtons,
-            ],
+    return FocusTraversalGroup(
+      policy: OrderedTraversalPolicy(),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final availableWidth = constraints.maxWidth;
+          final leftWidth = leftButtons.fold<double>(
+            0,
+            (sum, w) => sum + (_estimateButtonWidth(w) ?? 0),
           );
-        }
+          final rightWidth = rightButtons.fold<double>(
+            0,
+            (sum, w) => sum + (_estimateButtonWidth(w) ?? 0),
+          );
+          final minGap = isFullscreen ? 18.0 : 12.0;
 
-        return SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          physics: const BouncingScrollPhysics(),
+          if (availableWidth > leftWidth + rightWidth + minGap + 40) {
+            return Row(
+              children: [...leftButtons, const Spacer(), ...rightButtons],
+            );
+          }
+
+          return SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
             child: Row(
-            children: [
-              ...leftButtons,
-              SizedBox(width: minGap),
-              ...rightButtons,
-            ],
-          ),
-        );
-      },
+              children: [
+                ...leftButtons,
+                SizedBox(width: minGap),
+                ...rightButtons,
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -301,7 +314,9 @@ class PlayerControls extends StatelessWidget {
   }
 
   void _toggleFullscreen(BuildContext context) {
-    // Fullscreen toggle handled by platform channels or route navigation
+    // These controls are rendered inside the fullscreen player route, so the
+    // exit-fullscreen affordance returns to the screen it was launched from.
+    Get.back();
   }
 }
 
@@ -322,24 +337,40 @@ class _ProgressBar extends StatelessWidget {
 
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-        child: SliderTheme(
-          data: SliderThemeData(
-            trackHeight: 3,
-            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-            overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-            activeTrackColor: Colors.red,
-            inactiveTrackColor: Colors.white24,
-            thumbColor: Colors.red,
-            overlayColor: Colors.red.withValues(alpha: 0.2),
-          ),
-          child: Slider(
-            value: progress.clamp(0.0, 1.0),
-            onChanged: (value) {
-              final newPosition = Duration(
-                milliseconds: (value * duration.inMilliseconds).round(),
-              );
-              controller.seek(newPosition);
-            },
+        child: TvFocusable(
+          scale: 1.02,
+          borderRadius: BorderRadius.circular(4),
+          onKeyEvent: (node, event) {
+            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+            if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+              controller.seek(controller.position - const Duration(seconds: 10));
+              return KeyEventResult.handled;
+            }
+            if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+              controller.seek(controller.position + const Duration(seconds: 10));
+              return KeyEventResult.handled;
+            }
+            return KeyEventResult.ignored;
+          },
+          child: SliderTheme(
+            data: SliderThemeData(
+              trackHeight: 3,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+              activeTrackColor: Colors.red,
+              inactiveTrackColor: Colors.white24,
+              thumbColor: Colors.red,
+              overlayColor: Colors.red.withValues(alpha: 0.2),
+            ),
+            child: Slider(
+              value: progress.clamp(0.0, 1.0),
+              onChanged: (value) {
+                final newPosition = Duration(
+                  milliseconds: (value * duration.inMilliseconds).round(),
+                );
+                controller.seek(newPosition);
+              },
+            ),
           ),
         ),
       );
@@ -351,24 +382,45 @@ class _ControlButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final double size;
+  final bool autofocus;
+  final bool accent;
 
   const _ControlButton({
     required this.icon,
     required this.onPressed,
     this.size = 32,
+    this.autofocus = false,
+    this.accent = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final background = accent
+        ? Colors.red.withValues(alpha: 0.18)
+        : Colors.white.withValues(alpha: 0.06);
+    final border = accent
+        ? Colors.red.withValues(alpha: 0.9)
+        : Colors.white.withValues(alpha: 0.12);
+
     return TvFocusable(
+      autofocus: autofocus,
       onTap: onPressed,
-      scale: 1.15,
-      borderRadius: BorderRadius.circular(size),
-      child: IconButton(
-        onPressed: onPressed,
-        icon: Icon(icon, size: size, color: Colors.white),
-        padding: const EdgeInsets.symmetric(horizontal: 4),
-        constraints: BoxConstraints(minWidth: size + 16, minHeight: size + 16),
+      scale: accent ? 1.22 : 1.14,
+      borderRadius: BorderRadius.circular(size * 0.7),
+      child: Container(
+        width: size + 18,
+        height: size + 18,
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(size * 0.7),
+          border: Border.all(color: border, width: 1.25),
+        ),
+        child: IconButton(
+          onPressed: onPressed,
+          icon: Icon(icon, size: size, color: Colors.white),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+        ),
       ),
     );
   }
@@ -379,6 +431,7 @@ class _PopupMenuButton<T> extends StatefulWidget {
   final List<T> items;
   final Widget Function(T) labelBuilder;
   final ValueChanged<T> onSelected;
+  final double scale;
 
   const _PopupMenuButton({
     super.key,
@@ -386,6 +439,7 @@ class _PopupMenuButton<T> extends StatefulWidget {
     required this.items,
     required this.labelBuilder,
     required this.onSelected,
+    this.scale = 1.14,
   });
 
   @override
@@ -399,20 +453,31 @@ class _PopupMenuButtonState<T> extends State<_PopupMenuButton<T>> {
   Widget build(BuildContext context) {
     return TvFocusable(
       onTap: () => _popupKey.currentState?.showButtonMenu(),
-      scale: 1.15,
+      scale: widget.scale,
       borderRadius: BorderRadius.circular(24),
-      child: PopupMenuButton<T>(
-        key: _popupKey,
-        icon: Icon(widget.icon, color: Colors.white, size: 20),
-        onSelected: widget.onSelected,
-        itemBuilder: (context) {
-          return widget.items
-              .map((item) => PopupMenuItem<T>(
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+        ),
+        child: PopupMenuButton<T>(
+          key: _popupKey,
+          icon: Icon(widget.icon, color: Colors.white, size: 20),
+          onSelected: widget.onSelected,
+          itemBuilder: (context) {
+            return widget.items
+                .map(
+                  (item) => PopupMenuItem<T>(
                     value: item,
                     child: widget.labelBuilder(item),
-                  ))
-              .toList();
-        },
+                  ),
+                )
+                .toList();
+          },
+        ),
       ),
     );
   }

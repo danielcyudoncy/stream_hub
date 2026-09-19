@@ -66,9 +66,22 @@ class CategoriesPage extends GetView<CategoryController> {
                     Obx(() {
                       final isHidden =
                           controller.isCategoryHidden(selectedCategory.id);
+                      void toggleVisibility() {
+                        controller.toggleCategoryVisibility(selectedCategory.id);
+                        Get.snackbar(
+                          isHidden ? 'Category Unhidden' : 'Category Hidden',
+                          isHidden
+                              ? '${selectedCategory.name} is now visible across the app.'
+                              : '${selectedCategory.name} is now hidden from channel guides.',
+                          snackPosition: SnackPosition.BOTTOM,
+                          duration: const Duration(seconds: 2),
+                        );
+                      }
+
                       return TvFocusable(
                         scale: 1.0,
                         borderRadius: BorderRadius.circular(8),
+                        onTap: toggleVisibility,
                         child: IconButton(
                           tooltip: isHidden ? 'Unhide Category' : 'Hide Category',
                           icon: Icon(
@@ -77,18 +90,7 @@ class CategoriesPage extends GetView<CategoryController> {
                                 : Icons.visibility_rounded,
                             color: isHidden ? Colors.amber : Colors.white70,
                           ),
-                          onPressed: () {
-                            controller
-                                .toggleCategoryVisibility(selectedCategory.id);
-                            Get.snackbar(
-                              isHidden ? 'Category Unhidden' : 'Category Hidden',
-                              isHidden
-                                  ? '${selectedCategory.name} is now visible across the app.'
-                                  : '${selectedCategory.name} is now hidden from channel guides.',
-                              snackPosition: SnackPosition.BOTTOM,
-                              duration: const Duration(seconds: 2),
-                            );
-                          },
+                          onPressed: toggleVisibility,
                         ),
                       );
                     }),

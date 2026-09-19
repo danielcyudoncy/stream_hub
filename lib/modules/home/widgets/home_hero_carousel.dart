@@ -9,6 +9,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/image_url_formatter.dart';
 import '../../../data/models/media_item.dart';
 import '../../../shared/widgets/hero_banner.dart';
+import '../../../shared/widgets/tv_focusable.dart';
 
 class HomeHeroCarousel extends StatefulWidget {
   final List<MediaItem> items;
@@ -330,18 +331,22 @@ class _PageIndicator extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: List.generate(count, (index) {
           final isActive = index == currentIndex;
-          return GestureDetector(
-            onTap: onTap != null ? () => onTap!(index) : null,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              margin: const EdgeInsets.symmetric(horizontal: 3.0),
-              height: 5.0,
-              width: isActive ? 20.0 : 5.0,
-              decoration: BoxDecoration(
-                color: isActive ? Colors.white : Colors.white38,
-                borderRadius: AppRadius.pill,
-              ),
+          final dot = AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            margin: const EdgeInsets.symmetric(horizontal: 3.0),
+            height: 5.0,
+            width: isActive ? 20.0 : 5.0,
+            decoration: BoxDecoration(
+              color: isActive ? Colors.white : Colors.white38,
+              borderRadius: AppRadius.pill,
             ),
+          );
+          if (onTap == null) return dot;
+          return TvFocusable(
+            onTap: () => onTap!(index),
+            scale: 1.4,
+            borderRadius: AppRadius.pill,
+            child: dot,
           );
         }),
       ),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:stream_hub/core/services/tv_navigation_service.dart';
 import 'media_binding.dart';
 import 'stream_engine_binding.dart';
 import 'iptv_core_binding.dart';
@@ -64,6 +65,7 @@ class AppBinding extends Bindings {
     StreamEngineBinding().dependencies();
     IptvCoreBinding().dependencies();
     MediaBinding().dependencies();
+    Get.put<TvNavigationService>(TvNavigationService(), permanent: true);
 
     final downloadRepo = DownloadRepositoryImpl();
     Get.put<DownloadRepository>(downloadRepo, permanent: true);

@@ -1,3 +1,4 @@
+// modules/movies/widgets/movie_card.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
@@ -20,6 +21,8 @@ class MovieCard extends StatefulWidget {
   final double? progressPercentage;
   final bool isCompleted;
   final VoidCallback? onToggleFavorite;
+  final String? itemId;
+  final int? itemIndex;
 
   const MovieCard({
     super.key,
@@ -30,6 +33,8 @@ class MovieCard extends StatefulWidget {
     this.progressPercentage,
     this.isCompleted = false,
     this.onToggleFavorite,
+    this.itemId,
+    this.itemIndex,
   });
 
   @override
@@ -63,7 +68,8 @@ class _MovieCardState extends State<MovieCard> {
       return;
     }
 
-    if (widget.item.mediaType == MediaType.movie && Get.isRegistered<XtreamVodInfoService>()) {
+    if (widget.item.mediaType == MediaType.movie &&
+        Get.isRegistered<XtreamVodInfoService>()) {
       final vodService = Get.find<XtreamVodInfoService>();
       final cached = vodService.getCachedPoster(widget.item);
       if (cached != null && cached.isNotEmpty) {
@@ -71,15 +77,20 @@ class _MovieCardState extends State<MovieCard> {
         return;
       }
 
-      vodService.fetchForMediaItem(widget.item).then((info) {
-        if (!mounted) return;
-        final poster = info?.poster ?? info?.backdrop;
-        if (poster != null && poster.isNotEmpty) {
-          setState(() {
-            _resolvedPoster = ImageUrlFormatter.format(poster, item: widget.item) ?? poster;
-          });
-        }
-      }).catchError((_) {});
+      vodService
+          .fetchForMediaItem(widget.item)
+          .then((info) {
+            if (!mounted) return;
+            final poster = info?.poster ?? info?.backdrop;
+            if (poster != null && poster.isNotEmpty) {
+              setState(() {
+                _resolvedPoster =
+                    ImageUrlFormatter.format(poster, item: widget.item) ??
+                    poster;
+              });
+            }
+          })
+          .catchError((_) {});
     }
   }
 
@@ -91,8 +102,8 @@ class _MovieCardState extends State<MovieCard> {
     final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
         ? item.poster!.trim()
         : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
-            ? item.thumbnail!.trim()
-            : item.backdrop?.trim());
+              ? item.thumbnail!.trim()
+              : item.backdrop?.trim());
     if (rawPoster != null && rawPoster.isNotEmpty) {
       final formatted = ImageUrlFormatter.format(rawPoster, item: item);
       if (formatted != null && formatted.isNotEmpty) {
@@ -109,7 +120,9 @@ class _MovieCardState extends State<MovieCard> {
     final poster = _resolvedPoster ?? _computeDirectPoster(widget.item);
     final rating = widget.item.formattedRating;
     final year = widget.item.releaseYear;
-    final genre = widget.item.genres.isNotEmpty ? widget.item.genres.first : null;
+    final genre = widget.item.genres.isNotEmpty
+        ? widget.item.genres.first
+        : null;
 
     return SizedBox(
       width: widget.width,
@@ -119,6 +132,8 @@ class _MovieCardState extends State<MovieCard> {
         onLongPress: widget.onToggleFavorite,
         borderRadius: AppRadius.medium,
         scale: 1.1,
+        itemId: widget.itemId ?? widget.item.id,
+        itemIndex: widget.itemIndex,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -143,7 +158,9 @@ class _MovieCardState extends State<MovieCard> {
                               child: SizedBox(
                                 width: 20.0,
                                 height: 20.0,
-                                child: CircularProgressIndicator(strokeWidth: 2.0),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.0,
+                                ),
                               ),
                             ),
                           );
@@ -193,7 +210,9 @@ class _MovieCardState extends State<MovieCard> {
                             vertical: 2.0,
                           ),
                           decoration: BoxDecoration(
-                            color: AppColors.darkSuccess.withValues(alpha: 0.85),
+                            color: AppColors.darkSuccess.withValues(
+                              alpha: 0.85,
+                            ),
                             borderRadius: AppRadius.small,
                           ),
                           child: const Icon(
@@ -203,7 +222,8 @@ class _MovieCardState extends State<MovieCard> {
                           ),
                         ),
                       )
-                    else if (widget.onToggleFavorite != null || widget.item.favorite)
+                    else if (widget.onToggleFavorite != null ||
+                        widget.item.favorite)
                       Positioned(
                         top: AppSpacing.xs,
                         right: AppSpacing.xs,
@@ -281,10 +301,14 @@ class _MovieCardState extends State<MovieCard> {
                               widget.item.title,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: AppTypography.getBody(
-                                color: Colors.white,
-                                scale: 0.85,
-                              ).copyWith(fontWeight: FontWeight.w600, height: 1.2),
+                              style:
+                                  AppTypography.getBody(
+                                    color: Colors.white,
+                                    scale: 0.85,
+                                  ).copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.2,
+                                  ),
                             ),
                             if (year != null || genre != null || rating != null)
                               Padding(

@@ -73,7 +73,7 @@ void main() {
     Get.put<FavoritesController>(controller);
 
     await tester.pumpWidget(
-      const GetMaterialApp(
+      GetMaterialApp(
         home: FavoritesPage(),
       ),
     );

@@ -1,3 +1,4 @@
+// shared/widgets/tv_scaffold.dart
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -14,8 +15,11 @@ import '../../modules/player/controllers/player_controller.dart';
 import '../../modules/player/pages/floating_player_page.dart';
 import '../../modules/profiles/profile_controller.dart';
 import '../../modules/provider_manager/provider_manager_controller.dart';
+import '../../core/services/tv_navigation_service.dart';
+import '../../core/constants/tv_navigation_constants.dart';
 import 'sync_progress_bar.dart';
 import 'tv_body_focus_registry.dart';
+import 'tv_focus_debug_overlay.dart';
 import 'tv_focusable.dart';
 
 class TvScaffold extends StatefulWidget {
@@ -40,12 +44,49 @@ class _TvScaffoldState extends State<TvScaffold> {
   );
   final Map<int, FocusNode> _navFocusNodes = {};
   final FocusNode _profileFocusNode = FocusNode(debugLabel: 'Nav_Profile');
-  FocusNode? _lastBodyFocusedNode;
   final GlobalKey _bodyKey = GlobalKey(debugLabel: 'TvScaffoldBodyKey');
 
   /// Real, actionable focus targets inside the body, in build (reading) order.
   /// Registered by [TvFocusable] children via [TvBodyFocusRegistry].
   final List<FocusNode> _bodyFocusables = <FocusNode>[];
+
+  void _focusFirstBodyAction() {
+    if (!mounted) return;
+
+    if (_bodyFocusables.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final primary = FocusManager.instance.primaryFocus;
+        if (primary != null && primary.context != null && _isInBody(primary)) {
+          return;
+        }
+        if (_bodyFocusNode.canRequestFocus) {
+          _bodyFocusNode.requestFocus();
+        }
+      });
+      return;
+    }
+
+    FocusNode? candidate;
+    for (final focusNode in _bodyFocusables) {
+      try {
+        if (focusNode.canRequestFocus) {
+          candidate = focusNode;
+          break;
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    if (candidate == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final primary = FocusManager.instance.primaryFocus;
+      if (primary != null && _bodyFocusables.contains(primary)) return;
+      candidate!.requestFocus();
+    });
+  }
 
   void _registerBodyFocusable(FocusNode node) {
     if (!_bodyFocusables.contains(node)) {
@@ -57,18 +98,8 @@ class _TvScaffoldState extends State<TvScaffold> {
     // primary focus and pressing any remote direction is a no-op. The root
     // focus scope holds PRIMARY FOCUS at startup, so we must not require
     // primary focus to be null — only that it isn't already inside the body.
-    if (_bodyFocusables.length == 1) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        try {
-          if (!node.canRequestFocus) return;
-        } catch (_) {
-          return;
-        }
-        final primary = FocusManager.instance.primaryFocus;
-        if (primary != null && _bodyFocusables.contains(primary)) return;
-        node.requestFocus();
-      });
+    if (_bodyFocusables.length == 1 || _bodyFocusables.first == node) {
+      _focusFirstBodyAction();
     }
   }
 
@@ -82,6 +113,12 @@ class _TvScaffoldState extends State<TvScaffold> {
     for (int i = 0; i <= 8; i++) {
       _navFocusNodes[i] = FocusNode(debugLabel: 'Nav_$i');
     }
+    if (Get.isRegistered<TvNavigationService>()) {
+      final nav = Get.find<TvNavigationService>();
+      nav.onOpenSidebar = _openSidebarWithFocus;
+      nav.onCloseSidebar = _closeSidebarAndFocusBody;
+      nav.registerRegion('sidebar', TvFocusRegionType.sidebar);
+    }
     _clockTimer = Timer.periodic(const Duration(seconds: 15), (_) {
       if (mounted) {
         setState(() => _currentTime = DateTime.now());
@@ -91,6 +128,15 @@ class _TvScaffoldState extends State<TvScaffold> {
 
   @override
   void dispose() {
+    if (Get.isRegistered<TvNavigationService>()) {
+      final nav = Get.find<TvNavigationService>();
+      if (nav.onOpenSidebar == _openSidebarWithFocus) {
+        nav.onOpenSidebar = null;
+      }
+      if (nav.onCloseSidebar == _closeSidebarAndFocusBody) {
+        nav.onCloseSidebar = null;
+      }
+    }
     _clockTimer?.cancel();
     _bodyFocusNode.dispose();
     _sidebarContainerFocusNode.dispose();
@@ -148,11 +194,18 @@ class _TvScaffoldState extends State<TvScaffold> {
   ];
 
   /// Handles D-pad Left from the body into the sidebar.
-  /// First allows directional focus to move left inside the content (e.g. from
-  /// card 3 to card 2 to card 1). Only when focus has reached the leftmost
-  /// boundary of the page does it transition focus to the active sidebar nav item.
+  /// Delegates leftward traversal to Flutter's focus system; only
+  /// intercepts when focus has reached the leftmost boundary
+  /// (per [TvNavigationService.isAtLeftEdge]) or when traversal
+  /// fails to find a leftward target.
   KeyEventResult _handleBodyKeyEvent(FocusNode node, KeyEvent event) {
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    if (Get.isRegistered<TvNavigationService>()) {
+      Get.find<TvNavigationService>().lastKeyEvent.value =
+          event.logicalKey.debugName ?? '';
+    }
+
     final isLeft = event.logicalKey == LogicalKeyboardKey.arrowLeft;
     if (!isLeft) return KeyEventResult.ignored;
 
@@ -160,7 +213,17 @@ class _TvScaffoldState extends State<TvScaffold> {
     if (currentFocus != null &&
         currentFocus != node &&
         currentFocus != _bodyFocusNode) {
-      _lastBodyFocusedNode = currentFocus;
+
+      // Check if at left boundary using TvNavigationService if available
+      if (Get.isRegistered<TvNavigationService>()) {
+        final isEdge = Get.find<TvNavigationService>().isAtLeftEdge(
+          currentFocus,
+        );
+        if (isEdge) {
+          _openSidebarWithFocus();
+          return KeyEventResult.handled;
+        }
+      }
 
       // Try moving left inside the body first (e.g. from card 3 to card 2).
       final moved = currentFocus.focusInDirection(TraversalDirection.left);
@@ -176,12 +239,12 @@ class _TvScaffoldState extends State<TvScaffold> {
         return KeyEventResult.handled;
       }
 
-      if (_hasFocusableToLeft(currentFocus)) {
-        return KeyEventResult.ignored;
-      }
+      // Flutter traversal couldn't move left — open sidebar as fallback.
+      // isAtLeftEdge already verified no viable leftward target exists.
+      _openSidebarWithFocus();
+      return KeyEventResult.handled;
     }
 
-    // Genuinely at the leftmost edge of the body: open sidebar with focused nav item
     _openSidebarWithFocus();
     return KeyEventResult.handled;
   }
@@ -201,58 +264,6 @@ class _TvScaffoldState extends State<TvScaffold> {
       return true;
     });
     return inBody;
-  }
-
-  /// Returns true when any registered body focusable sits strictly to the left
-  /// of [node] in the same horizontal band. When no such target exists or when
-  /// [node] is located near the leftmost boundary of the body, a Left press
-  /// should open the sidebar.
-  bool _hasFocusableToLeft(FocusNode node) {
-    RenderBox? currentBox;
-    try {
-      final currentObject = node.context?.findRenderObject();
-      currentBox = currentObject is RenderBox ? currentObject : null;
-    } catch (_) {
-      currentBox = null;
-    }
-    if (currentBox == null || !currentBox.hasSize) return false;
-
-    final currentOffset = currentBox.localToGlobal(Offset.zero);
-    final currentLeft = currentOffset.dx;
-    final currentTop = currentOffset.dy;
-    final currentBottom = currentTop + currentBox.size.height;
-
-    // The collapsed sidebar has width 96.0. Any widget positioned near the left edge
-    // (within 100px of the sidebar boundary) is already in the leftmost column.
-    const bodyLeft = 96.0;
-    if (currentLeft <= bodyLeft + 100.0) {
-      return false;
-    }
-
-    const epsilon = 8.0;
-    for (final candidate in _bodyFocusables) {
-      if (identical(node, candidate) || !candidate.canRequestFocus) continue;
-      RenderBox? candidateBox;
-      try {
-        final candidateObject = candidate.context?.findRenderObject();
-        candidateBox = candidateObject is RenderBox ? candidateObject : null;
-      } catch (_) {
-        candidateBox = null;
-      }
-      if (candidateBox == null || !candidateBox.hasSize) continue;
-      final candidateOffset = candidateBox.localToGlobal(Offset.zero);
-      final candidateLeft = candidateOffset.dx;
-      final candidateTop = candidateOffset.dy;
-      final candidateBottom = candidateTop + candidateBox.size.height;
-
-      // Only consider candidates that share vertical overlap with the current widget
-      final hasVerticalOverlap =
-          candidateTop < currentBottom && candidateBottom > currentTop;
-      if (hasVerticalOverlap && candidateLeft < currentLeft - epsilon) {
-        return true;
-      }
-    }
-    return false;
   }
 
   void _openSidebarWithFocus() {
@@ -329,22 +340,16 @@ class _TvScaffoldState extends State<TvScaffold> {
       setState(() => _isExpanded = false);
     }
 
-    // Restore the most recently focused body element when there is one.
-    if (_lastBodyFocusedNode != null && _lastBodyFocusedNode!.canRequestFocus) {
-      _lastBodyFocusedNode!.requestFocus();
+    // All focus restoration is handled by TvNavigationService.
+    final nav = Get.isRegistered<TvNavigationService>()
+        ? Get.find<TvNavigationService>()
+        : null;
+    if (nav != null && nav.restoreFocusAfterSidebar()) {
       return;
     }
 
-    // Otherwise land on the first real, actionable focus target in the body
-    // (reading order). The bare _bodyFocusNode container is intentionally not
-    // focusable, so this is what guarantees the remote always reaches a
-    // highlightable button (e.g. "Add Media Source", "Add Provider").
-    if (_bodyFocusables.isNotEmpty) {
-      _bodyFocusables.first.requestFocus();
-      return;
-    }
-
-    _bodyFocusNode.requestFocus();
+    // Final fallback: land on the first real, actionable focus target in the body.
+    _focusFirstBodyAction();
   }
 
   void _onItemTapped(int index) {
@@ -372,9 +377,9 @@ class _TvScaffoldState extends State<TvScaffold> {
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          // Main Body pushed by 96px (collapsed sidebar width)
+          // Main Body pushed by collapsed sidebar width
           Positioned.fill(
-            left: 96.0,
+            left: TvNavigationConstants.sidebarCollapsedWidth,
             child: FocusScope(
               key: _bodyKey,
               node: _bodyFocusNode,
@@ -382,7 +387,7 @@ class _TvScaffoldState extends State<TvScaffold> {
               skipTraversal: true,
               onKeyEvent: _handleBodyKeyEvent,
               child: FocusTraversalGroup(
-                policy: ReadingOrderTraversalPolicy(),
+                policy: WidgetOrderTraversalPolicy(),
                 child: Column(
                   children: [
                     const SyncProgressBar(),
@@ -403,7 +408,25 @@ class _TvScaffoldState extends State<TvScaffold> {
           // Floating Player (PiP overlay when browsing outside screens with their own player)
           if (Get.isRegistered<PlayerController>() &&
               !AppRoutes.hasOwnPlayer(Get.currentRoute))
-            const FloatingPlayerPage(),
+            Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent) {
+                  switch (event.logicalKey) {
+                    case LogicalKeyboardKey.arrowUp:
+                    case LogicalKeyboardKey.arrowDown:
+                    case LogicalKeyboardKey.arrowLeft:
+                    case LogicalKeyboardKey.arrowRight:
+                      return KeyEventResult.handled;
+                    default:
+                      return KeyEventResult.ignored;
+                  }
+                }
+                return KeyEventResult.ignored;
+              },
+              child: const FloatingPlayerPage(),
+            ),
 
           // Sidebar Navigation (Floats on top, expands on focus/hover)
           Positioned(
@@ -435,7 +458,9 @@ class _TvScaffoldState extends State<TvScaffold> {
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeOutCubic,
-                  width: _isExpanded ? 270.0 : 96.0,
+                  width: _isExpanded
+                      ? TvNavigationConstants.sidebarExpandedWidth
+                      : TvNavigationConstants.sidebarCollapsedWidth,
                   decoration: BoxDecoration(
                     color: const Color(0xEE0E1116),
                     border: Border(
@@ -457,7 +482,9 @@ class _TvScaffoldState extends State<TvScaffold> {
                     child: BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 24.0, sigmaY: 24.0),
                       child: SizedBox(
-                        width: _isExpanded ? 270.0 : 96.0,
+                  width: _isExpanded
+                      ? TvNavigationConstants.sidebarExpandedWidth
+                      : TvNavigationConstants.sidebarCollapsedWidth,
                         child: _buildSidebarContent(),
                       ),
                     ),
@@ -466,6 +493,7 @@ class _TvScaffoldState extends State<TvScaffold> {
               ),
             ),
           ),
+          const TvFocusDebugOverlay(),
         ],
       ),
     );

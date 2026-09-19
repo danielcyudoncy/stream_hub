@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
+import 'package:stream_hub/core/services/tv_navigation_service.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
@@ -27,6 +28,9 @@ class DeveloperPage extends GetView<DeveloperController> {
               return TvFocusable(
                 borderRadius: BorderRadius.circular(12),
                 scale: 1.01,
+                onTap: () => enabled
+                    ? controller.debugMode.disableAll()
+                    : controller.debugMode.enableAll(),
                 child: SwitchListTile(
                   title: Text(
                     'Debug Mode',
@@ -43,6 +47,34 @@ class DeveloperPage extends GetView<DeveloperController> {
                   onChanged: (value) => value
                       ? controller.debugMode.enableAll()
                       : controller.debugMode.disableAll(),
+                ),
+              );
+            }),
+          ),
+          AppSpacing.heightXS,
+          AppCard(
+            child: Obx(() {
+              final nav = Get.find<TvNavigationService>();
+              final tvDebug = nav.debugMode.value;
+              return TvFocusable(
+                borderRadius: BorderRadius.circular(12),
+                scale: 1.01,
+                onTap: () => nav.debugMode.value = !tvDebug,
+                child: SwitchListTile(
+                  title: Text(
+                    'TV Focus Debug',
+                    style: AppTypography.getBody(color: colorScheme.onSurface),
+                  ),
+                  subtitle: Text(
+                    'Shows a live HUD with the focused node, its navigation '
+                    'region and the current focus history. For remote/D-pad '
+                    'debugging only.',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  value: tvDebug,
+                  onChanged: (value) => nav.debugMode.value = value,
                 ),
               );
             }),

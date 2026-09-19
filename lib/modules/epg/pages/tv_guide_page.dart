@@ -1,3 +1,4 @@
+// modules/epg/pages/tv_guide_page.dart
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -189,11 +190,18 @@ class TVGuidePage extends GetView<GuideController> {
         AppSpacing.xl,
         AppSpacing.xs,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Left Pane: Header and Active Channel Information Showcase
-          Expanded(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // The 16:9 inline player is fixed-width; only place it side by side
+          // when there is enough room. Otherwise let the info pane use the full
+          // width so narrow windows cannot overflow the flex.
+          final showInlinePlayer =
+              constraints.maxWidth >= 900 && liveCtrl != null;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left Pane: Header and Active Channel Information Showcase
+              Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -562,10 +570,9 @@ class TVGuidePage extends GetView<GuideController> {
             ),
           ),
 
-          AppSpacing.widthLG,
-
           // Right Pane: Prominent 16:9 Live Mini-Player (Width: 440dp, Height: 248dp on TV/large screen)
-          if (liveCtrl != null)
+          if (showInlinePlayer) ...[
+            AppSpacing.widthLG,
             Container(
               width: 440, // Larger 16:9 TV Mini Player
               height: 248,
@@ -586,15 +593,18 @@ class TVGuidePage extends GetView<GuideController> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                child: LiveTvEmbeddedPlayer(
-                  key: const ValueKey('tv_guide_player_inline'),
-                  controller: liveCtrl,
-                  isFullscreen: false,
-                  autofocus: false,
-                ),
-              ),
-            ),
-        ],
+                 child: LiveTvEmbeddedPlayer(
+                   key: const ValueKey('tv_guide_player_inline'),
+                   controller: liveCtrl,
+                   isFullscreen: false,
+                   autofocus: false,
+                 ),
+               ),
+             ),
+            ],
+          ],
+        );
+        },
       ),
     );
   }
@@ -865,6 +875,9 @@ class TVGuidePage extends GetView<GuideController> {
           return LiveTvChannelCard(
             channel: item,
             isPlaying: isPlaying,
+            regionId: 'live_channels',
+            itemId: item.id,
+            itemIndex: index,
             onTap: () => liveCtrl.openChannel(item),
             onFavorite: () => liveCtrl.toggleFavorite(item),
           );
@@ -1214,6 +1227,9 @@ class TVGuidePage extends GetView<GuideController> {
           nextProgram: channelPrograms.firstWhereOrNull(
             (p) => p.startTime.isAfter(DateTime.now()),
           ),
+          onFavorite: liveCtrl == null
+              ? null
+              : () => liveCtrl.toggleFavorite(item),
           onTap: () {
             if (liveCtrl != null) {
               liveCtrl.openChannel(item);

@@ -977,12 +977,13 @@ class PlayerController extends GetxController {
   Future<void> toggleFavorite() async {
     final item = currentItem;
     if (item == null || favoriteRepository == null) return;
-    if (item.favorite) {
+    final isFavorite = isFavoriteRx.value;
+    if (isFavorite) {
       await favoriteRepository!.remove(item.id);
     } else {
       await favoriteRepository!.add(item.copyWith(favorite: true));
     }
-    isFavoriteRx.value = !item.favorite;
+    isFavoriteRx.value = !isFavorite;
   }
 
   void _recordPlayback(MediaItem item) {

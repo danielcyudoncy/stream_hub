@@ -824,7 +824,27 @@ class LiveTVController extends GetxController {
         }
       }
 
-      result = result.where((item) => matchingIds.contains(item.id)).toList();
+      if (matchingIds.isEmpty) {
+        // The category index has no mapping for this category (e.g. a category
+        // surfaced by the provider but not yet indexed, or channels injected
+        // directly). Fall back to a direct genre/metadata scan instead of
+        // wiping the channel list to an empty state.
+        result = result.where((item) {
+          final normalized = selectedCat.toLowerCase();
+          final hasGenre = item.genres.any(
+            (g) => g.toLowerCase() == normalized,
+          );
+          final hasCategoryId =
+              (item.metadata['category_id']?.toString() ??
+                      item.metadata['categoryId']?.toString() ??
+                      '')
+                  .toLowerCase() ==
+              normalized;
+          return hasGenre || hasCategoryId;
+        }).toList();
+      } else {
+        result = result.where((item) => matchingIds.contains(item.id)).toList();
+      }
     }
 
     if (selectedProvider.value.isNotEmpty) {

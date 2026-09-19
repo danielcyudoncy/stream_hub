@@ -330,15 +330,14 @@ class _ProfileSwitcher extends StatelessWidget {
               final preset = kAvatarPresets[avatarIdx];
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
-                child: GestureDetector(
+                child: TvFocusable(
+                  borderRadius: BorderRadius.circular(16),
+                  scale: 1.04,
+                  onTap: () => controller.selectProfile(p),
                   onLongPress: profiles.length > 1
                       ? () => _confirmDelete(context, p)
                       : null,
-                  child: TvFocusable(
-                    borderRadius: BorderRadius.circular(16),
-                    scale: 1.04,
-                    onTap: () => controller.selectProfile(p),
-                    child: AnimatedContainer(
+                  child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.md,
@@ -386,7 +385,6 @@ class _ProfileSwitcher extends StatelessWidget {
                       ),
                     ),
                   ),
-                ),
               );
             }),
 
@@ -511,11 +509,13 @@ class _AvatarPicker extends StatelessWidget {
         children: List.generate(kAvatarPresets.length, (i) {
           final preset = kAvatarPresets[i];
           final isSelected = i == currentIdx;
-          return GestureDetector(
+          return TvFocusable(
             onTap: () {
               // Store the preset index as the photoUrl — no real URL needed.
               controller.photoUrl.value = '$i';
             },
+            borderRadius: BorderRadius.circular(30),
+            scale: 1.08,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               decoration: BoxDecoration(

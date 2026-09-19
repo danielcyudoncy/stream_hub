@@ -1,3 +1,4 @@
+// modules/home/widgets/home_continue_watching_card.dart
 import 'package:flutter/material.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/theme/app_colors.dart';
@@ -23,7 +24,8 @@ class HomeContinueWatchingCard extends StatelessWidget {
   });
 
   double _getProgress() {
-    final rawProgress = item.metadata['watchProgress'] ??
+    final rawProgress =
+        item.metadata['watchProgress'] ??
         item.metadata['progress'] ??
         item.metadata['position'];
     if (rawProgress is num) {
@@ -71,8 +73,8 @@ class HomeContinueWatchingCard extends StatelessWidget {
     final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
         ? item.poster!.trim()
         : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
-            ? item.thumbnail!.trim()
-            : item.backdrop?.trim());
+              ? item.thumbnail!.trim()
+              : item.backdrop?.trim());
     final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
         ? formattedPoster
         : rawPoster;
@@ -84,6 +86,7 @@ class HomeContinueWatchingCard extends StatelessWidget {
       scale: 1.03,
       onFocusChange: onFocusChange,
       borderRadius: AppRadius.medium,
+      itemId: item.id,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -204,8 +207,8 @@ class HomeContinueWatchingCard extends StatelessWidget {
         item.mediaType == MediaType.movie
             ? AppIcons.movies
             : item.mediaType == MediaType.series
-                ? AppIcons.series
-                : AppIcons.liveTv,
+            ? AppIcons.series
+            : AppIcons.liveTv,
         size: 32.0,
         color: colorScheme.primary.withValues(alpha: 0.35),
       ),

@@ -1,3 +1,4 @@
+// modules/series/widgets/series_card.dart
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
@@ -18,6 +19,8 @@ class SeriesCard extends StatelessWidget {
   final double? progressPercentage;
   final bool isCompleted;
   final VoidCallback? onToggleFavorite;
+  final String? itemId;
+  final int? itemIndex;
 
   const SeriesCard({
     super.key,
@@ -28,6 +31,8 @@ class SeriesCard extends StatelessWidget {
     this.progressPercentage,
     this.isCompleted = false,
     this.onToggleFavorite,
+    this.itemId,
+    this.itemIndex,
   });
 
   @override
@@ -48,6 +53,8 @@ class SeriesCard extends StatelessWidget {
         onLongPress: onToggleFavorite,
         borderRadius: AppRadius.medium,
         scale: 1.1,
+        itemId: itemId ?? item.id,
+        itemIndex: itemIndex,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -73,7 +80,7 @@ class SeriesCard extends StatelessWidget {
                                 strokeWidth: 2.0,
                                 value: progress.expectedTotalBytes != null
                                     ? progress.cumulativeBytesLoaded /
-                                        progress.expectedTotalBytes!
+                                          progress.expectedTotalBytes!
                                     : null,
                               ),
                             ),
@@ -117,7 +124,9 @@ class SeriesCard extends StatelessWidget {
                     if (seasonsCount != null && !isCompleted)
                       Positioned(
                         top: AppSpacing.xs,
-                        right: (onToggleFavorite != null || item.favorite) ? AppSpacing.xxl : AppSpacing.xs,
+                        right: (onToggleFavorite != null || item.favorite)
+                            ? AppSpacing.xxl
+                            : AppSpacing.xs,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: AppSpacing.xs,
@@ -152,16 +161,22 @@ class SeriesCard extends StatelessWidget {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                item.favorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                                item.favorite
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
                                 size: 14.0,
-                                color: item.favorite ? AppColors.darkError : Colors.white,
+                                color: item.favorite
+                                    ? AppColors.darkError
+                                    : Colors.white,
                               ),
                             ),
                           ),
                         ),
                       ),
 
-                    if (progressPercentage != null && progressPercentage! > 0 && !isCompleted)
+                    if (progressPercentage != null &&
+                        progressPercentage! > 0 &&
+                        !isCompleted)
                       Positioned(
                         left: 0,
                         right: 0,
@@ -176,9 +191,7 @@ class SeriesCard extends StatelessWidget {
                             child: FractionallySizedBox(
                               alignment: Alignment.centerLeft,
                               widthFactor: progressPercentage!.clamp(0.0, 1.0),
-                              child: Container(
-                                color: colorScheme.primary,
-                              ),
+                              child: Container(color: colorScheme.primary),
                             ),
                           ),
                         ),
@@ -187,7 +200,9 @@ class SeriesCard extends StatelessWidget {
                     if (isCompleted)
                       Positioned(
                         top: AppSpacing.xs,
-                        right: onToggleFavorite != null ? AppSpacing.xl : AppSpacing.xs,
+                        right: onToggleFavorite != null
+                            ? AppSpacing.xl
+                            : AppSpacing.xs,
                         child: Container(
                           padding: const EdgeInsets.all(3.0),
                           decoration: const BoxDecoration(
@@ -266,8 +281,8 @@ class SeriesCard extends StatelessWidget {
     final raw = (item.poster != null && item.poster!.trim().isNotEmpty)
         ? item.poster!.trim()
         : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
-            ? item.thumbnail!.trim()
-            : item.backdrop?.trim());
+              ? item.thumbnail!.trim()
+              : item.backdrop?.trim());
     final formatted = ImageUrlFormatter.format(raw, item: item);
     if (formatted != null && formatted.isNotEmpty) {
       return formatted;
@@ -276,7 +291,8 @@ class SeriesCard extends StatelessWidget {
   }
 
   String? _resolveSeasonsCount() {
-    final count = item.metadata['seasonsCount'] ??
+    final count =
+        item.metadata['seasonsCount'] ??
         item.metadata['seasons_count'] ??
         item.metadata['num_seasons'] ??
         item.metadata['seasons'];
