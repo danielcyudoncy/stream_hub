@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
+import 'package:stream_hub/core/services/tv_navigation_service.dart';
 import 'package:stream_hub/core/utils/date_formatter.dart';
 import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
@@ -31,8 +32,119 @@ import 'package:stream_hub/shared/widgets/provider_selector_button.dart';
 import 'package:stream_hub/shared/widgets/tv_body_focus_registry.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
-class TVGuidePage extends GetView<GuideController> {
+class TVGuidePage extends StatefulWidget {
   const TVGuidePage({super.key});
+
+  @override
+  State<TVGuidePage> createState() => _TVGuidePageState();
+}
+
+class _TVGuidePageState extends State<TVGuidePage> {
+  GuideController get controller => Get.find<GuideController>();
+
+  final GlobalKey _guideRootKey = GlobalKey(debugLabel: 'TvGuideRootKey');
+  final FocusNode _viewModeFocusNode = FocusNode(debugLabel: 'TvGuide_ViewMode');
+  final FocusNode _searchFocusNode = FocusNode(debugLabel: 'TvGuide_Search');
+  final FocusNode _refreshFocusNode = FocusNode(debugLabel: 'TvGuide_Refresh');
+
+  final Map<String, FocusNode> _categoryFocusNodes = <String, FocusNode>{};
+  String? _lastFocusedCategory;
+
+  FocusNode _getCategoryFocusNode(String cat) {
+    return _categoryFocusNodes.putIfAbsent(
+      cat,
+      () => FocusNode(debugLabel: 'TvGuide_Category_$cat'),
+    );
+  }
+
+  void _focusActiveCategory() {
+    if (!mounted) return;
+    final liveCtrl = Get.isRegistered<LiveTVController>()
+        ? Get.find<LiveTVController>()
+        : null;
+    final selectedCat = liveCtrl?.selectedCategory.value ??
+        controller.selectedCategory.value;
+    final catToFocus = _lastFocusedCategory ??
+        (selectedCat.isNotEmpty ? selectedCat : 'All Channels');
+    final node = _categoryFocusNodes[catToFocus] ??
+        _categoryFocusNodes.values.firstOrNull;
+    if (node != null && node.canRequestFocus) {
+      node.requestFocus();
+    }
+  }
+
+  bool _isFocusInGuideBody(FocusNode focus) {
+    final ctx = focus.context;
+    final guideCtx = _guideRootKey.currentContext;
+    if (ctx == null || guideCtx == null) return false;
+    var inside = false;
+    ctx.visitAncestorElements((el) {
+      if (el == guideCtx) {
+        inside = true;
+        return false;
+      }
+      return true;
+    });
+    return inside;
+  }
+
+  void _initialFocus() {
+    if (!mounted) return;
+    final primary = FocusManager.instance.primaryFocus;
+    if (primary == null || !_isFocusInGuideBody(primary)) {
+      if (Get.isRegistered<TvNavigationService>()) {
+        final restored = TvNavigationService.to.restoreFocus('live_channels');
+        if (restored) return;
+      }
+      _focusActiveCategory();
+    }
+  }
+
+  KeyEventResult _handleShowcaseKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _focusActiveCategory();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleCategoryKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (Get.isRegistered<TvNavigationService>()) {
+        final restored = TvNavigationService.to.restoreFocus('live_channels');
+        if (restored) return KeyEventResult.handled;
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (_viewModeFocusNode.canRequestFocus) {
+        _viewModeFocusNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialFocus();
+    });
+  }
+
+  @override
+  void dispose() {
+    _viewModeFocusNode.dispose();
+    _searchFocusNode.dispose();
+    _refreshFocusNode.dispose();
+    for (final node in _categoryFocusNodes.values) {
+      node.dispose();
+    }
+    _categoryFocusNodes.clear();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +160,7 @@ class TVGuidePage extends GetView<GuideController> {
           liveCtrl.reloadLiveTVData();
         }
         liveCtrl.handleNavigationArguments();
+        _initialFocus();
       }
     });
 
@@ -126,29 +239,23 @@ class TVGuidePage extends GetView<GuideController> {
       return AppScaffold(
         title: 'TV Guide',
         showAppBar: false,
-        body: Obx(() {
-          if (liveCtrl != null &&
-              liveCtrl.isLoading.value &&
-              liveCtrl.channels.isEmpty &&
-              liveCtrl.filteredChannels.isEmpty) {
-            return const LiveTvSkeleton();
-          }
-          return FocusTraversalGroup(
-            policy: ReadingOrderTraversalPolicy(),
-            child: Column(
+        body: KeyedSubtree(
+          key: _guideRootKey,
+          child: Obx(() {
+            if (liveCtrl != null &&
+                liveCtrl.isLoading.value &&
+                liveCtrl.channels.isEmpty &&
+                liveCtrl.filteredChannels.isEmpty) {
+              return const LiveTvSkeleton();
+            }
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. Top Showcase: Channel Info on Left, Large 16:9 Live Player on Right
-                FocusTraversalGroup(
-                  policy: ReadingOrderTraversalPolicy(),
-                  child: _buildTopShowcase(context),
-                ),
+                _buildTopShowcase(context),
 
                 // 2. Full-Width Category Rail Below the Player
-                FocusTraversalGroup(
-                  policy: ReadingOrderTraversalPolicy(),
-                  child: _buildCategoryBar(context),
-                ),
+                _buildCategoryBar(context),
 
                 AppSpacing.heightXS,
 
@@ -158,22 +265,16 @@ class TVGuidePage extends GetView<GuideController> {
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.xl,
                     ),
-                    child: FocusTraversalGroup(
-                      policy: ReadingOrderTraversalPolicy(),
-                      child: _buildTVLayout(context),
-                    ),
+                    child: _buildTVLayout(context),
                   ),
                 ),
 
                 // 4. TV Remote D-Pad Navigation Legend Bar
-                FocusTraversalGroup(
-                  policy: ReadingOrderTraversalPolicy(),
-                  child: _buildRemoteLegendBar(),
-                ),
+                _buildRemoteLegendBar(),
               ],
-            ),
-          );
-        }),
+            );
+          }),
+        ),
       );
     });
   }
@@ -261,6 +362,8 @@ class TVGuidePage extends GetView<GuideController> {
                         final isTimeline =
                             liveCtrl.selectedView.value == 'timeline';
                         return TvFocusable(
+                          focusNode: _viewModeFocusNode,
+                          onKeyEvent: _handleShowcaseKeyEvent,
                           onTap: () => liveCtrl.setView(
                             isTimeline ? 'grid' : 'timeline',
                           ),
@@ -305,6 +408,8 @@ class TVGuidePage extends GetView<GuideController> {
                       }),
                     AppSpacing.widthSM,
                     TvFocusable(
+                      focusNode: _searchFocusNode,
+                      onKeyEvent: _handleShowcaseKeyEvent,
                       onTap: () => Get.toNamed(AppRoutes.guideSearch),
                       scale: 1.15,
                       borderRadius: BorderRadius.circular(24),
@@ -316,6 +421,8 @@ class TVGuidePage extends GetView<GuideController> {
                     ),
                     AppSpacing.widthSM,
                     TvFocusable(
+                      focusNode: _refreshFocusNode,
+                      onKeyEvent: _handleShowcaseKeyEvent,
                       onTap: () => controller.refreshGuide(),
                       scale: 1.15,
                       borderRadius: BorderRadius.circular(24),
@@ -668,6 +775,7 @@ class TVGuidePage extends GetView<GuideController> {
                     final isSelected =
                         (selectedCat.isEmpty && index == 0) ||
                         selectedCat == cat;
+                    final focusNode = _getCategoryFocusNode(cat);
                     return _buildFilterPill(
                       cat,
                       isSelected,
@@ -675,9 +783,20 @@ class TVGuidePage extends GetView<GuideController> {
                         liveCtrl?.setCategory(cat);
                         controller.setCategory(cat);
                       },
-                      onKeyEvent: index == 0
-                          ? _openSidebarOnLeft(context)
-                          : null,
+                      focusNode: focusNode,
+                      onFocusChange: (hasKeyboardFocus) {
+                        if (hasKeyboardFocus) {
+                          _lastFocusedCategory = cat;
+                        }
+                      },
+                      onKeyEvent: (node, event) {
+                        if (index == 0) {
+                          final result =
+                              _openSidebarOnLeft(context)(node, event);
+                          if (result == KeyEventResult.handled) return result;
+                        }
+                        return _handleCategoryKeyEvent(node, event);
+                      },
                     );
                   },
                 );
@@ -707,9 +826,13 @@ class TVGuidePage extends GetView<GuideController> {
     String label,
     bool isSelected,
     VoidCallback onTap, {
+    FocusNode? focusNode,
+    ValueChanged<bool>? onFocusChange,
     FocusOnKeyEventCallback? onKeyEvent,
   }) {
     return TvFocusable(
+      focusNode: focusNode,
+      onFocusChange: onFocusChange,
       onTap: onTap,
       borderRadius: BorderRadius.circular(24),
       onKeyEvent: onKeyEvent,
