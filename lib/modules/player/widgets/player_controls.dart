@@ -92,7 +92,6 @@ class PlayerControls extends StatelessWidget {
         icon: AppIcons.previous,
         onPressed: controller.previous,
         size: isFullscreen ? 38 : 28,
-        autofocus: isFullscreen,
       ),
       _ControlButton(
         icon: AppIcons.rewind,
@@ -107,7 +106,6 @@ class PlayerControls extends StatelessWidget {
           icon: isPlaying ? AppIcons.pause : AppIcons.play,
           onPressed: isPlaying ? controller.pause : controller.play,
           size: isFullscreen ? 60 : 42,
-          autofocus: isFullscreen,
           accent: true,
         );
       }),
@@ -340,6 +338,12 @@ class _ProgressBar extends StatelessWidget {
         child: TvFocusable(
           scale: 1.02,
           borderRadius: BorderRadius.circular(4),
+          // The Slider must not win focus from the logical progress bar
+          // target. When the Slider's internal node is focused, this wrapper's
+          // onKeyEvent never fires and the TV remote cannot seek. Excluding
+          // descendants keeps one owner (this TvFocusable) handling arrow keys
+          // while touch drag on the Slider still works unchanged.
+          descendantsAreFocusable: false,
           onKeyEvent: (node, event) {
             if (event is! KeyDownEvent) return KeyEventResult.ignored;
             if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -382,14 +386,12 @@ class _ControlButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onPressed;
   final double size;
-  final bool autofocus;
   final bool accent;
 
   const _ControlButton({
     required this.icon,
     required this.onPressed,
     this.size = 32,
-    this.autofocus = false,
     this.accent = false,
   });
 
@@ -403,7 +405,6 @@ class _ControlButton extends StatelessWidget {
         : Colors.white.withValues(alpha: 0.12);
 
     return TvFocusable(
-      autofocus: autofocus,
       onTap: onPressed,
       scale: accent ? 1.22 : 1.14,
       borderRadius: BorderRadius.circular(size * 0.7),

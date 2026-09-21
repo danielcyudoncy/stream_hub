@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
@@ -10,6 +11,7 @@ import '../../../shared/widgets/tv_focusable.dart';
 import './constants/auth_constants.dart';
 import './account_loading_page.dart';
 import './complete_profile_page.dart';
+import './models/user_model.dart';
 import 'auth_controller.dart';
 
 class AuthWrapperPage extends GetView<AuthController> {
@@ -19,14 +21,17 @@ class AuthWrapperPage extends GetView<AuthController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isTV = PlatformHelper.isTV;
 
     return Obx(() {
       if (controller.isLoading.value) {
         return AccountLoadingPage();
       }
       if (controller.isAuthenticated.value && controller.currentUser.value != null) {
-        final displayName = controller.currentUser.value?.displayName;
-        if (displayName != null && displayName.isNotEmpty) {
+        final user = controller.currentUser.value!;
+        final displayName = user.displayName;
+        final isAnonymous = user.provider == AuthProvider.anonymous || user.email.isEmpty;
+        if ((displayName != null && displayName.isNotEmpty) || isAnonymous) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Get.offAllNamed(AppRoutes.home);
           });
@@ -51,73 +56,75 @@ class AuthWrapperPage extends GetView<AuthController> {
               padding: const EdgeInsets.all(AppSpacing.lg),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: AuthConstants.primaryGradient,
-                        boxShadow: [
-                          BoxShadow(
-                            color: colorScheme.primary.withValues(alpha: 0.5),
-                            blurRadius: 30.0,
-                            spreadRadius: 2.0,
-                          ),
-                        ],
+                child: FocusTraversalGroup(
+                  policy: WidgetOrderTraversalPolicy(),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: AuthConstants.primaryGradient,
+                          boxShadow: [
+                            BoxShadow(
+                              color: colorScheme.primary.withValues(alpha: 0.5),
+                              blurRadius: 30.0,
+                              spreadRadius: 2.0,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          AppIcons.play,
+                          size: 48.0,
+                          color: colorScheme.onPrimary,
+                        ),
                       ),
-                      child: Icon(
-                        AppIcons.play,
-                        size: 48.0,
-                        color: colorScheme.onPrimary,
+                      AppSpacing.heightLG,
+                      Text(
+                        'StreamHub Pro',
+                        style: AppTypography.getDisplay(color: colorScheme.onSurface),
                       ),
-                    ),
-                    AppSpacing.heightLG,
-                    Text(
-                      'StreamHub Pro',
-                      style: AppTypography.getDisplay(color: colorScheme.onSurface),
-                    ),
-                    AppSpacing.heightXS,
-                    Text(
-                      'Premium IPTV Client',
-                      style: AppTypography.getLabel(color: colorScheme.onSurfaceVariant),
-                    ),
-                    AppSpacing.heightXXL,
-                    SizedBox(
-                      width: double.infinity,
-                      child: AppButton.primary(
+                      AppSpacing.heightXS,
+                      Text(
+                        'Premium IPTV Client',
+                        style: AppTypography.getLabel(color: colorScheme.onSurfaceVariant),
+                      ),
+                      AppSpacing.heightXXL,
+                      AppButton.primary(
+                        autofocus: isTV,
                         text: 'Sign In',
                         onPressed: () => Get.toNamed(AppRoutes.login),
                       ),
-                    ),
-                    AppSpacing.heightSM,
-                    SizedBox(
-                      width: double.infinity,
-                      child: AppButton.secondary(
+                      AppSpacing.heightSM,
+                      AppButton.secondary(
                         text: 'Create Account',
                         onPressed: () => Get.toNamed(AppRoutes.register),
                       ),
-                    ),
-                    AppSpacing.heightLG,
-                    TvFocusable(
-                      onTap: () => Get.toNamed(
-                        AppRoutes.login,
-                        arguments: {'anonymous': true},
-                      ),
-                      borderRadius: AppRadius.medium,
-                      scale: 1.05,
-                      child: TextButton(
-                        onPressed: null,
-                        child: Text(
-                          'Continue as Guest',
-                          style: AppTypography.getLabel(
-                            color: colorScheme.onSurfaceVariant,
+                      AppSpacing.heightLG,
+                      TvFocusable(
+                        onTap: () => Get.toNamed(
+                          AppRoutes.login,
+                          arguments: {'anonymous': true},
+                        ),
+                        borderRadius: AppRadius.medium,
+                        scale: 1.05,
+                        descendantsAreFocusable: false,
+                        child: TextButton(
+                          onPressed: () => Get.toNamed(
+                            AppRoutes.login,
+                            arguments: {'anonymous': true},
+                          ),
+                          child: Text(
+                            'Continue as Guest',
+                            style: AppTypography.getLabel(
+                              color: colorScheme.onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

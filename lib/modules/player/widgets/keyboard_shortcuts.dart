@@ -41,23 +41,35 @@ class PlayerKeyboardShortcuts extends StatefulWidget {
   };
 
   @override
-  State<PlayerKeyboardShortcuts> createState() =>
-      _PlayerKeyboardShortcutsState();
+  State<PlayerKeyboardShortcuts> createState() => PlayerKeyboardShortcutsState();
 }
 
-class _PlayerKeyboardShortcutsState extends State<PlayerKeyboardShortcuts> {
+class PlayerKeyboardShortcutsState extends State<PlayerKeyboardShortcuts> {
   late final FocusNode _rootFocusNode;
+
+  /// Convenience lookup for the nearest [PlayerKeyboardShortcuts] state.
+  static PlayerKeyboardShortcutsState? maybeOf(BuildContext context) =>
+      context.findAncestorStateOfType<PlayerKeyboardShortcutsState>();
+
+  /// The interaction Focus that must survive control auto-hide so media keys
+  /// (ENTER, SPACE, mediaPlayPause…) keep working.
+  FocusNode get rootFocusNode => _rootFocusNode;
 
   @override
   void initState() {
     super.initState();
     _rootFocusNode = FocusNode(debugLabel: 'PlayerKeyboardShortcutsRoot');
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      if (!_rootFocusNode.hasFocus) {
-        _rootFocusNode.requestFocus();
-      }
-    });
+  }
+
+  /// Moves focus back to the interaction root. Called by the player page when
+  /// it hides the on-screen controls: the previously focused control unmounts,
+  /// Flutter falls back to the route focus scope, and without this reclaim no
+  /// node can receive shortcut/action keys.
+  void reclaimFocus() {
+    if (!mounted) return;
+    if (_rootFocusNode.canRequestFocus && !_rootFocusNode.hasFocus) {
+      _rootFocusNode.requestFocus();
+    }
   }
 
   @override
@@ -118,17 +130,7 @@ class _PlayerKeyboardShortcutsState extends State<PlayerKeyboardShortcuts> {
         child: Actions(
           actions: <Type, Action<Intent>>{
             PlayPauseIntent: CallbackAction<PlayPauseIntent>(
-              onInvoke: (intent) {
-                final primary = FocusManager.instance.primaryFocus;
-                if (primary != null && primary.context != null) {
-                  final w = primary.context!.widget;
-                  if (w is! Focus && w is! Shortcuts && w is! Actions) {
-                    return null;
-                  }
-                }
-                widget.onPlayPause?.call();
-                return null;
-              },
+              onInvoke: (intent) => widget.onPlayPause?.call(),
             ),
             StopIntent: CallbackAction<StopIntent>(
               onInvoke: (intent) => widget.onStop?.call(),

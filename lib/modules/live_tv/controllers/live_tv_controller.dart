@@ -1054,7 +1054,7 @@ class LiveTVController extends GetxController {
   }
 
   Future<void> toggleFavorite(MediaItem item) async {
-    final isFav = favorites.any((f) => f.id == item.id) || item.favorite;
+    final isFav = favorites.any((f) => f.id == item.id);
     final updatedItem = item.copyWith(favorite: !isFav);
 
     if (isFav) {
@@ -1078,6 +1078,10 @@ class LiveTVController extends GetxController {
 
     if (featuredChannel.value?.id == item.id) {
       featuredChannel.value = updatedItem;
+    }
+
+    if (activePlayingChannel.value?.id == item.id) {
+      activePlayingChannel.value = updatedItem;
     }
 
     if (showFavoritesOnly.value) {

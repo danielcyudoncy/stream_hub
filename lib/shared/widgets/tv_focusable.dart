@@ -116,10 +116,17 @@ class _TvFocusableState extends State<TvFocusable> {
       _unregisterWithBody();
     }
 
-    // 2. TvNavigationService sync
+    // 2. TvNavigationService sync. When the effective region changes (either
+    // via widget.regionId or the inherited region scope), the node must be
+    // removed from the old region's registry first; otherwise stale
+    // registrations linger and can hand focus back to a node that no longer
+    // belongs to that region.
     final regionScope = TvNavigationRegion.maybeOf(context);
     final effectiveRegion = widget.regionId ?? regionScope?.regionId;
-    _activeRegionId = effectiveRegion;
+    if (_activeRegionId != effectiveRegion) {
+      _unregisterFromNavService();
+      _activeRegionId = effectiveRegion;
+    }
 
     if (effectiveRegion != null && Get.isRegistered<TvNavigationService>()) {
       Get.find<TvNavigationService>().registerNode(
@@ -147,6 +154,10 @@ class _TvFocusableState extends State<TvFocusable> {
 
   void _unregister() {
     _unregisterWithBody();
+    _unregisterFromNavService();
+  }
+
+  void _unregisterFromNavService() {
     if (_registeredWithNavService &&
         _activeRegionId != null &&
         Get.isRegistered<TvNavigationService>()) {
@@ -154,8 +165,8 @@ class _TvFocusableState extends State<TvFocusable> {
         _activeRegionId!,
         _effectiveFocusNode,
       );
-      _registeredWithNavService = false;
     }
+    _registeredWithNavService = false;
   }
 
   @override
@@ -237,6 +248,11 @@ class _TvFocusableState extends State<TvFocusable> {
           itemId: widget.itemId,
           itemIndex: widget.itemIndex,
         );
+      } else if (Get.isRegistered<TvNavigationService>()) {
+        // A non-region focusable (dialog entry, player root, sidebar nav…)
+        // has focus: clear any stale body-region marker so left-edge and
+        // inter-rail decisions are driven by what is truly focused.
+        Get.find<TvNavigationService>().clearFocusRegion();
       }
 
       // Smooth scroll visibility in parent scrollables

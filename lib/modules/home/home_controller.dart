@@ -124,8 +124,16 @@ class HomeController extends GetxController {
   Future<void> _initializeHome() async {
     isLoading.value = true;
     try {
-      await _loadProviders();
-      final snapshot = await _snapshotService.load();
+      await _loadProviders().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () {
+          _log('[HOME] Provider load timed out');
+        },
+      );
+      final snapshot = await _snapshotService.load().timeout(
+        const Duration(seconds: 2),
+        onTimeout: () => null,
+      );
       if (snapshot != null && !snapshot.isEmpty) {
         _applySnapshot(snapshot);
         _hasLoadedFromCache.value = true;
@@ -221,7 +229,13 @@ class HomeController extends GetxController {
 
   Future<void> _loadAllFromNetwork() async {
     try {
-      await _refreshSections(assignGenres: true);
+      await _refreshSections(assignGenres: true).timeout(
+        const Duration(seconds: 4),
+        onTimeout: () {
+          _log('[HOME] Initial foreground load timed out, continuing in background');
+          _startBackgroundRefresh();
+        },
+      );
       final snapshot = _buildSnapshot();
       if (!snapshot.isEmpty) {
         await _snapshotService.save(snapshot);

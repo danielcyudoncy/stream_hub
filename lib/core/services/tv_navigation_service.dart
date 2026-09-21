@@ -76,10 +76,15 @@ class TvNavigationService extends GetxService {
   /// Registered focus nodes per region.
   final Map<String, List<FocusNode>> _regionNodes = <String, List<FocusNode>>{};
 
-  /// Maps item IDs to their most recently focused node, enabling
-  /// focus restoration by stable identifier rather than a potentially
-  /// stale FocusNode reference.
+  /// Maps the composite key `(regionId, itemId)` to its most recently focused
+  /// node, enabling focus restoration by stable identifier rather than a
+  /// potentially stale FocusNode reference. Region scoping prevents two
+  /// regions that happen to share an item ID (e.g. `movie123` appearing in
+  /// both "Continue Watching" and "Trending Movies") from overwriting one
+  /// another's restoration target.
   final Map<String, FocusNode> _itemIdNodeMap = <String, FocusNode>{};
+
+  String _itemKey(String regionId, String itemId) => '$regionId|$itemId';
 
   /// Ordered list of registered rail region IDs (for vertical inter-rail
   /// navigation). Populated explicitly via [registerRailOrder] or as rails
@@ -125,10 +130,25 @@ class TvNavigationService extends GetxService {
     logNav('Registered region: $regionId ($type)');
   }
 
-  /// Unregisters a logical focus region.
+  /// Unregisters a logical focus region and drops all of its state.
   void unregisterRegion(String regionId) {
     _regionNodes.remove(regionId);
-    _railOrder.remove(regionId);
+    _regionMemory.remove(regionId);
+    _itemIdNodeMap.removeWhere((key, _) => key.startsWith('$regionId|'));
+    // Drop a rail from the auto-detected order, but keep an explicitly pinned
+    // canonical order intact: home rails mount/unmount lazily, and a transient
+    // unmount must not permanently remove a rail's UP/DOWN position. With an
+    // explicit order, re-registration re-adds nothing (registerRegion respects
+    // _railOrderExplicit), so we preserve the slot here.
+    if (!_railOrderExplicit) {
+      _railOrder.remove(regionId);
+    }
+    if (_preSidebarRegion == regionId) {
+      _preSidebarRegion = null;
+    }
+    if (currentRegionId.value == regionId) {
+      currentRegionId.value = '';
+    }
     logNav('Unregistered region: $regionId');
   }
 
@@ -153,13 +173,36 @@ class TvNavigationService extends GetxService {
     }
   }
 
-  /// Unregisters a [FocusNode] from a region.
+  /// Unregisters a [FocusNode] from a region and drops every navigation
+  /// reference that still points at it. This prevents stale (disposed) nodes
+  /// from being reached by [restoreFocus] or [isAtLeftEdge] after the
+  /// owning widget is unmounted.
   void unregisterNode(String regionId, FocusNode node) {
     _regionNodes[regionId]?.remove(node);
     final memory = _regionMemory[regionId];
     if (memory?.lastFocusedNode == node) {
       memory?.lastFocusedNode = null;
     }
+    _itemIdNodeMap.removeWhere((_, n) => identical(n, node));
+  }
+
+  /// Returns `true` only when [node] is still attached to a live element and
+  /// can accept focus. Never reads a disposed node's state without a guard.
+  bool _canFocusNode(FocusNode node) {
+    try {
+      return node.context != null && node.canRequestFocus;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Returns the live (attached, focus-capable) nodes registered for a
+  /// region, pruning dead references in place.
+  List<FocusNode> _liveRegionNodes(String regionId) {
+    final list = _regionNodes[regionId];
+    if (list == null) return const <FocusNode>[];
+    list.removeWhere((n) => !_canFocusNode(n));
+    return list;
   }
 
   /// Records that focus has moved to a widget in [regionId].
@@ -210,12 +253,21 @@ class TvNavigationService extends GetxService {
     registerNode(regionId, node);
 
     if (itemId != null) {
-      _itemIdNodeMap[itemId] = node;
+      _itemIdNodeMap[_itemKey(regionId, itemId)] = node;
     }
 
     logNav(
       'Focus recorded in $regionId: item="$itemId", index=$itemIndex, ratio=${ratio.toStringAsFixed(2)}',
     );
+  }
+
+  /// Clears the active region/item markers when focus leaves the region-based
+  /// body (e.g. an un-regioned dialog focusable or the player interaction
+  /// root). Prevents stale values from [recordFocus] driving left-edge and
+  /// inter-rail decisions while no body region is actually focused.
+  void clearFocusRegion() {
+    currentRegionId.value = '';
+    currentItemId.value = '';
   }
 
   /// Returns the stored memory for [regionId], if any.
@@ -231,8 +283,8 @@ class TvNavigationService extends GetxService {
       // 1. Try restoring by item ID (stable across rebuilds)
       final itemId = memory.lastFocusedItemId;
       if (itemId != null) {
-        final node = _itemIdNodeMap[itemId];
-        if (node != null && node.canRequestFocus) {
+        final node = _itemIdNodeMap[_itemKey(regionId, itemId)];
+        if (node != null && _canFocusNode(node)) {
           node.requestFocus();
           logNav('Restored focus by item ID "$itemId" in $regionId');
           return true;
@@ -241,15 +293,14 @@ class TvNavigationService extends GetxService {
 
       // 2. Try lastFocusedNode as fallback (may be stale after rebuilds)
       final node = memory.lastFocusedNode;
-      if (node != null && node.canRequestFocus) {
+      if (node != null && _canFocusNode(node)) {
         node.requestFocus();
         logNav('Restored focus to node in $regionId');
         return true;
       }
 
-      // 3. Try matching by index in registered nodes
-      final nodes = _regionNodes[regionId] ?? const <FocusNode>[];
-      final activeNodes = nodes.where((n) => n.canRequestFocus).toList();
+      // 3. Try matching by index in registered live nodes
+      final activeNodes = _liveRegionNodes(regionId);
       if (activeNodes.isNotEmpty) {
         if (memory.lastFocusedIndex != null) {
           final targetIndex = memory.lastFocusedIndex!.clamp(
@@ -269,15 +320,11 @@ class TvNavigationService extends GetxService {
     }
 
     // 5. Region has nodes but no memory
-    final nodes = _regionNodes[regionId];
-    if (nodes != null && nodes.isNotEmpty) {
-      for (final n in nodes) {
-        if (n.canRequestFocus) {
-          n.requestFocus();
-          logNav('Fallback focus to node in $regionId');
-          return true;
-        }
-      }
+    final liveNodes = _liveRegionNodes(regionId);
+    if (liveNodes.isNotEmpty) {
+      liveNodes.first.requestFocus();
+      logNav('Fallback focus to node in $regionId');
+      return true;
     }
 
     return false;
@@ -331,21 +378,25 @@ class TvNavigationService extends GetxService {
     final currentMemory = _regionMemory[currentRegionId];
     final desiredRatio = currentMemory?.lastHorizontalRatio ?? 0.0;
 
-    final targetNodes = (_regionNodes[targetRegionId] ?? <FocusNode>[])
-        .where((n) => n.canRequestFocus)
-        .toList();
+    final targetNodes = _liveRegionNodes(targetRegionId);
 
     if (targetNodes.isEmpty) {
-      // Rail exists but has no nodes yet — it's lazy/unbuilt.
-      // Trigger the build callback if available, consume the key,
-      // and wait for the rail to populate. The UI then calls
-      // restoreFocus(targetRegionId) after items are built.
+      // Rail exists but has no live nodes yet — it's lazy/unbuilt or all of
+      // its items were scrolled out of view. Prefer the lazy-build callback
+      // so the rail can populate, otherwise fall back to any stored focus
+      // memory for the region. Either way the key is consumed: letting
+      // Flutter's geometry-based traversal pick an arbitrary target for an
+      // unbuilt rail is exactly the non-deterministic jump we are removing.
       if (onLazyRailRequest != null) {
         logNav('Lazy rail requested: $targetRegionId');
         onLazyRailRequest!();
         return true;
       }
-      return restoreFocus(targetRegionId);
+      final restored = restoreFocus(targetRegionId);
+      if (!restored) {
+        logNav('Inter-rail target rail unbuilt: $targetRegionId');
+      }
+      return true;
     }
 
     // Find the node in targetNodes that best matches desiredRatio or geometric dx
@@ -406,10 +457,10 @@ class TvNavigationService extends GetxService {
     // If so, this is not an edge condition and the body should keep moving left
     // within the content rather than jumping to the sidebar.
     final region = currentRegionId.value;
-    final siblings = _regionNodes[region] ?? const <FocusNode>[];
+    final siblings = _liveRegionNodes(region);
 
     for (final candidate in siblings) {
-      if (identical(node, candidate) || !candidate.canRequestFocus) continue;
+      if (identical(node, candidate)) continue;
       RenderBox? candBox;
       try {
         final candObj = candidate.context?.findRenderObject();

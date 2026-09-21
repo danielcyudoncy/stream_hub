@@ -14,11 +14,29 @@ import '../authentication/repositories/auth_repository.dart';
 
 class SplashController extends GetxController {
   final RxString statusMessage = 'Starting up...'.obs;
+  Timer? _watchdogTimer;
+  bool _hasNavigated = false;
 
   @override
   void onInit() {
     super.onInit();
+    // Safety watchdog: ensure the splash screen never hangs permanently.
+    _watchdogTimer = Timer(const Duration(seconds: 4), () {
+      if (!_hasNavigated) {
+        Get.find<LoggingService>().warning(
+          'Splash bootstrap watchdog timed out; forcing navigation',
+          tag: 'SplashController',
+        );
+        _navigateAway(AppRoutes.authWrapper);
+      }
+    });
     _bootstrap();
+  }
+
+  @override
+  void onClose() {
+    _watchdogTimer?.cancel();
+    super.onClose();
   }
 
   Future<void> _bootstrap() async {
@@ -34,8 +52,14 @@ class SplashController extends GetxController {
       if (Get.isRegistered<AuthRepository>()) {
         try {
           final authRepository = Get.find<AuthRepository>();
-          await authRepository.initialize();
-          final user = await authRepository.tryAutoLogin();
+          await authRepository.initialize().timeout(
+                const Duration(seconds: 2),
+                onTimeout: () => null,
+              );
+          final user = await authRepository.tryAutoLogin().timeout(
+                const Duration(seconds: 3),
+                onTimeout: () => null,
+              );
           if (user != null) {
             statusMessage.value = 'Welcome back!';
             if (Get.isRegistered<AuthController>()) {
@@ -101,6 +125,9 @@ class SplashController extends GetxController {
   }
 
   void _navigateAway(String route) {
+    if (_hasNavigated) return;
+    _hasNavigated = true;
+    _watchdogTimer?.cancel();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Get.offAllNamed(route);
     });

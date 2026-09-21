@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_radius.dart';
@@ -15,6 +16,8 @@ class ProviderSelectorButton extends StatelessWidget {
   final ValueChanged<String> onSelectProvider;
   final String sheetTitle;
   final bool isCompact;
+  final FocusNode? focusNode;
+  final VoidCallback? onMoveDown;
 
   const ProviderSelectorButton({
     super.key,
@@ -22,7 +25,19 @@ class ProviderSelectorButton extends StatelessWidget {
     required this.onSelectProvider,
     this.sheetTitle = 'Select Provider',
     this.isCompact = false,
+    this.focusNode,
+    this.onMoveDown,
   });
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.arrowDown &&
+        onMoveDown != null) {
+      onMoveDown!();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,6 +88,8 @@ class ProviderSelectorButton extends StatelessWidget {
           return Tooltip(
             message: 'Provider: $label',
             child: TvFocusable(
+              focusNode: focusNode,
+              onKeyEvent: _handleKeyEvent,
               onTap: () {
                 ProviderFilterSheet.show(
                   context,
@@ -129,6 +146,8 @@ class ProviderSelectorButton extends StatelessWidget {
             vertical: AppSpacing.xs,
           ),
           child: TvFocusable(
+            focusNode: focusNode,
+            onKeyEvent: _handleKeyEvent,
             onTap: () {
               ProviderFilterSheet.show(
                 context,

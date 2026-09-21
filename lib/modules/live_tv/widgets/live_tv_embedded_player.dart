@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/aspect_ratio_mode.dart';
 import '../../../core/media/enums/playback_state.dart';
@@ -26,19 +27,23 @@ class LiveTvEmbeddedPlayer extends StatefulWidget {
   final LiveTVController controller;
   final bool isFullscreen;
   final bool autofocus;
+  final VoidCallback? onMoveDown;
+  final VoidCallback? onMoveUp;
 
   const LiveTvEmbeddedPlayer({
     super.key,
     required this.controller,
     this.isFullscreen = false,
     this.autofocus = true,
+    this.onMoveDown,
+    this.onMoveUp,
   });
 
   @override
-  State<LiveTvEmbeddedPlayer> createState() => _LiveTvEmbeddedPlayerState();
+  State<LiveTvEmbeddedPlayer> createState() => LiveTvEmbeddedPlayerState();
 }
 
-class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
+class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   bool _controlsVisible = true;
   Timer? _controlsTimer;
   bool _quickZapperOpen = false;
@@ -47,6 +52,33 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   final FocusNode _playPauseFocusNode = FocusNode(
     debugLabel: 'LiveTvPlayPause',
   );
+  final FocusNode _bottomPlayPauseFocusNode = FocusNode(
+    debugLabel: 'LiveTvBottomPlayPause',
+  );
+  final FocusNode _stopFocusNode = FocusNode(
+    debugLabel: 'LiveTvStop',
+  );
+  final FocusNode _favoriteFocusNode = FocusNode(
+    debugLabel: 'LiveTvFavorite',
+  );
+  final FocusNode _aspectRatioFocusNode = FocusNode(
+    debugLabel: 'LiveTvAspectRatio',
+  );
+  final FocusNode _audioFocusNode = FocusNode(
+    debugLabel: 'LiveTvAudio',
+  );
+  final FocusNode _subtitleFocusNode = FocusNode(
+    debugLabel: 'LiveTvSubtitle',
+  );
+  final FocusNode _quickZapperFocusNode = FocusNode(
+    debugLabel: 'LiveTvQuickZapper',
+  );
+  final FocusNode _fullscreenFocusNode = FocusNode(
+    debugLabel: 'LiveTvFullscreen',
+  );
+
+  @visibleForTesting
+  FocusNode get playPauseFocusNode => _playPauseFocusNode;
 
   /// Persistent focus anchor that stays available even when controls
   /// are auto-hidden. Serves as the player's D-pad re-entry point and
@@ -55,17 +87,49 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     debugLabel: 'LiveTvPlayerAnchor',
   );
 
+  KeyEventResult _handleBottomControlKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+          widget.onMoveDown != null) {
+        widget.onMoveDown!();
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        if (_playPauseFocusNode.canRequestFocus) {
+          _playPauseFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Wakes up the player controls and focuses the primary action (Play/Pause).
+  void focusPlayer() {
+    _showControlsTemporarily();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_playPauseFocusNode.canRequestFocus) {
+        _playPauseFocusNode.requestFocus();
+      } else if (_playerAnchorFocusNode.canRequestFocus) {
+        _playerAnchorFocusNode.requestFocus();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _startControlsTimer();
-    // Establish a persistent focus anchor inside the player so D-pad
-    // navigation can always return to the player even after controls
-    // auto-hide. Delayed so it doesn't race with the parent's initial focus.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      _playerAnchorFocusNode.requestFocus();
-    });
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_playPauseFocusNode.canRequestFocus) {
+          _playPauseFocusNode.requestFocus();
+        } else if (_playerAnchorFocusNode.canRequestFocus) {
+          _playerAnchorFocusNode.requestFocus();
+        }
+      });
+    }
   }
 
   void _startControlsTimer() {
@@ -195,6 +259,26 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     });
   }
 
+  double _calculateFullscreenAspectRatio(
+    AspectRatioMode mode,
+    Size screenSize,
+  ) {
+    switch (mode) {
+      case AspectRatioMode.ratio16x9:
+        return 16.0 / 9.0;
+      case AspectRatioMode.ratio4x3:
+        return 4.0 / 3.0;
+      case AspectRatioMode.fit:
+      case AspectRatioMode.fill:
+      case AspectRatioMode.stretch:
+      case AspectRatioMode.zoom:
+      case AspectRatioMode.original:
+        return screenSize.height > 0
+            ? (screenSize.width / screenSize.height)
+            : (16.0 / 9.0);
+    }
+  }
+
   void _cycleAspectRatio(PlayerController playerCtrl) {
     final current = playerCtrl.playbackController.engine.aspectRatioRx.value;
     final modes = AspectRatioMode.values;
@@ -210,6 +294,11 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   ) async {
     final tracks = await playerCtrl.getAvailableAudioTracks();
     if (!context.mounted) return;
+    if (tracks.isEmpty) {
+      _showHudToast('No alternate audio tracks available');
+      return;
+    }
+    _showHudToast('Audio Tracks');
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E222A),
@@ -271,6 +360,11 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   ) async {
     final tracks = await playerCtrl.getAvailableSubtitleTracks();
     if (!context.mounted) return;
+    if (tracks.isEmpty) {
+      _showHudToast('No subtitles available');
+      return;
+    }
+    _showHudToast('Subtitles');
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E222A),
@@ -501,6 +595,14 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     _hudToastTimer?.cancel();
     _controlsTimer?.cancel();
     _playPauseFocusNode.dispose();
+    _bottomPlayPauseFocusNode.dispose();
+    _stopFocusNode.dispose();
+    _favoriteFocusNode.dispose();
+    _aspectRatioFocusNode.dispose();
+    _audioFocusNode.dispose();
+    _subtitleFocusNode.dispose();
+    _quickZapperFocusNode.dispose();
+    _fullscreenFocusNode.dispose();
     _playerAnchorFocusNode.dispose();
     super.dispose();
   }
@@ -522,10 +624,11 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
       final screenSize = MediaQuery.sizeOf(context);
       final isLandscape =
           MediaQuery.of(context).orientation == Orientation.landscape;
+      final aspectMode =
+          playerCtrl?.playbackController.engine.aspectRatioRx.value ??
+              AspectRatioMode.fit;
       final double targetAspectRatio = widget.isFullscreen
-          ? (screenSize.height > 0
-                ? (screenSize.width / screenSize.height)
-                : (16 / 9))
+          ? _calculateFullscreenAspectRatio(aspectMode, screenSize)
           : (16 / 9);
 
       return Container(
@@ -596,7 +699,17 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     return Focus(
       focusNode: _playerAnchorFocusNode,
       canRequestFocus: true,
-      skipTraversal: false,
+      skipTraversal: true,
+      onKeyEvent: (node, event) {
+        if (node.hasPrimaryFocus && event is KeyDownEvent) {
+          _showControlsTemporarily();
+          if (_playPauseFocusNode.canRequestFocus) {
+            _playPauseFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
       child: TvPlayerKeyboard(
         autofocus: widget.autofocus,
       onAnyKey: _showControlsTemporarily,
@@ -742,7 +855,7 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
             IgnorePointer(
               ignoring: !_controlsVisible,
               child: ExcludeFocus(
-                excluding: !_controlsVisible,
+                excluding: !_controlsVisible && !_playPauseFocusNode.hasFocus,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -752,45 +865,64 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                           playerCtrl.playbackController.engine.stateRx.value;
                       final isPlaying = state == PlaybackState.playing;
 
-                      return FocusTraversalGroup(
-                        policy: OrderedTraversalPolicy(),
-                        child: TvFocusable(
-                          focusNode: _playPauseFocusNode,
-                          onTap: () {
+                      return TvFocusable(
+                        focusNode: _playPauseFocusNode,
+                        onFocusChange: (hasFocus) {
+                          if (hasFocus) {
                             _showControlsTemporarily();
-                            playerCtrl.togglePlayPause();
-                            WidgetsBinding.instance.addPostFrameCallback((_) {
-                              if (!mounted || !_controlsVisible) return;
-                              _playPauseFocusNode.requestFocus();
-                            });
-                          },
-                          scale: 1.08,
-                          borderRadius: BorderRadius.circular(999),
-                          child: Container(
-                            padding: const EdgeInsets.all(14.0),
-                            decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.7),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: AppColors.primary.withValues(alpha: 0.8),
-                                width: 1.5,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                  blurRadius: 18.0,
+                          } else {
+                            _startControlsTimer();
+                          }
+                        },
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowUp &&
+                                widget.onMoveUp != null) {
+                              widget.onMoveUp!();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                              if (_bottomPlayPauseFocusNode.canRequestFocus) {
+                                _bottomPlayPauseFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
+                        onTap: () {
+                          _showControlsTemporarily();
+                          playerCtrl.togglePlayPause();
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted || !_controlsVisible) return;
+                            _playPauseFocusNode.requestFocus();
+                          });
+                        },
+                        scale: 1.08,
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.all(14.0),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.7),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AppColors.primary.withValues(alpha: 0.8),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.4,
                                 ),
-                              ],
-                            ),
-                            child: Icon(
-                              isPlaying
-                                  ? Icons.pause_rounded
-                                  : Icons.play_arrow_rounded,
-                              color: Colors.white,
-                              size: isFullscreen ? 40.0 : 30.0,
-                            ),
+                                blurRadius: 18.0,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            isPlaying
+                                ? Icons.pause_rounded
+                                : Icons.play_arrow_rounded,
+                            color: Colors.white,
+                            size: isFullscreen ? 40.0 : 30.0,
                           ),
                         ),
                       );
@@ -966,6 +1098,15 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
 
                                 // Stop & Close Button
                                 TvFocusable(
+                                  onKeyEvent: (node, event) {
+                                    if (event is KeyDownEvent &&
+                                        event.logicalKey == LogicalKeyboardKey.arrowUp &&
+                                        widget.onMoveUp != null) {
+                                      widget.onMoveUp!();
+                                      return KeyEventResult.handled;
+                                    }
+                                    return KeyEventResult.ignored;
+                                  },
                                   onTap: () {
                                     if (isFullscreen) {
                                       widget.controller.exitFullscreen();
@@ -1071,6 +1212,8 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                         state == PlaybackState.playing;
 
                                     return TvFocusable(
+                                      focusNode: _bottomPlayPauseFocusNode,
+                                      onKeyEvent: _handleBottomControlKeyEvent,
                                       onTap: () {
                                         _showControlsTemporarily();
                                         playerCtrl.togglePlayPause();
@@ -1111,9 +1254,12 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                   // Stop Button: keep this visible even on compact layouts so the
                                   // user can always stop playback without relying on a secondary menu.
                                   TvFocusable(
+                                    focusNode: _stopFocusNode,
+                                    onKeyEvent: _handleBottomControlKeyEvent,
                                     onTap: () {
                                       _showControlsTemporarily();
                                       widget.controller.stopInlinePlayer();
+                                      _showHudToast('Playback Stopped');
                                     },
                                     scale: 1.05,
                                     borderRadius: BorderRadius.circular(20),
@@ -1164,23 +1310,24 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                   SizedBox(width: isUltraCompact ? 2.0 : 4.0),
 
                                   // Favorite Toggle
-                                  Obx(() {
-                                    final isFav =
-                                        widget.controller.favorites.any(
-                                          (f) => f.id == channel.id,
-                                        ) ||
-                                        channel.favorite;
-
-                                    return TvFocusable(
-                                      onTap: () {
-                                        _showControlsTemporarily();
-                                        widget.controller.toggleFavorite(
-                                          channel,
-                                        );
-                                      },
-                                      scale: 1.05,
-                                      borderRadius: BorderRadius.circular(20),
-                                      child: IconButton(
+                                  TvFocusable(
+                                    focusNode: _favoriteFocusNode,
+                                    onKeyEvent: _handleBottomControlKeyEvent,
+                                    onTap: () {
+                                      _showControlsTemporarily();
+                                      final wasFav = widget.controller.favorites
+                                          .any((f) => f.id == channel.id);
+                                      widget.controller.toggleFavorite(channel);
+                                      _showHudToast(!wasFav
+                                          ? 'Added to Favorites'
+                                          : 'Removed from Favorites');
+                                    },
+                                    scale: 1.05,
+                                    borderRadius: BorderRadius.circular(20),
+                                    child: Obx(() {
+                                      final isFav = widget.controller.favorites
+                                          .any((f) => f.id == channel.id);
+                                      return IconButton(
                                         padding: EdgeInsets.all(
                                           isCompact ? 2.0 : 4.0,
                                         ),
@@ -1203,124 +1350,150 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                               : (isUltraCompact ? 18.0 : 20.0),
                                         ),
                                         onPressed: null,
-                                      ),
-                                    );
-                                  }),
+                                      );
+                                    }),
+                                  ),
                                   const SizedBox(width: 2.0),
 
                                   if (isFullscreen && !isCompact) ...[
                                     // Aspect Ratio Cycle Button
-                                    Tooltip(
-                                      message: 'Cycle Aspect Ratio',
-                                      child: TvFocusable(
-                                        onTap: () {
-                                          _showControlsTemporarily();
-                                          _cycleAspectRatio(playerCtrl);
-                                        },
-                                        scale: 1.05,
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: IconButton(
-                                          padding: const EdgeInsets.all(4.0),
-                                          constraints: const BoxConstraints(),
-                                          icon: Obx(() {
-                                            final aspectMode = playerCtrl
-                                                .playbackController
-                                                .engine
-                                                .aspectRatioRx
-                                                .value;
-                                            return Icon(
-                                              _getAspectRatioIcon(aspectMode),
-                                              color: Colors.white,
-                                              size: 22.0,
-                                            );
-                                          }),
+                                    TvFocusable(
+                                      focusNode: _aspectRatioFocusNode,
+                                      onKeyEvent: _handleBottomControlKeyEvent,
+                                      onTap: () {
+                                        _showControlsTemporarily();
+                                        _cycleAspectRatio(playerCtrl);
+                                      },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: Obx(() {
+                                        final aspectMode = playerCtrl
+                                            .playbackController
+                                            .engine
+                                            .aspectRatioRx
+                                            .value;
+                                        return IconButton(
+                                          padding: EdgeInsets.all(
+                                            isCompact ? 2.0 : 4.0,
+                                          ),
+                                          constraints: BoxConstraints.tightFor(
+                                            width: isCompact ? 28.0 : 36.0,
+                                            height: isCompact ? 28.0 : 36.0,
+                                          ),
+                                          tooltip:
+                                              'Aspect Ratio: ${aspectMode.displayName}',
+                                          icon: Icon(
+                                            _getAspectRatioIcon(aspectMode),
+                                            color: Colors.white,
+                                            size: isCompact ? 18.0 : 22.0,
+                                          ),
                                           onPressed: null,
-                                        ),
-                                      ),
+                                        );
+                                      }),
                                     ),
                                     const SizedBox(width: 2.0),
 
                                     // Audio Track Selector Button
-                                    Tooltip(
-                                      message: 'Audio Tracks',
-                                      child: TvFocusable(
-                                        onTap: () {
-                                          _showControlsTemporarily();
-                                          _openAudioTrackSheet(
-                                            context,
-                                            playerCtrl,
-                                          );
-                                        },
-                                        scale: 1.05,
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: const IconButton(
-                                          padding: EdgeInsets.all(4.0),
-                                          constraints: BoxConstraints(),
-                                          icon: Icon(
-                                            Icons.audiotrack_rounded,
-                                            color: Colors.white,
-                                            size: 22.0,
-                                          ),
-                                          onPressed: null,
+                                    TvFocusable(
+                                      focusNode: _audioFocusNode,
+                                      onKeyEvent: _handleBottomControlKeyEvent,
+                                      onTap: () {
+                                        _showControlsTemporarily();
+                                        _openAudioTrackSheet(
+                                          context,
+                                          playerCtrl,
+                                        );
+                                      },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: IconButton(
+                                        padding: EdgeInsets.all(
+                                          isCompact ? 2.0 : 4.0,
                                         ),
+                                        constraints: BoxConstraints.tightFor(
+                                          width: isCompact ? 28.0 : 36.0,
+                                          height: isCompact ? 28.0 : 36.0,
+                                        ),
+                                        tooltip: 'Audio Tracks',
+                                        icon: Icon(
+                                          Icons.audiotrack_rounded,
+                                          color: Colors.white,
+                                          size: isCompact ? 18.0 : 22.0,
+                                        ),
+                                        onPressed: null,
                                       ),
                                     ),
                                     const SizedBox(width: 2.0),
 
                                     // Subtitles Selector Button
-                                    Tooltip(
-                                      message: 'Subtitles',
-                                      child: TvFocusable(
-                                        onTap: () {
-                                          _showControlsTemporarily();
-                                          _openSubtitleSheet(
-                                            context,
-                                            playerCtrl,
-                                          );
-                                        },
-                                        scale: 1.05,
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: const IconButton(
-                                          padding: EdgeInsets.all(4.0),
-                                          constraints: BoxConstraints(),
-                                          icon: Icon(
-                                            Icons.subtitles_rounded,
-                                            color: Colors.white,
-                                            size: 22.0,
-                                          ),
-                                          onPressed: null,
+                                    TvFocusable(
+                                      focusNode: _subtitleFocusNode,
+                                      onKeyEvent: _handleBottomControlKeyEvent,
+                                      onTap: () {
+                                        _showControlsTemporarily();
+                                        _openSubtitleSheet(
+                                          context,
+                                          playerCtrl,
+                                        );
+                                      },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: IconButton(
+                                        padding: EdgeInsets.all(
+                                          isCompact ? 2.0 : 4.0,
                                         ),
+                                        constraints: BoxConstraints.tightFor(
+                                          width: isCompact ? 28.0 : 36.0,
+                                          height: isCompact ? 28.0 : 36.0,
+                                        ),
+                                        tooltip: 'Subtitles',
+                                        icon: Icon(
+                                          Icons.subtitles_rounded,
+                                          color: Colors.white,
+                                          size: isCompact ? 18.0 : 22.0,
+                                        ),
+                                        onPressed: null,
                                       ),
                                     ),
                                     const SizedBox(width: 2.0),
 
                                     // Quick Channel Zapper Drawer Toggle
-                                    Tooltip(
-                                      message: 'Quick Channel List',
-                                      child: TvFocusable(
-                                        onTap: () {
-                                          _showControlsTemporarily();
-                                          setState(() {
-                                            _quickZapperOpen =
-                                                !_quickZapperOpen;
-                                          });
-                                        },
-                                        scale: 1.05,
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: IconButton(
-                                          padding: const EdgeInsets.all(4.0),
-                                          constraints: const BoxConstraints(),
-                                          icon: Icon(
-                                            _quickZapperOpen
-                                                ? Icons.view_sidebar_rounded
-                                                : Icons.view_sidebar_outlined,
-                                            color: _quickZapperOpen
-                                                ? AppColors.primary
-                                                : Colors.white,
-                                            size: 22.0,
-                                          ),
-                                          onPressed: null,
+                                    TvFocusable(
+                                      focusNode: _quickZapperFocusNode,
+                                      onKeyEvent: _handleBottomControlKeyEvent,
+                                      onTap: () {
+                                        _showControlsTemporarily();
+                                        setState(() {
+                                          _quickZapperOpen = !_quickZapperOpen;
+                                          if (_quickZapperOpen) {
+                                            _controlsTimer?.cancel();
+                                          }
+                                        });
+                                        _showHudToast(_quickZapperOpen
+                                            ? 'Quick Channels: Open'
+                                            : 'Quick Channels: Closed');
+                                      },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: IconButton(
+                                        padding: EdgeInsets.all(
+                                          isCompact ? 2.0 : 4.0,
                                         ),
+                                        constraints: BoxConstraints.tightFor(
+                                          width: isCompact ? 28.0 : 36.0,
+                                          height: isCompact ? 28.0 : 36.0,
+                                        ),
+                                        tooltip: 'Quick Channel List',
+                                        icon: Icon(
+                                          _quickZapperOpen
+                                              ? Icons.view_sidebar_rounded
+                                              : Icons.view_sidebar_outlined,
+                                          color: _quickZapperOpen
+                                              ? AppColors.primary
+                                              : Colors.white,
+                                          size: isCompact ? 18.0 : 22.0,
+                                        ),
+                                        onPressed: null,
                                       ),
                                     ),
                                     const SizedBox(width: 2.0),
@@ -1330,26 +1503,29 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                   if (!isCompact &&
                                       !isUltraCompact &&
                                       Platform.isAndroid) ...[
-                                    Tooltip(
-                                      message: 'Picture-in-Picture',
-                                      child: TvFocusable(
-                                        onTap: () {
-                                          _showControlsTemporarily();
-                                          playerCtrl.enterPictureInPicture();
-                                        },
-                                        scale: 1.05,
-                                        borderRadius: BorderRadius.circular(20),
-                                        child: const IconButton(
-                                          padding: EdgeInsets.all(4.0),
-                                          constraints: BoxConstraints(),
-                                          icon: Icon(
-                                            Icons
-                                                .picture_in_picture_alt_rounded,
-                                            color: Colors.white,
-                                            size: 22.0,
-                                          ),
-                                          onPressed: null,
+                                    TvFocusable(
+                                      onKeyEvent: _handleBottomControlKeyEvent,
+                                      onTap: () {
+                                        _showControlsTemporarily();
+                                        playerCtrl.enterPictureInPicture();
+                                      },
+                                      scale: 1.05,
+                                      borderRadius: BorderRadius.circular(20),
+                                      child: IconButton(
+                                        padding: EdgeInsets.all(
+                                          isCompact ? 2.0 : 4.0,
                                         ),
+                                        constraints: BoxConstraints.tightFor(
+                                          width: isCompact ? 28.0 : 36.0,
+                                          height: isCompact ? 28.0 : 36.0,
+                                        ),
+                                        tooltip: 'Picture-in-Picture',
+                                        icon: const Icon(
+                                          Icons.picture_in_picture_alt_rounded,
+                                          color: Colors.white,
+                                          size: 22.0,
+                                        ),
+                                        onPressed: null,
                                       ),
                                     ),
                                     const SizedBox(width: 4.0),
@@ -1357,6 +1533,8 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
 
                                   // Fullscreen Expand Button (⛶)
                                   TvFocusable(
+                                    focusNode: _fullscreenFocusNode,
+                                    onKeyEvent: _handleBottomControlKeyEvent,
                                     onTap: () {
                                       _showControlsTemporarily();
                                       if (isFullscreen) {
@@ -1504,6 +1682,23 @@ class _LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
         : (featured.metadata['category_name'] as String? ?? 'Featured Live');
 
     return TvFocusable(
+      focusNode: _playerAnchorFocusNode,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+            if (widget.onMoveDown != null) {
+              widget.onMoveDown!();
+              return KeyEventResult.handled;
+            }
+          } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+            if (widget.onMoveUp != null) {
+              widget.onMoveUp!();
+              return KeyEventResult.handled;
+            }
+          }
+        }
+        return KeyEventResult.ignored;
+      },
       onTap: () => widget.controller.openChannel(featured),
       scale: 1.02,
       borderRadius: BorderRadius.circular(12),

@@ -117,6 +117,111 @@ void main() {
         n.dispose();
       }
     });
+
+    test('unregisterRegion drops memory, nodes and item references', () {
+      navService.registerRegion('row_x', TvFocusRegionType.rail);
+      final node = FocusNode(debugLabel: 'x_node');
+      navService.registerNode('row_x', node);
+      navService.recordFocus(
+        regionId: 'row_x',
+        node: node,
+        itemId: 'x_item',
+        itemIndex: 0,
+      );
+      expect(navService.getMemory('row_x'), isNotNull);
+
+      navService.unregisterRegion('row_x');
+
+      expect(navService.getMemory('row_x'), isNull);
+      expect(
+        navService.currentRegionId.value,
+        '',
+        reason: 'Unregistering the active region clears currentRegionId',
+      );
+      expect(navService.restoreFocus('row_x'), isFalse);
+      node.dispose();
+    });
+
+    test('unregisterNode removes node references so focus can never return to a disposed node', () {
+      navService.registerRegion('row_y', TvFocusRegionType.rail);
+      final node = FocusNode(debugLabel: 'y_node');
+      navService.recordFocus(
+        regionId: 'row_y',
+        node: node,
+        itemId: 'y_item',
+        itemIndex: 0,
+      );
+      expect(navService.getMemory('row_y')!.lastFocusedItemId, 'y_item');
+
+      navService.unregisterNode('row_y', node);
+
+      expect(navService.getMemory('row_y')!.lastFocusedNode, isNull);
+      node.dispose();
+      expect(
+        navService.restoreFocus('row_y'),
+        isFalse,
+        reason:
+            'A region whose only node was unregistered must not re-focus a '
+            'disposed node (this previously reached restoreFocus and could '
+            'assert in debug builds).',
+      );
+    });
+
+    test('clearFocusRegion resets markers but keeps memory for restoration', () {
+      navService.registerRegion('row_z', TvFocusRegionType.rail);
+      final node = FocusNode(debugLabel: 'z_node');
+      navService.recordFocus(
+        regionId: 'row_z',
+        node: node,
+        itemId: 'z_item',
+        itemIndex: 0,
+      );
+      expect(navService.currentRegionId.value, 'row_z');
+
+      navService.clearFocusRegion();
+
+      expect(navService.currentRegionId.value, '');
+      expect(navService.currentItemId.value, '');
+      expect(
+        navService.getMemory('row_z'),
+        isNotNull,
+        reason: 'Clearing the active marker must not erase focus memory',
+      );
+      node.dispose();
+    });
+
+    test('explicit rail order survives transient region unregistration', () {
+      navService.registerRailOrder(<String>['rail_a', 'rail_b']);
+      navService.registerRegion('rail_a', TvFocusRegionType.rail);
+      navService.registerRegion('rail_b', TvFocusRegionType.rail);
+
+      final aNode = FocusNode(debugLabel: 'A_node');
+      navService.registerNode('rail_a', aNode);
+      navService.recordFocus(
+        regionId: 'rail_a',
+        node: aNode,
+        itemId: 'A_0',
+        itemIndex: 0,
+      );
+
+      // rail_b unmounts and remounts; its canonical order slot must survive.
+      navService.unregisterRegion('rail_b');
+      navService.registerRegion('rail_b', TvFocusRegionType.rail);
+
+      final handled = navService.handleInterRailNavigation(
+        currentRegionId: 'rail_a',
+        direction: TraversalDirection.down,
+      );
+
+      expect(
+        handled,
+        isTrue,
+        reason:
+            'Inter-rail navigation must still target rail_b after a transient '
+            'unmount (auto-detected order would have dropped it permanently).',
+      );
+      aNode.dispose();
+    });
   });
 
   group('TvNavigationRegion & TvFocusable Widget Tests', () {
@@ -235,6 +340,130 @@ void main() {
         for (final n in [...rail1Nodes, ...rail2Nodes]) {
           n.dispose();
         }
+      },
+    );
+
+    testWidgets(
+      'same item ID in different regions restores to the correct node per region',
+      (tester) async {
+        tester.view.physicalSize = const Size(1920, 1080);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final regionANode = FocusNode(debugLabel: 'A_node');
+        final regionBNode = FocusNode(debugLabel: 'B_node');
+
+        await tester.pumpWidget(
+          _wrap(
+            Column(
+              children: [
+                TvNavigationRegion(
+                  regionId: 'region_a',
+                  child: TvFocusable(
+                    focusNode: regionANode,
+                    itemId: 'dup_item',
+                    itemIndex: 0,
+                    child: const Text('A'),
+                  ),
+                ),
+                TvNavigationRegion(
+                  regionId: 'region_b',
+                  child: TvFocusable(
+                    focusNode: regionBNode,
+                    itemId: 'dup_item',
+                    itemIndex: 1,
+                    child: const Text('B'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        regionANode.requestFocus();
+        await tester.pump();
+        expect(navService.currentItemId.value, 'dup_item');
+
+        regionBNode.requestFocus();
+        await tester.pump();
+        expect(navService.currentItemId.value, 'dup_item');
+
+        // Restoring region A must return to A's node, not B's. Before the
+        // region-scoped identity fix both regions shared a single map entry
+        // and this would focus region B.
+        final restoredA = navService.restoreFocus('region_a');
+        await tester.pump();
+
+        expect(restoredA, isTrue);
+        expect(
+          regionANode.hasFocus,
+          isTrue,
+          reason: 'Region A must restore to its own dup_item node',
+        );
+        expect(regionBNode.hasFocus, isFalse);
+
+        final restoredB = navService.restoreFocus('region_b');
+        await tester.pump();
+
+        expect(restoredB, isTrue);
+        expect(
+          regionBNode.hasFocus,
+          isTrue,
+          reason: 'Region B must restore to its own dup_item node',
+        );
+
+        regionANode.dispose();
+        regionBNode.dispose();
+      },
+    );
+
+    testWidgets(
+      'focus on a non-region focusable clears the stale active region marker',
+      (tester) async {
+        tester.view.physicalSize = const Size(1920, 1080);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final regionNode = FocusNode(debugLabel: 'region_node');
+        final plainNode = FocusNode(debugLabel: 'plain_node');
+
+        await tester.pumpWidget(
+          _wrap(
+            Column(
+              children: [
+                TvNavigationRegion(
+                  regionId: 'some_region',
+                  child: TvFocusable(
+                    focusNode: regionNode,
+                    itemId: 'region_item',
+                    child: const Text('Region Item'),
+                  ),
+                ),
+                TvFocusable(
+                  focusNode: plainNode,
+                  child: const Text('Plain Item'),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        regionNode.requestFocus();
+        await tester.pump();
+        expect(navService.currentRegionId.value, 'some_region');
+
+        plainNode.requestFocus();
+        await tester.pump();
+        expect(
+          navService.currentRegionId.value,
+          '',
+          reason: 'Non-region focus must clear the stale active region marker',
+        );
+
+        regionNode.dispose();
+        plainNode.dispose();
       },
     );
 

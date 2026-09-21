@@ -32,7 +32,9 @@ class PlatformHelper {
     if (Platform.isAndroid) {
       try {
         const channel = MethodChannel('stream_hub/native_player_launch');
-        final isTv = await channel.invokeMethod<bool>('isTelevision');
+        final isTv = await channel
+            .invokeMethod<bool>('isTelevision')
+            .timeout(const Duration(milliseconds: 1500), onTimeout: () => null);
         if (isTv == true) {
           isTVDevice = true;
         }

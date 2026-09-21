@@ -16,10 +16,10 @@ class FirebaseService extends GetxService {
     if (_initialized) return this;
     _logger.info('Initializing Firebase services...', tag: 'FirebaseService');
     try {
-      // Attempt Firebase initialization
+      // Attempt Firebase initialization with timeout so offline/emulator never hangs startup
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
-      );
+      ).timeout(const Duration(seconds: 15));
       _isAvailable = true;
       _initialized = true;
       _logger.info('Firebase initialization successful.', tag: 'FirebaseService');

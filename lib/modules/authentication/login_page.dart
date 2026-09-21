@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
@@ -23,11 +24,13 @@ class LoginPage extends GetView<AuthController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final isTV = PlatformHelper.isTV;
 
     final arguments = Get.arguments as Map<String, dynamic>?;
     final isAnonymousMode = arguments?['anonymous'] == true;
 
     if (isAnonymousMode && !controller.hasAttemptedAnonymousLogin.value) {
+      controller.hasAttemptedAnonymousLogin.value = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         controller.loginAnonymously();
       });
@@ -41,210 +44,217 @@ class LoginPage extends GetView<AuthController> {
       body: TvKeyboardAwareScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         maxWidth: 420.0,
-        child: AppCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  TvFocusable(
-                    onTap: () => Get.back(),
-                    scale: 1.0,
-                    borderRadius: AppRadius.medium,
-                    child: const IconButton(
-                      icon: Icon(AppIcons.back),
-                      onPressed: null,
-                    ),
-                  ),
-                  AppSpacing.widthSM,
-                  Text(
-                    'Welcome Back',
-                    style: AppTypography.getHeadline(
-                      color: colorScheme.onSurface,
-                    ),
-                  ),
-                ],
-              ),
-              AppSpacing.heightLG,
-              Obx(
-                () => Column(
+        child: FocusTraversalGroup(
+          policy: WidgetOrderTraversalPolicy(),
+          child: AppCard(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
                   children: [
-                    if (controller.errorMessage.value.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: colorScheme.error.withValues(alpha: 0.1),
-                          borderRadius: AppRadius.medium,
-                          border: Border.all(
-                            color: colorScheme.error.withValues(alpha: 0.3),
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              AppIcons.error,
-                              color: colorScheme.error,
-                              size: 18.0,
-                            ),
-                            AppSpacing.widthSM,
-                            Expanded(
-                              child: Text(
-                                controller.errorMessage.value,
-                                style: AppTypography.getCaption(
-                                  color: colorScheme.error,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    AppSpacing.heightMD,
-                    AppTextField(
-                      labelText: 'Email Address',
-                      hintText: 'user@example.com',
-                      controller: emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      prefixIcon: Icons.email_outlined,
-                      onChanged: (_) => controller.clearError(),
-                    ),
-                    AppSpacing.heightMD,
-                    AppTextField(
-                      labelText: 'Password',
-                      hintText: 'Enter your password',
-                      controller: passwordController,
-                      isPassword: true,
-                      prefixIcon: Icons.lock_outline,
-                      textInputAction: TextInputAction.done,
-                      onSubmitted: (_) => controller.loginWithEmail(
-                        emailController.text,
-                        passwordController.text,
+                    TvFocusable(
+                      onTap: () => Get.back(),
+                      scale: 1.0,
+                      borderRadius: AppRadius.medium,
+                      child: const IconButton(
+                        icon: Icon(AppIcons.back),
+                        onPressed: null,
                       ),
                     ),
-                    AppSpacing.heightSM,
-                    Row(
-                      children: [
-                        TvFocusable(
-                          scale: 1.0,
-                          borderRadius: AppRadius.medium,
-                          onTap: () {
-                            controller.rememberMe.value =
-                                !controller.rememberMe.value;
-                          },
-                          child: Obx(
-                            () => Checkbox(
-                              value: controller.rememberMe.value,
-                              onChanged: (value) {
-                                controller.rememberMe.value = value ?? false;
-                              },
-                            ),
-                          ),
+                    AppSpacing.widthSM,
+                    Text(
+                      'Welcome Back',
+                      style: AppTypography.getHeadline(
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                  ],
+                ),
+                AppSpacing.heightLG,
+                Obx(() {
+                  if (controller.errorMessage.value.isEmpty) {
+                    return const SizedBox.shrink();
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: Container(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      decoration: BoxDecoration(
+                        color: colorScheme.error.withValues(alpha: 0.1),
+                        borderRadius: AppRadius.medium,
+                        border: Border.all(
+                          color: colorScheme.error.withValues(alpha: 0.3),
+                          width: 1.0,
                         ),
-                        Text(
-                          'Remember Me',
-                          style: AppTypography.getCaption(
-                            color: colorScheme.onSurface,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            AppIcons.error,
+                            color: colorScheme.error,
+                            size: 18.0,
                           ),
-                        ),
-                        const Spacer(),
-                        TvFocusable(
-                          onTap: () => Get.toNamed(AppRoutes.forgotPassword),
-                          borderRadius: AppRadius.medium,
-                          scale: 1.05,
-                          child: TextButton(
-                            onPressed: null,
+                          AppSpacing.widthSM,
+                          Expanded(
                             child: Text(
-                              'Forgot Password?',
+                              controller.errorMessage.value,
                               style: AppTypography.getCaption(
-                                color: colorScheme.primary,
+                                color: colorScheme.error,
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    AppSpacing.heightLG,
-                    Obx(
-                      () => AppButton.primary(
-                        text: 'Sign In',
-                        isLoading: controller.isLoading.value,
-                        onPressed: () => controller.loginWithEmail(
+                  );
+                }),
+                      AppTextField(
+                        labelText: 'Email Address',
+                        hintText: 'user@example.com',
+                        controller: emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        prefixIcon: Icons.email_outlined,
+                        onChanged: (_) => controller.clearError(),
+                      ),
+                      AppSpacing.heightMD,
+                      AppTextField(
+                        labelText: 'Password',
+                        hintText: 'Enter your password',
+                        controller: passwordController,
+                        isPassword: true,
+                        prefixIcon: Icons.lock_outline,
+                        textInputAction: TextInputAction.done,
+                        onSubmitted: (_) => controller.loginWithEmail(
                           emailController.text,
                           passwordController.text,
                         ),
                       ),
-                    ),
-                    AppSpacing.heightSM,
-                    AppButton.text(
-                      text: 'Continue as Guest',
-                      onPressed: () => controller.loginAnonymously(),
-                    ),
-                    AppSpacing.heightMD,
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: colorScheme.outline.withValues(alpha: 0.2),
+                      AppSpacing.heightSM,
+                      Row(
+                        children: [
+                          TvFocusable(
+                            scale: 1.0,
+                            borderRadius: AppRadius.medium,
+                            descendantsAreFocusable: false,
+                            onTap: () {
+                              controller.rememberMe.value =
+                                  !controller.rememberMe.value;
+                            },
+                            child: Obx(
+                              () => Checkbox(
+                                value: controller.rememberMe.value,
+                                onChanged: (value) {
+                                  controller.rememberMe.value = value ?? false;
+                                },
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'Remember Me',
+                            style: AppTypography.getCaption(
+                              color: colorScheme.onSurface,
+                            ),
+                          ),
+                          const Spacer(),
+                          TvFocusable(
+                            onTap: () => Get.toNamed(AppRoutes.forgotPassword),
+                            borderRadius: AppRadius.medium,
+                            scale: 1.05,
+                            descendantsAreFocusable: false,
+                            child: TextButton(
+                              onPressed: () => Get.toNamed(AppRoutes.forgotPassword),
+                              child: Text(
+                                'Forgot Password?',
+                                style: AppTypography.getCaption(
+                                  color: colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      AppSpacing.heightLG,
+                      Obx(
+                        () => AppButton.primary(
+                          autofocus: isTV,
+                          text: 'Sign In',
+                          isLoading: controller.isLoading.value,
+                          onPressed: () => controller.loginWithEmail(
+                            emailController.text,
+                            passwordController.text,
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
+                      ),
+                      AppSpacing.heightSM,
+                      AppButton.text(
+                        text: 'Continue as Guest',
+                        onPressed: () => controller.loginAnonymously(),
+                      ),
+                      AppSpacing.heightMD,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Divider(
+                              color: colorScheme.outline.withValues(alpha: 0.2),
+                            ),
                           ),
-                          child: Text(
-                            'OR',
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppSpacing.md,
+                            ),
+                            child: Text(
+                              'OR',
+                              style: AppTypography.getCaption(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: Divider(
+                              color: colorScheme.outline.withValues(alpha: 0.2),
+                            ),
+                          ),
+                        ],
+                      ),
+                      AppSpacing.heightMD,
+                      Obx(
+                        () => AppButton.secondary(
+                          text: 'Sign in with Google',
+                          icon: Icons.g_mobiledata_outlined,
+                          isLoading: controller.isLoading.value,
+                          onPressed: controller.loginWithGoogle,
+                        ),
+                      ),
+                      AppSpacing.heightLG,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            "Don't have an account? ",
                             style: AppTypography.getCaption(
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: colorScheme.outline.withValues(alpha: 0.2),
-                          ),
-                        ),
-                      ],
-                    ),
-                    AppSpacing.heightMD,
-                    Obx(
-                      () => AppButton.secondary(
-                        text: 'Sign in with Google',
-                        icon: Icons.g_mobiledata_outlined,
-                        isLoading: controller.isLoading.value,
-                        onPressed: controller.loginWithGoogle,
-                      ),
-                    ),
-                    AppSpacing.heightLG,
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          "Don't have an account? ",
-                          style: AppTypography.getCaption(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        TvFocusable(
-                          onTap: () => Get.toNamed(AppRoutes.register),
-                          borderRadius: AppRadius.medium,
-                          scale: 1.05,
-                          child: TextButton(
-                            onPressed: null,
-                            child: Text(
-                              'Sign Up',
-                              style: AppTypography.getCaption(
-                                color: colorScheme.primary,
-                              ).copyWith(fontWeight: FontWeight.w600),
+                          TvFocusable(
+                            onTap: () => Get.toNamed(AppRoutes.register),
+                            borderRadius: AppRadius.medium,
+                            scale: 1.05,
+                            descendantsAreFocusable: false,
+                            child: TextButton(
+                              onPressed: () => Get.toNamed(AppRoutes.register),
+                              child: Text(
+                                'Sign Up',
+                                style: AppTypography.getCaption(
+                                  color: colorScheme.primary,
+                                ).copyWith(fontWeight: FontWeight.w600),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
+                        ],
+                      ),
+              ],
+            ),
           ),
         ),
       ),

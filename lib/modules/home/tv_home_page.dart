@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/repositories/playback_repository.dart';
 import '../../../core/routes/app_routes.dart';
+import '../../../core/services/tv_navigation_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
@@ -37,6 +38,25 @@ class _TvHomePageState extends State<TvHomePage> {
   MediaItem? _focusedItem;
   String? _resolvedBackdropUrl;
   String? _lastResolvedItemId;
+
+  @override
+  void initState() {
+    super.initState();
+    // Home rails are conditionally built (e.g. "Continue Watching" only when
+    // there is watch history), so their widget order — and therefore their
+    // auto-derived region order in TvNavigationService — can flip between
+    // builds. Pinning the canonical order here makes UP/DOWN inter-rail
+    // navigation deterministic regardless of which rails are present.
+    if (Get.isRegistered<TvNavigationService>()) {
+      Get.find<TvNavigationService>().registerRailOrder(const [
+        'rail_continue_watching',
+        'rail_live_tv_quick_picks',
+        'rail_trending_movies',
+        'rail_popular_series',
+        'rail_recently_added',
+      ]);
+    }
+  }
 
   void _onItemFocus(MediaItem item, bool isFocused) {
     if (isFocused && _focusedItem?.id != item.id) {
@@ -161,7 +181,7 @@ class _TvHomePageState extends State<TvHomePage> {
           return const HomeSkeletonLoader();
         }
 
-        if (!controller.hasProviders.value && !controller.hasContent) {
+        if (!controller.hasContent) {
           return _buildTVWelcomeView(context);
         }
 
@@ -519,8 +539,9 @@ class _TvHomePageState extends State<TvHomePage> {
                 ),
                 AppSpacing.heightSM,
                 Text(
-                  'Connect your first IPTV or media source to start '
-                  'discovering Live TV, Movies, Series, and more.',
+                  controller.hasProviders.value
+                      ? 'No media content found in your connected providers. Manage or refresh your sources to start watching.'
+                      : 'Connect your first IPTV or media source to start discovering Live TV, Movies, Series, and more.',
                   textAlign: TextAlign.center,
                   style: AppTypography.getBody(
                     color: colorScheme.onSurface.withValues(alpha: 0.7),
@@ -528,7 +549,7 @@ class _TvHomePageState extends State<TvHomePage> {
                 ),
                 AppSpacing.heightXL,
                 TvFocusable(
-autofocus: ResponsiveHelper.isTvLayout(context),
+                  autofocus: ResponsiveHelper.isTvLayout(context),
                   onTap: () => Get.toNamed(AppRoutes.providerManager),
                   borderRadius: AppRadius.pill,
                   child: Container(
@@ -552,10 +573,18 @@ autofocus: ResponsiveHelper.isTvLayout(context),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(AppIcons.add, color: Colors.white, size: 22),
+                        Icon(
+                          controller.hasProviders.value
+                              ? AppIcons.settings
+                              : AppIcons.add,
+                          color: Colors.white,
+                          size: 22,
+                        ),
                         AppSpacing.widthSM,
                         Text(
-                          'Add Media Source',
+                          controller.hasProviders.value
+                              ? 'Manage Media Sources'
+                              : 'Add Media Source',
                           style: AppTypography.getTitle(
                             color: Colors.white,
                           ).copyWith(fontWeight: FontWeight.bold),
