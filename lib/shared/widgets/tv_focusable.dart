@@ -309,7 +309,15 @@ class _TvFocusableState extends State<TvFocusable> {
             },
       mouseCursor: SystemMouseCursors.click,
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: widget.onTap != null
+            ? () {
+                if (widget.canRequestFocus &&
+                    _effectiveFocusNode.canRequestFocus) {
+                  _effectiveFocusNode.requestFocus();
+                }
+                widget.onTap?.call();
+              }
+            : null,
         onLongPress: widget.onLongPress,
         behavior: HitTestBehavior.opaque,
         child: AnimatedScale(

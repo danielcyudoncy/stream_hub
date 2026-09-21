@@ -233,4 +233,106 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(refreshNode.hasFocus, isTrue);
   });
+
+  testWidgets('Toggling between Grid view and Timeline EPG preserves remote focus and navigation', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    Get.put<TvNavigationService>(TvNavigationService());
+    final guideCtrl = GuideController(guideRepository: _MockGuideRepository());
+    Get.put<GuideController>(guideCtrl);
+
+    final liveTvCtrl = LiveTVController(
+      catalogRepository: _MockCatalogRepository(),
+      mediaEngine: _MockMediaEngine(),
+      mediaLibrary: _MockMediaLibrary(),
+      favoriteRepository: _MockFavoriteRepository(),
+    );
+    Get.put<LiveTVController>(liveTvCtrl);
+
+    final channel1 = Channel(
+      id: 'ch-1',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'BBC One HD',
+      mediaType: MediaType.channel,
+      number: '1',
+      isLive: true,
+      genres: const ['News'],
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    final channel2 = Channel(
+      id: 'ch-2',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'Sky Sports Premier League',
+      mediaType: MediaType.channel,
+      number: '2',
+      isLive: true,
+      genres: const ['Sports'],
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    liveTvCtrl.channels.assignAll([channel1, channel2]);
+    liveTvCtrl.filteredChannels.assignAll([channel1, channel2]);
+    liveTvCtrl.categories.assignAll(['All Channels', 'News', 'Sports']);
+    liveTvCtrl.isLoading.value = false;
+    guideCtrl.isLoading.value = false;
+
+    await tester.pumpWidget(
+      const GetMaterialApp(
+        home: TVGuidePage(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Confirm initial focus is established
+    expect(FocusManager.instance.primaryFocus, isNotNull);
+    expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
+
+    // Switch view mode to timeline
+    liveTvCtrl.setView('timeline');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+
+    // Focus must NOT be null or lost after switching to Timeline EPG
+    final timelineFocus = FocusManager.instance.primaryFocus;
+    expect(timelineFocus, isNotNull);
+    expect(timelineFocus?.hasFocus, isTrue);
+
+    // Press ArrowDown to enter channels in Timeline EPG
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final inChannelsFocus = FocusManager.instance.primaryFocus;
+    expect(inChannelsFocus, isNotNull);
+    expect(inChannelsFocus?.hasFocus, isTrue);
+
+    // Press ArrowUp to return to Category bar
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final backToCatFocus = FocusManager.instance.primaryFocus;
+    expect(backToCatFocus, isNotNull);
+    expect(backToCatFocus?.hasFocus, isTrue);
+
+    // Switch back to grid view
+    liveTvCtrl.setView('grid');
+    await tester.pump(const Duration(milliseconds: 200));
+    await tester.pump();
+
+    // Focus must NOT freeze after switching back to Grid View
+    final gridFocus = FocusManager.instance.primaryFocus;
+    expect(gridFocus, isNotNull);
+    expect(gridFocus?.hasFocus, isTrue);
+  });
 }

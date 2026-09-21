@@ -48,6 +48,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
   final FocusNode _viewModeFocusNode = FocusNode(debugLabel: 'TvGuide_ViewMode');
   final FocusNode _searchFocusNode = FocusNode(debugLabel: 'TvGuide_Search');
   final FocusNode _refreshFocusNode = FocusNode(debugLabel: 'TvGuide_Refresh');
+  Worker? _selectedViewWorker;
 
   final Map<String, FocusNode> _categoryFocusNodes = <String, FocusNode>{};
   String? _lastFocusedCategory;
@@ -139,6 +140,17 @@ class _TVGuidePageState extends State<TVGuidePage> {
   @override
   void initState() {
     super.initState();
+    final liveCtrl = Get.isRegistered<LiveTVController>()
+        ? Get.find<LiveTVController>()
+        : null;
+    if (liveCtrl != null) {
+      _selectedViewWorker = ever(liveCtrl.selectedView, (_) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _initialFocus();
+        });
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initialFocus();
     });
@@ -146,6 +158,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
 
   @override
   void dispose() {
+    _selectedViewWorker?.dispose();
     _viewModeFocusNode.dispose();
     _searchFocusNode.dispose();
     _refreshFocusNode.dispose();
@@ -374,9 +387,12 @@ class _TVGuidePageState extends State<TVGuidePage> {
                         return TvFocusable(
                           focusNode: _viewModeFocusNode,
                           onKeyEvent: _handleShowcaseKeyEvent,
-                          onTap: () => liveCtrl.setView(
-                            isTimeline ? 'grid' : 'timeline',
-                          ),
+                          onTap: () {
+                            _viewModeFocusNode.requestFocus();
+                            liveCtrl.setView(
+                              isTimeline ? 'grid' : 'timeline',
+                            );
+                          },
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -1014,6 +1030,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
             regionId: 'live_channels',
             itemId: item.id,
             itemIndex: index,
+            onMoveUp: index < 4 ? _focusActiveCategory : null,
             onTap: () => liveCtrl.openChannel(item),
             onFavorite: () => liveCtrl.toggleFavorite(item),
           );
@@ -1063,6 +1080,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
       programs: guidePrograms,
       channelProgramsMap: channelProgramsMap,
       activePlayingChannelId: liveCtrl.activePlayingChannel.value?.id,
+      onMoveUp: _focusActiveCategory,
       onChannelTap: (epgChannel) {
         final match = channels.firstWhereOrNull((c) => c.id == epgChannel.id);
         if (match != null) liveCtrl.openChannel(match);
