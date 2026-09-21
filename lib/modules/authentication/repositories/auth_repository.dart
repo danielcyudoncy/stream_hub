@@ -182,7 +182,10 @@ class AuthRepository extends GetxService {
         return user;
       }
       if (_localStorage.isSessionValid()) {
-        return await _authService.getCurrentUser();
+        return await _authService.getCurrentUser().timeout(
+              const Duration(seconds: 3),
+              onTimeout: () => null,
+            );
       }
       return null;
     } catch (e) {

@@ -68,8 +68,15 @@ class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
     if (!widget.autofocus || _fullscreenFocusNode == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_fullscreenFocusNode!.canRequestFocus) return;
-      if (FocusManager.instance.primaryFocus == null ||
-          FocusManager.instance.primaryFocus == _inlineFocusNode) {
+      final currentFocus = FocusManager.instance.primaryFocus;
+      if (currentFocus != null &&
+          currentFocus != _inlineFocusNode &&
+          currentFocus != _fullscreenFocusNode) {
+        return;
+      }
+      final hasInteractiveChild =
+          _fullscreenFocusNode!.descendants.any((c) => c.canRequestFocus);
+      if (!hasInteractiveChild) {
         _fullscreenFocusNode!.requestFocus();
       }
     });
@@ -90,6 +97,7 @@ class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
       );
     } else {
       _fullscreenFocusNode = FocusNode(
+        skipTraversal: true,
         debugLabel: 'TvPlayerKeyboardFullscreen',
       );
     }
@@ -104,6 +112,7 @@ class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
         _inlineFocusNode?.dispose();
         _inlineFocusNode = null;
         _fullscreenFocusNode ??= FocusNode(
+          skipTraversal: true,
           debugLabel: 'TvPlayerKeyboardFullscreen',
         );
       } else {
@@ -131,18 +140,15 @@ class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
     final playerContent = widget.child;
 
     if (widget.autofocus) {
-      // Fullscreen: keep a stable focus anchor on the player itself so the remote
-      // can return to the player after a child control was activated, and so the
-      // fullscreen toggle remains reachable without losing the keyboard focus.
-      return FocusTraversalGroup(
-        policy: OrderedTraversalPolicy(),
-        child: Focus(
-          focusNode: _fullscreenFocusNode,
-          autofocus: true,
-          canRequestFocus: true,
-          onKeyEvent: _handleFocusKeyEvent,
-          child: playerContent,
-        ),
+      // Fullscreen: keep a passive key listener anchor on the player itself so the
+      // remote can return to the player after a child control was activated, and so
+      // media keys continue to function when controls are hidden.
+      return Focus(
+        focusNode: _fullscreenFocusNode,
+        skipTraversal: true,
+        canRequestFocus: true,
+        onKeyEvent: _handleFocusKeyEvent,
+        child: playerContent,
       );
     }
 
@@ -244,6 +250,15 @@ class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
     };
     if (isDirectional) {
       widget.onAnyKey();
+      final primary = FocusManager.instance.primaryFocus;
+      if (primary == _fullscreenFocusNode) {
+        for (final descendant in _fullscreenFocusNode!.descendants) {
+          if (descendant.canRequestFocus) {
+            descendant.requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
+      }
       // Allow directional focus to move freely between buttons
       return KeyEventResult.ignored;
     }

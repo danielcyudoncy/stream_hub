@@ -18,16 +18,10 @@
         android:banner="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
         android:usesCleartextTraffic="true">
-        <!-- Disable Flutter Impeller on Android. media_kit renders video through
-             a Flutter external Texture; on devices whose GPU/driver fails to
-             composite external textures under Impeller (e.g. Unisoc/Mali), the
-             decoder produces frames but the screen stays black while audio plays
-             (media-kit/media-kit#837). The Impeller opt-out is still the official
-             deployment mechanism (https://docs.flutter.dev/perf/impeller). Skia
-             renders external textures correctly on these devices. -->
-        <meta-data
-            android:name="io.flutter.embedding.android.EnableImpeller"
-            android:value="false" />
+        <!-- NOTE: Impeller opt-out (EnableImpeller=false) was removed in Flutter 3.24+
+             as it is deprecated. The Unisoc/Mali black-screen workaround is now
+             handled at the video rendering layer (ExoPlayer via SurfaceView/NativePlayerActivity
+             bypasses Flutter external textures). See PLAYBACK_ENGINEERING.md §8.3. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
@@ -11,6 +12,8 @@ class LiveTvCategoryBar extends StatelessWidget {
   final int favoritesCount;
   final ValueChanged<String> onCategorySelected;
   final ValueChanged<bool> onFavoritesToggle;
+  final VoidCallback? onMoveUp;
+  final ValueChanged<FocusNode>? onFocusCategory;
 
   const LiveTvCategoryBar({
     super.key,
@@ -20,6 +23,8 @@ class LiveTvCategoryBar extends StatelessWidget {
     required this.favoritesCount,
     required this.onCategorySelected,
     required this.onFavoritesToggle,
+    this.onMoveUp,
+    this.onFocusCategory,
   });
 
   @override
@@ -40,6 +45,8 @@ class LiveTvCategoryBar extends StatelessWidget {
               if (showFavoritesOnly) onFavoritesToggle(false);
               onCategorySelected('All Channels');
             },
+            onMoveUp: onMoveUp,
+            onFocus: onFocusCategory,
           ),
           const SizedBox(width: AppSpacing.xs),
 
@@ -53,6 +60,8 @@ class LiveTvCategoryBar extends StatelessWidget {
               onTap: () {
                 onFavoritesToggle(!showFavoritesOnly);
               },
+              onMoveUp: onMoveUp,
+              onFocus: onFocusCategory,
             ),
             const SizedBox(width: AppSpacing.xs),
           ],
@@ -66,6 +75,8 @@ class LiveTvCategoryBar extends StatelessWidget {
                 if (showFavoritesOnly) onFavoritesToggle(false);
                 onCategorySelected(category);
               },
+              onMoveUp: onMoveUp,
+              onFocus: onFocusCategory,
             ),
             const SizedBox(width: AppSpacing.xs),
           ],
@@ -81,6 +92,8 @@ class _CategoryChip extends StatefulWidget {
   final Color? iconColor;
   final bool isSelected;
   final VoidCallback onTap;
+  final VoidCallback? onMoveUp;
+  final ValueChanged<FocusNode>? onFocus;
 
   const _CategoryChip({
     required this.label,
@@ -88,6 +101,8 @@ class _CategoryChip extends StatefulWidget {
     this.iconColor,
     required this.isSelected,
     required this.onTap,
+    this.onMoveUp,
+    this.onFocus,
   });
 
   @override
@@ -96,6 +111,30 @@ class _CategoryChip extends StatefulWidget {
 
 class _CategoryChipState extends State<_CategoryChip> {
   bool _isFocused = false;
+  late final FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode(debugLabel: 'CategoryChip_${widget.label}');
+    _focusNode.onKeyEvent = _handleKeyEvent;
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent &&
+        event.logicalKey == LogicalKeyboardKey.arrowUp &&
+        widget.onMoveUp != null) {
+      widget.onMoveUp!();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -104,10 +143,12 @@ class _CategoryChipState extends State<_CategoryChip> {
     final isTV = PlatformHelper.isTV;
 
     return FocusableActionDetector(
+      focusNode: _focusNode,
       onFocusChange: (hasKeyboardFocus) {
         if (mounted && _isFocused != hasKeyboardFocus) {
           setState(() => _isFocused = hasKeyboardFocus);
           if (hasKeyboardFocus) {
+            widget.onFocus?.call(_focusNode);
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 Scrollable.ensureVisible(

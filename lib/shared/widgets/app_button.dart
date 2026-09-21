@@ -15,6 +15,8 @@ class AppButton extends StatelessWidget {
   final IconData? icon;
   final double? width;
   final double height;
+  final bool autofocus;
+  final FocusNode? focusNode;
 
   const AppButton({
     super.key,
@@ -25,6 +27,8 @@ class AppButton extends StatelessWidget {
     this.icon,
     this.width,
     this.height = 48.0,
+    this.autofocus = false,
+    this.focusNode,
   });
 
   const AppButton.primary({
@@ -35,6 +39,8 @@ class AppButton extends StatelessWidget {
     this.icon,
     this.width,
     this.height = 42.0,
+    this.autofocus = false,
+    this.focusNode,
   }) : type = ButtonType.primary;
 
   const AppButton.secondary({
@@ -45,6 +51,8 @@ class AppButton extends StatelessWidget {
     this.icon,
     this.width,
     this.height = 42.0,
+    this.autofocus = false,
+    this.focusNode,
   }) : type = ButtonType.secondary;
 
   const AppButton.text({
@@ -55,6 +63,8 @@ class AppButton extends StatelessWidget {
     this.icon,
     this.width,
     this.height = 42.0,
+    this.autofocus = false,
+    this.focusNode,
   }) : type = ButtonType.text;
 
   const AppButton.danger({
@@ -65,6 +75,8 @@ class AppButton extends StatelessWidget {
     this.icon,
     this.width,
     this.height = 42.0,
+    this.autofocus = false,
+    this.focusNode,
   }) : type = ButtonType.danger;
 
   @override
@@ -102,6 +114,9 @@ class AppButton extends StatelessWidget {
       onTap: isButtonDisabled ? null : onPressed,
       borderRadius: AppRadius.medium,
       scale: 1.03,
+      autofocus: autofocus,
+      focusNode: focusNode,
+      descendantsAreFocusable: false,
       child: SizedBox(
         width: width,
         height: height,

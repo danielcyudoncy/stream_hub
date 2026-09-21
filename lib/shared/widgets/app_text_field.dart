@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/theme/app_radius.dart';
 import '../../core/theme/app_spacing.dart';
 import '../../core/theme/app_typography.dart';
@@ -14,6 +15,8 @@ class AppTextField extends StatefulWidget {
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final TextInputAction textInputAction;
+  final bool autofocus;
+  final FocusNode? focusNode;
 
   const AppTextField({
     super.key,
@@ -27,6 +30,8 @@ class AppTextField extends StatefulWidget {
     this.onChanged,
     this.onSubmitted,
     this.textInputAction = TextInputAction.next,
+    this.autofocus = false,
+    this.focusNode,
   });
 
   @override
@@ -35,6 +40,48 @@ class AppTextField extends StatefulWidget {
 
 class _AppTextFieldState extends State<AppTextField> {
   bool _obscureText = true;
+  FocusNode? _internalFocusNode;
+  FocusNode get _effectiveFocusNode =>
+      widget.focusNode ?? (_internalFocusNode ??= FocusNode());
+
+  @override
+  void initState() {
+    super.initState();
+    _effectiveFocusNode.onKeyEvent = _handleKeyEvent;
+  }
+
+  @override
+  void didUpdateWidget(AppTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      if (oldWidget.focusNode == null) {
+        _internalFocusNode?.dispose();
+        _internalFocusNode = null;
+      }
+      _effectiveFocusNode.onKeyEvent = _handleKeyEvent;
+    }
+  }
+
+  @override
+  void dispose() {
+    _internalFocusNode?.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      final moved = node.nextFocus();
+      return moved ? KeyEventResult.handled : KeyEventResult.ignored;
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      final moved = node.previousFocus();
+      return moved ? KeyEventResult.handled : KeyEventResult.ignored;
+    }
+
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,12 +99,14 @@ class _AppTextFieldState extends State<AppTextField> {
         ),
         AppSpacing.heightXS,
         TextField(
+          focusNode: _effectiveFocusNode,
           controller: widget.controller,
           obscureText: widget.isPassword && _obscureText,
           keyboardType: widget.keyboardType,
           textInputAction: widget.textInputAction,
           onChanged: widget.onChanged,
           onSubmitted: widget.onSubmitted,
+          autofocus: widget.autofocus,
           style: AppTypography.getBody(color: colorScheme.onSurface),
           decoration: InputDecoration(
             hintText: widget.hintText,

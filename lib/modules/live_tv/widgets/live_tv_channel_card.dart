@@ -1,7 +1,5 @@
 // modules/live_tv/widgets/live_tv_channel_card.dart
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_colors.dart';
@@ -51,69 +49,6 @@ class LiveTvChannelCard extends StatefulWidget {
 
 class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
   bool _isFocused = false;
-  Timer? _longPressTimer;
-  bool _longPressTriggered = false;
-
-  FocusNode? _gridFocusNode;
-  FocusNode? _listFocusNode;
-
-  @override
-  void dispose() {
-    _longPressTimer?.cancel();
-    _gridFocusNode?.dispose();
-    _listFocusNode?.dispose();
-    super.dispose();
-  }
-
-  KeyEventResult _handleCardKeyEvent(FocusNode node, KeyEvent event) {
-    if (widget.onFavorite == null) return KeyEventResult.ignored;
-
-    final isSelect =
-        event.logicalKey == LogicalKeyboardKey.select ||
-        event.logicalKey == LogicalKeyboardKey.enter ||
-        event.logicalKey == LogicalKeyboardKey.numpadEnter ||
-        event.logicalKey == LogicalKeyboardKey.gameButtonA;
-
-    if (!isSelect) return KeyEventResult.ignored;
-
-    if (event is KeyDownEvent) {
-      if (_longPressTimer == null && !_longPressTriggered) {
-        _longPressTimer = Timer(const Duration(milliseconds: 600), () {
-          if (mounted) {
-            _longPressTriggered = true;
-            widget.onFavorite?.call();
-          }
-        });
-      }
-      return KeyEventResult.handled;
-    } else if (event is KeyUpEvent) {
-      final wasTriggered = _longPressTriggered;
-      _longPressTimer?.cancel();
-      _longPressTimer = null;
-      _longPressTriggered = false;
-      if (!wasTriggered) {
-        widget.onTap?.call();
-      }
-      return KeyEventResult.handled;
-    } else if (event is KeyRepeatEvent) {
-      return KeyEventResult.handled;
-    }
-
-    return KeyEventResult.ignored;
-  }
-
-  void _ensureVisible() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        Scrollable.ensureVisible(
-          context,
-          alignment: 0.5,
-          duration: const Duration(milliseconds: 250),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,17 +99,10 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
               .clamp(0.0, 1.0)
         : (widget.isPlaying ? 0.45 : 0.0);
 
-    final gridNode = _gridFocusNode ??= FocusNode();
-
     return TvFocusable(
-      focusNode: gridNode,
-      onKeyEvent: _handleCardKeyEvent,
       onFocusChange: (hasFocus) {
         if (mounted && _isFocused != hasFocus) {
           setState(() => _isFocused = hasFocus);
-          if (hasFocus) {
-            _ensureVisible();
-          }
         }
       },
       onTap: widget.onTap,
@@ -528,17 +456,10 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
         ? '${DateFormatter.formatTime(currentProgram.startTime)} - ${DateFormatter.formatTime(currentProgram.endTime)}'
         : '';
 
-    final listNode = _listFocusNode ??= FocusNode();
-
     return TvFocusable(
-      focusNode: listNode,
-      onKeyEvent: _handleCardKeyEvent,
       onFocusChange: (hasFocus) {
         if (mounted && _isFocused != hasFocus) {
           setState(() => _isFocused = hasFocus);
-          if (hasFocus) {
-            _ensureVisible();
-          }
         }
       },
       onTap: widget.onTap,

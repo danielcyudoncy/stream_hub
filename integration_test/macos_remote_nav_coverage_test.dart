@@ -728,6 +728,123 @@ void main() {
     await _sweepArrows(tester, 'TV Guide');
   });
 
+  testWidgets(
+    'EPG TV Guide on desktop window (<1024, no TvScaffold): D-pad traversal',
+    (tester) async {
+      // Mirror a macOS desktop window below the 1024px TvScaffold threshold.
+      // AppScaffold falls back to the NavigationRail layout wrapped in a
+      // WidgetOrderTraversalPolicy group, which is a different focus scope than
+      // the TvScaffold used at 1080p. Remote traversal must still move focus
+      // through the EPG timeline grid (channel column + program cards).
+      tester.view.physicalSize = const Size(900, 750);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      _registerHomeAndMedia();
+      final liveCtrl = Get.find<LiveTVController>();
+      final live = Get.find<MediaLibrary>().getLiveTV();
+      liveCtrl.channels.assignAll(live);
+      liveCtrl.filteredChannels.assignAll(live);
+      liveCtrl.categories.assignAll(['All Channels', 'Sports', 'News']);
+      liveCtrl.isLoading.value = false;
+      liveCtrl.selectedView.value = 'timeline';
+      expect(find.byType(TvScaffold), findsNothing);
+
+      final guideCtrl = GuideController(guideRepository: _FakeGuideRepository());
+      Get.put<GuideController>(guideCtrl);
+      guideCtrl.isLoading.value = false;
+
+      await tester.pumpWidget(const GetMaterialApp(home: TVGuidePage()));
+      await tester.pumpAndSettle();
+
+      _expectNoDeadFocusTargets(tester, 'TV Guide (desktop)');
+      expect(find.byType(TvScaffold), findsNothing);
+      await _sweepArrows(tester, 'TV Guide (desktop)');
+    },
+  );
+
+  testWidgets(
+    'EPG TV Guide desktop: Grid -> Timeline EPG toggle keeps traversal alive',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 750);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      _registerHomeAndMedia();
+      final liveCtrl = Get.find<LiveTVController>();
+      final live = Get.find<MediaLibrary>().getLiveTV();
+      liveCtrl.channels.assignAll(live);
+      liveCtrl.filteredChannels.assignAll(live);
+      liveCtrl.categories.assignAll(['All Channels', 'Sports', 'News']);
+      liveCtrl.isLoading.value = false;
+
+      final guideCtrl = GuideController(guideRepository: _FakeGuideRepository());
+      Get.put<GuideController>(guideCtrl);
+      guideCtrl.isLoading.value = false;
+
+      await tester.pumpWidget(const GetMaterialApp(home: TVGuidePage()));
+      await tester.pumpAndSettle();
+
+      _expectNoDeadFocusTargets(tester, 'TV Guide desktop grid');
+      await _sweepArrows(tester, 'TV Guide desktop grid');
+
+      // Toggle Grid -> Timeline EPG exactly like the user did, then confirm
+      // the D-pad keeps moving across the calendar grid.
+      await tester.tap(find.text('Timeline EPG'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(liveCtrl.selectedView.value, 'timeline');
+      expect(find.byType(TvScaffold), findsNothing);
+
+      await _sweepArrows(tester, 'TV Guide desktop timeline');
+    },
+  );
+
+  testWidgets(
+    'TV Guide pushed as a routed page on desktop (<1024): traversal survives',
+    (tester) async {
+      tester.view.physicalSize = const Size(1023, 700);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      _registerHomeAndMedia();
+      final liveCtrl = Get.find<LiveTVController>();
+      final live = Get.find<MediaLibrary>().getLiveTV();
+      liveCtrl.channels.assignAll(live);
+      liveCtrl.filteredChannels.assignAll(live);
+      liveCtrl.categories.assignAll(['All Channels', 'Sports', 'News']);
+      liveCtrl.isLoading.value = false;
+      liveCtrl.selectedView.value = 'timeline';
+      expect(find.byType(TvScaffold), findsNothing);
+
+      final guideCtrl = GuideController(guideRepository: _FakeGuideRepository());
+      Get.put<GuideController>(guideCtrl);
+      guideCtrl.isLoading.value = false;
+
+      // The guide is reached by NAVIGATION in real usage: Live TV page is pushed,
+      // then the guide is pushed on top. Pump the Live TV page first so the
+      // guide mounts as a non-initial route (which owns a fresh FocusScope).
+      await tester.pumpWidget(
+        const GetMaterialApp(home: LiveTVPage()),
+      );
+      await tester.pumpAndSettle();
+
+      Navigator.of(
+        tester.element(find.byType(LiveTVPage)),
+        rootNavigator: true,
+      ).push(
+        MaterialPageRoute<void>(builder: (_) => const TVGuidePage()),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TVGuidePage), findsOneWidget);
+      _expectNoDeadFocusTargets(tester, 'TV Guide (pushed)');
+      await _sweepArrows(tester, 'TV Guide (pushed)');
+    },
+  );
+
   testWidgets('Library: remote targets and D-pad traversal', (tester) async {
     useTvViewport(tester);
     _registerHomeAndMedia();

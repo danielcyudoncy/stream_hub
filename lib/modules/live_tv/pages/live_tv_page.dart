@@ -51,6 +51,16 @@ class _LiveTVPageState extends State<LiveTVPage> {
   final GlobalKey<PopupMenuButtonState<String>> _morePopupKey =
       GlobalKey<PopupMenuButtonState<String>>();
 
+  final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerPortraitKey =
+      GlobalKey<LiveTvEmbeddedPlayerState>();
+  final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerLandscapeKey =
+      GlobalKey<LiveTvEmbeddedPlayerState>();
+  final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerFullscreenKey =
+      GlobalKey<LiveTvEmbeddedPlayerState>();
+  final FocusNode _providerButtonFocusNode =
+      FocusNode(debugLabel: 'LiveTvProviderButton');
+  FocusNode? _lastFocusedCategoryNode;
+
   @override
   void initState() {
     super.initState();
@@ -181,6 +191,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
 
   @override
   void dispose() {
+    _providerButtonFocusNode.dispose();
     _scrollWorker?.dispose();
     _scrollController.dispose();
     _disableAutoPiP();
@@ -191,6 +202,25 @@ class _LiveTVPageState extends State<LiveTVPage> {
       Get.find<LiveTVController>().stopInlinePlayer();
     }
     super.dispose();
+  }
+
+  void _focusPlayerFromCategory() {
+    final state = _embeddedPlayerLandscapeKey.currentState ??
+        _embeddedPlayerPortraitKey.currentState;
+    state?.focusPlayer();
+  }
+
+  void _focusLastCategory() {
+    if (_lastFocusedCategoryNode != null &&
+        _lastFocusedCategoryNode!.canRequestFocus) {
+      _lastFocusedCategoryNode!.requestFocus();
+    }
+  }
+
+  void _focusProviderButton() {
+    if (_providerButtonFocusNode.canRequestFocus) {
+      _providerButtonFocusNode.requestFocus();
+    }
   }
 
   @override
@@ -277,9 +307,10 @@ class _LiveTVPageState extends State<LiveTVPage> {
               width: double.infinity,
               height: double.infinity,
               child: LiveTvEmbeddedPlayer(
-                key: const ValueKey('live_tv_player_fullscreen'),
+                key: _embeddedPlayerFullscreenKey,
                 controller: controller,
                 isFullscreen: true,
+                autofocus: true,
               ),
             ),
           );
@@ -303,10 +334,12 @@ class _LiveTVPageState extends State<LiveTVPage> {
                           _buildTopAppBar(context, isList),
                           Expanded(
                             child: LiveTvEmbeddedPlayer(
-                              key: const ValueKey('live_tv_player_landscape'),
+                              key: _embeddedPlayerLandscapeKey,
                               controller: controller,
                               isFullscreen: false,
                               autofocus: false,
+                              onMoveDown: _focusLastCategory,
+                              onMoveUp: _focusProviderButton,
                             ),
                           ),
                           Padding(
@@ -325,6 +358,9 @@ class _LiveTVPageState extends State<LiveTVPage> {
                                   controller.setCategory(cat),
                               onFavoritesToggle: (fav) =>
                                   controller.setFavoritesOnly(fav),
+                              onMoveUp: _focusPlayerFromCategory,
+                              onFocusCategory: (node) =>
+                                  _lastFocusedCategoryNode = node,
                             ),
                           ),
                         ],
@@ -435,10 +471,12 @@ class _LiveTVPageState extends State<LiveTVPage> {
                       : double.infinity,
                 ),
                 child: LiveTvEmbeddedPlayer(
-                  key: const ValueKey('live_tv_player_portrait'),
+                  key: _embeddedPlayerPortraitKey,
                   controller: controller,
                   isFullscreen: false,
                   autofocus: false,
+                  onMoveDown: _focusLastCategory,
+                  onMoveUp: _focusProviderButton,
                 ),
               ),
 
@@ -456,6 +494,9 @@ class _LiveTVPageState extends State<LiveTVPage> {
                   onFavoritesToggle: (fav) {
                     controller.setFavoritesOnly(fav);
                   },
+                  onMoveUp: _focusPlayerFromCategory,
+                  onFocusCategory: (node) =>
+                      _lastFocusedCategoryNode = node,
                 ),
               ),
 
@@ -712,6 +753,8 @@ class _LiveTVPageState extends State<LiveTVPage> {
 
               // Provider Switcher Button (Compact Initial Avatar)
               ProviderSelectorButton(
+                focusNode: _providerButtonFocusNode,
+                onMoveDown: _focusPlayerFromCategory,
                 selectedProviderId: controller.selectedProvider.value,
                 onSelectProvider: (providerId) =>
                     controller.setProvider(providerId),

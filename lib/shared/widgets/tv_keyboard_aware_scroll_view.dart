@@ -121,7 +121,7 @@ class _TvKeyboardAwareScrollViewState extends State<TvKeyboardAwareScrollView> {
   Widget build(BuildContext context) {
     return Focus(
       canRequestFocus: false,
-      skipTraversal: true,
+      skipTraversal: false,
       debugLabel: 'TvKeyboardAwareScrollView',
       onKeyEvent: _handleKeyEvent,
       child: LayoutBuilder(

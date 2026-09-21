@@ -30,6 +30,7 @@ class FullscreenPlayerPage extends StatefulWidget {
 
 class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
   final PlayerController _controller = Get.find<PlayerController>();
+  final GlobalKey<PlayerKeyboardShortcutsState> _shortcutsKey = GlobalKey();
   Floating? _floating;
   StreamSubscription<PlaybackState>? _stateSub;
   StreamSubscription<PlaybackEngineKind>? _engineKindSub;
@@ -107,7 +108,20 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
     _controlsTimer = Timer(const Duration(seconds: 4), () {
       if (mounted && _controlsVisible) {
         setState(() => _controlsVisible = false);
+        _reclaimPlayerFocusAfterHide();
       }
+    });
+  }
+
+  /// Returns focus to the player interaction root once the controls overlay
+  /// has been removed from the tree. Without this, the focused control's node
+  /// is disposed during auto-hide and primary focus falls to the route focus
+  /// scope, which is outside the [PlayerKeyboardShortcuts] subtree — leaving
+  /// ENTER/SPACE/media keys unanswered until the next D-pad press.
+  void _reclaimPlayerFocusAfterHide() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _controlsVisible) return;
+      _shortcutsKey.currentState?.reclaimFocus();
     });
   }
 
@@ -132,6 +146,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
 
   Widget _buildInteractivePlayer() {
     return PlayerKeyboardShortcuts(
+      key: _shortcutsKey,
       onPlayPause: () {
         if (!_controlsVisible) {
           setState(() => _controlsVisible = true);
@@ -521,6 +536,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       _autoHideControls();
     } else {
       _controlsTimer?.cancel();
+      _reclaimPlayerFocusAfterHide();
     }
   }
 }

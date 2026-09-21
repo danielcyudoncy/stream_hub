@@ -273,8 +273,6 @@ class AuthController extends GetxController {
 
   Future<void> loginAnonymously() async {
     if (isLoading.value) return;
-    if (hasAttemptedAnonymousLogin.value) return;
-    hasAttemptedAnonymousLogin.value = true;
     if (_repository == null) {
       errorMessage.value = 'Authentication service is not available.';
       return;

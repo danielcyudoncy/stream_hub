@@ -77,6 +77,10 @@ dependencies {
     implementation("androidx.media3:media3-extractor:$media3")
     implementation("androidx.media3:media3-ui:$media3")
 
+    // Leanback library for Android TV UI components and D-pad navigation
+    implementation("androidx.leanback:leanback:1.2.0")
+    implementation("androidx.leanback:leanback-preference:1.2.0")
+
     // Phase 3 evaluation engine (IjkPlayerAdapter / IjkPlayerActivity): the
     // self-built ijkplayer AAR plus its per-ABI native libraries. Artifacts are
     // vendored by tools/ijkplayer/vendor.sh from the pinned source build
