@@ -43,6 +43,8 @@ class _TVGuidePageState extends State<TVGuidePage> {
   GuideController get controller => Get.find<GuideController>();
 
   final GlobalKey _guideRootKey = GlobalKey(debugLabel: 'TvGuideRootKey');
+  final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerKey =
+      GlobalKey<LiveTvEmbeddedPlayerState>();
   final FocusNode _viewModeFocusNode = FocusNode(debugLabel: 'TvGuide_ViewMode');
   final FocusNode _searchFocusNode = FocusNode(debugLabel: 'TvGuide_Search');
   final FocusNode _refreshFocusNode = FocusNode(debugLabel: 'TvGuide_Refresh');
@@ -101,10 +103,18 @@ class _TVGuidePageState extends State<TVGuidePage> {
   }
 
   KeyEventResult _handleShowcaseKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent &&
-        event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _focusActiveCategory();
-      return KeyEventResult.handled;
+    if (event is KeyDownEvent) {
+      if (node == _refreshFocusNode &&
+          event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        final playerState = _embeddedPlayerKey.currentState;
+        if (playerState != null) {
+          playerState.focusPlayer();
+          return KeyEventResult.handled;
+        }
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+        _focusActiveCategory();
+        return KeyEventResult.handled;
+      }
     }
     return KeyEventResult.ignored;
   }
@@ -701,10 +711,13 @@ class _TVGuidePageState extends State<TVGuidePage> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                  child: LiveTvEmbeddedPlayer(
-                   key: const ValueKey('tv_guide_player_inline'),
+                   key: _embeddedPlayerKey,
                    controller: liveCtrl,
                    isFullscreen: false,
                    autofocus: false,
+                   onMoveLeft: () => _refreshFocusNode.requestFocus(),
+                   onMoveDown: _focusActiveCategory,
+                   onMoveUp: () => _refreshFocusNode.requestFocus(),
                  ),
                ),
              ),

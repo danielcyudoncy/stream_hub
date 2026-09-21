@@ -147,4 +147,90 @@ void main() {
     expect(FocusManager.instance.primaryFocus, isNotNull);
     expect(FocusManager.instance.primaryFocus?.hasFocus, isTrue);
   });
+
+  testWidgets('Navigating right from Refresh button enters player and exits left back to Refresh', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    Get.put<TvNavigationService>(TvNavigationService());
+    final guideCtrl = GuideController(guideRepository: _MockGuideRepository());
+    Get.put<GuideController>(guideCtrl);
+
+    final liveTvCtrl = LiveTVController(
+      catalogRepository: _MockCatalogRepository(),
+      mediaEngine: _MockMediaEngine(),
+      mediaLibrary: _MockMediaLibrary(),
+      favoriteRepository: _MockFavoriteRepository(),
+    );
+    Get.put<LiveTVController>(liveTvCtrl);
+
+    final channel1 = Channel(
+      id: 'ch-1',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'BBC One HD',
+      mediaType: MediaType.channel,
+      number: '1',
+      isLive: true,
+      genres: const ['News'],
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    liveTvCtrl.channels.assignAll([channel1]);
+    liveTvCtrl.filteredChannels.assignAll([channel1]);
+    liveTvCtrl.categories.assignAll(['All Channels', 'News']);
+    liveTvCtrl.isLoading.value = false;
+    guideCtrl.isLoading.value = false;
+
+    await tester.pumpWidget(
+      const GetMaterialApp(
+        home: TVGuidePage(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Find the TvGuide_Refresh button focus node in the showcase
+    final refreshFinders = find.ancestor(
+      of: find.byIcon(Icons.refresh),
+      matching: find.byType(FocusableActionDetector),
+    );
+    FocusNode? refreshNode;
+    for (final widget in tester.widgetList<FocusableActionDetector>(refreshFinders)) {
+      if (widget.focusNode?.debugLabel == 'TvGuide_Refresh') {
+        refreshNode = widget.focusNode;
+        break;
+      }
+    }
+
+    expect(refreshNode, isNotNull);
+    refreshNode!.requestFocus();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(refreshNode.hasFocus, isTrue);
+
+    // Press ArrowRight from Refresh button -> should enter embedded player
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump();
+
+    // Focus should now be inside player (e.g. LiveTvPlayPause or LiveTvPlayerAnchor)
+    final playerFocus = FocusManager.instance.primaryFocus;
+    expect(playerFocus, isNotNull);
+    expect(
+      playerFocus?.debugLabel == 'LiveTvPlayPause' ||
+          playerFocus?.debugLabel == 'LiveTvPlayerAnchor',
+      isTrue,
+    );
+
+    // Press ArrowLeft from player -> should return to Refresh button
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(refreshNode.hasFocus, isTrue);
+  });
 }
