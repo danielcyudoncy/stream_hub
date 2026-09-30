@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
 import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_icons.dart';
+import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/core/utils/responsive_helper.dart';
@@ -13,7 +14,6 @@ import 'package:stream_hub/shared/widgets/provider_card.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'provider_manager_controller.dart';
-import 'provider_details_page.dart';
 
 class ProviderManagerPage extends StatefulWidget {
   const ProviderManagerPage({super.key});
@@ -25,9 +25,23 @@ class ProviderManagerPage extends StatefulWidget {
 class _ProviderManagerPageState extends State<ProviderManagerPage> {
   final GlobalKey<PopupMenuButtonState<String>> _sortPopupKey =
       GlobalKey<PopupMenuButtonState<String>>();
+  late final TextEditingController _searchController;
 
   ProviderManagerController get controller =>
       Get.find<ProviderManagerController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController =
+        TextEditingController(text: controller.searchQuery.value);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +51,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
         ResponsiveHelper.isTV(context) || ResponsiveHelper.isDesktop(context);
 
     return AppScaffold(
-      title: 'Provider Manager',
+      title: 'Media Sources',
       actions: [
         if (!isTvMode)
           TvFocusable(
@@ -56,7 +70,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
                   const Icon(AppIcons.add, size: 16, color: Colors.white),
                   const SizedBox(width: 4),
                   Text(
-                    'Add Provider',
+                    'Add Source',
                     style: AppTypography.getButton(color: Colors.white)
                         .copyWith(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
@@ -66,8 +80,6 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
           ),
         const SizedBox(width: AppSpacing.md),
       ],
-      // On TV the FAB is not rendered inside TvScaffold, so we surface an
-      // in-body "Add Provider" affordance instead.
       floatingActionButton: !isTvMode
           ? TvFocusable(
               onTap: () => Get.toNamed(AppRoutes.providerForm),
@@ -78,7 +90,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
                 backgroundColor: colorScheme.primary,
                 icon: const Icon(AppIcons.add, color: Colors.white),
                 label: Text(
-                  'Add Provider',
+                  'Add Source',
                   style: AppTypography.getButton(color: Colors.white),
                 ),
               ),
@@ -97,23 +109,25 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
 
               final filtered = controller.getFilteredProviders();
 
-              if (filtered.isEmpty && controller.providers.isEmpty) {
+              if (filtered.isEmpty && !controller.hasAnyProviders) {
                 return EmptyView(
-                  title: 'No Providers Yet',
-                  description: 'Add your first IPTV provider to get started.',
+                  title: 'No Media Sources',
+                  description:
+                      'Add your first IPTV playlist or streaming source to start watching.',
                   icon: AppIcons.providers,
-                  actionLabel: 'Add Provider',
+                  actionLabel: 'Add Media Source',
                   onAction: () => Get.toNamed(AppRoutes.providerForm),
                 );
               }
 
               if (filtered.isEmpty) {
                 return EmptyView(
-                  title: 'No Matching Providers',
+                  title: 'No Matching Sources',
                   description: 'Try adjusting your search or filters.',
                   icon: AppIcons.search,
                   actionLabel: 'Clear Filters',
                   onAction: () {
+                    _searchController.clear();
                     controller.updateSearchQuery('');
                     controller.updateFilterType(ProviderFilterType.all);
                     controller.updateFilterProviderType(null);
@@ -131,8 +145,9 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
                     final provider = filtered[index];
                     return ProviderCard(
                       provider: provider,
-                      onTap: () => Get.to(
-                        () => ProviderDetailsPage(providerId: provider.id),
+                      onTap: () => Get.toNamed(
+                        AppRoutes.providerDetails,
+                        arguments: provider,
                       ),
                       onFavoriteToggle: () =>
                           controller.toggleFavorite(provider.id),
@@ -156,56 +171,84 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
-        AppSpacing.sm,
+        AppSpacing.md,
         AppSpacing.lg,
-        AppSpacing.xs,
+        AppSpacing.sm,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Expanded(
-            child: Text(
-              'Connect your IPTV provider to get started.',
-              style: AppTypography.getBody(
-                color: colorScheme.onSurfaceVariant,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Media Sources',
+                  style: AppTypography.getHeadline(
+                    color: colorScheme.onSurface,
+                  ).copyWith(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Obx(() => Text(
+                      controller.hasAnyProviders
+                          ? '${controller.totalProviderCount} source${controller.totalProviderCount == 1 ? '' : 's'} configured'
+                          : 'Connect your IPTV playlists and streaming sources.',
+                      style: AppTypography.getBody(
+                        color: colorScheme.onSurfaceVariant,
+                      ).copyWith(fontSize: 13),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    )),
+              ],
             ),
           ),
           AppSpacing.widthMD,
-          TvFocusable(
-            autofocus: isTvMode,
-            onTap: () => Get.toNamed(AppRoutes.providerForm),
-            borderRadius: BorderRadius.circular(10.0),
-            scale: 1.06,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md,
-                vertical: AppSpacing.xs,
-              ),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: AppColors.primaryGradient,
+          Obx(() {
+            if (!controller.hasAnyProviders) {
+              return const SizedBox.shrink();
+            }
+            return TvFocusable(
+              autofocus: isTvMode && controller.hasAnyProviders,
+              onTap: () => Get.toNamed(AppRoutes.providerForm),
+              borderRadius: BorderRadius.circular(10.0),
+              scale: 1.05,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: AppSpacing.sm,
                 ),
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(AppIcons.add, size: 16, color: Colors.white),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Add Provider',
-                    style: AppTypography.getButton(color: Colors.white)
-                        .copyWith(
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: AppColors.primaryGradient,
                   ),
-                ],
+                  borderRadius: BorderRadius.circular(10.0),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.3),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(AppIcons.add, size: 16, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Add Source',
+                      style: AppTypography.getButton(color: Colors.white)
+                          .copyWith(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ),
+            );
+          }),
         ],
       ),
     );
@@ -213,69 +256,125 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
 
   Widget _buildSearchBar(BuildContext context, ColorScheme colorScheme) {
     return Container(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outline.withValues(alpha: 0.08),
-            width: 1,
-          ),
-        ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.lg,
+        vertical: AppSpacing.xs,
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          TvFocusable(
-            onTap: () => _showFilterSheet(context),
-            scale: 1.15,
-            borderRadius: BorderRadius.circular(24),
-            child: IconButton(
-              onPressed: () => _showFilterSheet(context),
-              icon: Icon(
-                Icons.tune_outlined,
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
+          Expanded(
+            child: TvFocusable(
+              borderRadius: AppRadius.medium,
+              scale: 1.01,
+              child: TextField(
+                controller: _searchController,
+                style: AppTypography.getBody(color: colorScheme.onSurface),
+                decoration: InputDecoration(
+                  hintText: 'Search media sources...',
+                  hintStyle: AppTypography.getBody(
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  prefixIcon: Icon(
+                    AppIcons.search,
+                    size: 20,
+                    color: colorScheme.onSurface.withValues(alpha: 0.5),
+                  ),
+                  suffixIcon: Obx(() {
+                    if (controller.searchQuery.value.isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    return IconButton(
+                      icon: Icon(
+                        AppIcons.close,
+                        size: 18,
+                        color: colorScheme.onSurface.withValues(alpha: 0.5),
+                      ),
+                      onPressed: () {
+                        _searchController.clear();
+                        controller.updateSearchQuery('');
+                      },
+                    );
+                  }),
+                  filled: true,
+                  fillColor: colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.35,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: AppRadius.medium,
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                ),
+                onChanged: controller.updateSearchQuery,
               ),
-              tooltip: 'Filters',
             ),
           ),
+          AppSpacing.widthSM,
+          TvFocusable(
+            onTap: () => _showFilterSheet(context),
+            scale: 1.1,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.tune_outlined,
+                size: 20,
+                color: colorScheme.onSurface.withValues(alpha: 0.8),
+              ),
+            ),
+          ),
+          AppSpacing.widthXS,
           TvFocusable(
             onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
-            scale: 1.15,
-            borderRadius: BorderRadius.circular(24),
-            child: PopupMenuButton<String>(
-              key: _sortPopupKey,
-              icon: Icon(
-                Icons.sort_outlined,
-                color: colorScheme.onSurface.withValues(alpha: 0.7),
+            scale: 1.1,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+                borderRadius: BorderRadius.circular(12),
               ),
-              tooltip: 'Sort',
-              onSelected: (value) {
-                final field = ProviderSortField.values.firstWhereOrNull(
-                  (f) => f.name == value,
-                );
-                if (field != null) controller.updateSortField(field);
-              },
-              itemBuilder: (context) => ProviderSortField.values.map((field) {
-                return PopupMenuItem(
-                  value: field.name,
-                  child: Row(
-                    children: [
-                      Obx(
-                        () => Icon(
-                          Icons.check,
-                          size: 18,
-                          color: controller.sortField.value == field
-                              ? colorScheme.primary
-                              : Colors.transparent,
+              child: PopupMenuButton<String>(
+                key: _sortPopupKey,
+                icon: Icon(
+                  Icons.sort_outlined,
+                  size: 20,
+                  color: colorScheme.onSurface.withValues(alpha: 0.8),
+                ),
+                tooltip: 'Sort',
+                onSelected: (value) {
+                  final field = ProviderSortField.values.firstWhereOrNull(
+                    (f) => f.name == value,
+                  );
+                  if (field != null) controller.updateSortField(field);
+                },
+                itemBuilder: (context) => ProviderSortField.values.map((field) {
+                  return PopupMenuItem(
+                    value: field.name,
+                    child: Row(
+                      children: [
+                        Obx(
+                          () => Icon(
+                            Icons.check,
+                            size: 18,
+                            color: controller.sortField.value == field
+                                ? colorScheme.primary
+                                : Colors.transparent,
+                          ),
                         ),
-                      ),
-                      AppSpacing.widthXS,
-                      Text(_sortLabel(field)),
-                    ],
-                  ),
-                );
-              }).toList(),
+                        AppSpacing.widthXS,
+                        Text(_sortLabel(field)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ],
@@ -317,6 +416,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
                 context,
                 'Search: ${controller.searchQuery.value}',
                 () {
+                  _searchController.clear();
                   controller.updateSearchQuery('');
                 },
               ),
@@ -349,41 +449,120 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
 
   void _showFilterSheet(BuildContext context) {
     final availableTypes = ProviderType.values.toList();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => FilterSheet(
-        sortField: controller.sortField.value.name,
-        filterType: controller.filterType.value.name,
-        filterProviderType: controller.filterProviderType.value?.name,
-        availableTypes: availableTypes.map((e) => e.displayName).toList(),
-        onSortChanged: (value) {
-          final field = ProviderSortField.values.firstWhereOrNull(
-            (f) => f.name == value,
-          );
-          if (field != null) controller.updateSortField(field);
-        },
-        onFilterChanged: (value) {
-          final type = ProviderFilterType.values.firstWhereOrNull(
-            (f) => f.name == value,
-          );
-          if (type != null) controller.updateFilterType(type);
-        },
-        onProviderTypeChanged: (value) {
-          final type = ProviderType.values.firstWhereOrNull(
-            (f) => f.displayName == value,
-          );
-          controller.updateFilterProviderType(type);
-        },
-        onApply: () => Get.back(),
-        onReset: () {
-          controller.updateFilterType(ProviderFilterType.all);
-          controller.updateFilterProviderType(null);
-          controller.updateSearchQuery('');
-          controller.updateSortField(ProviderSortField.dateAdded);
-        },
-      ),
-    );
+    final isTv =
+        ResponsiveHelper.isTV(context) || ResponsiveHelper.isDesktop(context);
+
+    if (isTv) {
+      showDialog<void>(
+        context: context,
+        builder: (dialogContext) => Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.xxl,
+            vertical: AppSpacing.xl,
+          ),
+          child: Container(
+            width: 480,
+            constraints: const BoxConstraints(maxHeight: 620),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: AppRadius.large,
+              border: Border.all(
+                color: Theme.of(context)
+                    .colorScheme
+                    .outline
+                    .withValues(alpha: 0.15),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 24,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: AppRadius.large,
+              child: FilterSheet(
+                sortField: _sortLabel(controller.sortField.value),
+                filterType: _filterLabel(controller.filterType.value),
+                filterProviderType:
+                    controller.filterProviderType.value?.displayName,
+                availableTypes:
+                    availableTypes.map((e) => e.displayName).toList(),
+                onSortChanged: (value) {
+                  final field = ProviderSortField.values.firstWhereOrNull(
+                    (f) => _sortLabel(f) == value,
+                  );
+                  if (field != null) controller.updateSortField(field);
+                },
+                onFilterChanged: (value) {
+                  final type = ProviderFilterType.values.firstWhereOrNull(
+                    (f) => _filterLabel(f) == value,
+                  );
+                  if (type != null) controller.updateFilterType(type);
+                },
+                onProviderTypeChanged: (value) {
+                  final type = ProviderType.values.firstWhereOrNull(
+                    (f) => f.displayName == value,
+                  );
+                  controller.updateFilterProviderType(type);
+                },
+                onApply: () => Navigator.of(dialogContext).pop(),
+                onReset: () {
+                  _searchController.clear();
+                  controller.updateFilterType(ProviderFilterType.all);
+                  controller.updateFilterProviderType(null);
+                  controller.updateSearchQuery('');
+                  controller.updateSortField(ProviderSortField.dateAdded);
+                  Navigator.of(dialogContext).pop();
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) => FilterSheet(
+          sortField: _sortLabel(controller.sortField.value),
+          filterType: _filterLabel(controller.filterType.value),
+          filterProviderType:
+              controller.filterProviderType.value?.displayName,
+          availableTypes: availableTypes.map((e) => e.displayName).toList(),
+          onSortChanged: (value) {
+            final field = ProviderSortField.values.firstWhereOrNull(
+              (f) => _sortLabel(f) == value,
+            );
+            if (field != null) controller.updateSortField(field);
+          },
+          onFilterChanged: (value) {
+            final type = ProviderFilterType.values.firstWhereOrNull(
+              (f) => _filterLabel(f) == value,
+            );
+            if (type != null) controller.updateFilterType(type);
+          },
+          onProviderTypeChanged: (value) {
+            final type = ProviderType.values.firstWhereOrNull(
+              (f) => f.displayName == value,
+            );
+            controller.updateFilterProviderType(type);
+          },
+          onApply: () => Navigator.of(sheetContext).pop(),
+          onReset: () {
+            _searchController.clear();
+            controller.updateFilterType(ProviderFilterType.all);
+            controller.updateFilterProviderType(null);
+            controller.updateSearchQuery('');
+            controller.updateSortField(ProviderSortField.dateAdded);
+            Navigator.of(sheetContext).pop();
+          },
+        ),
+      );
+    }
   }
 
   String _sortLabel(ProviderSortField field) {

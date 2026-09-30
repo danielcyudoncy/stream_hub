@@ -11,6 +11,7 @@ import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/section_header.dart';
 import 'package:stream_hub/shared/widgets/settings_tile.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
+import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/shared/dialogs/confirmation_dialog.dart';
 import 'package:stream_hub/shared/dialogs/parental_pin_dialog.dart';
 import 'settings_controller.dart';
@@ -78,66 +79,104 @@ class SettingsPage extends GetView<SettingsController> {
           child: Column(
             children: [
               SettingsTile(
-                title: 'Add Source',
-                subtitle: 'Connect a new media source',
-                leadingIcon: Icons.add_circle_outline,
-                onTap: () => Get.toNamed('/provider-manager'),
+                title: 'Manage Media Sources',
+                subtitle: 'View, edit, or remove configured IPTV providers',
+                leadingIcon: Icons.folder_shared_outlined,
+                onTap: () => Get.toNamed(AppRoutes.providerManager),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               SettingsTile(
-                title: 'M3U',
-                subtitle: 'M3U playlist URL or file',
+                title: 'Add M3U Playlist',
+                subtitle: 'Connect via M3U URL or local file',
                 leadingIcon: Icons.video_library_outlined,
-                onTap: () => Get.toNamed('/provider-manager'),
+                onTap: () => Get.toNamed(
+                  AppRoutes.providerForm,
+                  arguments: ProviderType.m3u,
+                ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               SettingsTile(
-                title: 'Xtream Codes',
-                subtitle: 'Xtream Codes API connection',
+                title: 'Add Xtream Codes API',
+                subtitle: 'Connect using server address, username & password',
                 leadingIcon: Icons.api_outlined,
-                onTap: () => Get.toNamed('/provider-manager'),
+                onTap: () => Get.toNamed(
+                  AppRoutes.providerForm,
+                  arguments: ProviderType.xtream,
+                ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               SettingsTile(
-                title: 'Stalker Portal',
-                subtitle: 'Stalker Portal (MAC) connection',
+                title: 'Add Stalker Portal',
+                subtitle: 'Connect with MAC address authentication',
                 leadingIcon: Icons.satellite_alt_outlined,
-                onTap: () => Get.toNamed('/provider-manager'),
+                onTap: () => Get.toNamed(
+                  AppRoutes.providerForm,
+                  arguments: ProviderType.stalker,
+                ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               SettingsTile(
-                title: 'XMLTV',
-                subtitle: 'XMLTV guide source',
+                title: 'Add XMLTV Guide',
+                subtitle: 'External XMLTV EPG program guide',
                 leadingIcon: Icons.public_outlined,
-                onTap: () => Get.toNamed('/provider-manager'),
+                onTap: () => Get.toNamed(
+                  AppRoutes.providerForm,
+                  arguments: ProviderType.xmltv,
+                ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               SettingsTile(
                 title: 'Plex',
                 subtitle: 'Plex media server',
                 leadingIcon: Icons.live_tv_outlined,
-                onTap: () => Get.toNamed('/provider-manager'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () => _showComingSoon('Plex'),
+                trailing: _buildComingSoonBadge(colorScheme),
               ),
               SettingsTile(
                 title: 'Jellyfin',
                 subtitle: 'Jellyfin media server',
                 leadingIcon: Icons.movie_outlined,
-                onTap: () => Get.toNamed('/provider-manager'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () => _showComingSoon('Jellyfin'),
+                trailing: _buildComingSoonBadge(colorScheme),
               ),
               SettingsTile(
                 title: 'Emby',
                 subtitle: 'Emby media server',
                 leadingIcon: Icons.video_collection_outlined,
-                onTap: () => Get.toNamed('/provider-manager'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () => _showComingSoon('Emby'),
+                trailing: _buildComingSoonBadge(colorScheme),
                 showDivider: false,
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildComingSoonBadge(ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colorScheme.outline.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        'Coming Soon',
+        style: AppTypography.getCaption(
+          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+        ).copyWith(fontSize: 11, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  void _showComingSoon(String serviceName) {
+    Get.snackbar(
+      '$serviceName Integration',
+      '$serviceName support will be available in an upcoming update.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
+      colorText: Get.theme.colorScheme.onSurface,
     );
   }
 
