@@ -535,17 +535,49 @@ class XtreamSeriesInfoService {
   }
 
   static String? _coverFrom(Map raw) {
-    final direct = (raw['cover'] as String?) ??
-        (raw['movie_image'] as String?) ??
-        (raw['screenshot_uri'] as String?);
-    if (direct != null && direct.isNotEmpty) return direct;
+    String? check(dynamic val) {
+      if (val == null) return null;
+      if (val is List && val.isNotEmpty) {
+        val = val.first;
+      }
+      final s = val?.toString().trim() ?? '';
+      if (s.isEmpty ||
+          s == 'null' ||
+          s == 'N/A' ||
+          s == 'n/a' ||
+          s == '[]' ||
+          s == '{}') {
+        return null;
+      }
+      return s;
+    }
+
+    const candidateKeys = [
+      'still_path',
+      'cover_big',
+      'movie_image',
+      'cover',
+      'screenshot_uri',
+      'backdrop_path',
+      'image',
+      'screenshot',
+    ];
+
+    // 1. Direct fields on raw episode object
+    for (final key in candidateKeys) {
+      final img = check(raw[key]);
+      if (img != null) return img;
+    }
+
+    // 2. Nested fields in raw['info']
     final info = raw['info'];
     if (info is Map) {
-      final image = (info['movie_image'] as String?) ??
-          (info['cover'] as String?) ??
-          (info['screenshot_uri'] as String?);
-      if (image != null && image.isNotEmpty) return image;
+      for (final key in candidateKeys) {
+        final img = check(info[key]);
+        if (img != null) return img;
+      }
     }
+
     return null;
   }
 

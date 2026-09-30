@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:stream_hub/core/utils/title_formatter.dart';
 import 'package:stream_hub/modules/epg/models/epg_channel.dart';
@@ -22,6 +23,7 @@ class GuideGrid extends StatefulWidget {
   final String? activePlayingChannelId;
   final ValueChanged<EPGChannel>? onChannelTap;
   final ValueChanged<EPGProgram>? onProgramTap;
+  final VoidCallback? onMoveUp;
 
   const GuideGrid({
     super.key,
@@ -31,6 +33,7 @@ class GuideGrid extends StatefulWidget {
     this.activePlayingChannelId,
     this.onChannelTap,
     this.onProgramTap,
+    this.onMoveUp,
   });
 
   @override
@@ -242,6 +245,19 @@ class _GuideGridState extends State<GuideGrid> {
           final formattedTitle = TitleFormatter.formatChannelTitle(channel.title);
           final isPlaying = widget.activePlayingChannelId == channel.id;
           return TvFocusable(
+            regionId: 'live_channels',
+            itemId: channel.id,
+            itemIndex: index,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  event.logicalKey == LogicalKeyboardKey.arrowUp &&
+                  index == 0 &&
+                  widget.onMoveUp != null) {
+                widget.onMoveUp!();
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
             onTap: () => widget.onChannelTap?.call(channel),
             child: Container(
               height: _kRowHeight,

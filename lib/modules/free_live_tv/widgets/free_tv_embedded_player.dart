@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/aspect_ratio_mode.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
@@ -24,19 +25,25 @@ class FreeTvEmbeddedPlayer extends StatefulWidget {
   final FreeLiveTvController controller;
   final bool isFullscreen;
   final bool autofocus;
+  final VoidCallback? onMoveDown;
+  final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveLeft;
 
   const FreeTvEmbeddedPlayer({
     super.key,
     required this.controller,
     this.isFullscreen = false,
     this.autofocus = true,
+    this.onMoveDown,
+    this.onMoveUp,
+    this.onMoveLeft,
   });
 
   @override
-  State<FreeTvEmbeddedPlayer> createState() => _FreeTvEmbeddedPlayerState();
+  State<FreeTvEmbeddedPlayer> createState() => FreeTvEmbeddedPlayerState();
 }
 
-class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
+class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
   bool _controlsVisible = true;
   Timer? _controlsTimer;
   bool _quickZapperOpen = false;
@@ -45,6 +52,221 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
   final FocusNode _playPauseFocusNode = FocusNode(
     debugLabel: 'FreeTvPlayPause',
   );
+  final FocusNode _closeFocusNode = FocusNode(
+    debugLabel: 'FreeTvClose',
+  );
+  final FocusNode _bottomPlayPauseFocusNode = FocusNode(
+    debugLabel: 'FreeTvBottomPlayPause',
+  );
+  final FocusNode _stopFocusNode = FocusNode(
+    debugLabel: 'FreeTvStop',
+  );
+  final FocusNode _favoriteFocusNode = FocusNode(
+    debugLabel: 'FreeTvFavorite',
+  );
+  final FocusNode _aspectRatioFocusNode = FocusNode(
+    debugLabel: 'FreeTvAspectRatio',
+  );
+  final FocusNode _audioFocusNode = FocusNode(
+    debugLabel: 'FreeTvAudio',
+  );
+  final FocusNode _subtitleFocusNode = FocusNode(
+    debugLabel: 'FreeTvSubtitle',
+  );
+  final FocusNode _quickZapperFocusNode = FocusNode(
+    debugLabel: 'FreeTvQuickZapper',
+  );
+  final FocusNode _pipFocusNode = FocusNode(
+    debugLabel: 'FreeTvPip',
+  );
+  final FocusNode _fullscreenFocusNode = FocusNode(
+    debugLabel: 'FreeTvFullscreen',
+  );
+  final FocusNode _playerAnchorFocusNode = FocusNode(
+    debugLabel: 'FreeTvPlayerAnchor',
+  );
+
+  @visibleForTesting
+  FocusNode get playPauseFocusNode => _playPauseFocusNode;
+
+  @visibleForTesting
+  FocusNode get closeFocusNode => _closeFocusNode;
+
+  @visibleForTesting
+  FocusNode get bottomPlayPauseFocusNode => _bottomPlayPauseFocusNode;
+
+  @visibleForTesting
+  FocusNode get stopFocusNode => _stopFocusNode;
+
+  @visibleForTesting
+  FocusNode get favoriteFocusNode => _favoriteFocusNode;
+
+  @visibleForTesting
+  FocusNode get fullscreenFocusNode => _fullscreenFocusNode;
+
+  @visibleForTesting
+  FocusNode get playerAnchorFocusNode => _playerAnchorFocusNode;
+
+  bool get _hasAnyControlFocus =>
+      _playPauseFocusNode.hasFocus ||
+      _closeFocusNode.hasFocus ||
+      _bottomPlayPauseFocusNode.hasFocus ||
+      _stopFocusNode.hasFocus ||
+      _favoriteFocusNode.hasFocus ||
+      _aspectRatioFocusNode.hasFocus ||
+      _audioFocusNode.hasFocus ||
+      _subtitleFocusNode.hasFocus ||
+      _quickZapperFocusNode.hasFocus ||
+      _pipFocusNode.hasFocus ||
+      _fullscreenFocusNode.hasFocus;
+
+  bool _canFocus(FocusNode node) =>
+      node.context != null && node.canRequestFocus;
+
+  KeyEventResult _handleBottomControlKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+          widget.onMoveDown != null) {
+        widget.onMoveDown!();
+        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+        if (_canFocus(_playPauseFocusNode)) {
+          _playPauseFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        if (node == _bottomPlayPauseFocusNode) {
+          if (widget.onMoveLeft != null) {
+            widget.onMoveLeft!();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _stopFocusNode) {
+          if (_canFocus(_bottomPlayPauseFocusNode)) {
+            _bottomPlayPauseFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _favoriteFocusNode) {
+          if (_canFocus(_stopFocusNode)) {
+            _stopFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _aspectRatioFocusNode) {
+          if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _audioFocusNode) {
+          if (_canFocus(_aspectRatioFocusNode)) {
+            _aspectRatioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _subtitleFocusNode) {
+          if (_canFocus(_audioFocusNode)) {
+            _audioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _quickZapperFocusNode) {
+          if (_canFocus(_subtitleFocusNode)) {
+            _subtitleFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _pipFocusNode) {
+          if (_canFocus(_quickZapperFocusNode)) {
+            _quickZapperFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _fullscreenFocusNode) {
+          if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_quickZapperFocusNode)) {
+            _quickZapperFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        if (node == _bottomPlayPauseFocusNode) {
+          if (_canFocus(_stopFocusNode)) {
+            _stopFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _stopFocusNode) {
+          if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _favoriteFocusNode) {
+          if (_canFocus(_aspectRatioFocusNode)) {
+            _aspectRatioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _aspectRatioFocusNode) {
+          if (_canFocus(_audioFocusNode)) {
+            _audioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _audioFocusNode) {
+          if (_canFocus(_subtitleFocusNode)) {
+            _subtitleFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _subtitleFocusNode) {
+          if (_canFocus(_quickZapperFocusNode)) {
+            _quickZapperFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _quickZapperFocusNode) {
+          if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _pipFocusNode) {
+          if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
+      }
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Wakes up the player controls and focuses the primary action (Play/Pause).
+  void focusPlayer() {
+    _showControlsTemporarily();
+    _requestFocusOrFallback(_playPauseFocusNode);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _requestFocusOrFallback(_playPauseFocusNode);
+    });
+  }
+
+  void _requestFocusOrFallback(FocusNode primary) {
+    if (primary.context != null && primary.canRequestFocus) {
+      primary.requestFocus();
+      return;
+    }
+    if (_playerAnchorFocusNode.context != null &&
+        _playerAnchorFocusNode.canRequestFocus) {
+      _playerAnchorFocusNode.requestFocus();
+      return;
+    }
+  }
 
   @override
   void initState() {
@@ -59,8 +281,12 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
       if (!mounted || !_controlsVisible) return;
       final ctrl = widget.controller.inlinePlayerController;
       final state = ctrl?.playbackController.engine.stateRx.value;
-      // Keep controls on screen while paused; hiding them hides the resume button.
+      // Keep controls on screen while paused or while any control is focused
       if (state == PlaybackState.paused) return;
+      if (_hasAnyControlFocus) {
+        _startControlsTimer();
+        return;
+      }
       setState(() => _controlsVisible = false);
     });
   }
@@ -68,8 +294,25 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
   void _focusPlayPauseIfControlsVisible() {
     if (_controlsVisible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _controlsVisible) {
-          _playPauseFocusNode.requestFocus();
+        if (!mounted || !_controlsVisible) return;
+
+        // 1. If no focus is held anywhere, target the play/pause node.
+        final current = FocusManager.instance.primaryFocus;
+        if (current == null || !current.hasFocus) {
+          _requestFocusOrFallback(_playPauseFocusNode);
+          return;
+        }
+
+        // 2. If focus is outside the player, pull it back to play/pause.
+        final inPlayer =
+            current.context != null &&
+            current.context!.mounted &&
+            current.context!
+                    .findAncestorWidgetOfExactType<FreeTvEmbeddedPlayer>() !=
+                null;
+
+        if (!inPlayer) {
+          _requestFocusOrFallback(_playPauseFocusNode);
         }
       });
     }
@@ -90,9 +333,11 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
   void _showControlsTemporarily() {
     if (!_controlsVisible) {
       setState(() => _controlsVisible = true);
+      _startControlsTimer();
+      _focusPlayPauseIfControlsVisible();
+    } else {
+      _startControlsTimer();
     }
-    _startControlsTimer();
-    _focusPlayPauseIfControlsVisible();
   }
 
   /// Remote Select/OK handling. While controls are visible it hides them; while
@@ -446,6 +691,17 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
     _hudToastTimer?.cancel();
     _controlsTimer?.cancel();
     _playPauseFocusNode.dispose();
+    _closeFocusNode.dispose();
+    _bottomPlayPauseFocusNode.dispose();
+    _stopFocusNode.dispose();
+    _favoriteFocusNode.dispose();
+    _aspectRatioFocusNode.dispose();
+    _audioFocusNode.dispose();
+    _subtitleFocusNode.dispose();
+    _quickZapperFocusNode.dispose();
+    _pipFocusNode.dispose();
+    _fullscreenFocusNode.dispose();
+    _playerAnchorFocusNode.dispose();
     super.dispose();
   }
 
@@ -536,8 +792,22 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
               ? '${channel.country} • Free Live TV'
               : 'Free Live TV');
 
-    return TvPlayerKeyboard(
-      autofocus: widget.autofocus,
+    return Focus(
+      focusNode: _playerAnchorFocusNode,
+      canRequestFocus: true,
+      skipTraversal: true,
+      onKeyEvent: (node, event) {
+        if (node.hasPrimaryFocus && event is KeyDownEvent) {
+          _showControlsTemporarily();
+          if (_playPauseFocusNode.canRequestFocus) {
+            _playPauseFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
+      child: TvPlayerKeyboard(
+        autofocus: widget.autofocus,
       onAnyKey: _showControlsTemporarily,
       onToggleControls: _handleSelectKey,
       onPlayPause: () {
@@ -686,7 +956,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             IgnorePointer(
               ignoring: !_controlsVisible,
               child: ExcludeFocus(
-                excluding: !_controlsVisible,
+                excluding: !_controlsVisible && !_playPauseFocusNode.hasFocus,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -698,9 +968,57 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
 
                       return TvFocusable(
                         focusNode: _playPauseFocusNode,
+                        onFocusChange: (hasFocus) {
+                          if (hasFocus) {
+                            _showControlsTemporarily();
+                          } else {
+                            _startControlsTimer();
+                          }
+                        },
+                        onKeyEvent: (node, event) {
+                          if (event is KeyDownEvent) {
+                            if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                              if (_canFocus(_closeFocusNode)) {
+                                _closeFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              } else if (widget.onMoveUp != null) {
+                                widget.onMoveUp!();
+                                return KeyEventResult.handled;
+                              }
+                            } else if (event.logicalKey ==
+                                LogicalKeyboardKey.arrowDown) {
+                              if (_canFocus(_bottomPlayPauseFocusNode)) {
+                                _bottomPlayPauseFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              } else if (widget.onMoveDown != null) {
+                                widget.onMoveDown!();
+                                return KeyEventResult.handled;
+                              }
+                            } else if (event.logicalKey ==
+                                    LogicalKeyboardKey.arrowLeft &&
+                                widget.onMoveLeft != null) {
+                              widget.onMoveLeft!();
+                              return KeyEventResult.handled;
+                            } else if (event.logicalKey ==
+                                LogicalKeyboardKey.arrowRight) {
+                              if (_canFocus(_favoriteFocusNode)) {
+                                _favoriteFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              } else if (_canFocus(_fullscreenFocusNode)) {
+                                _fullscreenFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
+                            }
+                          }
+                          return KeyEventResult.ignored;
+                        },
                         onTap: () {
                           _showControlsTemporarily();
                           playerCtrl.togglePlayPause();
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted || !_controlsVisible) return;
+                            _playPauseFocusNode.requestFocus();
+                          });
                         },
                         scale: 1.08,
                         borderRadius: BorderRadius.circular(999),
@@ -739,7 +1057,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             IgnorePointer(
               ignoring: !_controlsVisible,
               child: ExcludeFocus(
-                excluding: !_controlsVisible,
+                excluding: !_controlsVisible && !_hasAnyControlFocus,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -910,6 +1228,36 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
 
                                   // Stop & Close Button
                                   TvFocusable(
+                                    focusNode: _closeFocusNode,
+                                    onFocusChange: (hasFocus) {
+                                      if (hasFocus) {
+                                        _showControlsTemporarily();
+                                      } else {
+                                        _startControlsTimer();
+                                      }
+                                    },
+                                    onKeyEvent: (node, event) {
+                                      if (event is KeyDownEvent) {
+                                        if (event.logicalKey ==
+                                            LogicalKeyboardKey.arrowDown) {
+                                          if (_canFocus(_playPauseFocusNode)) {
+                                            _playPauseFocusNode.requestFocus();
+                                            return KeyEventResult.handled;
+                                          }
+                                        } else if (event.logicalKey ==
+                                                LogicalKeyboardKey.arrowUp &&
+                                            widget.onMoveUp != null) {
+                                          widget.onMoveUp!();
+                                          return KeyEventResult.handled;
+                                        } else if (event.logicalKey ==
+                                                LogicalKeyboardKey.arrowLeft &&
+                                            widget.onMoveLeft != null) {
+                                          widget.onMoveLeft!();
+                                          return KeyEventResult.handled;
+                                        }
+                                      }
+                                      return KeyEventResult.ignored;
+                                    },
                                     onTap: () {
                                       if (isFullscreen) {
                                         widget.controller.exitFullscreen();
@@ -968,7 +1316,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             IgnorePointer(
               ignoring: !_controlsVisible,
               child: ExcludeFocus(
-                excluding: !_controlsVisible,
+                excluding: !_controlsVisible && !_hasAnyControlFocus,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -1017,6 +1365,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                         state == PlaybackState.playing;
 
                                     return TvFocusable(
+                                      focusNode: _bottomPlayPauseFocusNode,
+                                      onFocusChange: (hasFocus) {
+                                        if (hasFocus) {
+                                          _showControlsTemporarily();
+                                        } else {
+                                          _startControlsTimer();
+                                        }
+                                      },
+                                      onKeyEvent: _handleBottomControlKeyEvent,
                                       onTap: () {
                                         _showControlsTemporarily();
                                         playerCtrl.togglePlayPause();
@@ -1055,6 +1412,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                   // Stop Button: keep this visible even on compact layouts so the user
                                   // can always stop the stream without needing to open a secondary menu.
                                   TvFocusable(
+                                    focusNode: _stopFocusNode,
+                                    onFocusChange: (hasFocus) {
+                                      if (hasFocus) {
+                                        _showControlsTemporarily();
+                                      } else {
+                                        _startControlsTimer();
+                                      }
+                                    },
+                                    onKeyEvent: _handleBottomControlKeyEvent,
                                     onTap: () {
                                       _showControlsTemporarily();
                                       widget.controller.stopInlinePlayer();
@@ -1082,7 +1448,7 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
 
                                   // Channel Info Text
                                   if (!isCompact && !isMicro)
-                                    Expanded(
+                                    Flexible(
                                       child: Text(
                                         infoText,
                                         style: const TextStyle(
@@ -1114,6 +1480,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                         channel.isFavorite;
 
                                     return TvFocusable(
+                                      focusNode: _favoriteFocusNode,
+                                      onFocusChange: (hasFocus) {
+                                        if (hasFocus) {
+                                          _showControlsTemporarily();
+                                        } else {
+                                          _startControlsTimer();
+                                        }
+                                      },
+                                      onKeyEvent: _handleBottomControlKeyEvent,
                                       onTap: () {
                                         _showControlsTemporarily();
                                         widget.controller.toggleFavorite(
@@ -1155,6 +1530,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                     Tooltip(
                                       message: 'Cycle Aspect Ratio',
                                       child: TvFocusable(
+                                        focusNode: _aspectRatioFocusNode,
+                                        onFocusChange: (hasFocus) {
+                                          if (hasFocus) {
+                                            _showControlsTemporarily();
+                                          } else {
+                                            _startControlsTimer();
+                                          }
+                                        },
+                                        onKeyEvent: _handleBottomControlKeyEvent,
                                         onTap: () {
                                           _showControlsTemporarily();
                                           _cycleAspectRatio(playerCtrl);
@@ -1191,6 +1575,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                     Tooltip(
                                       message: 'Audio Tracks',
                                       child: TvFocusable(
+                                        focusNode: _audioFocusNode,
+                                        onFocusChange: (hasFocus) {
+                                          if (hasFocus) {
+                                            _showControlsTemporarily();
+                                          } else {
+                                            _startControlsTimer();
+                                          }
+                                        },
+                                        onKeyEvent: _handleBottomControlKeyEvent,
                                         onTap: () {
                                           _showControlsTemporarily();
                                           _openAudioTrackSheet(
@@ -1223,6 +1616,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                     Tooltip(
                                       message: 'Subtitles',
                                       child: TvFocusable(
+                                        focusNode: _subtitleFocusNode,
+                                        onFocusChange: (hasFocus) {
+                                          if (hasFocus) {
+                                            _showControlsTemporarily();
+                                          } else {
+                                            _startControlsTimer();
+                                          }
+                                        },
+                                        onKeyEvent: _handleBottomControlKeyEvent,
                                         onTap: () {
                                           _showControlsTemporarily();
                                           _openSubtitleSheet(
@@ -1255,6 +1657,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                     Tooltip(
                                       message: 'Quick Channel List',
                                       child: TvFocusable(
+                                        focusNode: _quickZapperFocusNode,
+                                        onFocusChange: (hasFocus) {
+                                          if (hasFocus) {
+                                            _showControlsTemporarily();
+                                          } else {
+                                            _startControlsTimer();
+                                          }
+                                        },
+                                        onKeyEvent: _handleBottomControlKeyEvent,
                                         onTap: () {
                                           _showControlsTemporarily();
                                           setState(() {
@@ -1293,6 +1704,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
                                     Tooltip(
                                       message: 'Picture-in-Picture',
                                       child: TvFocusable(
+                                        focusNode: _pipFocusNode,
+                                        onFocusChange: (hasFocus) {
+                                          if (hasFocus) {
+                                            _showControlsTemporarily();
+                                          } else {
+                                            _startControlsTimer();
+                                          }
+                                        },
+                                        onKeyEvent: _handleBottomControlKeyEvent,
                                         onTap: () {
                                           _showControlsTemporarily();
                                           playerCtrl.enterPictureInPicture();
@@ -1317,6 +1737,15 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
 
                                   // Fullscreen Expand Button
                                   TvFocusable(
+                                    focusNode: _fullscreenFocusNode,
+                                    onFocusChange: (hasFocus) {
+                                      if (hasFocus) {
+                                        _showControlsTemporarily();
+                                      } else {
+                                        _startControlsTimer();
+                                      }
+                                    },
+                                    onKeyEvent: _handleBottomControlKeyEvent,
                                     onTap: () {
                                       _showControlsTemporarily();
                                       if (isFullscreen) {
@@ -1421,8 +1850,9 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
           );
         }),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildFeaturedHero({bool isFullscreen = false}) {
     final featured =
@@ -1460,6 +1890,25 @@ class _FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
         : 'Free Live';
 
     return TvFocusable(
+      focusNode: _playerAnchorFocusNode,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent) {
+          if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+              widget.onMoveLeft != null) {
+            widget.onMoveLeft!();
+            return KeyEventResult.handled;
+          } else if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
+              widget.onMoveDown != null) {
+            widget.onMoveDown!();
+            return KeyEventResult.handled;
+          } else if (event.logicalKey == LogicalKeyboardKey.arrowUp &&
+              widget.onMoveUp != null) {
+            widget.onMoveUp!();
+            return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
+      },
       onTap: () => widget.controller.openChannel(featured),
       scale: 1.02,
       borderRadius: BorderRadius.circular(12),

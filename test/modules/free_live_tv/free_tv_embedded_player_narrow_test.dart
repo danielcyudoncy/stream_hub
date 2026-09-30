@@ -1,6 +1,7 @@
 // test/modules/free_live_tv/free_tv_embedded_player_narrow_test.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
@@ -204,6 +205,115 @@ void main() {
       expect(find.byIcon(Icons.pause_circle_filled_rounded), findsOneWidget);
       expect(find.byIcon(Icons.favorite_border_rounded), findsOneWidget);
       expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'remote D-pad navigates between all player controls inside mini-player',
+    (tester) async {
+      final channel = const FreeTvChannel(
+        id: 'free-ng-1',
+        name: 'Channels Television',
+        country: 'Nigeria',
+        countryCode: 'NG',
+        categories: ['News'],
+        streamUrls: ['https://example.com/live.m3u8'],
+      );
+
+      final controller = FreeLiveTvController(
+        repository: _FakeFreeTvRepository(),
+      );
+      Get.put<FreeLiveTvController>(controller);
+
+      final playerCtrl = PlayerController(
+        adapter: _StubPlayerAdapter(),
+        engineKind: PlaybackEngineKind.mediaKit,
+        streamRepository: _StubStreamRepository(),
+      );
+      controller.inlinePlayerController = playerCtrl;
+      controller.activePlayingChannel.value = channel;
+      playerCtrl.playbackController.engine.stateRx.value =
+          PlaybackState.playing;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 640.0,
+                height: 360.0,
+                child: FreeTvEmbeddedPlayer(
+                  controller: controller,
+                  isFullscreen: false,
+                  autofocus: false,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final playerFinder = find.byType(FreeTvEmbeddedPlayer);
+      expect(playerFinder, findsOneWidget);
+      final playerState =
+          tester.state<FreeTvEmbeddedPlayerState>(playerFinder);
+
+      // Focus the player (targets Center Play/Pause)
+      playerState.focusPlayer();
+      await tester.pumpAndSettle();
+
+      expect(playerState.playPauseFocusNode.hasFocus, isTrue);
+
+      // D-pad Down -> Bottom Play/Pause
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(playerState.bottomPlayPauseFocusNode.hasFocus, isTrue);
+
+      // D-pad Right -> Stop
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(playerState.stopFocusNode.hasFocus, isTrue);
+
+      // D-pad Right -> Favorite
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(playerState.favoriteFocusNode.hasFocus, isTrue);
+
+      // D-pad Right -> Fullscreen
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(playerState.fullscreenFocusNode.hasFocus, isTrue);
+
+      // D-pad Left -> Favorite
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(playerState.favoriteFocusNode.hasFocus, isTrue);
+
+      // D-pad Left -> Stop
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(playerState.stopFocusNode.hasFocus, isTrue);
+
+      // D-pad Left -> Bottom Play/Pause
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pumpAndSettle();
+      expect(playerState.bottomPlayPauseFocusNode.hasFocus, isTrue);
+
+      // D-pad Up -> Center Play/Pause
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(playerState.playPauseFocusNode.hasFocus, isTrue);
+
+      // D-pad Up -> Top Close
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(playerState.closeFocusNode.hasFocus, isTrue);
+
+      // D-pad Down -> Center Play/Pause
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(playerState.playPauseFocusNode.hasFocus, isTrue);
     },
   );
 }

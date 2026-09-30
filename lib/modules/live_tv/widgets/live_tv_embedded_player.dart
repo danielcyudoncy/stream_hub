@@ -29,6 +29,7 @@ class LiveTvEmbeddedPlayer extends StatefulWidget {
   final bool autofocus;
   final VoidCallback? onMoveDown;
   final VoidCallback? onMoveUp;
+  final VoidCallback? onMoveLeft;
 
   const LiveTvEmbeddedPlayer({
     super.key,
@@ -37,6 +38,7 @@ class LiveTvEmbeddedPlayer extends StatefulWidget {
     this.autofocus = true,
     this.onMoveDown,
     this.onMoveUp,
+    this.onMoveLeft,
   });
 
   @override
@@ -98,6 +100,11 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
           _playPauseFocusNode.requestFocus();
           return KeyEventResult.handled;
         }
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+          node == _bottomPlayPauseFocusNode &&
+          widget.onMoveLeft != null) {
+        widget.onMoveLeft!();
+        return KeyEventResult.handled;
       }
     }
     return KeyEventResult.ignored;
@@ -106,13 +113,10 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   /// Wakes up the player controls and focuses the primary action (Play/Pause).
   void focusPlayer() {
     _showControlsTemporarily();
+    _requestFocusOrFallback(_playPauseFocusNode);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (_playPauseFocusNode.canRequestFocus) {
-        _playPauseFocusNode.requestFocus();
-      } else if (_playerAnchorFocusNode.canRequestFocus) {
-        _playerAnchorFocusNode.requestFocus();
-      }
+      _requestFocusOrFallback(_playPauseFocusNode);
     });
   }
 
@@ -123,11 +127,7 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     if (widget.autofocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        if (_playPauseFocusNode.canRequestFocus) {
-          _playPauseFocusNode.requestFocus();
-        } else if (_playerAnchorFocusNode.canRequestFocus) {
-          _playerAnchorFocusNode.requestFocus();
-        }
+        _requestFocusOrFallback(_playPauseFocusNode);
       });
     }
   }
@@ -177,12 +177,14 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   /// from being silently lost when the widget tree rebuilds during
   /// playback state changes.
   void _requestFocusOrFallback(FocusNode primary) {
-    if (primary.canRequestFocus) {
+    if (primary.context != null && primary.canRequestFocus) {
       primary.requestFocus();
       return;
     }
-    if (_playerAnchorFocusNode.canRequestFocus) {
+    if (_playerAnchorFocusNode.context != null &&
+        _playerAnchorFocusNode.canRequestFocus) {
       _playerAnchorFocusNode.requestFocus();
+      return;
     }
   }
 
@@ -885,6 +887,10 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                 _bottomPlayPauseFocusNode.requestFocus();
                                 return KeyEventResult.handled;
                               }
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+                                widget.onMoveLeft != null) {
+                              widget.onMoveLeft!();
+                              return KeyEventResult.handled;
                             }
                           }
                           return KeyEventResult.ignored;
@@ -1693,6 +1699,11 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
           } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
             if (widget.onMoveUp != null) {
               widget.onMoveUp!();
+              return KeyEventResult.handled;
+            }
+          } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+            if (widget.onMoveLeft != null) {
+              widget.onMoveLeft!();
               return KeyEventResult.handled;
             }
           }

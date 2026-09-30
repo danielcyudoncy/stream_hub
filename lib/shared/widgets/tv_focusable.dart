@@ -26,6 +26,7 @@ class TvFocusable extends StatefulWidget {
   final String? regionId;
   final String? itemId;
   final int? itemIndex;
+  final bool showFocusDecoration;
 
   const TvFocusable({
     super.key,
@@ -45,6 +46,7 @@ class TvFocusable extends StatefulWidget {
     this.regionId,
     this.itemId,
     this.itemIndex,
+    this.showFocusDecoration = true,
   });
 
   @override
@@ -285,47 +287,62 @@ class _TvFocusableState extends State<TvFocusable> {
 
     final node = _effectiveFocusNode;
 
-    return FocusableActionDetector(
+    return Focus(
       autofocus: widget.autofocus,
       focusNode: node,
       descendantsAreFocusable: widget.descendantsAreFocusable,
-      enabled: widget.canRequestFocus,
+      canRequestFocus: widget.canRequestFocus,
       onFocusChange: _onFocusChanged,
-      actions: widget.onLongPress != null
-          ? const <Type, Action<Intent>>{}
-          : <Type, Action<Intent>>{
-              ActivateIntent: CallbackAction<Intent>(
-                onInvoke: (Intent intent) {
-                  widget.onTap?.call();
-                  return null;
-                },
+      onKeyEvent: _handleKeyEvent,
+      child: Actions(
+        actions: widget.onLongPress != null
+            ? const <Type, Action<Intent>>{}
+            : <Type, Action<Intent>>{
+                ActivateIntent: CallbackAction<Intent>(
+                  onInvoke: (Intent intent) {
+                    widget.onTap?.call();
+                    return null;
+                  },
+                ),
+                ButtonActivateIntent: CallbackAction<Intent>(
+                  onInvoke: (Intent intent) {
+                    widget.onTap?.call();
+                    return null;
+                  },
+                ),
+              },
+        child: MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            onTap: widget.onTap != null
+                ? () {
+                    if (widget.canRequestFocus &&
+                        _effectiveFocusNode.canRequestFocus) {
+                      _effectiveFocusNode.requestFocus();
+                    }
+                    widget.onTap?.call();
+                  }
+                : null,
+            onLongPress: widget.onLongPress,
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedScale(
+              scale: _hasFocus ? widget.scale : 1.0,
+              duration: widget.duration,
+              curve: Curves.easeOutCubic,
+              child: AnimatedContainer(
+                duration: widget.duration,
+                decoration: widget.showFocusDecoration
+                    ? BoxDecoration(
+                        borderRadius: borderRadius,
+                        border: _hasFocus
+                            ? Border.all(color: focusColor, width: 2.0)
+                            : Border.all(color: Colors.transparent, width: 2.0),
+                        boxShadow: _hasFocus ? [AppShadows.neonFocusGlow] : null,
+                      )
+                    : null,
+                child: widget.child,
               ),
-              ButtonActivateIntent: CallbackAction<Intent>(
-                onInvoke: (Intent intent) {
-                  widget.onTap?.call();
-                  return null;
-                },
-              ),
-            },
-      mouseCursor: SystemMouseCursors.click,
-      child: GestureDetector(
-        onTap: widget.onTap,
-        onLongPress: widget.onLongPress,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedScale(
-          scale: _hasFocus ? widget.scale : 1.0,
-          duration: widget.duration,
-          curve: Curves.easeOutCubic,
-          child: AnimatedContainer(
-            duration: widget.duration,
-            decoration: BoxDecoration(
-              borderRadius: borderRadius,
-              border: _hasFocus
-                  ? Border.all(color: focusColor, width: 2.0)
-                  : Border.all(color: Colors.transparent, width: 2.0),
-              boxShadow: _hasFocus ? [AppShadows.neonFocusGlow] : null,
             ),
-            child: widget.child,
           ),
         ),
       ),

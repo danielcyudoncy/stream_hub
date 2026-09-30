@@ -1,5 +1,6 @@
 // modules/live_tv/widgets/live_tv_channel_card.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_colors.dart';
@@ -27,6 +28,7 @@ class LiveTvChannelCard extends StatefulWidget {
   final String? regionId;
   final String? itemId;
   final int? itemIndex;
+  final VoidCallback? onMoveUp;
 
   const LiveTvChannelCard({
     super.key,
@@ -41,6 +43,7 @@ class LiveTvChannelCard extends StatefulWidget {
     this.regionId,
     this.itemId,
     this.itemIndex,
+    this.onMoveUp,
   });
 
   @override
@@ -113,6 +116,15 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
       regionId: widget.regionId ?? 'live_channels',
       itemId: widget.itemId ?? widget.channel.id,
       itemIndex: widget.itemIndex,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.arrowUp &&
+            widget.onMoveUp != null) {
+          widget.onMoveUp!();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         clipBehavior: Clip.antiAlias,
@@ -470,6 +482,15 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
       regionId: widget.regionId ?? 'live_channels',
       itemId: widget.itemId ?? widget.channel.id,
       itemIndex: widget.itemIndex,
+      onKeyEvent: (node, event) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.arrowUp &&
+            widget.onMoveUp != null) {
+          widget.onMoveUp!();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         margin: const EdgeInsets.only(bottom: 6.0),

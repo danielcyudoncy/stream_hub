@@ -6,6 +6,8 @@ import 'package:stream_hub/core/theme/app_icons.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
+import 'package:stream_hub/core/helpers/platform_helper.dart';
+import 'package:stream_hub/core/utils/responsive_helper.dart';
 import 'package:stream_hub/core/utils/validators.dart';
 import 'package:stream_hub/data/providers/xtream/xtream_url_detector.dart';
 import 'package:stream_hub/shared/widgets/app_button.dart';
@@ -19,15 +21,51 @@ import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
 import 'package:stream_hub/modules/provider_manager/widgets/pairing_dialog.dart';
 import 'provider_manager_controller.dart';
 
-class ProviderFormPage extends GetView<ProviderManagerController> {
+class ProviderFormPage extends StatefulWidget {
   final ProviderModel? provider;
 
-  ProviderFormPage({super.key, ProviderModel? provider})
-      : provider = provider ??
-            (Get.arguments is ProviderModel
-                ? Get.arguments as ProviderModel
-                : null) {
-    final effective = this.provider;
+  const ProviderFormPage({super.key, this.provider});
+
+  @override
+  State<ProviderFormPage> createState() => _ProviderFormPageState();
+}
+
+class _ProviderFormPageState extends State<ProviderFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _nameController;
+  late final TextEditingController _serverUrlController;
+  late final TextEditingController _usernameController;
+  late final TextEditingController _passwordController;
+  late final TextEditingController _macController;
+  late final TextEditingController _xmltvController;
+  late final TextEditingController _notesController;
+  late final Rx<ProviderType> _selectedType;
+
+  late final FocusNode _notesFocusNode;
+  late final FocusNode _cancelFocusNode;
+  late final FocusNode _scanToAddFocusNode;
+  late final FocusNode _submitFocusNode;
+
+  bool _isEditingNotes = false;
+
+  bool get _isTv =>
+      PlatformHelper.isTV ||
+      PlatformHelper.supportsDPadNavigation ||
+      (mounted && ResponsiveHelper.isTvLayout(context));
+
+  ProviderModel? get effectiveProvider =>
+      widget.provider ??
+      (Get.arguments is ProviderModel ? Get.arguments as ProviderModel : null);
+
+  bool get isEditing => effectiveProvider != null;
+
+  ProviderManagerController get controller =>
+      Get.find<ProviderManagerController>();
+
+  @override
+  void initState() {
+    super.initState();
+    final effective = effectiveProvider;
     _nameController = TextEditingController(text: effective?.name ?? '');
     _serverUrlController = TextEditingController(
       text: effective?.serverUrl ?? '',
@@ -39,19 +77,136 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
     _notesController = TextEditingController(text: effective?.notes ?? '');
     _selectedType = (effective?.providerType ?? ProviderType.m3u).obs;
     _serverUrlController.addListener(_handleServerUrlChanged);
+
+    _notesFocusNode = FocusNode(
+      debugLabel: 'provider_notes_field',
+      onKeyEvent: _handleNotesKeyEvent,
+    );
+    _notesFocusNode.addListener(_handleNotesFocusChange);
+    _cancelFocusNode = FocusNode(debugLabel: 'provider_cancel_button');
+    _scanToAddFocusNode = FocusNode(debugLabel: 'provider_scan_to_add_button');
+    _submitFocusNode = FocusNode(
+      debugLabel: 'provider_submit_button',
+      onKeyEvent: _handleSubmitKeyEvent,
+    );
   }
 
-  bool get isEditing => provider != null;
+  @override
+  void dispose() {
+    _notesFocusNode.removeListener(_handleNotesFocusChange);
+    _serverUrlController.removeListener(_handleServerUrlChanged);
+    _nameController.dispose();
+    _serverUrlController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _macController.dispose();
+    _xmltvController.dispose();
+    _notesController.dispose();
 
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nameController;
-  late final TextEditingController _serverUrlController;
-  late final TextEditingController _usernameController;
-  late final TextEditingController _passwordController;
-  late final TextEditingController _macController;
-  late final TextEditingController _xmltvController;
-  late final TextEditingController _notesController;
-  late final Rx<ProviderType> _selectedType;
+    _notesFocusNode.dispose();
+    _cancelFocusNode.dispose();
+    _scanToAddFocusNode.dispose();
+    _submitFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleNotesFocusChange() {
+    if (!_notesFocusNode.hasFocus && _isEditingNotes) {
+      if (mounted) {
+        setState(() => _isEditingNotes = false);
+        SystemChannels.textInput.invokeMethod('TextInput.hide');
+      }
+    }
+  }
+
+  bool _isAtLastLine(TextEditingController controller) {
+    final text = controller.text;
+    final selection = controller.selection;
+    if (!selection.isValid || text.isEmpty) return true;
+    final offset = selection.extentOffset;
+    if (offset < 0 || offset >= text.length) return true;
+    final nextNewline = text.indexOf('\n', offset);
+    return nextNewline == -1;
+  }
+
+  bool _isAtFirstLine(TextEditingController controller) {
+    final text = controller.text;
+    final selection = controller.selection;
+    if (!selection.isValid || text.isEmpty) return true;
+    final offset = selection.baseOffset;
+    if (offset <= 0) return true;
+    final prevNewline = text.lastIndexOf('\n', offset - 1);
+    return prevNewline == -1;
+  }
+
+  KeyEventResult _handleNotesKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final isSelect = event.logicalKey == LogicalKeyboardKey.select ||
+        event.logicalKey == LogicalKeyboardKey.enter ||
+        event.logicalKey == LogicalKeyboardKey.numpadEnter ||
+        event.logicalKey == LogicalKeyboardKey.gameButtonA;
+
+    if (isSelect) {
+      if (_isTv && !_isEditingNotes) {
+        setState(() => _isEditingNotes = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _notesFocusNode.requestFocus();
+          }
+        });
+        return KeyEventResult.handled;
+      }
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (!_isTv || !_isEditingNotes || _isAtLastLine(_notesController)) {
+        if (_isEditingNotes) {
+          setState(() => _isEditingNotes = false);
+          SystemChannels.textInput.invokeMethod('TextInput.hide');
+        }
+        if (!isEditing && _scanToAddFocusNode.canRequestFocus) {
+          _scanToAddFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        } else if (isEditing && _submitFocusNode.canRequestFocus) {
+          _submitFocusNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+        final moved = node.focusInDirection(TraversalDirection.down);
+        if (!moved) {
+          node.nextFocus();
+        }
+        return KeyEventResult.handled;
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      if (!_isTv || !_isEditingNotes || _isAtFirstLine(_notesController)) {
+        if (_isEditingNotes) {
+          setState(() => _isEditingNotes = false);
+          SystemChannels.textInput.invokeMethod('TextInput.hide');
+        }
+        final moved = node.focusInDirection(TraversalDirection.up);
+        if (!moved) {
+          node.previousFocus();
+        }
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleSubmitKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _notesFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -231,10 +386,23 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                     );
                   }),
                   TextFormField(
+                    focusNode: _notesFocusNode,
                     controller: _notesController,
-                    decoration: const InputDecoration(
+                    readOnly: _isTv && !_isEditingNotes,
+                    showCursor: !_isTv || _isEditingNotes,
+                    enableInteractiveSelection: !_isTv || _isEditingNotes,
+                    textInputAction:
+                        _isTv ? TextInputAction.done : TextInputAction.newline,
+                    onTap: () {
+                      if (_isTv && !_isEditingNotes) {
+                        setState(() => _isEditingNotes = true);
+                      }
+                    },
+                    decoration: InputDecoration(
                       labelText: 'Notes',
-                      hintText: 'Optional notes about this provider',
+                      hintText: (_isTv && !_isEditingNotes)
+                          ? 'Press OK to edit notes'
+                          : 'Optional notes about this provider',
                     ),
                     maxLines: 3,
                     maxLength: AppConstants.maxNotesLength,
@@ -247,9 +415,21 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
               mainAxisAlignment: MainAxisAlignment.center,
                children: [
                  TvFocusable(
+                   focusNode: _cancelFocusNode,
                    onTap: () => Get.back(),
                    borderRadius: AppRadius.medium,
                    scale: 1.05,
+                   descendantsAreFocusable: false,
+                   onKeyEvent: (node, event) {
+                     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+                       return KeyEventResult.ignored;
+                     }
+                     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                       _notesFocusNode.requestFocus();
+                       return KeyEventResult.handled;
+                     }
+                     return KeyEventResult.ignored;
+                   },
                    child: const OutlinedButton(
                      onPressed: null,
                      child: Text('Cancel'),
@@ -258,13 +438,30 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                  AppSpacing.widthMD,
                  if (!isEditing)
                    TvFocusable(
+                     focusNode: _scanToAddFocusNode,
                      onTap: _showPairingDialog,
                      borderRadius: AppRadius.medium,
                      scale: 1.05,
+                     descendantsAreFocusable: false,
+                     onKeyEvent: (node, event) {
+                       if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+                         return KeyEventResult.ignored;
+                       }
+                       if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                         _notesFocusNode.requestFocus();
+                         return KeyEventResult.handled;
+                       }
+                       return KeyEventResult.ignored;
+                     },
                      child: OutlinedButton(
-                       onPressed: _showPairingDialog,
+                       onPressed: null,
                        style: OutlinedButton.styleFrom(
                          foregroundColor: Theme.of(context).colorScheme.primary,
+                         disabledForegroundColor:
+                             Theme.of(context).colorScheme.primary,
+                         side: BorderSide(
+                           color: Theme.of(context).colorScheme.primary,
+                         ),
                        ),
                        child: const Row(
                          mainAxisSize: MainAxisSize.min,
@@ -278,6 +475,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                    ),
                  if (!isEditing) AppSpacing.widthMD,
                 AppButton(
+                  focusNode: _submitFocusNode,
                   text: isEditing ? 'Save Changes' : 'Add Link',
                   onPressed: () {
                     if (_formKey.currentState?.validate() ?? false) {
@@ -314,7 +512,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
                             : parts?.password;
 
                         controller.updateProvider(
-                          provider!.copyWith(
+                          effectiveProvider!.copyWith(
                             name: trimmedName,
                             providerType: _selectedType.value,
                             serverUrl: parts?.serverUrl ?? trimmedServerUrl,
@@ -370,7 +568,7 @@ class ProviderFormPage extends GetView<ProviderManagerController> {
 
   void _showPairingDialog() {
     PairingDialog.show(
-      context: Get.context!,
+      context: context,
       providerType: _selectedType.value,
       onDataReceived: _applyPairingData,
     );

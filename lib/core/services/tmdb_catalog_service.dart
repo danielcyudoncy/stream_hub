@@ -7,6 +7,7 @@ import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/core/network/doh_http_client.dart';
 import 'package:stream_hub/core/utils/image_url_formatter.dart';
+import 'package:stream_hub/data/models/cast_member.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 
 class TMDBCatalogService {
@@ -179,6 +180,85 @@ class TMDBCatalogService {
       }
     }
     return null;
+  }
+
+  // Cast & Credits resolution
+  Future<List<CastMember>> getSeriesCredits(
+    String seriesTitle, {
+    int? tmdbId,
+    int? year,
+  }) async {
+    int? resolvedTmdbId = tmdbId;
+    if (resolvedTmdbId == null) {
+      final queryParams = <String, String>{'query': seriesTitle};
+      if (year != null && year > 1900) {
+        queryParams['first_air_date_year'] = year.toString();
+      }
+      final searchRes = await _get('/search/tv', queryParams);
+      if (searchRes != null && searchRes['results'] is List) {
+        final results = searchRes['results'] as List;
+        if (results.isNotEmpty && results.first is Map) {
+          resolvedTmdbId = results.first['id'] as int?;
+        }
+      }
+    }
+
+    if (resolvedTmdbId == null) return const [];
+
+    final creditsRes = await _get('/tv/$resolvedTmdbId/credits');
+    if (creditsRes == null || creditsRes['cast'] is! List) return const [];
+
+    return _parseCast(creditsRes['cast'] as List);
+  }
+
+  Future<List<CastMember>> getMovieCredits(
+    String movieTitle, {
+    int? tmdbId,
+    int? year,
+  }) async {
+    int? resolvedTmdbId = tmdbId;
+    if (resolvedTmdbId == null) {
+      final queryParams = <String, String>{'query': movieTitle};
+      if (year != null && year > 1900) {
+        queryParams['primary_release_year'] = year.toString();
+      }
+      final searchRes = await _get('/search/movie', queryParams);
+      if (searchRes != null && searchRes['results'] is List) {
+        final results = searchRes['results'] as List;
+        if (results.isNotEmpty && results.first is Map) {
+          resolvedTmdbId = results.first['id'] as int?;
+        }
+      }
+    }
+
+    if (resolvedTmdbId == null) return const [];
+
+    final creditsRes = await _get('/movie/$resolvedTmdbId/credits');
+    if (creditsRes == null || creditsRes['cast'] is! List) return const [];
+
+    return _parseCast(creditsRes['cast'] as List);
+  }
+
+  List<CastMember> _parseCast(List list) {
+    final members = <CastMember>[];
+    for (final item in list) {
+      if (item is Map) {
+        final name = (item['name'] ?? item['original_name'])?.toString();
+        if (name == null || name.isEmpty) continue;
+        final character = item['character']?.toString();
+        final profilePath = item['profile_path']?.toString();
+        members.add(
+          CastMember(
+            name: name,
+            character: character,
+            profileUrl: profilePath != null && profilePath.isNotEmpty
+                ? ImageUrlFormatter.format(profilePath)
+                : null,
+          ),
+        );
+      }
+    }
+    return members;
   }
 
   // Parsing helpers

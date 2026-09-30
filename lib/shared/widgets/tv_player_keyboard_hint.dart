@@ -57,28 +57,33 @@ class TvPlayerKeyboard extends StatefulWidget {
   });
 
   @override
-  State<TvPlayerKeyboard> createState() => _TvPlayerKeyboardState();
+  State<TvPlayerKeyboard> createState() => TvPlayerKeyboardState();
 }
 
-class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
+class TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
   FocusNode? _inlineFocusNode;
   FocusNode? _fullscreenFocusNode;
+
+  /// Reclaims focus back to this player keyboard anchor when child controls unmount or hide.
+  void reclaimFocus() {
+    if (!mounted) return;
+    final node = _fullscreenFocusNode ?? _inlineFocusNode;
+    if (node != null && node.canRequestFocus && !node.hasPrimaryFocus) {
+      node.requestFocus();
+    }
+  }
 
   void _requestFocusAnchor() {
     if (!widget.autofocus || _fullscreenFocusNode == null) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_fullscreenFocusNode!.canRequestFocus) return;
-      final currentFocus = FocusManager.instance.primaryFocus;
-      if (currentFocus != null &&
-          currentFocus != _inlineFocusNode &&
-          currentFocus != _fullscreenFocusNode) {
-        return;
-      }
-      final hasInteractiveChild =
+      final hasChildFocus =
+          _fullscreenFocusNode!.descendants.any((c) => c.hasFocus);
+      if (hasChildFocus) return;
+      final hasFocusableChild =
           _fullscreenFocusNode!.descendants.any((c) => c.canRequestFocus);
-      if (!hasInteractiveChild) {
-        _fullscreenFocusNode!.requestFocus();
-      }
+      if (hasFocusableChild) return;
+      _fullscreenFocusNode!.requestFocus();
     });
   }
 
@@ -226,10 +231,10 @@ class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
 
     if (isSelect) {
       // Check if a child button currently has primary focus
-      final primary = FocusManager.instance.primaryFocus;
-      final isSelfFocused =
-          primary == _fullscreenFocusNode || primary == _inlineFocusNode;
-      if (isSelfFocused || primary == null) {
+      final activeNode = _fullscreenFocusNode ?? _inlineFocusNode;
+      final hasChildFocus = activeNode != null &&
+          activeNode.descendants.any((c) => c.hasFocus);
+      if (!hasChildFocus) {
         widget.onToggleControls();
         return widget.autofocus
             ? KeyEventResult.handled
@@ -239,8 +244,9 @@ class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
       return KeyEventResult.ignored;
     }
 
-    // 7. Directional Arrow Keys - Keep controls alive during navigation,
-    // and return ignored so directional focus traversal can move to controls.
+    // 7. Directional Arrow Keys - Keep controls alive during navigation.
+    // If controls are currently hidden (no child button focused), wake them up
+    // and consume the key in fullscreen so focus doesn't jump outside the player.
     final isDirectional = switch (event.logicalKey) {
       LogicalKeyboardKey.arrowUp ||
       LogicalKeyboardKey.arrowDown ||
@@ -250,16 +256,15 @@ class _TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
     };
     if (isDirectional) {
       widget.onAnyKey();
-      final primary = FocusManager.instance.primaryFocus;
-      if (primary == _fullscreenFocusNode) {
-        for (final descendant in _fullscreenFocusNode!.descendants) {
-          if (descendant.canRequestFocus) {
-            descendant.requestFocus();
-            return KeyEventResult.handled;
-          }
-        }
+      final activeNode = _fullscreenFocusNode ?? _inlineFocusNode;
+      final hasChildFocus = activeNode != null &&
+          activeNode.descendants.any((c) => c.hasFocus);
+      if (!hasChildFocus) {
+        return widget.autofocus
+            ? KeyEventResult.handled
+            : KeyEventResult.ignored;
       }
-      // Allow directional focus to move freely between buttons
+      // Allow directional focus to move freely between player buttons
       return KeyEventResult.ignored;
     }
 
