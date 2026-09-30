@@ -4,6 +4,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/iptv/models/player_negotiation.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/enums/playback_engine_preference.dart';
@@ -517,6 +518,10 @@ class MovieDetailsController extends GetxController {
   }
 
   void exitFullscreen() {
+    if (PlatformHelper.isTV) {
+      stopInlinePlayback();
+      return;
+    }
     isFullscreenMode.value = false;
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
@@ -539,7 +544,11 @@ class MovieDetailsController extends GetxController {
   }
 
   void play() {
-    startInlinePlayback();
+    if (PlatformHelper.isTV) {
+      expandToFullscreen();
+    } else {
+      startInlinePlayback();
+    }
   }
 
   void selectMovie(MediaItem item) {

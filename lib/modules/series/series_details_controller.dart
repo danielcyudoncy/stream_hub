@@ -45,6 +45,8 @@ import 'package:stream_hub/core/media/stream_matching_service.dart';
 import 'package:stream_hub/core/services/media_watchlist_service.dart';
 import 'package:stream_hub/core/services/tmdb_catalog_service.dart';
 import 'package:stream_hub/data/providers/xtream/xtream_url_detector.dart';
+import '../../../core/helpers/platform_helper.dart';
+
 
 /// Loads a series' seasons and episodes and prepares individual episodes for playback.
 class SeriesDetailsController extends GetxController {
@@ -191,6 +193,85 @@ class SeriesDetailsController extends GetxController {
         names
             .map((n) => CastMember.fromString(n))
             .where((c) => c.name.isNotEmpty),
+      );
+    }
+    unawaited(_enrichCastFromTmdb());
+  }
+
+  Future<void> _enrichCastFromTmdb() async {
+    if (tmdbService == null) return;
+    final s = _series.value;
+    if (s == null) return;
+
+    // If all cast members already have profile photos, no enrichment needed
+    if (castMembers.isNotEmpty &&
+        castMembers.every((c) => c.profileUrl != null && c.profileUrl!.isNotEmpty)) {
+      return;
+    }
+
+    try {
+      int? tmdbId;
+      if (s.metadata['tmdb_id'] != null) {
+        tmdbId = int.tryParse(s.metadata['tmdb_id'].toString());
+      } else if (s.metadata['tmdbId'] != null) {
+        tmdbId = int.tryParse(s.metadata['tmdbId'].toString());
+      } else if (s.id.startsWith('tmdb-tv-') || s.id.startsWith('tmdb-series-')) {
+        tmdbId = int.tryParse(s.id.replaceAll(RegExp(r'tmdb-(tv|series)-'), ''));
+      }
+
+      int? year;
+      if (s.metadata['year'] != null) {
+        year = int.tryParse(s.metadata['year'].toString());
+      } else if (s.metadata['releaseDate'] != null) {
+        final rel = s.metadata['releaseDate'].toString();
+        if (rel.length >= 4) year = int.tryParse(rel.substring(0, 4));
+      }
+
+      final tmdbCast = await tmdbService!.getSeriesCredits(
+        s.title,
+        tmdbId: tmdbId,
+        year: year,
+      );
+
+      if (tmdbCast.isEmpty) return;
+
+      if (castMembers.isEmpty) {
+        castMembers.assignAll(tmdbCast);
+      } else {
+        final tmdbMap = <String, CastMember>{
+          for (final m in tmdbCast) m.name.toLowerCase().trim(): m,
+        };
+
+        final updated = <CastMember>[];
+        for (final existing in castMembers) {
+          final key = existing.name.toLowerCase().trim();
+          final match = tmdbMap[key];
+          if (match != null && match.profileUrl != null && match.profileUrl!.isNotEmpty) {
+            updated.add(CastMember(
+              name: existing.name,
+              character: (existing.character != null && existing.character!.isNotEmpty)
+                  ? existing.character
+                  : match.character,
+              profileUrl: match.profileUrl,
+            ));
+          } else {
+            updated.add(existing);
+          }
+        }
+
+        final matchedWithPhotos = updated
+            .where((m) => m.profileUrl != null && m.profileUrl!.isNotEmpty)
+            .length;
+        if (matchedWithPhotos > 0) {
+          castMembers.assignAll(updated);
+        } else {
+          castMembers.assignAll(tmdbCast);
+        }
+      }
+    } catch (e) {
+      logger.warning(
+        'Failed to enrich cast members from TMDB: $e',
+        tag: 'SeriesDetailsController',
       );
     }
   }
@@ -823,6 +904,11 @@ class SeriesDetailsController extends GetxController {
     XtreamSeriesSeason? season,
   }) {
     final now = DateTime.now();
+    final rawCover = (episode.cover != null && episode.cover!.isNotEmpty)
+        ? episode.cover
+        : null;
+    final fallbackArtwork = series.backdrop ?? series.poster;
+
     return MediaItem(
       id: 'xtream-episode-${episode.id}',
       providerId: series.providerId,
@@ -833,10 +919,9 @@ class SeriesDetailsController extends GetxController {
           ? season.name
           : 'Season ${episode.seasonNum > 0 ? episode.seasonNum : 1}',
       description: episode.plot,
-      poster: (episode.cover != null && episode.cover!.isNotEmpty)
-          ? episode.cover
-          : series.poster,
-      backdrop: series.backdrop,
+      poster: rawCover ?? fallbackArtwork,
+      thumbnail: rawCover ?? fallbackArtwork,
+      backdrop: rawCover ?? series.backdrop,
       genres: series.genres,
       rating: series.rating,
       metadata: {
@@ -849,6 +934,11 @@ class SeriesDetailsController extends GetxController {
         if (episode.durationSeconds != null) 'duration': episode.durationSeconds,
         if (episode.durationSeconds != null) 'durationSeconds': episode.durationSeconds,
         if (episode.airDate != null) 'airDate': episode.airDate,
+        'serverUrl': session.baseUrl,
+        if (rawCover != null) ...{
+          'cover': rawCover,
+          'still_path': rawCover,
+        },
         'streamUrl': episode.streamUrl(
           baseUrl: session.baseUrl,
           username: session.username,
@@ -964,6 +1054,11 @@ class SeriesDetailsController extends GetxController {
       }
     }
 
+    if (PlatformHelper.isTV) {
+      lastFullscreenEntered = DateTime.now();
+      isFullscreenMode.value = true;
+    }
+
     await inlinePlayerController?.playMediaItem(
       episode,
       resumePosition: startPos,
@@ -1009,6 +1104,10 @@ class SeriesDetailsController extends GetxController {
   }
 
   void exitFullscreen() {
+    if (PlatformHelper.isTV) {
+      stopInlinePlayback();
+      return;
+    }
     isFullscreenMode.value = false;
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,

@@ -17,6 +17,7 @@ import 'package:stream_hub/modules/epg/models/epg_guide.dart';
 import 'package:stream_hub/modules/epg/pages/tv_guide_page.dart';
 import 'package:stream_hub/modules/epg/repositories/guide_repository.dart';
 import 'package:stream_hub/modules/live_tv/controllers/live_tv_controller.dart';
+import 'package:stream_hub/modules/live_tv/widgets/live_tv_channel_card.dart';
 
 class _MockCatalogRepository implements CatalogRepository {
   @override
@@ -335,4 +336,72 @@ void main() {
     expect(gridFocus, isNotNull);
     expect(gridFocus?.hasFocus, isTrue);
   });
+
+  testWidgets('Tapping an active playing channel in TV Guide toggles fullscreen', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+
+    final testChannel = Channel(
+      id: 'ch-1',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'BBC One',
+      mediaType: MediaType.channel,
+      number: '1',
+      isLive: true,
+      genres: const ['General'],
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    final liveTvCtrl = Get.put(
+      LiveTVController(
+        catalogRepository: _MockCatalogRepository(),
+        mediaEngine: _MockMediaEngine(),
+        mediaLibrary: _MockMediaLibrary(),
+        favoriteRepository: _MockFavoriteRepository(),
+      ),
+    );
+    liveTvCtrl.channels.assignAll([testChannel]);
+    liveTvCtrl.filteredChannels.assignAll([testChannel]);
+
+    final guideCtrl = GuideController(guideRepository: _MockGuideRepository());
+    Get.put(guideCtrl);
+    Get.put(TvNavigationService());
+
+    await tester.pumpWidget(
+      const GetMaterialApp(
+        home: TVGuidePage(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // Initially not in fullscreen and not playing
+    expect(liveTvCtrl.isFullscreenMode.value, isFalse);
+    expect(liveTvCtrl.activePlayingChannel.value, isNull);
+
+    // Tap channel card to start playback
+    final cardFinder = find.byType(LiveTvChannelCard);
+    expect(cardFinder, findsOneWidget);
+    await tester.tap(cardFinder);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Channel should now be active playing
+    expect(liveTvCtrl.activePlayingChannel.value?.id, equals('ch-1'));
+    expect(liveTvCtrl.isFullscreenMode.value, isFalse);
+
+    // Tap channel card a second time while it is playing
+    await tester.tap(cardFinder);
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Tapping while playing should expand to fullscreen
+    expect(liveTvCtrl.isFullscreenMode.value, isTrue);
+  });
 }
+

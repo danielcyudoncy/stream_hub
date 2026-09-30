@@ -250,9 +250,10 @@ class _TVGuidePageState extends State<TVGuidePage> {
             backgroundColor: Colors.black,
             body: SizedBox.expand(
               child: LiveTvEmbeddedPlayer(
-                key: const ValueKey('tv_guide_player_fullscreen'),
+                key: _embeddedPlayerKey,
                 controller: liveCtrl,
                 isFullscreen: true,
+                autofocus: true,
               ),
             ),
           ),
@@ -316,11 +317,9 @@ class _TVGuidePageState extends State<TVGuidePage> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          // The 16:9 inline player is fixed-width; only place it side by side
-          // when there is enough room. Otherwise let the info pane use the full
-          // width so narrow windows cannot overflow the flex.
-          final showInlinePlayer =
-              constraints.maxWidth >= 900 && liveCtrl != null;
+          final playerWidth =
+              (constraints.maxWidth * 0.42).clamp(280.0, 440.0);
+          final playerHeight = playerWidth * (9.0 / 16.0);
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -703,12 +702,12 @@ class _TVGuidePageState extends State<TVGuidePage> {
             ),
           ),
 
-          // Right Pane: Prominent 16:9 Live Mini-Player (Width: 440dp, Height: 248dp on TV/large screen)
-          if (showInlinePlayer) ...[
+          // Right Pane: Prominent 16:9 Live Mini-Player
+          if (liveCtrl != null) ...[
             AppSpacing.widthLG,
             Container(
-              width: 440, // Larger 16:9 TV Mini Player
-              height: 248,
+              width: playerWidth,
+              height: playerHeight,
               decoration: BoxDecoration(
                 color: Colors.black,
                 borderRadius: BorderRadius.circular(12),
@@ -1031,7 +1030,9 @@ class _TVGuidePageState extends State<TVGuidePage> {
             itemId: item.id,
             itemIndex: index,
             onMoveUp: index < 4 ? _focusActiveCategory : null,
-            onTap: () => liveCtrl.openChannel(item),
+            onTap: isPlaying
+                ? liveCtrl.expandToFullscreen
+                : () => liveCtrl.openChannel(item),
             onFavorite: () => liveCtrl.toggleFavorite(item),
           );
         });
@@ -1083,11 +1084,23 @@ class _TVGuidePageState extends State<TVGuidePage> {
       onMoveUp: _focusActiveCategory,
       onChannelTap: (epgChannel) {
         final match = channels.firstWhereOrNull((c) => c.id == epgChannel.id);
-        if (match != null) liveCtrl.openChannel(match);
+        if (match != null) {
+          if (liveCtrl.activePlayingChannel.value?.id == match.id) {
+            liveCtrl.expandToFullscreen();
+          } else {
+            liveCtrl.openChannel(match);
+          }
+        }
       },
       onProgramTap: (prog) {
         final match = channels.firstWhereOrNull((c) => c.id == prog.channelId);
-        if (match != null) liveCtrl.openChannel(match);
+        if (match != null) {
+          if (liveCtrl.activePlayingChannel.value?.id == match.id) {
+            liveCtrl.expandToFullscreen();
+          } else {
+            liveCtrl.openChannel(match);
+          }
+        }
       },
     );
   }

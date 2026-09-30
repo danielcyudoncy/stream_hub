@@ -74,14 +74,9 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
             if (didPop) return;
             controller.exitFullscreen();
           },
-          child: AppScaffold(
-            title: controller.movie!.title,
-            showAppBar: false,
-            showNavigation: false,
-            body: Container(
-              color: Colors.black,
-              width: double.infinity,
-              height: double.infinity,
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: SizedBox.expand(
               child: MovieInlinePlayer(
                 key: const ValueKey('movie_fullscreen_player'),
                 controller: controller,
@@ -160,7 +155,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
           return CustomScrollView(
             controller: _scrollController,
             slivers: [
-              if (isPlaying)
+              if (isPlaying && !isTv)
                 SliverPersistentHeader(
                   pinned: true,
                   delegate: _StickyMoviePlayerHeaderDelegate(

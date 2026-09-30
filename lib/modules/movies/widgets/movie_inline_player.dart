@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/media/enums/playback_state.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
@@ -36,12 +37,37 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
   Timer? _controlsTimer;
   bool _isDraggingSlider = false;
   double _dragSliderValue = 0.0;
-  final FocusNode _playPauseFocusNode = FocusNode(debugLabel: 'MovieInlinePlayPause');
+  final FocusNode _backFocusNode = FocusNode(debugLabel: 'MovieBack');
+  final FocusNode _subtitlesFocusNode = FocusNode(debugLabel: 'MovieSubtitles');
+  final FocusNode _audioFocusNode = FocusNode(debugLabel: 'MovieAudio');
+  final FocusNode _topFullscreenFocusNode = FocusNode(debugLabel: 'MovieTopFullscreen');
+  final FocusNode _replayFocusNode = FocusNode(debugLabel: 'MovieReplay');
+  final FocusNode _playPauseFocusNode = FocusNode(debugLabel: 'MoviePlayPause');
+  final FocusNode _forwardFocusNode = FocusNode(debugLabel: 'MovieForward');
+  final FocusNode _seekbarFocusNode = FocusNode(debugLabel: 'MovieSeekbar');
+  final FocusNode _bottomFullscreenFocusNode = FocusNode(debugLabel: 'MovieBottomFullscreen');
+  final GlobalKey<TvPlayerKeyboardState> _keyboardKey = GlobalKey<TvPlayerKeyboardState>();
 
   @override
   void initState() {
     super.initState();
     _startControlsTimer();
+    _focusPlayPauseIfControlsVisible();
+  }
+
+  @override
+  void didUpdateWidget(MovieInlinePlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!oldWidget.isFullscreen && widget.isFullscreen) {
+      _focusPlayPauseIfControlsVisible();
+    }
+  }
+
+  void _reclaimPlayerFocus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _controlsVisible) return;
+      _keyboardKey.currentState?.reclaimFocus();
+    });
   }
 
   void _startControlsTimer() {
@@ -54,13 +80,14 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
       // Keep controls on screen while paused; hiding them hides the resume button.
       if (state == PlaybackState.paused) return;
       setState(() => _controlsVisible = false);
+      _reclaimPlayerFocus();
     });
   }
 
   void _focusPlayPauseIfControlsVisible() {
     if (_controlsVisible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _controlsVisible) {
+        if (mounted && _controlsVisible && _playPauseFocusNode.canRequestFocus) {
           _playPauseFocusNode.requestFocus();
         }
       });
@@ -84,20 +111,49 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
         _focusPlayPauseIfControlsVisible();
       } else {
         _controlsTimer?.cancel();
+        _reclaimPlayerFocus();
       }
     });
   }
 
-  /// Remote Select/OK handling. While controls are visible it hides them; while
-  /// they are hidden it reveals them AND acts as play/pause so the first OK on
-  /// the remote always responds (the press bubbles up to `TvPlayerKeyboard`).
+  /// Remote Select/OK handling. If controls are already visible, toggles playback;
+  /// if they are hidden, reveals them and focuses the Play/Pause control.
   void _handleSelectKey() {
     if (_controlsVisible) {
-      _toggleControls();
+      final ctrl = widget.controller.inlinePlayerController;
+      ctrl?.togglePlayPause();
+      _startControlsTimer();
       return;
     }
-    widget.controller.inlinePlayerController?.togglePlayPause();
     _showControlsTemporarily();
+  }
+
+  KeyEventResult _handleControlKey(
+    KeyEvent event, {
+    VoidCallback? onLeft,
+    VoidCallback? onRight,
+    VoidCallback? onUp,
+    VoidCallback? onDown,
+  }) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+    _startControlsTimer();
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft && onLeft != null) {
+      onLeft();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight && onRight != null) {
+      onRight();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp && onUp != null) {
+      onUp();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown && onDown != null) {
+      onDown();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
   }
 
   String _formatDuration(Duration duration) {
@@ -113,7 +169,15 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
   @override
   void dispose() {
     _controlsTimer?.cancel();
+    _backFocusNode.dispose();
+    _subtitlesFocusNode.dispose();
+    _audioFocusNode.dispose();
+    _topFullscreenFocusNode.dispose();
+    _replayFocusNode.dispose();
     _playPauseFocusNode.dispose();
+    _forwardFocusNode.dispose();
+    _seekbarFocusNode.dispose();
+    _bottomFullscreenFocusNode.dispose();
     super.dispose();
   }
 
@@ -125,6 +189,74 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
 
       if (playerCtrl == null || movie == null) {
         return const SizedBox.shrink();
+      }
+
+      final isTv = PlatformHelper.isTV;
+
+      final playerStack = Stack(
+        fit: StackFit.expand,
+        children: [
+          // 1. Video Surface Layer
+          _buildVideoSurface(playerCtrl),
+
+          // 2. Touch Gestures & Controls Layer
+          TvPlayerKeyboard(
+            key: _keyboardKey,
+            autofocus: widget.isFullscreen || isTv,
+            onAnyKey: _showControlsTemporarily,
+            onToggleControls: _handleSelectKey,
+            onPlayPause: () {
+              playerCtrl.togglePlayPause();
+              _showControlsTemporarily();
+            },
+            onStop: () {
+              if (widget.isFullscreen) {
+                widget.controller.exitFullscreen();
+              } else {
+                widget.controller.stopInlinePlayback();
+              }
+            },
+            onChannelUp: () {
+              final pos = playerCtrl.playbackController.engine.positionRx.value;
+              playerCtrl.seek(pos + const Duration(seconds: 10));
+              _showControlsTemporarily();
+            },
+            onChannelDown: () {
+              final pos = playerCtrl.playbackController.engine.positionRx.value;
+              playerCtrl.seek(pos - const Duration(seconds: 10));
+              _showControlsTemporarily();
+            },
+            onBack: () {
+              if (widget.isFullscreen) {
+                widget.controller.exitFullscreen();
+                return true;
+              }
+              return false;
+            },
+            child: PlayerTouchGestureOverlay(
+              onTap: _toggleControls,
+              initialVolume: playerCtrl.playbackController.engine.volumeRx.value,
+              onVolumeChanged: (vol) => playerCtrl.setVolume(vol),
+              controls: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // Loading / Buffering Indicator
+                  _buildBufferingIndicator(playerCtrl),
+
+                  // Controls Overlay
+                  _buildControlsOverlay(context, playerCtrl, movie),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+
+      if (widget.isFullscreen) {
+        return ColoredBox(
+          color: Colors.black,
+          child: playerStack,
+        );
       }
 
       return Container(
@@ -146,59 +278,7 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
         clipBehavior: Clip.antiAlias,
         child: AspectRatio(
           aspectRatio: 16 / 9,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // 1. Video Surface Layer
-              _buildVideoSurface(playerCtrl),
-
-              // 2. Touch Gestures & Controls Layer
-              TvPlayerKeyboard(
-                autofocus: widget.isFullscreen,
-                onAnyKey: _showControlsTemporarily,
-                onToggleControls: _handleSelectKey,
-                onPlayPause: () {
-                  playerCtrl.togglePlayPause();
-                  _showControlsTemporarily();
-                },
-                onStop: () {
-                  widget.controller.stopInlinePlayback();
-                },
-                onChannelUp: () {
-                  final pos = playerCtrl.playbackController.engine.positionRx.value;
-                  playerCtrl.seek(pos + const Duration(seconds: 10));
-                  _showControlsTemporarily();
-                },
-                onChannelDown: () {
-                  final pos = playerCtrl.playbackController.engine.positionRx.value;
-                  playerCtrl.seek(pos - const Duration(seconds: 10));
-                  _showControlsTemporarily();
-                },
-                onBack: () {
-                  if (widget.isFullscreen) {
-                    widget.controller.exitFullscreen();
-                    return true;
-                  }
-                  return false;
-                },
-                child: PlayerTouchGestureOverlay(
-                  onTap: _toggleControls,
-                  initialVolume: playerCtrl.playbackController.engine.volumeRx.value,
-                  onVolumeChanged: (vol) => playerCtrl.setVolume(vol),
-                  controls: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      // Loading / Buffering Indicator
-                      _buildBufferingIndicator(playerCtrl),
-
-                      // Controls Overlay
-                      _buildControlsOverlay(context, playerCtrl, movie),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: playerStack,
         ),
       );
     });
@@ -319,19 +399,21 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
                 stops: const [0.0, 0.25, 0.7, 1.0],
               ),
             ),
-            child: Column(
-              children: [
-                // Top Bar
-                _buildTopBar(context, playerCtrl, movie),
+            child: SafeArea(
+              child: Column(
+                children: [
+                  // Top Bar
+                  _buildTopBar(context, playerCtrl, movie),
 
-                // Center Play / Pause & Skip Buttons
-                Expanded(
-                  child: _buildCenterControls(playerCtrl),
-                ),
+                  // Center Play / Pause & Skip Buttons
+                  Expanded(
+                    child: _buildCenterControls(playerCtrl),
+                  ),
 
-                // Bottom Bar (Seekbar, Duration, Fullscreen)
-                _buildBottomBar(context, playerCtrl),
-              ],
+                  // Bottom Bar (Seekbar, Duration, Fullscreen)
+                  _buildBottomBar(context, playerCtrl),
+                ],
+              ),
             ),
           ),
         ),
@@ -344,25 +426,34 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
     PlayerController playerCtrl,
     MediaItem movie,
   ) {
+    final isTv = PlatformHelper.isTV;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm, vertical: 4.0),
+      padding: EdgeInsets.symmetric(
+        horizontal: isTv || widget.isFullscreen ? AppSpacing.lg : AppSpacing.sm,
+        vertical: isTv || widget.isFullscreen ? AppSpacing.sm : 4.0,
+      ),
       child: Row(
         children: [
           // Back / Close button
           TvFocusable(
+            focusNode: _backFocusNode,
+            onKeyEvent: (node, event) => _handleControlKey(
+              event,
+              onRight: () => _subtitlesFocusNode.requestFocus(),
+              onDown: () => _playPauseFocusNode.requestFocus(),
+            ),
             onTap: () => widget.isFullscreen
                 ? widget.controller.exitFullscreen()
                 : widget.controller.stopInlinePlayback(),
             borderRadius: AppRadius.pill,
             scale: 1.1,
-            child: IconButton(
-              icon: Icon(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Icon(
                 widget.isFullscreen ? Icons.arrow_back_rounded : Icons.close_rounded,
                 color: Colors.white70,
                 size: 20.0,
               ),
-              tooltip: widget.isFullscreen ? 'Exit Fullscreen' : 'Close Video',
-              onPressed: null,
             ),
           ),
           const SizedBox(width: 4.0),
@@ -379,6 +470,13 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
           ),
           // Subtitle Selector Button
           TvFocusable(
+            focusNode: _subtitlesFocusNode,
+            onKeyEvent: (node, event) => _handleControlKey(
+              event,
+              onLeft: () => _backFocusNode.requestFocus(),
+              onRight: () => _audioFocusNode.requestFocus(),
+              onDown: () => _playPauseFocusNode.requestFocus(),
+            ),
             onTap: () => _openSubtitlePicker(context, playerCtrl),
             borderRadius: AppRadius.pill,
             scale: 1.1,
@@ -389,6 +487,13 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
           ),
           // Audio Track Selector Button
           TvFocusable(
+            focusNode: _audioFocusNode,
+            onKeyEvent: (node, event) => _handleControlKey(
+              event,
+              onLeft: () => _subtitlesFocusNode.requestFocus(),
+              onRight: () => _topFullscreenFocusNode.requestFocus(),
+              onDown: () => _playPauseFocusNode.requestFocus(),
+            ),
             onTap: () => _openAudioTrackPicker(context, playerCtrl),
             borderRadius: AppRadius.pill,
             scale: 1.1,
@@ -399,6 +504,12 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
           ),
           // Fullscreen Toggle Button
           TvFocusable(
+            focusNode: _topFullscreenFocusNode,
+            onKeyEvent: (node, event) => _handleControlKey(
+              event,
+              onLeft: () => _audioFocusNode.requestFocus(),
+              onDown: () => _playPauseFocusNode.requestFocus(),
+            ),
             onTap: () => widget.controller.toggleFullscreen(),
             borderRadius: AppRadius.pill,
             scale: 1.1,
@@ -425,6 +536,13 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
         children: [
           // Replay 10s
           TvFocusable(
+            focusNode: _replayFocusNode,
+            onKeyEvent: (node, event) => _handleControlKey(
+              event,
+              onRight: () => _playPauseFocusNode.requestFocus(),
+              onUp: () => _backFocusNode.requestFocus(),
+              onDown: () => _seekbarFocusNode.requestFocus(),
+            ),
             onTap: () {
               final pos = playerCtrl.playbackController.engine.positionRx.value;
               playerCtrl.seek(pos - const Duration(seconds: 10));
@@ -441,6 +559,13 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
           // Play / Pause Circle
           TvFocusable(
             focusNode: _playPauseFocusNode,
+            onKeyEvent: (node, event) => _handleControlKey(
+              event,
+              onLeft: () => _replayFocusNode.requestFocus(),
+              onRight: () => _forwardFocusNode.requestFocus(),
+              onUp: () => _backFocusNode.requestFocus(),
+              onDown: () => _seekbarFocusNode.requestFocus(),
+            ),
             onTap: () {
               playerCtrl.togglePlayPause();
               _startControlsTimer();
@@ -472,6 +597,14 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
           AppSpacing.widthMD,
           // Forward 10s
           TvFocusable(
+            focusNode: _forwardFocusNode,
+            onKeyEvent: (node, event) => _handleControlKey(
+              event,
+              onLeft: () => _playPauseFocusNode.requestFocus(),
+              onRight: () => _subtitlesFocusNode.requestFocus(),
+              onUp: () => _subtitlesFocusNode.requestFocus(),
+              onDown: () => _seekbarFocusNode.requestFocus(),
+            ),
             onTap: () {
               final pos = playerCtrl.playbackController.engine.positionRx.value;
               playerCtrl.seek(pos + const Duration(seconds: 10));
@@ -493,6 +626,7 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
     BuildContext context,
     PlayerController playerCtrl,
   ) {
+    final isTv = PlatformHelper.isTV;
     return Obx(() {
       final position = playerCtrl.playbackController.engine.positionRx.value;
       final duration = playerCtrl.playbackController.engine.durationRx.value;
@@ -505,31 +639,40 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
       final maxSlider = totalMs > 0 ? totalMs : 1.0;
 
       return Padding(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.md,
+        padding: EdgeInsets.fromLTRB(
+          isTv || widget.isFullscreen ? AppSpacing.lg : AppSpacing.md,
           0.0,
-          AppSpacing.md,
-          AppSpacing.xs,
+          isTv || widget.isFullscreen ? AppSpacing.lg : AppSpacing.md,
+          isTv || widget.isFullscreen ? AppSpacing.md : AppSpacing.xs,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Custom Seekbar Slider
             TvFocusable(
+              focusNode: _seekbarFocusNode,
+              descendantsAreFocusable: false,
               scale: 1.02,
               borderRadius: AppRadius.small,
               onKeyEvent: (node, event) {
                 if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                _startControlsTimer();
                 if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
                   final pos = playerCtrl.playbackController.engine.positionRx.value;
                   playerCtrl.seek(pos - const Duration(seconds: 10));
-                  _startControlsTimer();
                   return KeyEventResult.handled;
                 }
                 if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
                   final pos = playerCtrl.playbackController.engine.positionRx.value;
                   playerCtrl.seek(pos + const Duration(seconds: 10));
-                  _startControlsTimer();
+                  return KeyEventResult.handled;
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                  _playPauseFocusNode.requestFocus();
+                  return KeyEventResult.handled;
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  _bottomFullscreenFocusNode.requestFocus();
                   return KeyEventResult.handled;
                 }
                 return KeyEventResult.ignored;
@@ -583,6 +726,12 @@ class _MovieInlinePlayerState extends State<MovieInlinePlayer> {
                   ),
                 ),
                 TvFocusable(
+                  focusNode: _bottomFullscreenFocusNode,
+                  onKeyEvent: (node, event) => _handleControlKey(
+                    event,
+                    onUp: () => _seekbarFocusNode.requestFocus(),
+                    onLeft: () => _seekbarFocusNode.requestFocus(),
+                  ),
                   onTap: () => widget.controller.toggleFullscreen(),
                   borderRadius: AppRadius.small,
                   scale: 1.05,

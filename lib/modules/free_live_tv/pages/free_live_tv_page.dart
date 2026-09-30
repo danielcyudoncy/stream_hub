@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:floating/floating.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
 import 'package:stream_hub/core/media/enums/playback_state.dart';
@@ -46,6 +47,11 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
       GlobalKey<PopupMenuButtonState<String>>();
   final GlobalKey<PopupMenuButtonState<String>> _countryPopupKey =
       GlobalKey<PopupMenuButtonState<String>>();
+  final GlobalKey<FreeTvEmbeddedPlayerState> _embeddedPlayerKey =
+      GlobalKey<FreeTvEmbeddedPlayerState>();
+  final FocusNode _refreshFocusNode = FocusNode(debugLabel: 'FreeTv_Refresh');
+  final FocusNode _watchChannelFocusNode =
+      FocusNode(debugLabel: 'FreeTv_WatchChannel');
 
   @override
   void initState() {
@@ -186,6 +192,8 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
     if (Get.isRegistered<FreeLiveTvController>()) {
       Get.find<FreeLiveTvController>().stopInlinePlayer();
     }
+    _refreshFocusNode.dispose();
+    _watchChannelFocusNode.dispose();
     super.dispose();
   }
 
@@ -609,10 +617,16 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
                   child: FreeTvEmbeddedPlayer(
-                    key: const ValueKey('free_live_tv_player_tv_preview'),
+                    key: _embeddedPlayerKey,
                     controller: controller,
                     isFullscreen: false,
                     autofocus: false,
+                    onMoveLeft: () => _refreshFocusNode.requestFocus(),
+                    onMoveDown: () {
+                      FocusScope.of(context)
+                          .focusInDirection(TraversalDirection.down);
+                    },
+                    onMoveUp: () => _refreshFocusNode.requestFocus(),
                   ),
                 ),
               ),
@@ -747,6 +761,18 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                     ),
                     AppSpacing.widthSM,
                     TvFocusable(
+                      focusNode: _refreshFocusNode,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                          final playerState = _embeddedPlayerKey.currentState;
+                          if (playerState != null) {
+                            playerState.focusPlayer();
+                            return KeyEventResult.handled;
+                          }
+                        }
+                        return KeyEventResult.ignored;
+                      },
                       onTap: controller.refresh,
                       scale: 1.15,
                       borderRadius: BorderRadius.circular(24),
@@ -935,6 +961,18 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
             ],
             const Spacer(),
             TvFocusable(
+              focusNode: _watchChannelFocusNode,
+              onKeyEvent: (node, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                  final playerState = _embeddedPlayerKey.currentState;
+                  if (playerState != null) {
+                    playerState.focusPlayer();
+                    return KeyEventResult.handled;
+                  }
+                }
+                return KeyEventResult.ignored;
+              },
               onTap: () {
                 if (controller.activePlayingChannel.value?.id == channel.id) {
                   controller.enterFullscreen();
@@ -1057,6 +1095,17 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               ),
               const SizedBox(width: 12),
               TvFocusable(
+                onKeyEvent: (node, event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                    final playerState = _embeddedPlayerKey.currentState;
+                    if (playerState != null) {
+                      playerState.focusPlayer();
+                      return KeyEventResult.handled;
+                    }
+                  }
+                  return KeyEventResult.ignored;
+                },
                 onTap: () => controller.openChannel(featured),
                 borderRadius: AppRadius.pill,
                 child: Container(

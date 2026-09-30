@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
@@ -8,7 +10,9 @@ import 'package:stream_hub/modules/free_live_tv/controllers/free_live_tv_control
 import 'package:stream_hub/modules/free_live_tv/pages/free_live_tv_page.dart';
 import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_category_bar.dart';
 import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_channel_card.dart';
+import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_embedded_player.dart';
 import 'package:stream_hub/shared/widgets/error_view.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class _FakeFreeTvRepository implements FreeTvRepository {
   final List<FreeTvChannel> channels;
@@ -205,6 +209,73 @@ void main() {
       expect(
         find.text('Unable to load Free Live TV'),
         findsOneWidget,
+      );
+    });
+
+    testWidgets(
+        'navigating right from refresh button focuses mini-player on TV/large screen',
+        (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final fakeChannels = [
+        const FreeTvChannel(
+          id: 'ChannelsTV.ng',
+          name: 'Channels Television',
+          country: 'Nigeria',
+          countryCode: 'NG',
+          categories: ['News'],
+          streamUrls: ['https://stream.channelstv.com/live.m3u8'],
+        ),
+      ];
+
+      final fakeRepo = _FakeFreeTvRepository(fakeChannels);
+      final controller = FreeLiveTvController(repository: fakeRepo);
+      Get.put<FreeLiveTvController>(controller);
+
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: FreeLiveTvPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final refreshIcon = find.byIcon(Icons.refresh);
+      expect(refreshIcon, findsOneWidget);
+
+      final refreshFocusable = find.ancestor(
+        of: refreshIcon,
+        matching: find.byType(TvFocusable),
+      );
+      expect(refreshFocusable, findsOneWidget);
+
+      final focusDetector = find.descendant(
+        of: refreshFocusable,
+        matching: find.byType(FocusableActionDetector),
+      );
+      final FocusNode refreshNode =
+          tester.widget<FocusableActionDetector>(focusDetector).focusNode!;
+      refreshNode.requestFocus();
+      await tester.pump();
+      expect(refreshNode.hasFocus, isTrue);
+
+      // Press Arrow Right on remote
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+
+      // Mini-player should now be focused
+      final playerFinder = find.byType(FreeTvEmbeddedPlayer);
+      expect(playerFinder, findsOneWidget);
+      final playerState =
+          tester.state<FreeTvEmbeddedPlayerState>(playerFinder);
+      expect(
+        playerState.playerAnchorFocusNode.hasFocus ||
+            playerState.playPauseFocusNode.hasFocus,
+        isTrue,
       );
     });
   });

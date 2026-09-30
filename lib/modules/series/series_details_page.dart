@@ -78,14 +78,9 @@ class _SeriesDetailsPageState extends State<SeriesDetailsPage> {
             if (didPop) return;
             _controller.exitFullscreen();
           },
-          child: AppScaffold(
-            title: _controller.seriesTitle,
-            showAppBar: false,
-            showNavigation: false,
-            body: Container(
-              color: Colors.black,
-              width: double.infinity,
-              height: double.infinity,
+          child: Scaffold(
+            backgroundColor: Colors.black,
+            body: SizedBox.expand(
               child: SeriesInlinePlayer(
                 key: const ValueKey('series_fullscreen_player'),
                 controller: _controller,
@@ -1349,6 +1344,9 @@ class _CastCard extends StatelessWidget {
             backgroundColor: colorScheme.surfaceContainerHighest,
             backgroundImage: (member.profileUrl != null && member.profileUrl!.isNotEmpty)
                 ? NetworkImage(member.profileUrl!)
+                : null,
+            onBackgroundImageError: (member.profileUrl != null && member.profileUrl!.isNotEmpty)
+                ? (exception, stackTrace) {}
                 : null,
             child: (member.profileUrl == null || member.profileUrl!.isEmpty)
                 ? Text(

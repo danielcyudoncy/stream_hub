@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:stream_hub/core/media/enums/media_source_type.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
@@ -7,6 +8,7 @@ import 'package:stream_hub/modules/player/widgets/next_episode_overlay.dart';
 import 'package:stream_hub/modules/player/widgets/skip_intro_button.dart';
 import 'package:stream_hub/modules/series/widgets/episode_card.dart';
 import 'package:stream_hub/modules/series/widgets/series_card.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 void main() {
   testWidgets('SeriesCard renders title, seasons, rating, and handles tap', (tester) async {
@@ -86,6 +88,93 @@ void main() {
 
     await tester.tap(find.byType(EpisodeCard));
     expect(tapped, isTrue);
+  });
+
+  testWidgets('EpisodeCard navigates with TV remote D-Pad between Card, Download, and Play buttons', (tester) async {
+    final now = DateTime.now();
+    final episode = MediaItem(
+      id: 'ep-focus-test',
+      title: 'Pilot',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.xtream,
+      mediaType: MediaType.episode,
+      metadata: {
+        'seasonNumber': 1,
+        'episodeNumber': 1,
+      },
+      createdAt: now,
+      updatedAt: now,
+    );
+
+    var playTapped = false;
+    var downloadTapped = false;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: EpisodeCard(
+            episode: episode,
+            episodeNumber: 'S01E01',
+            onTap: () => playTapped = true,
+            onDownload: () => downloadTapped = true,
+          ),
+        ),
+      ),
+    );
+
+    // Initial state
+    expect(playTapped, isFalse);
+    expect(downloadTapped, isFalse);
+
+    // 1. First focus lands on the Card Play Area
+    final focusWidget = tester.widget<Focus>(
+      find.descendant(
+        of: find.byType(TvFocusable).first,
+        matching: find.byType(Focus),
+      ).first,
+    );
+    focusWidget.focusNode?.requestFocus();
+    await tester.pumpAndSettle();
+
+    // 2. Press Enter/Select on the card -> Triggers Play
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(playTapped, isTrue);
+
+    // 3. Press Arrow Right -> Focus shifts to Download Button
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+
+    // 4. Press Enter/Select on Download Button -> Triggers Download
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(downloadTapped, isTrue);
+
+    // 5. Press Arrow Right -> Focus shifts to Play Button
+    playTapped = false;
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+
+    // 6. Press Enter/Select on Play Button -> Triggers Play
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(playTapped, isTrue);
+
+    // 7. Press Arrow Left -> Returns to Download Button
+    downloadTapped = false;
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(downloadTapped, isTrue);
+
+    // 8. Press Arrow Left -> Returns to Card Play Area
+    playTapped = false;
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+    expect(playTapped, isTrue);
   });
 
   testWidgets('EpisodeCard does not overflow on narrow widths with long episodeNumber and duration', (tester) async {
