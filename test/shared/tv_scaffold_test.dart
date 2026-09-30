@@ -7,7 +7,11 @@ import 'package:stream_hub/shared/widgets/tv_scaffold.dart';
 
 Widget _wrap(Widget body) {
   return GetMaterialApp(
-    home: TvScaffold(body: body),
+    initialRoute: '/home',
+    getPages: [
+      GetPage(name: '/home', page: () => TvScaffold(body: body)),
+      GetPage(name: '/live-tv', page: () => const Scaffold(body: Text('Live TV Page'))),
+    ],
   );
 }
 
@@ -128,6 +132,30 @@ void main() {
       expect(cardNode.hasFocus, isTrue);
 
       cardNode.dispose();
+    });
+
+    testWidgets('selecting sidebar item immediately collapses and navigates to target route', (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        _wrap(
+          const Text('Main TV Body'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find Live TV nav item
+      final liveTvItem = find.text('Live TV');
+      expect(liveTvItem, findsOneWidget);
+
+      // Tap Live TV
+      await tester.tap(liveTvItem);
+      await tester.pumpAndSettle();
+
+      // Target page is loaded immediately
+      expect(find.text('Live TV Page'), findsOneWidget);
     });
   });
 }
