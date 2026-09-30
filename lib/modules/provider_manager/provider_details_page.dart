@@ -40,6 +40,9 @@ class ProviderDetailsPage extends GetView<ProviderManagerController> {
     return AppScaffold(
       title: 'Provider Details',
       body: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
         final provider = controller.getProviderById(targetId) ??
             controller.providers.firstWhereOrNull((p) => p.id == targetId);
         if (provider == null) {

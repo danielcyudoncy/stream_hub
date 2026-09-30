@@ -175,82 +175,83 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
         AppSpacing.lg,
         AppSpacing.sm,
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Media Sources',
-                  style: AppTypography.getHeadline(
-                    color: colorScheme.onSurface,
-                  ).copyWith(fontSize: 22, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 2),
-                Obx(() => Text(
-                      controller.hasAnyProviders
-                          ? '${controller.totalProviderCount} source${controller.totalProviderCount == 1 ? '' : 's'} configured'
-                          : 'Connect your IPTV playlists and streaming sources.',
-                      style: AppTypography.getBody(
-                        color: colorScheme.onSurfaceVariant,
-                      ).copyWith(fontSize: 13),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    )),
-              ],
-            ),
-          ),
-          AppSpacing.widthMD,
-          Obx(() {
-            if (!controller.hasAnyProviders) {
-              return const SizedBox.shrink();
-            }
-            return TvFocusable(
-              autofocus: isTvMode && controller.hasAnyProviders,
-              onTap: () => Get.toNamed(AppRoutes.providerForm),
-              borderRadius: BorderRadius.circular(10.0),
-              scale: 1.05,
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: AppColors.primaryGradient,
+      child: Obx(() {
+        final hasProviders = controller.hasAnyProviders;
+        final count = controller.totalProviderCount;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Media Sources',
+                    style: AppTypography.getHeadline(
+                      color: colorScheme.onSurface,
+                    ).copyWith(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  borderRadius: BorderRadius.circular(10.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.3),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
+                  const SizedBox(height: 2),
+                  Text(
+                    hasProviders
+                        ? '$count source${count == 1 ? '' : 's'} configured'
+                        : 'Connect your IPTV playlists and streaming sources.',
+                    style: AppTypography.getBody(
+                      color: colorScheme.onSurfaceVariant,
+                    ).copyWith(fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            if (hasProviders) ...[
+              AppSpacing.widthMD,
+              TvFocusable(
+                autofocus: isTvMode,
+                onTap: () => Get.toNamed(AppRoutes.providerForm),
+                borderRadius: BorderRadius.circular(10.0),
+                scale: 1.05,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: AppSpacing.sm,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: AppColors.primaryGradient,
                     ),
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(AppIcons.add, size: 16, color: Colors.white),
-                    const SizedBox(width: 6),
-                    Text(
-                      'Add Source',
-                      style: AppTypography.getButton(color: Colors.white)
-                          .copyWith(
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
-                  ],
+                    borderRadius: BorderRadius.circular(10.0),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(AppIcons.add, size: 16, color: Colors.white),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Add Source',
+                        style: AppTypography.getButton(color: Colors.white)
+                            .copyWith(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            );
-          }),
-        ],
-      ),
+            ],
+          ],
+        );
+      }),
     );
   }
 
@@ -359,14 +360,12 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
                     value: field.name,
                     child: Row(
                       children: [
-                        Obx(
-                          () => Icon(
-                            Icons.check,
-                            size: 18,
-                            color: controller.sortField.value == field
-                                ? colorScheme.primary
-                                : Colors.transparent,
-                          ),
+                        Icon(
+                          Icons.check,
+                          size: 18,
+                          color: controller.sortField.value == field
+                              ? colorScheme.primary
+                              : Colors.transparent,
                         ),
                         AppSpacing.widthXS,
                         Text(_sortLabel(field)),
