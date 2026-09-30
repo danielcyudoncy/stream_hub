@@ -134,7 +134,7 @@ void main() {
       cardNode.dispose();
     });
 
-    testWidgets('selecting sidebar item collapses sidebar smoothly with AnimatedSwitcher', (tester) async {
+    testWidgets('selecting sidebar item immediately collapses and navigates to target route', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -150,12 +150,12 @@ void main() {
       final liveTvItem = find.text('Live TV');
       expect(liveTvItem, findsOneWidget);
 
-      // Tap or activate Live TV
+      // Tap Live TV
       await tester.tap(liveTvItem);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250));
+      await tester.pumpAndSettle();
 
-      expect(find.byType(AnimatedSwitcher), findsWidgets);
+      // Target page is loaded immediately
+      expect(find.text('Live TV Page'), findsOneWidget);
     });
   });
 }
