@@ -352,13 +352,23 @@ class _TvScaffoldState extends State<TvScaffold> {
     _focusFirstBodyAction();
   }
 
-  void _onItemTapped(int index) {
+  bool _isNavigating = false;
+
+  void _onItemTapped(int index) async {
+    if (_isNavigating) return;
     if (index < 0 || index >= _rootRoutes.length) return;
     final targetRoute = _rootRoutes[index];
+    if (Get.currentRoute == targetRoute) {
+      if (mounted && _isExpanded) {
+        _closeSidebarAndFocusBody();
+      }
+      return;
+    }
+
+    _isNavigating = true;
     if (mounted) {
       setState(() => _isExpanded = false);
     }
-    if (Get.currentRoute == targetRoute) return;
 
     if (Get.isRegistered<LiveTVController>()) {
       Get.find<LiveTVController>().stopInlinePlayer();
@@ -366,6 +376,13 @@ class _TvScaffoldState extends State<TvScaffold> {
     if (Get.isRegistered<FreeLiveTvController>()) {
       Get.find<FreeLiveTvController>().stopInlinePlayer();
     }
+
+    // Allow the collapse animation (250ms) to run smoothly before pushing the new route.
+    // This gives the user instant visual response on the remote click,
+    // lets the sidebar animate to collapsed width without isolate contention,
+    // and then seamlessly transitions to the target screen.
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
 
     Get.offAllNamed(targetRoute);
   }
@@ -649,13 +666,19 @@ class _TvScaffoldState extends State<TvScaffold> {
 
     return TvFocusable(
       focusNode: _profileFocusNode,
-      onTap: () {
+      onTap: () async {
+        if (_isNavigating) return;
+        _isNavigating = true;
+        if (mounted && _isExpanded) {
+          setState(() => _isExpanded = false);
+        }
         if (Get.isRegistered<LiveTVController>()) {
           Get.find<LiveTVController>().stopInlinePlayer();
         }
         if (Get.isRegistered<FreeLiveTvController>()) {
           Get.find<FreeLiveTvController>().stopInlinePlayer();
         }
+        await Future.delayed(const Duration(milliseconds: 200));
         Get.toNamed(AppRoutes.profile);
       },
       scale: 1.02,
@@ -730,10 +753,18 @@ class _TvScaffoldState extends State<TvScaffold> {
                 ),
               ],
             ),
-            if (_isExpanded) ...[
-              const SizedBox(width: 14),
-              Expanded(
-                child: ClipRect(
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 200),
+              firstCurve: Curves.easeOutCubic,
+              secondCurve: Curves.easeInCubic,
+              sizeCurve: Curves.easeOutCubic,
+              crossFadeState: _isExpanded
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              firstChild: Padding(
+                padding: const EdgeInsets.only(left: 14.0),
+                child: SizedBox(
+                  width: 160,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -776,7 +807,8 @@ class _TvScaffoldState extends State<TvScaffold> {
                   ),
                 ),
               ),
-            ],
+              secondChild: const SizedBox.shrink(),
+            ),
           ],
         ),
       ),
@@ -824,54 +856,59 @@ class _TvScaffoldState extends State<TvScaffold> {
         horizontal: _isExpanded ? 18.0 : 8.0,
         vertical: 8.0,
       ),
-      child: _isExpanded
-          ? Row(
-              children: [
-                const SizedBox(width: 4.0),
-                const Icon(
-                  Icons.wifi_rounded,
-                  color: Color(0xFF00E676),
-                  size: 16,
-                ),
-                const SizedBox(width: 12.0),
-                Expanded(
-                  child: Text(
-                    timeStr,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 200),
+        child: _isExpanded
+            ? Row(
+                key: const ValueKey('clock_expanded'),
+                children: [
+                  const SizedBox(width: 4.0),
+                  const Icon(
+                    Icons.wifi_rounded,
+                    color: Color(0xFF00E676),
+                    size: 16,
+                  ),
+                  const SizedBox(width: 12.0),
+                  Expanded(
+                    child: Text(
+                      timeStr,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                key: const ValueKey('clock_collapsed'),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.wifi_rounded,
+                    color: Color(0xFF00E676),
+                    size: 14,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    shortTimeStr,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.75),
-                      fontSize: 11.5,
+                      color: Colors.white.withValues(alpha: 0.65),
+                      fontSize: 9.5,
                       fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
-                ),
-              ],
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.wifi_rounded,
-                  color: Color(0xFF00E676),
-                  size: 14,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  shortTimeStr,
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.65),
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+                ],
+              ),
+      ),
     );
   }
 
@@ -922,83 +959,92 @@ class _TvScaffoldState extends State<TvScaffold> {
               : null,
         ),
         child: ClipRect(
-          child: _isExpanded
-              // Expanded Mode: Horizontal Row with Icon, Title, and Badge
-              ? SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  physics: const NeverScrollableScrollPhysics(),
-                  child: SizedBox(
-                    width: 200.0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      children: [
-                        const SizedBox(width: 6.0),
-                        Icon(
-                          icon,
-                          color: isSelected ? Colors.white : Colors.white70,
-                          size: 22.0,
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: _isExpanded
+                // Expanded Mode: Horizontal Row with Icon, Title, and Badge
+                ? KeyedSubtree(
+                    key: const ValueKey('nav_expanded'),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: SizedBox(
+                        width: 200.0,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          children: [
+                            const SizedBox(width: 6.0),
+                            Icon(
+                              icon,
+                              color: isSelected ? Colors.white : Colors.white70,
+                              size: 22.0,
+                            ),
+                            const SizedBox(width: 16.0),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  color: isSelected ? Colors.white : Colors.white70,
+                                  fontSize: 13.5,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w800
+                                      : FontWeight.w500,
+                                  letterSpacing: isSelected ? 0.3 : 0.0,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if (badgeWidget != null) ...[
+                              badgeWidget,
+                              const SizedBox(width: 4.0),
+                            ],
+                          ],
                         ),
-                        const SizedBox(width: 16.0),
-                        Expanded(
-                          child: Text(
+                      ),
+                    ),
+                  )
+                // Collapsed Mode: Vertical Stack with Icon on Top and Text Below
+                : KeyedSubtree(
+                    key: const ValueKey('nav_collapsed'),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Stack(
+                            clipBehavior: Clip.none,
+                            alignment: Alignment.center,
+                            children: [
+                              Icon(
+                                icon,
+                                color: isSelected ? Colors.white : Colors.white70,
+                                size: 24.0,
+                              ),
+                              if (badgeWidget != null)
+                                Positioned(top: -4, right: -10, child: badgeWidget),
+                            ],
+                          ),
+                          const SizedBox(height: 4.0),
+                          Text(
                             label,
                             style: TextStyle(
                               color: isSelected ? Colors.white : Colors.white70,
-                              fontSize: 13.5,
+                              fontSize: 10.0,
                               fontWeight: isSelected
                                   ? FontWeight.w800
                                   : FontWeight.w500,
-                              letterSpacing: isSelected ? 0.3 : 0.0,
                             ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        if (badgeWidget != null) ...[
-                          badgeWidget,
-                          const SizedBox(width: 4.0),
                         ],
-                      ],
+                      ),
                     ),
                   ),
-                )
-              // Collapsed Mode: Vertical Stack with Icon on Top and Text Below
-              : SizedBox(
-                  width: double.infinity,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Stack(
-                        clipBehavior: Clip.none,
-                        alignment: Alignment.center,
-                        children: [
-                          Icon(
-                            icon,
-                            color: isSelected ? Colors.white : Colors.white70,
-                            size: 24.0,
-                          ),
-                          if (badgeWidget != null)
-                            Positioned(top: -4, right: -10, child: badgeWidget),
-                        ],
-                      ),
-                      const SizedBox(height: 4.0),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
-                          fontSize: 10.0,
-                          fontWeight: isSelected
-                              ? FontWeight.w800
-                              : FontWeight.w500,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
+          ),
         ),
       ),
     );
