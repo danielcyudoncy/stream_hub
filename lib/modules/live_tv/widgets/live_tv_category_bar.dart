@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../core/helpers/platform_helper.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 
@@ -210,21 +209,22 @@ class _CategoryChipState extends State<_CategoryChip> {
                   ? colorScheme.primary
                   : (_isFocused
                       ? colorScheme.surfaceContainerHighest
-                      : colorScheme.surface),
+                      : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5)),
               borderRadius: AppRadius.pill,
               border: Border.all(
                 color: _isFocused
-                    ? Colors.white
+                    ? colorScheme.primary
                     : (widget.isSelected
                         ? colorScheme.primary
-                        : colorScheme.outline.withValues(alpha: 0.12)),
+                        : colorScheme.outline.withValues(alpha: 0.15)),
                 width: _isFocused ? 2.0 : 1.0,
               ),
               boxShadow: widget.isSelected || _isFocused
                   ? [
                       BoxShadow(
-                        color: (widget.isSelected ? colorScheme.primary : Colors.white)
-                            .withValues(alpha: widget.isSelected ? 0.3 : 0.2),
+                        color: colorScheme.primary.withValues(
+                          alpha: widget.isSelected ? 0.3 : 0.2,
+                        ),
                         blurRadius: 8.0,
                         offset: const Offset(0, 2),
                       ),
@@ -239,8 +239,10 @@ class _CategoryChipState extends State<_CategoryChip> {
                     widget.icon,
                     size: 16.0,
                     color: widget.isSelected
-                        ? Colors.white
-                        : (widget.iconColor ?? colorScheme.primary),
+                        ? colorScheme.onPrimary
+                        : (_isFocused
+                            ? colorScheme.primary
+                            : (widget.iconColor ?? colorScheme.onSurfaceVariant)),
                   ),
                   const SizedBox(width: 6.0),
                 ],
@@ -250,8 +252,8 @@ class _CategoryChipState extends State<_CategoryChip> {
                     fontSize: 12.5,
                     fontWeight: widget.isSelected ? FontWeight.w700 : FontWeight.w500,
                     color: widget.isSelected
-                        ? Colors.white
-                        : (_isFocused ? Colors.white : AppColors.darkTextSecondary),
+                        ? colorScheme.onPrimary
+                        : (_isFocused ? colorScheme.primary : colorScheme.onSurface),
                   ),
                 ),
               ],

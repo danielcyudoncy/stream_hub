@@ -154,7 +154,7 @@ class CategoriesPage extends GetView<CategoryController> {
                     )
                   : null,
               filled: true,
-              fillColor: const Color(0xFF161B22),
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16.0,
                 vertical: 10.0,
@@ -162,13 +162,13 @@ class CategoriesPage extends GetView<CategoryController> {
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
                 borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
                 ),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12.0),
                 borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
                 ),
               ),
             ),
@@ -235,13 +235,13 @@ class CategoriesPage extends GetView<CategoryController> {
                           padding: const EdgeInsets.all(AppSpacing.sm),
                           decoration: BoxDecoration(
                             color: isHidden
-                                ? const Color(0xFF161B22).withValues(alpha: 0.45)
-                                : const Color(0xFF161B22),
+                                ? Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.45)
+                                : Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.7),
                             borderRadius: AppRadius.medium,
                             border: Border.all(
                               color: isHidden
                                   ? Colors.amber.withValues(alpha: 0.3)
-                                  : Colors.white.withValues(alpha: 0.08),
+                                  : Theme.of(context).colorScheme.outline.withValues(alpha: 0.12),
                             ),
                           ),
                           child: Stack(
@@ -260,7 +260,7 @@ class CategoriesPage extends GetView<CategoryController> {
                                         : Icons.visibility_outlined,
                                     color: isHidden
                                         ? Colors.amber
-                                        : Colors.white38,
+                                        : Theme.of(context).colorScheme.onSurfaceVariant,
                                   ),
                                   onPressed: () {
                                     controller.toggleCategoryVisibility(
@@ -383,27 +383,32 @@ class CategoriesPage extends GetView<CategoryController> {
       onTap: () => controller.filterTab.value = tabKey,
       borderRadius: BorderRadius.circular(20.0),
       scale: 1.08,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? activeColor.withValues(alpha: 0.2)
-              : const Color(0xFF161B22),
-          borderRadius: BorderRadius.circular(20.0),
-          border: Border.all(
-            color: isSelected
-                ? activeColor
-                : Colors.white.withValues(alpha: 0.1),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected ? activeColor : Colors.white70,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            fontSize: 12.0,
-          ),
-        ),
+      child: Builder(
+        builder: (context) {
+          final colorScheme = Theme.of(context).colorScheme;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 6.0),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? activeColor.withValues(alpha: 0.2)
+                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(20.0),
+              border: Border.all(
+                color: isSelected
+                    ? activeColor
+                    : colorScheme.outline.withValues(alpha: 0.15),
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? activeColor : colorScheme.onSurface,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 12.0,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
