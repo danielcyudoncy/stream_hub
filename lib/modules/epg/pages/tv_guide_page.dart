@@ -990,7 +990,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
                       label: const Text('Show All Channels'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onPrimary,
                       ),
                     ),
                   ],
@@ -1335,7 +1335,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
                 label: const Text('Show All Channels'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppColors.onPrimary,
                 ),
               ),
             ],

@@ -17,6 +17,7 @@ class AppButton extends StatelessWidget {
   final double height;
   final bool autofocus;
   final FocusNode? focusNode;
+  final FocusOnKeyEventCallback? onKeyEvent;
 
   const AppButton({
     super.key,
@@ -29,6 +30,7 @@ class AppButton extends StatelessWidget {
     this.height = 48.0,
     this.autofocus = false,
     this.focusNode,
+    this.onKeyEvent,
   });
 
   const AppButton.primary({
@@ -41,6 +43,7 @@ class AppButton extends StatelessWidget {
     this.height = 42.0,
     this.autofocus = false,
     this.focusNode,
+    this.onKeyEvent,
   }) : type = ButtonType.primary;
 
   const AppButton.secondary({
@@ -53,6 +56,7 @@ class AppButton extends StatelessWidget {
     this.height = 42.0,
     this.autofocus = false,
     this.focusNode,
+    this.onKeyEvent,
   }) : type = ButtonType.secondary;
 
   const AppButton.text({
@@ -65,6 +69,7 @@ class AppButton extends StatelessWidget {
     this.height = 42.0,
     this.autofocus = false,
     this.focusNode,
+    this.onKeyEvent,
   }) : type = ButtonType.text;
 
   const AppButton.danger({
@@ -77,6 +82,7 @@ class AppButton extends StatelessWidget {
     this.height = 42.0,
     this.autofocus = false,
     this.focusNode,
+    this.onKeyEvent,
   }) : type = ButtonType.danger;
 
   @override
@@ -116,6 +122,7 @@ class AppButton extends StatelessWidget {
       scale: 1.03,
       autofocus: autofocus,
       focusNode: focusNode,
+      onKeyEvent: onKeyEvent,
       descendantsAreFocusable: false,
       child: SizedBox(
         width: width,
@@ -148,7 +155,11 @@ class AppButton extends StatelessWidget {
                     Flexible(
                       child: Text(
                         text,
-                        style: AppTypography.getButton(),
+                        style: AppTypography.getButton(
+                          color: isButtonDisabled
+                              ? colorScheme.onSurface.withValues(alpha: 0.38)
+                              : foregroundColor,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

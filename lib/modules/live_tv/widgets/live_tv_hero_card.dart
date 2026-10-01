@@ -290,7 +290,7 @@ class _LiveTvHeroCardState extends State<LiveTvHeroCard> {
                                         label: const Text('Watch Live'),
                                         style: FilledButton.styleFrom(
                                           backgroundColor: colorScheme.primary,
-                                          foregroundColor: Colors.white,
+                                          foregroundColor: colorScheme.onPrimary,
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: AppSpacing.sm + 4.0,
                                             vertical: 6.0,

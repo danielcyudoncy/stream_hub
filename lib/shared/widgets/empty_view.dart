@@ -68,9 +68,7 @@ class EmptyView extends StatelessWidget {
                     vertical: AppSpacing.sm,
                   ),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: AppColors.primaryGradient,
-                    ),
+                    color: colorScheme.primary,
                     borderRadius: BorderRadius.circular(20.0),
                     boxShadow: [
                       BoxShadow(
@@ -83,11 +81,11 @@ class EmptyView extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(AppIcons.add, size: 18, color: Colors.white),
+                      Icon(AppIcons.add, size: 18, color: colorScheme.onPrimary),
                       AppSpacing.widthXS,
                       Text(
                         actionLabel!,
-                        style: AppTypography.getButton(color: Colors.white)
+                        style: AppTypography.getButton(color: colorScheme.onPrimary)
                             .copyWith(fontWeight: FontWeight.bold),
                       ),
                     ],
