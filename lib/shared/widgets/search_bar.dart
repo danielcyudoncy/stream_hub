@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../core/helpers/platform_helper.dart';
 import '../../core/theme/app_icons.dart';
 import '../../core/theme/app_radius.dart';
@@ -14,6 +15,7 @@ class AppSearchBar extends StatefulWidget {
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onClear;
   final FocusNode? focusNode;
+  final Color? backgroundColor;
 
   const AppSearchBar({
     super.key,
@@ -23,6 +25,7 @@ class AppSearchBar extends StatefulWidget {
     this.onSubmitted,
     this.onClear,
     this.focusNode,
+    this.backgroundColor,
   });
 
   @override
@@ -52,11 +55,68 @@ class _AppSearchBarState extends State<AppSearchBar> {
     }
 
     _textFocusNode.addListener(_onTextFocusChanged);
+    _textFocusNode.onKeyEvent = _handleTextKeyEvent;
+  }
+
+  KeyEventResult _handleTextKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      if (_isEditing && mounted) {
+        setState(() => _isEditing = false);
+        _textFocusNode.canRequestFocus = false;
+        final moved = node.focusInDirection(TraversalDirection.down);
+        if (!moved) {
+          node.nextFocus();
+        }
+        return KeyEventResult.handled;
+      }
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      if (_isEditing && mounted) {
+        setState(() => _isEditing = false);
+        _textFocusNode.canRequestFocus = false;
+        final moved = node.focusInDirection(TraversalDirection.up);
+        if (!moved) {
+          node.previousFocus();
+        }
+        return KeyEventResult.handled;
+      }
+    } else if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack) {
+      if (_isEditing && mounted) {
+        setState(() => _isEditing = false);
+        _textFocusNode.canRequestFocus = false;
+        _tvBarFocusNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
   }
 
   void _onTextFocusChanged() {
     if (!_textFocusNode.hasFocus && _isEditing && mounted) {
       setState(() => _isEditing = false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(AppSearchBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      _textFocusNode.removeListener(_onTextFocusChanged);
+      if (_internalFocusNode) {
+        _textFocusNode.dispose();
+      }
+      if (widget.focusNode != null) {
+        _textFocusNode = widget.focusNode!;
+        _internalFocusNode = false;
+      } else {
+        _textFocusNode = FocusNode(debugLabel: 'AppSearchBar_TextField');
+        _internalFocusNode = true;
+      }
+      _textFocusNode.addListener(_onTextFocusChanged);
+      _textFocusNode.onKeyEvent = _handleTextKeyEvent;
     }
   }
 
@@ -111,7 +171,8 @@ class _AppSearchBarState extends State<AppSearchBar> {
     final barContent = Container(
       height: 48.0,
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+        color: widget.backgroundColor ??
+            colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
         borderRadius: AppRadius.medium,
         border: Border.all(
           color: colorScheme.outline.withValues(alpha: 0.1),

@@ -24,6 +24,7 @@ import '../widgets/live_tv_category_bar.dart';
 import '../widgets/live_tv_channel_card.dart';
 import '../widgets/live_tv_embedded_player.dart';
 import '../widgets/live_tv_skeleton.dart';
+import '../widgets/multi_view_layout_dialog.dart';
 import '../../epg/pages/tv_guide_page.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
@@ -889,8 +890,19 @@ class _LiveTVPageState extends State<LiveTVPage> {
         final activeChannel =
             controller.activePlayingChannel.value ??
             controller.featuredChannel.value;
-        controller.stopInlinePlayer();
-        await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
+        await showMultiViewLayoutDialog(
+          context,
+          onSelect: (mode) {
+            controller.stopInlinePlayer();
+            Get.toNamed(
+              AppRoutes.multiView,
+              arguments: {
+                'layoutMode': mode,
+                'channel': activeChannel,
+              },
+            );
+          },
+        );
       },
       scale: 1.15,
       borderRadius: BorderRadius.circular(24),
@@ -931,8 +943,19 @@ class _LiveTVPageState extends State<LiveTVPage> {
             final activeChannel =
                 controller.activePlayingChannel.value ??
                 controller.featuredChannel.value;
-            controller.stopInlinePlayer();
-            await Get.toNamed(AppRoutes.multiView, arguments: activeChannel);
+            await showMultiViewLayoutDialog(
+              context,
+              onSelect: (mode) {
+                controller.stopInlinePlayer();
+                Get.toNamed(
+                  AppRoutes.multiView,
+                  arguments: {
+                    'layoutMode': mode,
+                    'channel': activeChannel,
+                  },
+                );
+              },
+            );
           } else if (val.startsWith('sort_')) {
             controller.setSort(val.replaceFirst('sort_', ''));
           }

@@ -19,15 +19,33 @@ class ProviderDetailsPage extends GetView<ProviderManagerController> {
 
   const ProviderDetailsPage({super.key, required this.providerId});
 
+  String get effectiveProviderId {
+    if (providerId.isNotEmpty) return providerId;
+    final args = Get.arguments;
+    if (args is ProviderModel) return args.id;
+    if (args is String) return args;
+    if (args is Map && args['id'] is String) return args['id'] as String;
+    if (Get.parameters.containsKey('id') && Get.parameters['id'] != null) {
+      return Get.parameters['id']!;
+    }
+    return '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final targetId = effectiveProviderId;
 
     return AppScaffold(
       title: 'Provider Details',
+      showNavigation: false,
       body: Obx(() {
-        final provider = controller.providers.firstWhereOrNull((p) => p.id == providerId);
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final provider = controller.getProviderById(targetId) ??
+            controller.providers.firstWhereOrNull((p) => p.id == targetId);
         if (provider == null) {
           return Center(
             child: Column(

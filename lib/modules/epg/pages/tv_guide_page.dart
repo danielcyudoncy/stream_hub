@@ -45,6 +45,8 @@ class _TVGuidePageState extends State<TVGuidePage> {
   final GlobalKey _guideRootKey = GlobalKey(debugLabel: 'TvGuideRootKey');
   final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerKey =
       GlobalKey<LiveTvEmbeddedPlayerState>();
+  final GlobalKey<LiveTvEmbeddedPlayerState> _fullscreenPlayerKey =
+      GlobalKey<LiveTvEmbeddedPlayerState>();
   final FocusNode _viewModeFocusNode = FocusNode(debugLabel: 'TvGuide_ViewMode');
   final FocusNode _searchFocusNode = FocusNode(debugLabel: 'TvGuide_Search');
   final FocusNode _refreshFocusNode = FocusNode(debugLabel: 'TvGuide_Refresh');
@@ -107,7 +109,8 @@ class _TVGuidePageState extends State<TVGuidePage> {
     if (event is KeyDownEvent) {
       if (node == _refreshFocusNode &&
           event.logicalKey == LogicalKeyboardKey.arrowRight) {
-        final playerState = _embeddedPlayerKey.currentState;
+        final playerState =
+            _embeddedPlayerKey.currentState ?? _fullscreenPlayerKey.currentState;
         if (playerState != null) {
           playerState.focusPlayer();
           return KeyEventResult.handled;
@@ -250,7 +253,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
             backgroundColor: Colors.black,
             body: SizedBox.expand(
               child: LiveTvEmbeddedPlayer(
-                key: _embeddedPlayerKey,
+                key: _fullscreenPlayerKey,
                 controller: liveCtrl,
                 isFullscreen: true,
                 autofocus: true,

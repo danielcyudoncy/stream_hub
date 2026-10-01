@@ -10,32 +10,24 @@ class TvFocusDebugOverlay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!Get.isRegistered<TvNavigationService>()) {
-      return const Positioned(
-        top: 0,
-        right: 0,
-        child: SizedBox.shrink(),
-      );
+      return const Positioned(child: SizedBox.shrink());
     }
 
     final nav = Get.find<TvNavigationService>();
 
-    return Obx(() {
-      if (!nav.debugMode.value) {
-        return const Positioned(
-          top: 0,
-          right: 0,
-          child: SizedBox.shrink(),
-        );
-      }
+    return Positioned(
+      top: 16.0,
+      right: 16.0,
+      child: Obx(() {
+        if (!nav.debugMode.value) {
+          return const SizedBox.shrink();
+        }
 
-      final region = nav.currentRegionId.value;
-      final item = nav.currentItemId.value;
-      final keyEvent = nav.lastKeyEvent.value;
+        final region = nav.currentRegionId.value;
+        final item = nav.currentItemId.value;
+        final keyEvent = nav.lastKeyEvent.value;
 
-      return Positioned(
-        top: 16.0,
-        right: 16.0,
-        child: IgnorePointer(
+        return IgnorePointer(
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
             decoration: BoxDecoration(
@@ -99,8 +91,8 @@ class TvFocusDebugOverlay extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      );
-    });
+        );
+      }),
+    );
   }
 }

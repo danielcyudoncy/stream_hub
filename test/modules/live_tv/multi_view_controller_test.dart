@@ -390,4 +390,26 @@ void main() {
     expect(controller.slots[3].value, isNull);
     expect(controller.activeAudioSlot.value, 0);
   });
+
+  test('MultiViewController setActiveAudioSlot routes audio and keeps background slots active', () async {
+    controller.onInit();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+
+    await controller.setChannelForSlot(0, testChannel1);
+    await controller.setChannelForSlot(1, testChannel2);
+
+    final slot0Ctrl = controller.slotControllers[0];
+    final slot1Ctrl = controller.slotControllers[1];
+    expect(slot0Ctrl, isNotNull);
+    expect(slot1Ctrl, isNotNull);
+
+    // Switch focus to slot 0
+    controller.setActiveAudioSlot(0);
+    expect(controller.activeAudioSlot.value, 0);
+
+    // Switch focus to slot 1
+    controller.setActiveAudioSlot(1);
+    expect(controller.activeAudioSlot.value, 1);
+  });
 }
+

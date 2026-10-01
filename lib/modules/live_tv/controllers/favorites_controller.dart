@@ -6,9 +6,11 @@ import '../../../data/models/category.dart';
 import '../../../data/models/media_item.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/favorite_repository.dart';
+import '../../../data/repositories/free_tv_repository.dart';
 import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
+import 'live_tv_controller.dart';
 
 class FavoritesController extends GetxController {
   final MediaEngine mediaEngine;
@@ -82,6 +84,33 @@ class FavoritesController extends GetxController {
         if (!favs.any((item) => item.id == f.id)) {
           favs.add(f.copyWith(favorite: true));
         }
+      }
+
+      if (Get.isRegistered<LiveTVController>()) {
+        final liveCtrl = Get.find<LiveTVController>();
+        for (final item in liveCtrl.favorites) {
+          if (!favs.any((f) => f.id == item.id)) {
+            favs.add(item.copyWith(favorite: true));
+          }
+        }
+      }
+
+      if (Get.isRegistered<FreeTvRepository>()) {
+        try {
+          final freeRepo = Get.find<FreeTvRepository>();
+          final freeFavIds = freeRepo.getFavoriteIds();
+          if (freeFavIds.isNotEmpty) {
+            final cached = await freeRepo.getCatalog();
+            for (final ch in cached) {
+              if (freeFavIds.contains(ch.id)) {
+                final mediaItem = ch.toMediaItem().copyWith(favorite: true);
+                if (!favs.any((item) => item.id == mediaItem.id || item.id == ch.id)) {
+                  favs.add(mediaItem);
+                }
+              }
+            }
+          }
+        } catch (_) {}
       }
 
       favoriteChannels.assignAll(favs);
@@ -169,4 +198,6 @@ class FavoritesController extends GetxController {
   void refresh() {
     _loadFavorites();
   }
+
+  Future<void> refreshFavorites() => _loadFavorites();
 }

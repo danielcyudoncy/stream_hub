@@ -17,6 +17,7 @@ class AboutPage extends GetView {
 
     return AppScaffold(
       title: 'About',
+      showNavigation: false,
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(

@@ -1,16 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../../core/helpers/platform_helper.dart';
 import '../../../core/routes/app_routes.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../core/utils/image_url_formatter.dart';
+import '../../../core/utils/responsive_helper.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/provider_selector_button.dart';
+import '../../../shared/widgets/search_bar.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 import '../controllers/multi_view_controller.dart';
 import '../models/multi_view_layout_mode.dart';
+import '../widgets/multi_view_layout_dialog.dart';
 import '../widgets/multi_view_slot_tile.dart';
 
 class MultiViewPage extends StatefulWidget {
@@ -21,15 +26,10 @@ class MultiViewPage extends StatefulWidget {
 }
 
 class _MultiViewPageState extends State<MultiViewPage> {
-  final GlobalKey<PopupMenuButtonState<MultiViewLayoutMode>> _layoutPopupKey =
-      GlobalKey<PopupMenuButtonState<MultiViewLayoutMode>>();
-
   MultiViewController get controller => Get.find<MultiViewController>();
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -39,85 +39,216 @@ class _MultiViewPageState extends State<MultiViewPage> {
       },
       child: AppScaffold(
         title: 'Multi-View',
-        actions: [
-          // Home / Exit Multi-View
-          TvFocusable(
-            onTap: () => Get.offAllNamed(AppRoutes.home),
-            scale: 1.15,
-            borderRadius: BorderRadius.circular(24),
-            child: IconButton(
-              icon: const Icon(Icons.home_rounded, color: Colors.white),
-              tooltip: 'Back to Home',
-              onPressed: () => Get.offAllNamed(AppRoutes.home),
-            ),
-          ),
-          // Layout Mode Selector
-          Obx(() {
-            return TvFocusable(
-              onTap: () => _layoutPopupKey.currentState?.showButtonMenu(),
-              scale: 1.15,
-              borderRadius: BorderRadius.circular(24),
-              child: PopupMenuButton<MultiViewLayoutMode>(
-                key: _layoutPopupKey,
-                icon: const Icon(Icons.grid_view_rounded, color: Colors.white),
-                tooltip: 'Change Layout',
-                initialValue: controller.layoutMode.value,
-                onSelected: controller.setLayoutMode,
-                itemBuilder: (context) {
-                  return MultiViewLayoutMode.values.map((mode) {
-                    final isSelected = controller.layoutMode.value == mode;
-                    return PopupMenuItem(
-                      value: mode,
-                      child: Row(
-                        children: [
-                          Icon(
-                            _iconForLayout(mode),
-                            color: isSelected ? AppColors.primary : colorScheme.onSurface,
-                            size: 20.0,
-                          ),
-                          const SizedBox(width: 8.0),
-                          Text(
-                            mode.label,
-                            style: TextStyle(
-                              color: isSelected ? AppColors.primary : colorScheme.onSurface,
-                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList();
-                },
-              ),
-            );
-          }),
-        ],
+        showAppBar: false,
         body: Container(
           color: Colors.black,
-          padding: const EdgeInsets.all(AppSpacing.xs),
-          child: Obx(() {
-            final mode = controller.layoutMode.value;
-            return FocusTraversalGroup(
-              policy: ReadingOrderTraversalPolicy(),
-              child: _buildGridForLayout(context, mode),
-            );
-          }),
+          child: Focus(
+            canRequestFocus: false,
+            descendantsAreFocusable: true,
+            onKeyEvent: (node, event) {
+              if (event is KeyDownEvent &&
+                  (event.logicalKey == LogicalKeyboardKey.contextMenu ||
+                      event.logicalKey == LogicalKeyboardKey.info ||
+                      event.logicalKey == LogicalKeyboardKey.gameButtonSelect)) {
+                showMultiViewLayoutDialog(
+                  context,
+                  currentMode: controller.layoutMode.value,
+                  onSelect: controller.setLayoutMode,
+                );
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: Column(
+              children: [
+                _buildTopBar(context),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppSpacing.xs),
+                    child: Obx(() {
+                      final mode = controller.layoutMode.value;
+                      return _buildGridForLayout(context, mode);
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 
-  IconData _iconForLayout(MultiViewLayoutMode mode) {
-    switch (mode) {
-      case MultiViewLayoutMode.dualHorizontal:
-        return Icons.view_column_rounded;
-      case MultiViewLayoutMode.dualVertical:
-        return Icons.view_agenda_rounded;
-      case MultiViewLayoutMode.triple:
-        return Icons.view_quilt_rounded;
-      case MultiViewLayoutMode.quad:
-        return Icons.grid_view_rounded;
-    }
+  Widget _buildTopBar(BuildContext context) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+      decoration: BoxDecoration(
+        color: const Color(0xFF11141C),
+        border: Border(
+          bottom: BorderSide(
+            color: Colors.white.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Multi-View Title & Icon
+          const Icon(
+            Icons.dashboard_customize_rounded,
+            color: AppColors.primary,
+            size: 20,
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          Text(
+            'Multi-View',
+            style: AppTypography.getTitle(
+              color: Colors.white,
+            ).copyWith(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          // Change Layout Button (TV Focusable, directly above left slot)
+          Obx(() {
+            final mode = controller.layoutMode.value;
+            return TvFocusable(
+              onTap: () {
+                showMultiViewLayoutDialog(
+                  context,
+                  currentMode: mode,
+                  onSelect: controller.setLayoutMode,
+                );
+              },
+              scale: 1.05,
+              borderRadius: AppRadius.small,
+              focusColor: AppColors.primary,
+              focusedBackgroundColor: AppColors.primary,
+              unfocusedBackgroundColor: const Color(0xFF1E2430),
+              builder: (context, hasFocus) => Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: AppRadius.small,
+                  border: Border.all(
+                    color: hasFocus
+                        ? AppColors.primary
+                        : Colors.white.withValues(alpha: 0.18),
+                    width: hasFocus ? 2 : 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.view_quilt_rounded,
+                      size: 16,
+                      color: hasFocus ? Colors.black : Colors.white,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Change Layout',
+                      style: AppTypography.getBody(
+                        color: hasFocus ? Colors.black : Colors.white,
+                      ).copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+          const SizedBox(width: AppSpacing.sm),
+          // Current Layout Badge
+          Obx(() {
+            final mode = controller.layoutMode.value;
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 4,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: AppRadius.pill,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.grid_view_rounded,
+                    size: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 5),
+                  Text(
+                    mode.label,
+                    style: AppTypography.getCaption(
+                      color: AppColors.textSecondary,
+                    ).copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const Spacer(),
+          // Exit Multi-View Button (TV Focusable, directly above right slot)
+          TvFocusable(
+            onTap: () => Get.offAllNamed(AppRoutes.home),
+            scale: 1.05,
+            borderRadius: AppRadius.small,
+            focusColor: Colors.redAccent,
+            focusedBackgroundColor: Colors.redAccent,
+            unfocusedBackgroundColor: Colors.white.withValues(alpha: 0.08),
+            builder: (context, hasFocus) => Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: AppRadius.small,
+                border: Border.all(
+                  color: hasFocus
+                      ? Colors.redAccent
+                      : Colors.white.withValues(alpha: 0.18),
+                  width: hasFocus ? 2 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.exit_to_app_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Exit',
+                    style: AppTypography.getBody(
+                      color: Colors.white,
+                    ).copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildGridForLayout(BuildContext context, MultiViewLayoutMode mode) {
@@ -256,6 +387,7 @@ class _MultiViewPageState extends State<MultiViewPage> {
     final searchFilter = ''.obs;
     final selectedCategory = 'All Channels'.obs;
     final selectedProviderId = ''.obs;
+    final isTv = PlatformHelper.isTV || ResponsiveHelper.isTV(context);
 
     showModalBottomSheet(
       context: context,
@@ -311,38 +443,36 @@ class _MultiViewPageState extends State<MultiViewPage> {
                               isCompact: true,
                             )),
                         const SizedBox(width: 4.0),
-                        IconButton(
-                          icon: const Icon(Icons.close, color: Colors.white70),
-                          onPressed: () => Navigator.of(ctx).pop(),
+                        TvFocusable(
+                          onTap: () => Navigator.of(ctx).pop(),
+                          borderRadius: BorderRadius.circular(20),
+                          scale: 1.15,
+                          focusColor: Colors.redAccent,
+                          focusedBackgroundColor: Colors.redAccent.withValues(alpha: 0.35),
+                          builder: (context, hasFocus) => Padding(
+                            padding: const EdgeInsets.all(6.0),
+                            child: Icon(
+                              Icons.close,
+                              color: hasFocus ? Colors.white : Colors.white70,
+                              size: 20,
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
 
-                  // Search TextField
+                  // TV-aware Search Bar
                   Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.md,
                       vertical: AppSpacing.xs,
                     ),
-                    child: TextField(
-                      style: const TextStyle(color: Colors.white),
-                      decoration: InputDecoration(
-                        hintText: 'Search channel name or number...',
-                        hintStyle: const TextStyle(color: Colors.white54, fontSize: 13.5),
-                        prefixIcon: const Icon(Icons.search, color: Colors.white70, size: 20),
-                        filled: true,
-                        fillColor: const Color(0xFF21262D),
-                        border: OutlineInputBorder(
-                          borderRadius: AppRadius.medium,
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.sm,
-                        ),
-                      ),
+                    child: AppSearchBar(
+                      hintText: 'Search channel name or number...',
+                      backgroundColor: const Color(0xFF21262D),
                       onChanged: (val) => searchFilter.value = val.trim().toLowerCase(),
+                      onClear: () => searchFilter.value = '',
                     ),
                   ),
 
@@ -499,6 +629,7 @@ class _MultiViewPageState extends State<MultiViewPage> {
                           final chCat = controller.getChannelCategoryName(ch);
 
                           return TvFocusable(
+                            autofocus: isTv && index == 0,
                             onTap: () {
                               controller.setChannelForSlot(slotIndex, ch);
                               Navigator.of(ctx).pop();

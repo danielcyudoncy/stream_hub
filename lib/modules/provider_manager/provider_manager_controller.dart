@@ -36,6 +36,7 @@ class ProviderManagerController extends GetxController {
        _syncService = syncService;
 
   final RxList<ProviderModel> providers = <ProviderModel>[].obs;
+  final RxList<ProviderModel> _allProviders = <ProviderModel>[].obs;
   final RxBool isLoading = false.obs;
   final RxString searchQuery = ''.obs;
   final Rx<ProviderSortField> sortField = ProviderSortField.dateAdded.obs;
@@ -43,6 +44,13 @@ class ProviderManagerController extends GetxController {
   final Rx<ProviderType?> filterProviderType = Rx<ProviderType?>(null);
   final Rx<CacheInfo?> cacheInfo = Rx<CacheInfo?>(null);
   final RxString errorMessage = ''.obs;
+
+  bool get hasAnyProviders => _allProviders.isNotEmpty;
+  int get totalProviderCount => _allProviders.length;
+
+  ProviderModel? getProviderById(String id) {
+    return _allProviders.firstWhereOrNull((p) => p.id == id);
+  }
 
   @override
   void onInit() {
@@ -56,7 +64,8 @@ class ProviderManagerController extends GetxController {
       isLoading.value = true;
       errorMessage.value = '';
       final all = await _repository.getAllProviders();
-      providers.value = _applySorting(_applyFiltering(all));
+      _allProviders.assignAll(all);
+      providers.assignAll(_applySorting(_applyFiltering(_allProviders)));
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -284,8 +293,7 @@ class ProviderManagerController extends GetxController {
   }
 
   List<ProviderModel> getFilteredProviders() {
-    final all = providers;
-    return _applySorting(_applyFiltering(all));
+    return providers;
   }
 
   List<ProviderModel> _applyFiltering(List<ProviderModel> list) {
@@ -342,7 +350,7 @@ class ProviderManagerController extends GetxController {
   }
 
   void _refreshList() {
-    providers.assignAll(_applySorting(_applyFiltering(List.from(providers))));
+    providers.assignAll(_applySorting(_applyFiltering(_allProviders)));
   }
 
   Future<void> _loadCacheInfo() async {

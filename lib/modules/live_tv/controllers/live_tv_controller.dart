@@ -324,6 +324,12 @@ class LiveTVController extends GetxController {
         return item;
       }).toList();
 
+      for (final item in mappedChannels) {
+        if (item.favorite && !favIds.contains(item.id) && favoriteRepository != null) {
+          favoriteRepository!.add(item);
+        }
+      }
+
       _allChannels
         ..clear()
         ..addAll(mappedChannels);
@@ -598,7 +604,7 @@ class LiveTVController extends GetxController {
             : <String>{});
 
     favorites.assignAll(
-      activeChannels
+      unhiddenChannels
           .where((item) => effectiveFavIds.contains(item.id) || item.favorite)
           .toList(),
     );
@@ -708,6 +714,11 @@ class LiveTVController extends GetxController {
 
   void setCategory(String category) {
     selectedCategory.value = category;
+    if (category == '★ Favorites') {
+      showFavoritesOnly.value = true;
+    } else {
+      showFavoritesOnly.value = false;
+    }
     _applyFilters();
   }
 
@@ -756,6 +767,9 @@ class LiveTVController extends GetxController {
 
   void setFavoritesOnly(bool value) {
     showFavoritesOnly.value = value;
+    if (value) {
+      selectedCategory.value = 'All Channels';
+    }
     _applyFilters();
   }
 
@@ -765,7 +779,12 @@ class LiveTVController extends GetxController {
   }
 
   void _applyFilters() {
-    var result = List<MediaItem>.from(channels);
+    final isFavMode =
+        showFavoritesOnly.value || selectedCategory.value == '★ Favorites';
+
+    var result = isFavMode
+        ? List<MediaItem>.from(favorites)
+        : List<MediaItem>.from(channels);
 
     if (searchQuery.value.trim().isNotEmpty) {
       final q = searchQuery.value.trim().toLowerCase();
@@ -782,68 +801,65 @@ class LiveTVController extends GetxController {
       }).toList();
     }
 
-    if (selectedCategory.value == '★ Favorites') {
-      final favIds = favorites.map((f) => f.id).toSet();
-      result = result
-          .where((item) => favIds.contains(item.id) || item.favorite)
-          .toList();
-    } else if (selectedCategory.value == '🕒 Recent') {
-      final recentIds = recentChannels.map((r) => r.id).toSet();
-      result = result.where((item) => recentIds.contains(item.id)).toList();
-      final idOrder = {
-        for (int i = 0; i < recentChannels.length; i++) recentChannels[i].id: i,
-      };
-      result.sort(
-        (a, b) => (idOrder[a.id] ?? 999).compareTo(idOrder[b.id] ?? 999),
-      );
-    } else if (selectedCategory.value != 'All Channels' &&
-        selectedCategory.value.trim().isNotEmpty) {
-      final selectedCat = selectedCategory.value.trim().toLowerCase();
+    if (!isFavMode) {
+      if (selectedCategory.value == '🕒 Recent') {
+        final recentIds = recentChannels.map((r) => r.id).toSet();
+        result = result.where((item) => recentIds.contains(item.id)).toList();
+        final idOrder = {
+          for (int i = 0; i < recentChannels.length; i++) recentChannels[i].id: i,
+        };
+        result.sort(
+          (a, b) => (idOrder[a.id] ?? 999).compareTo(idOrder[b.id] ?? 999),
+        );
+      } else if (selectedCategory.value != 'All Channels' &&
+          selectedCategory.value.trim().isNotEmpty) {
+        final selectedCat = selectedCategory.value.trim().toLowerCase();
 
-      // Expand the selected category into every normalized token that can map
-      // a channel to it (category title/id + raw categoryId) and resolve the
-      // matching channel ids from the precomputed index.
-      final matchingTokens = <String>{selectedCat};
-      for (final cat in _allCategories) {
-        if (cat.title.trim().toLowerCase() == selectedCat ||
-            cat.id.trim().toLowerCase() == selectedCat) {
-          matchingTokens.add(cat.title.trim().toLowerCase());
-          matchingTokens.add(cat.id.trim().toLowerCase());
-          final rawId = cat.metadata['categoryId']?.toString().trim();
-          if (rawId != null && rawId.isNotEmpty) {
-            matchingTokens.add(rawId.toLowerCase());
+        // Expand the selected category into every normalized token that can map
+        // a channel to it (category title/id + raw categoryId) and resolve the
+        // matching channel ids from the precomputed index.
+        final matchingTokens = <String>{selectedCat};
+        for (final cat in _allCategories) {
+          if (cat.title.trim().toLowerCase() == selectedCat ||
+              cat.id.trim().toLowerCase() == selectedCat) {
+            matchingTokens.add(cat.title.trim().toLowerCase());
+            matchingTokens.add(cat.id.trim().toLowerCase());
+            final rawId = cat.metadata['categoryId']?.toString().trim();
+            if (rawId != null && rawId.isNotEmpty) {
+              matchingTokens.add(rawId.toLowerCase());
+            }
           }
         }
-      }
 
-      final matchingIds = <String>{};
-      for (final token in matchingTokens) {
-        final ids = _categoryChannelIndex[token];
-        if (ids != null) {
-          matchingIds.addAll(ids);
+        final matchingIds = <String>{};
+        for (final token in matchingTokens) {
+          final ids = _categoryChannelIndex[token];
+          if (ids != null) {
+            matchingIds.addAll(ids);
+          }
         }
-      }
 
-      if (matchingIds.isEmpty) {
-        // The category index has no mapping for this category (e.g. a category
-        // surfaced by the provider but not yet indexed, or channels injected
-        // directly). Fall back to a direct genre/metadata scan instead of
-        // wiping the channel list to an empty state.
-        result = result.where((item) {
-          final normalized = selectedCat.toLowerCase();
-          final hasGenre = item.genres.any(
-            (g) => g.toLowerCase() == normalized,
-          );
-          final hasCategoryId =
-              (item.metadata['category_id']?.toString() ??
-                      item.metadata['categoryId']?.toString() ??
-                      '')
-                  .toLowerCase() ==
-              normalized;
-          return hasGenre || hasCategoryId;
-        }).toList();
-      } else {
-        result = result.where((item) => matchingIds.contains(item.id)).toList();
+        if (matchingIds.isEmpty) {
+          // The category index has no mapping for this category (e.g. a category
+          // surfaced by the provider but not yet indexed, or channels injected
+          // directly). Fall back to a direct genre/metadata scan instead of
+          // wiping the channel list to an empty state.
+          result = result.where((item) {
+            final normalized = selectedCat.toLowerCase();
+            final hasGenre = item.genres.any(
+              (g) => g.toLowerCase() == normalized,
+            );
+            final hasCategoryId =
+                (item.metadata['category_id']?.toString() ??
+                        item.metadata['categoryId']?.toString() ??
+                        '')
+                    .toLowerCase() ==
+                normalized;
+            return hasGenre || hasCategoryId;
+          }).toList();
+        } else {
+          result = result.where((item) => matchingIds.contains(item.id)).toList();
+        }
       }
     }
 
@@ -881,9 +897,11 @@ class LiveTVController extends GetxController {
           .toList();
     }
 
-    if (showFavoritesOnly.value) {
+    if (isFavMode) {
       final favIds = favorites.map((f) => f.id).toSet();
-      result = result.where((item) => favIds.contains(item.id)).toList();
+      result = result
+          .where((item) => favIds.contains(item.id) || item.favorite)
+          .toList();
     }
 
     if (showRecentlyAdded.value) {
@@ -1054,15 +1072,23 @@ class LiveTVController extends GetxController {
   }
 
   Future<void> toggleFavorite(MediaItem item) async {
-    final isFav = favorites.any((f) => f.id == item.id);
+    final isFav = favorites.any((f) => f.id == item.id) || item.favorite;
     final updatedItem = item.copyWith(favorite: !isFav);
 
     if (isFav) {
       favorites.removeWhere((f) => f.id == item.id);
       await favoriteRepository?.remove(item.id);
     } else {
-      favorites.add(updatedItem);
+      if (!favorites.any((f) => f.id == item.id)) {
+        favorites.add(updatedItem);
+      }
       await favoriteRepository?.add(updatedItem);
+    }
+
+    // Also update in _allChannels
+    final allIdx = _allChannels.indexWhere((c) => c.id == item.id);
+    if (allIdx != -1) {
+      _allChannels[allIdx] = updatedItem;
     }
 
     // Update in channels and filteredChannels in-place without triggering full reload
@@ -1084,7 +1110,7 @@ class LiveTVController extends GetxController {
       activePlayingChannel.value = updatedItem;
     }
 
-    if (showFavoritesOnly.value) {
+    if (showFavoritesOnly.value || selectedCategory.value == '★ Favorites') {
       _applyFilters();
     }
   }

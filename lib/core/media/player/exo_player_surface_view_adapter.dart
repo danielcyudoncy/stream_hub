@@ -50,6 +50,7 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
 
   final LoggingService _logger;
   final bool _hardwareDecode;
+  final bool _handleAudioFocus;
 
   MethodChannel? _channel;
   EventChannel? _events;
@@ -100,8 +101,10 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
   ExoPlayerSurfaceViewAdapter({
     LoggingService? logger,
     bool hardwareDecode = true,
+    bool handleAudioFocus = true,
   })  : _logger = logger ?? LoggingService(),
-        _hardwareDecode = hardwareDecode;
+        _hardwareDecode = hardwareDecode,
+        _handleAudioFocus = handleAudioFocus;
 
   /// True once ExoPlayer has reported decoded video dimensions.
   ///
@@ -146,7 +149,10 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
           id: params.id,
           viewType: _viewType,
           layoutDirection: TextDirection.ltr,
-          creationParams: <String, dynamic>{'hardwareDecode': _hardwareDecode},
+          creationParams: <String, dynamic>{
+            'hardwareDecode': _hardwareDecode,
+            'handleAudioFocus': _handleAudioFocus,
+          },
           creationParamsCodec: const StandardMessageCodec(),
         );
         controller.addOnPlatformViewCreatedListener(params.onPlatformViewCreated);
@@ -551,6 +557,11 @@ class ExoPlayerSurfaceViewAdapter implements PlayerAdapter, StructuredErrorRepor
   Future<void> setMuted(bool muted) async {
     _currentMuted = muted;
     await _invoke('setMuted', {'muted': muted});
+  }
+
+  /// Configures whether ExoPlayer requests system audio focus from Android OS.
+  Future<void> setHandleAudioFocus(bool handleAudioFocus) async {
+    await _invoke('setHandleAudioFocus', {'handleAudioFocus': handleAudioFocus});
   }
 
   @override

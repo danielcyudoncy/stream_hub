@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
+import 'package:stream_hub/core/helpers/platform_helper.dart';
+import 'package:stream_hub/core/utils/responsive_helper.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
 import 'app_card.dart';
@@ -24,6 +26,8 @@ class ProviderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+
+    final isTv = PlatformHelper.isTV || ResponsiveHelper.isTV(context);
 
     return AppCard(
       onTap: onTap,
@@ -89,20 +93,28 @@ class ProviderCard extends StatelessWidget {
               ],
             ),
           ),
-          if (onFavoriteToggle != null)
-            IconButton(
-              icon: Icon(
-                provider.favorite ? Icons.favorite : Icons.favorite_border,
-                color: provider.favorite ? colorScheme.error : colorScheme.onSurface.withValues(alpha: 0.5),
-                size: 20,
-              ),
-              onPressed: onFavoriteToggle,
-              tooltip: provider.favorite ? 'Remove from favorites' : 'Add to favorites',
+          ExcludeFocus(
+            excluding: isTv,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onFavoriteToggle != null)
+                  IconButton(
+                    icon: Icon(
+                      provider.favorite ? Icons.favorite : Icons.favorite_border,
+                      color: provider.favorite ? colorScheme.error : colorScheme.onSurface.withValues(alpha: 0.5),
+                      size: 20,
+                    ),
+                    onPressed: onFavoriteToggle,
+                    tooltip: provider.favorite ? 'Remove from favorites' : 'Add to favorites',
+                  ),
+                Switch(
+                  value: provider.enabled,
+                  onChanged: (_) => onEnabledToggle?.call(),
+                  activeThumbColor: colorScheme.primary,
+                ),
+              ],
             ),
-          Switch(
-            value: provider.enabled,
-            onChanged: (_) => onEnabledToggle?.call(),
-            activeThumbColor: colorScheme.primary,
           ),
         ],
       ),

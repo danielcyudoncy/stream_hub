@@ -53,9 +53,15 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
       PlatformHelper.supportsDPadNavigation ||
       (mounted && ResponsiveHelper.isTvLayout(context));
 
-  ProviderModel? get effectiveProvider =>
-      widget.provider ??
-      (Get.arguments is ProviderModel ? Get.arguments as ProviderModel : null);
+  ProviderModel? get effectiveProvider {
+    if (widget.provider != null) return widget.provider;
+    final args = Get.arguments;
+    if (args is ProviderModel) return args;
+    if (args is Map && args['provider'] is ProviderModel) {
+      return args['provider'] as ProviderModel;
+    }
+    return null;
+  }
 
   bool get isEditing => effectiveProvider != null;
 
@@ -66,6 +72,15 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
   void initState() {
     super.initState();
     final effective = effectiveProvider;
+    ProviderType initialType = ProviderType.m3u;
+    if (effective != null) {
+      initialType = effective.providerType;
+    } else if (Get.arguments is ProviderType) {
+      initialType = Get.arguments as ProviderType;
+    } else if (Get.arguments is Map &&
+        (Get.arguments as Map)['type'] is ProviderType) {
+      initialType = (Get.arguments as Map)['type'] as ProviderType;
+    }
     _nameController = TextEditingController(text: effective?.name ?? '');
     _serverUrlController = TextEditingController(
       text: effective?.serverUrl ?? '',
@@ -75,7 +90,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     _macController = TextEditingController(text: effective?.macAddress ?? '');
     _xmltvController = TextEditingController(text: effective?.xmltvUrl ?? '');
     _notesController = TextEditingController(text: effective?.notes ?? '');
-    _selectedType = (effective?.providerType ?? ProviderType.m3u).obs;
+    _selectedType = initialType.obs;
     _serverUrlController.addListener(_handleServerUrlChanged);
 
     _notesFocusNode = FocusNode(
@@ -216,6 +231,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
 
     return AppScaffold(
       title: isEditing ? 'Edit Provider' : 'Add Provider',
+      showNavigation: false,
       body: Form(
         key: _formKey,
         child: TvKeyboardAwareScrollView(

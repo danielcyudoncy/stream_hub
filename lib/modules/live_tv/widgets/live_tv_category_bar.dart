@@ -58,7 +58,11 @@ class LiveTvCategoryBar extends StatelessWidget {
               iconColor: Colors.amber,
               isSelected: showFavoritesOnly,
               onTap: () {
-                onFavoritesToggle(!showFavoritesOnly);
+                final willShow = !showFavoritesOnly;
+                if (willShow) {
+                  onCategorySelected('All Channels');
+                }
+                onFavoritesToggle(willShow);
               },
               onMoveUp: onMoveUp,
               onFocus: onFocusCategory,
@@ -67,7 +71,9 @@ class LiveTvCategoryBar extends StatelessWidget {
           ],
 
           // Dynamic Category chips from loaded channels
-          for (final category in categories.where((c) => c != 'All Channels')) ...[
+          for (final category in categories.where(
+            (c) => c != 'All Channels' && c != '★ Favorites',
+          )) ...[
             _CategoryChip(
               label: category,
               isSelected: !showFavoritesOnly && selectedCategory == category,

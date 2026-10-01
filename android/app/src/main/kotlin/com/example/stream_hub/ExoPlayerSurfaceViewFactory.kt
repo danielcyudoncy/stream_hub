@@ -21,6 +21,7 @@ class ExoPlayerSurfaceViewFactory(
     override fun create(context: Context, viewId: Int, args: Any?): PlatformView {
         val params = args as? Map<*, *>
         val hardwareDecode = params?.get("hardwareDecode") as? Boolean ?: true
-        return ExoPlayerSurfaceView(context, messenger, viewId, hardwareDecode)
+        val handleAudioFocus = params?.get("handleAudioFocus") as? Boolean ?: true
+        return ExoPlayerSurfaceView(context, messenger, viewId, hardwareDecode, handleAudioFocus)
     }
 }
