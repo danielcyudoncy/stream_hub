@@ -146,7 +146,7 @@ class PremiumMediaCard extends StatelessWidget {
                         ? Icons.tv
                         : Icons.movie,
                     size: 40,
-                    color: AppColors.textSecondary,
+                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
                 ),
 
@@ -169,7 +169,7 @@ class PremiumMediaCard extends StatelessWidget {
                         Text(
                           item.rating!.toStringAsFixed(1),
                           style: AppTypography.getCaption(
-                            color: AppColors.textPrimary,
+                            color: colorScheme.onSurface,
                             scale: 0.9,
                           ),
                         ),
@@ -194,7 +194,7 @@ class PremiumMediaCard extends StatelessWidget {
                         Text(
                           item.title,
                           style: AppTypography.getLabel(
-                            color: AppColors.textPrimary,
+                            color: colorScheme.onSurface,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -204,7 +204,7 @@ class PremiumMediaCard extends StatelessWidget {
                           Text(
                             item.subtitle!,
                             style: AppTypography.getCaption(
-                              color: AppColors.textSecondary,
+                              color: colorScheme.onSurfaceVariant,
                               scale: 0.9,
                             ),
                             maxLines: 1,
@@ -276,7 +276,7 @@ class PremiumMediaCard extends StatelessWidget {
                         ? TitleFormatter.formatChannelTitle(item.title)
                         : item.title,
                     style: AppTypography.getCaption(
-                      color: AppColors.textPrimary,
+                      color: colorScheme.onSurface,
                     ).copyWith(fontWeight: FontWeight.w600),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -286,7 +286,7 @@ class PremiumMediaCard extends StatelessWidget {
                     Text(
                       subtitleText,
                       style: AppTypography.getCaption(
-                        color: AppColors.textSecondary,
+                        color: colorScheme.onSurfaceVariant,
                         scale: 0.8,
                       ),
                       maxLines: 1,

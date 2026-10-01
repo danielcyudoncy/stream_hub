@@ -89,7 +89,7 @@ class AppTheme {
       scaffoldBackgroundColor: AppColors.lightBackground,
       colorScheme: const ColorScheme.light(
         primary: AppColors.lightPrimary,
-        onPrimary: AppColors.lightTextPrimary,
+        onPrimary: Colors.white,
         primaryContainer: AppColors.lightPrimaryContainer,
         secondary: AppColors.lightSecondary,
         onSecondary: AppColors.lightTextPrimary,
@@ -99,7 +99,7 @@ class AppTheme {
         surfaceContainerHighest: AppColors.lightSurfaceVariant,
         onSurfaceVariant: AppColors.lightTextSecondary,
         error: AppColors.lightError,
-        onError: AppColors.lightTextPrimary,
+        onError: Colors.white,
       ),
       textTheme: TextTheme(
         displayLarge: AppTypography.getDisplay(color: AppColors.lightTextPrimary),

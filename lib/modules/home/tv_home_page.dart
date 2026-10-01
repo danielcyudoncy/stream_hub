@@ -713,7 +713,7 @@ class _TvHomePageState extends State<TvHomePage> {
                 Text(
                   year,
                   style: AppTypography.getLabel(
-                    color: AppColors.textSecondary,
+                    color: Colors.white70,
                   ).copyWith(fontWeight: FontWeight.w600),
                 ),
 
@@ -741,7 +741,7 @@ class _TvHomePageState extends State<TvHomePage> {
               if (genre != null && genre.isNotEmpty)
                 Text(
                   '•  $genre',
-                  style: AppTypography.getLabel(color: AppColors.textSecondary),
+                  style: AppTypography.getLabel(color: Colors.white70),
                 ),
             ],
           ),
@@ -753,7 +753,7 @@ class _TvHomePageState extends State<TvHomePage> {
             child: Text(
               item.title,
               key: ValueKey(item.title),
-              style: AppTypography.getDisplay(color: AppColors.textPrimary)
+              style: AppTypography.getDisplay(color: Colors.white)
                   .copyWith(
                     fontSize: 44,
                     fontWeight: FontWeight.w900,
@@ -779,7 +779,7 @@ class _TvHomePageState extends State<TvHomePage> {
               child: Text(
                 item.description!,
                 key: ValueKey(item.description),
-                style: AppTypography.getBody(color: AppColors.textSecondary)
+                style: AppTypography.getBody(color: Colors.white70)
                     .copyWith(
                       height: 1.4,
                       shadows: [
@@ -849,6 +849,7 @@ class _TvHomePageState extends State<TvHomePage> {
                   borderRadius: AppRadius.pill,
                   child: GlassPanel(
                     borderRadius: AppRadius.pill,
+                    backgroundColor: const Color(0xFF1D2022),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 14,
@@ -858,14 +859,14 @@ class _TvHomePageState extends State<TvHomePage> {
                       children: [
                         const Icon(
                           Icons.info_outline_rounded,
-                          color: AppColors.textPrimary,
+                          color: Colors.white,
                           size: 20,
                         ),
                         AppSpacing.widthSM,
                         Text(
                           'More Info',
                           style: AppTypography.getTitle(
-                            color: AppColors.textPrimary,
+                            color: Colors.white,
                           ),
                         ),
                       ],
@@ -882,6 +883,7 @@ class _TvHomePageState extends State<TvHomePage> {
                     borderRadius: AppRadius.pill,
                     child: GlassPanel(
                       borderRadius: AppRadius.pill,
+                      backgroundColor: const Color(0xFF1D2022),
                       padding: const EdgeInsets.all(14),
                       child: Icon(
                         isFav
