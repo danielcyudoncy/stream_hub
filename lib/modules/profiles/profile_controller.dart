@@ -96,7 +96,7 @@ class ProfileController extends GetxController {
 
   // ─── Save / Edit ──────────────────────────────────────────────────────────
 
-  Future<void> saveProfileChanges() async {
+  Future<void> saveProfileChanges({bool showSnackbar = true}) async {
     if (isLoading.value) return;
     try {
       isLoading.value = true;
@@ -125,16 +125,25 @@ class ProfileController extends GetxController {
         } else {
           profiles.add(updated);
         }
+        if (Get.isRegistered<ActiveProfileService>()) {
+          Get.find<ActiveProfileService>().setActiveProfile(
+            updated.id,
+            displayName: updated.displayName,
+            photoUrl: updated.photoUrl,
+          );
+        }
       } else {
         await _createNewProfile(trimmedName, photoUrl.value.trim());
       }
-      Get.snackbar(
-        'Profile Saved',
-        'Your profile has been updated.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
-        colorText: Get.theme.colorScheme.onSurface,
-      );
+      if (showSnackbar) {
+        Get.snackbar(
+          'Profile Saved',
+          'Your profile has been updated.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Get.theme.colorScheme.surfaceContainerHighest,
+          colorText: Get.theme.colorScheme.onSurface,
+        );
+      }
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -186,8 +195,24 @@ class ProfileController extends GetxController {
     photoUrl.value = profile.photoUrl ?? '';
     // Broadcast to data-layer services so they reload their caches.
     if (Get.isRegistered<ActiveProfileService>()) {
-      Get.find<ActiveProfileService>().setActiveProfile(profile.id);
+      Get.find<ActiveProfileService>().setActiveProfile(
+        profile.id,
+        displayName: profile.displayName,
+        photoUrl: profile.photoUrl,
+      );
     }
+  }
+
+  @override
+  void onClose() {
+    final trimmed = displayName.value.trim();
+    if (trimmed.length >= 2 &&
+        activeProfile.value != null &&
+        (trimmed != activeProfile.value!.displayName ||
+            photoUrl.value != (activeProfile.value!.photoUrl ?? ''))) {
+      unawaited(saveProfileChanges(showSnackbar: false));
+    }
+    super.onClose();
   }
 
   // ─── Create Profile ───────────────────────────────────────────────────────

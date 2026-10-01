@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/data/services/database_service.dart';
+import 'package:stream_hub/data/repositories/profile_repository.dart';
 
 /// Singleton GetxService that holds the currently active profile ID and
 /// broadcasts changes to any service that depends on it.
@@ -19,6 +20,12 @@ class ActiveProfileService extends GetxService {
 
   /// The currently active profile ID.  Empty string = no profile / default.
   final RxString profileId = ''.obs;
+
+  /// The currently active profile display name.
+  final RxString activeDisplayName = ''.obs;
+
+  /// The currently active profile avatar/photo URL or preset index.
+  final RxString activePhotoUrl = ''.obs;
 
   /// Convenience getter.
   String get currentProfileId => profileId.value;
@@ -41,6 +48,20 @@ class ActiveProfileService extends GetxService {
           );
         }
       }
+
+      if (Get.isRegistered<ProfileRepository>()) {
+        final repo = Get.find<ProfileRepository>();
+        final allProfiles = await repo.getAllProfiles();
+        if (allProfiles.isNotEmpty) {
+          final matched = (profileId.value.isNotEmpty)
+              ? allProfiles.firstWhereOrNull((p) => p.id == profileId.value) ??
+                  allProfiles.first
+              : allProfiles.first;
+          profileId.value = matched.id;
+          activeDisplayName.value = matched.displayName;
+          activePhotoUrl.value = matched.photoUrl ?? '';
+        }
+      }
     } catch (e) {
       _logger.warning(
         'ActiveProfileService: could not restore active profile',
@@ -51,16 +72,35 @@ class ActiveProfileService extends GetxService {
     return this;
   }
 
-  /// Switch to [id].  Passing an empty string reverts to the default scope.
-  void setActiveProfile(String id) {
-    if (profileId.value == id) return;
+  /// Switch to [id] and optionally update in-memory display metadata.
+  /// Passing an empty string reverts to the default scope.
+  void setActiveProfile(String id, {String? displayName, String? photoUrl}) {
+    final changed = profileId.value != id ||
+        (displayName != null && activeDisplayName.value != displayName) ||
+        (photoUrl != null && activePhotoUrl.value != photoUrl);
+
+    if (!changed) return;
+
     profileId.value = id;
+    if (displayName != null) activeDisplayName.value = displayName;
+    if (photoUrl != null) activePhotoUrl.value = photoUrl;
+
     _logger.info(
-      'ActiveProfileService: switched to profile "$id"',
+      'ActiveProfileService: switched to profile "$id" (${activeDisplayName.value})',
       tag: 'ActiveProfileService',
     );
   }
 
+  /// Update the active profile display metadata.
+  void updateActiveProfileInfo({required String displayName, String? photoUrl}) {
+    activeDisplayName.value = displayName;
+    if (photoUrl != null) activePhotoUrl.value = photoUrl;
+  }
+
   /// Clear the active profile selection.
-  void clearActiveProfile() => setActiveProfile('');
+  void clearActiveProfile() {
+    setActiveProfile('');
+    activeDisplayName.value = '';
+    activePhotoUrl.value = '';
+  }
 }

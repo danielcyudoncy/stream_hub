@@ -18,6 +18,7 @@ import 'package:stream_hub/modules/epg/pages/tv_guide_page.dart';
 import 'package:stream_hub/modules/epg/repositories/guide_repository.dart';
 import 'package:stream_hub/modules/live_tv/controllers/live_tv_controller.dart';
 import 'package:stream_hub/modules/live_tv/widgets/live_tv_channel_card.dart';
+import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 class _MockCatalogRepository implements CatalogRepository {
   @override
@@ -200,10 +201,10 @@ void main() {
     // Find the TvGuide_Refresh button focus node in the showcase
     final refreshFinders = find.ancestor(
       of: find.byIcon(Icons.refresh),
-      matching: find.byType(FocusableActionDetector),
+      matching: find.byType(TvFocusable),
     );
     FocusNode? refreshNode;
-    for (final widget in tester.widgetList<FocusableActionDetector>(refreshFinders)) {
+    for (final widget in tester.widgetList<TvFocusable>(refreshFinders)) {
       if (widget.focusNode?.debugLabel == 'TvGuide_Refresh') {
         refreshNode = widget.focusNode;
         break;

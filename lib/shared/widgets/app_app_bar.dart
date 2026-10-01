@@ -113,16 +113,25 @@ class _ProfileAvatarButton extends StatelessWidget {
 
     return Obx(() {
       // Trigger rebuild when the active profile changes.
-      Get.find<ActiveProfileService>().profileId.value;
+      final activeService = Get.find<ActiveProfileService>();
+      activeService.profileId.value;
+      final activePhoto = activeService.activePhotoUrl.value;
+      final activeName = activeService.activeDisplayName.value;
 
-      if (!Get.isRegistered<ProfileController>()) {
-        return _genericButton(context);
-      }
-      final ctrl = Get.find<ProfileController>();
-      final profile = ctrl.activeProfile.value;
+      final ctrl = Get.isRegistered<ProfileController>()
+          ? Get.find<ProfileController>()
+          : null;
+      final profile = ctrl?.activeProfile.value;
 
-      final idx = avatarIndexForProfile(profile);
-      final preset = kAvatarPresets[idx];
+      final photoToUse = activePhoto.isNotEmpty
+          ? activePhoto
+          : (profile?.photoUrl ?? '0');
+      final idx = int.tryParse(photoToUse) ?? avatarIndexForProfile(profile);
+      final preset = kAvatarPresets[idx.clamp(0, kAvatarPresets.length - 1)];
+
+      final nameToUse = activeName.isNotEmpty
+          ? activeName
+          : (profile?.displayName ?? 'Profile');
 
       return TvFocusable(
         scale: 1.08,
@@ -131,7 +140,7 @@ class _ProfileAvatarButton extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Tooltip(
-            message: profile?.displayName ?? 'Profile',
+            message: nameToUse,
             child: CircleAvatar(
               radius: 16,
               backgroundColor: preset.color,

@@ -1,8 +1,11 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
+import 'package:stream_hub/core/helpers/platform_helper.dart';
+import 'package:stream_hub/core/utils/responsive_helper.dart';
 import 'package:stream_hub/modules/profiles/profile_controller.dart';
 import 'package:stream_hub/shared/widgets/app_button.dart';
 import 'package:stream_hub/shared/widgets/app_card.dart';
@@ -64,6 +67,10 @@ class ProfilePage extends GetView<ProfileController> {
                     hint: 'Enter your display name',
                     initialValue: controller.displayName.value,
                     onChanged: (v) => controller.displayName.value = v,
+                    onSubmitted: (v) {
+                      controller.displayName.value = v;
+                      controller.saveProfileChanges(showSnackbar: false);
+                    },
                   ),
                 ],
               ),
@@ -591,12 +598,14 @@ class _ProfileTextField extends StatefulWidget {
   final String hint;
   final String initialValue;
   final ValueChanged<String> onChanged;
+  final ValueChanged<String>? onSubmitted;
 
   const _ProfileTextField({
     required this.label,
     required this.hint,
     required this.initialValue,
     required this.onChanged,
+    this.onSubmitted,
   });
 
   @override
@@ -605,11 +614,77 @@ class _ProfileTextField extends StatefulWidget {
 
 class _ProfileTextFieldState extends State<_ProfileTextField> {
   late final TextEditingController _controller;
+  late final FocusNode _textFocusNode;
+  late final FocusNode _tvTileFocusNode;
+  bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialValue);
+    _textFocusNode = FocusNode(debugLabel: 'Profile_DisplayName_Text');
+    _tvTileFocusNode = FocusNode(debugLabel: 'Profile_DisplayName_Tile');
+    _textFocusNode.addListener(_onTextFocusChanged);
+    _textFocusNode.onKeyEvent = _handleTextKeyEvent;
+  }
+
+  void _onTextFocusChanged() {
+    if (!_textFocusNode.hasFocus && mounted && _isEditing) {
+      setState(() => _isEditing = false);
+      final isTv = PlatformHelper.isTV || ResponsiveHelper.isTvLayout(context);
+      if (isTv) {
+        _textFocusNode.canRequestFocus = false;
+      }
+    }
+  }
+
+  KeyEventResult _handleTextKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      _exitEditing();
+      final moved = node.focusInDirection(TraversalDirection.down);
+      if (!moved) {
+        node.nextFocus();
+      }
+      return KeyEventResult.handled;
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      _exitEditing();
+      final moved = node.focusInDirection(TraversalDirection.up);
+      if (!moved) {
+        node.previousFocus();
+      }
+      return KeyEventResult.handled;
+    } else if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.goBack) {
+      _exitEditing();
+      _tvTileFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  void _activateEditing() {
+    setState(() => _isEditing = true);
+    _textFocusNode.canRequestFocus = true;
+    _textFocusNode.requestFocus();
+    SystemChannels.textInput.invokeMethod('TextInput.show');
+  }
+
+  void _exitEditing() {
+    if (mounted) {
+      setState(() => _isEditing = false);
+      _textFocusNode.canRequestFocus = false;
+      SystemChannels.textInput.invokeMethod('TextInput.hide');
+      widget.onSubmitted?.call(_controller.text);
+    }
+  }
+
+  void _handleSubmitted(String value) {
+    _exitEditing();
+    _tvTileFocusNode.requestFocus();
   }
 
   @override
@@ -625,19 +700,48 @@ class _ProfileTextFieldState extends State<_ProfileTextField> {
 
   @override
   void dispose() {
+    _textFocusNode.removeListener(_onTextFocusChanged);
+    _textFocusNode.dispose();
+    _tvTileFocusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return TextField(
+    final isTv = PlatformHelper.isTV || ResponsiveHelper.isTvLayout(context);
+
+    if (isTv) {
+      _textFocusNode.canRequestFocus = _isEditing;
+    }
+
+    final fieldWidget = TextField(
       controller: _controller,
+      focusNode: _textFocusNode,
       decoration: InputDecoration(
         labelText: widget.label,
-        hintText: widget.hint,
+        hintText: isTv && !_isEditing
+            ? '${widget.hint} (Press OK to edit)'
+            : widget.hint,
       ),
       onChanged: widget.onChanged,
+      onSubmitted: _handleSubmitted,
+    );
+
+    if (!isTv) {
+      return fieldWidget;
+    }
+
+    return TvFocusable(
+      focusNode: _tvTileFocusNode,
+      canRequestFocus: !_isEditing,
+      onTap: _activateEditing,
+      borderRadius: BorderRadius.circular(12),
+      scale: 1.01,
+      child: AbsorbPointer(
+        absorbing: !_isEditing,
+        child: fieldWidget,
+      ),
     );
   }
 }

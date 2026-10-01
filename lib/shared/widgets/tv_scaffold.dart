@@ -15,6 +15,7 @@ import '../../modules/live_tv/controllers/favorites_controller.dart';
 import '../../data/services/favorite_service.dart';
 import '../../modules/player/controllers/player_controller.dart';
 import '../../modules/player/pages/floating_player_page.dart';
+import '../../data/services/active_profile_service.dart';
 import '../../modules/profiles/profile_controller.dart';
 import '../../modules/provider_manager/provider_manager_controller.dart';
 import '../../modules/live_tv/widgets/multi_view_layout_dialog.dart';
@@ -680,31 +681,65 @@ class _TvScaffoldState extends State<TvScaffold> {
   }
 
   Widget _buildProfileHeader() {
-    final profileCtrl = Get.isRegistered<ProfileController>()
-        ? Get.find<ProfileController>()
-        : null;
-    final providerCtrl = Get.isRegistered<ProviderManagerController>()
-        ? Get.find<ProviderManagerController>()
-        : null;
-    final providerRepo = Get.isRegistered<ProviderRepository>()
-        ? Get.find<ProviderRepository>()
-        : null;
+    final hasActiveService = Get.isRegistered<ActiveProfileService>();
+    final hasProfileCtrl = Get.isRegistered<ProfileController>();
+    final hasProviderRepo = Get.isRegistered<ProviderRepository>();
 
-    final profileName =
-        profileCtrl?.activeProfile.value?.displayName ??
-        profileCtrl?.displayName.value ??
-        'Primary User';
+    if (!hasActiveService && !hasProfileCtrl && !hasProviderRepo) {
+      return _buildProfileHeaderContent(
+        profileName: 'Primary',
+        providerName: 'IPTV Premium',
+      );
+    }
 
-    final activeId = providerRepo?.activeProviderId.value ?? '';
-    final matchedProvider = providerCtrl?.providers.firstWhereOrNull(
-      (p) => p.id == activeId || p.name == activeId,
-    );
-    final providerName =
-        matchedProvider?.name ??
-        (providerCtrl?.providers.isNotEmpty == true
-            ? providerCtrl!.providers.first.name
-            : 'IPTV Premium');
+    return Obx(() {
+      final activeService =
+          hasActiveService ? Get.find<ActiveProfileService>() : null;
+      final profileCtrl =
+          hasProfileCtrl ? Get.find<ProfileController>() : null;
+      final providerCtrl = Get.isRegistered<ProviderManagerController>()
+          ? Get.find<ProviderManagerController>()
+          : null;
+      final providerRepo =
+          hasProviderRepo ? Get.find<ProviderRepository>() : null;
 
+      // Ensure at least one Rx is read so Obx has an active subscription:
+      if (hasActiveService) {
+        activeService!.activeDisplayName.value;
+      } else if (hasProfileCtrl) {
+        profileCtrl!.displayName.value;
+      } else if (hasProviderRepo) {
+        providerRepo!.activeProviderId.value;
+      }
+
+      final profileName =
+          (activeService != null && activeService.activeDisplayName.value.isNotEmpty)
+              ? activeService.activeDisplayName.value
+              : (profileCtrl?.activeProfile.value?.displayName ??
+                  profileCtrl?.displayName.value ??
+                  'Primary');
+
+      final activeId = providerRepo?.activeProviderId.value ?? '';
+      final matchedProvider = providerCtrl?.providers.firstWhereOrNull(
+        (p) => p.id == activeId || p.name == activeId,
+      );
+      final providerName =
+          matchedProvider?.name ??
+          (providerCtrl?.providers.isNotEmpty == true
+              ? providerCtrl!.providers.first.name
+              : 'IPTV Premium');
+
+      return _buildProfileHeaderContent(
+        profileName: profileName,
+        providerName: providerName,
+      );
+    });
+  }
+
+  Widget _buildProfileHeaderContent({
+    required String profileName,
+    required String providerName,
+  }) {
     return TvFocusable(
       focusNode: _profileFocusNode,
       onTap: () {
