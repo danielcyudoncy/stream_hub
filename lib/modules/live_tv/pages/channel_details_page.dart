@@ -377,7 +377,9 @@ class ChannelDetailsPage extends GetView<LiveTVController> {
                 label: const Text('Play'),
                 style: FilledButton.styleFrom(
                   disabledBackgroundColor:
-                      colorScheme.primary.withValues(alpha: 0.3),
+                      colorScheme.primary,
+                  disabledForegroundColor:
+                      colorScheme.onPrimary,
                 ),
               ),
             ),

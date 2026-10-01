@@ -29,8 +29,38 @@ class AppTheme {
         titleLarge: AppTypography.getTitle(color: AppColors.textPrimary),
         bodyLarge: AppTypography.getBody(color: AppColors.textPrimary),
         bodyMedium: AppTypography.getBody(color: AppColors.textSecondary),
-        labelLarge: AppTypography.getLabel(color: AppColors.textPrimary),
+        labelLarge: AppTypography.getLabel(),
         bodySmall: AppTypography.getCaption(color: AppColors.textSecondary),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
+          textStyle: AppTypography.getButton(),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.surfaceVariant,
+          foregroundColor: AppColors.textPrimary,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
+          textStyle: AppTypography.getButton(),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary, width: 1.5),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
+          textStyle: AppTypography.getButton(),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          textStyle: AppTypography.getButton(),
+        ),
       ),
       cardTheme: const CardThemeData(
         color: AppColors.surface,
@@ -77,8 +107,38 @@ class AppTheme {
         titleLarge: AppTypography.getTitle(color: AppColors.lightTextPrimary),
         bodyLarge: AppTypography.getBody(color: AppColors.lightTextPrimary),
         bodyMedium: AppTypography.getBody(color: AppColors.lightTextSecondary),
-        labelLarge: AppTypography.getLabel(color: AppColors.lightTextPrimary),
+        labelLarge: AppTypography.getLabel(),
         bodySmall: AppTypography.getCaption(color: AppColors.lightTextSecondary),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.lightPrimary,
+          foregroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
+          textStyle: AppTypography.getButton(),
+        ),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.lightSurfaceVariant,
+          foregroundColor: AppColors.lightTextPrimary,
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
+          textStyle: AppTypography.getButton(),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.lightPrimary,
+          side: const BorderSide(color: AppColors.lightPrimary, width: 1.5),
+          shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
+          textStyle: AppTypography.getButton(),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.lightPrimary,
+          textStyle: AppTypography.getButton(),
+        ),
       ),
       cardTheme: const CardThemeData(
         color: AppColors.lightSurface,

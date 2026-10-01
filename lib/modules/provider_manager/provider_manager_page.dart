@@ -62,17 +62,17 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: AppColors.primaryGradient),
+                color: colorScheme.primary,
                 borderRadius: BorderRadius.circular(8.0),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(AppIcons.add, size: 16, color: Colors.white),
+                  Icon(AppIcons.add, size: 16, color: colorScheme.onPrimary),
                   const SizedBox(width: 4),
                   Text(
                     'Add Source',
-                    style: AppTypography.getButton(color: Colors.white)
+                    style: AppTypography.getButton(color: colorScheme.onPrimary)
                         .copyWith(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ],
@@ -89,10 +89,11 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
               child: FloatingActionButton.extended(
                 onPressed: () => Get.toNamed(AppRoutes.providerForm),
                 backgroundColor: colorScheme.primary,
-                icon: const Icon(AppIcons.add, color: Colors.white),
+                foregroundColor: colorScheme.onPrimary,
+                icon: Icon(AppIcons.add, color: colorScheme.onPrimary),
                 label: Text(
                   'Add Source',
-                  style: AppTypography.getButton(color: Colors.white),
+                  style: AppTypography.getButton(color: colorScheme.onPrimary),
                 ),
               ),
             )
@@ -220,9 +221,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
                     vertical: AppSpacing.sm,
                   ),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: AppColors.primaryGradient,
-                    ),
+                    color: colorScheme.primary,
                     borderRadius: BorderRadius.circular(10.0),
                     boxShadow: [
                       BoxShadow(
@@ -235,11 +234,11 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(AppIcons.add, size: 16, color: Colors.white),
+                      Icon(AppIcons.add, size: 16, color: colorScheme.onPrimary),
                       const SizedBox(width: 6),
                       Text(
                         'Add Source',
-                        style: AppTypography.getButton(color: Colors.white)
+                        style: AppTypography.getButton(color: colorScheme.onPrimary)
                             .copyWith(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,

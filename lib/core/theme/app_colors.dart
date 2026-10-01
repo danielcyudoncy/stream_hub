@@ -55,7 +55,7 @@ class AppColors {
   ];
   
   static const List<Color> primaryGradient = [
-    Color(0xFF7C3AED),
-    Color(0xFF00F1FE),
+    Color(0xFF7C3AED), // Neon Purple
+    Color(0xFF2563EB), // Electric Royal Blue (WCAG AA compliant with white text)
   ];
 }

@@ -100,9 +100,13 @@ class ConfirmationDialog extends StatelessWidget {
                 return base;
               }),
               foregroundColor: WidgetStateProperty.resolveWith((states) {
-                return isDestructive
-                    ? colorScheme.onError
-                    : colorScheme.onPrimary;
+                if (isDestructive) {
+                  return colorScheme.onError;
+                }
+                if (states.contains(WidgetState.focused)) {
+                  return colorScheme.onPrimaryContainer;
+                }
+                return colorScheme.onPrimary;
               }),
               shape: WidgetStateProperty.resolveWith((states) {
                 if (states.contains(WidgetState.focused)) {

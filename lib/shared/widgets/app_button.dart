@@ -148,7 +148,11 @@ class AppButton extends StatelessWidget {
                     Flexible(
                       child: Text(
                         text,
-                        style: AppTypography.getButton(),
+                        style: AppTypography.getButton(
+                          color: isButtonDisabled
+                              ? colorScheme.onSurface.withValues(alpha: 0.38)
+                              : foregroundColor,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),

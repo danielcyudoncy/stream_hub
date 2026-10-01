@@ -68,9 +68,7 @@ class EmptyLibrary extends StatelessWidget {
                 scale: 1.08,
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: AppColors.primaryGradient,
-                    ),
+                    color: colorScheme.primary,
                     borderRadius: BorderRadius.circular(8.0),
                     boxShadow: [
                       BoxShadow(
@@ -87,7 +85,7 @@ class EmptyLibrary extends StatelessWidget {
                   child: Text(
                     actionLabel!,
                     style: AppTypography.getButton(
-                      color: Colors.white,
+                      color: colorScheme.onPrimary,
                     ).copyWith(fontWeight: FontWeight.bold),
                   ),
                 ),
