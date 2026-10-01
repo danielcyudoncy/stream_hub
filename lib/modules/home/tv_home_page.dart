@@ -375,6 +375,8 @@ class _TvHomePageState extends State<TvHomePage> {
                             HomeContentRail(
                               title: 'Continue Watching',
                               items: controller.continueWatching,
+                              cardWidth: 220.0,
+                              cardHeight: 155.0,
                               onSeeAll: () => Get.toNamed(AppRoutes.movies),
                               itemBuilder: (context, item, index) {
                                 return HomeContinueWatchingCard(
