@@ -371,7 +371,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
                     // Vertical subtle separator
                     Container(
                       width: 1.0,
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.12),
                     ),
 
                     // Right Pane (56%): Channels header + Independent list/grid
@@ -390,10 +390,10 @@ class _LiveTVPageState extends State<LiveTVPage> {
                                     favoritesOnly
                                         ? 'Favorite Channels'
                                         : selectedCat,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 13.0,
                                       fontWeight: FontWeight.w700,
-                                      color: Colors.white,
+                                      color: Theme.of(context).colorScheme.onSurface,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -512,10 +512,10 @@ class _LiveTVPageState extends State<LiveTVPage> {
                     Expanded(
                       child: Text(
                         favoritesOnly ? 'Favorite Channels' : selectedCat,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: Theme.of(context).colorScheme.onSurface,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -700,10 +700,10 @@ class _LiveTVPageState extends State<LiveTVPage> {
         right: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: AppColors.background.withValues(alpha: 0.95),
+        color: Theme.of(context).scaffoldBackgroundColor.withValues(alpha: 0.95),
         border: Border(
           bottom: BorderSide(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
             width: 1.0,
           ),
         ),
@@ -739,9 +739,9 @@ class _LiveTVPageState extends State<LiveTVPage> {
                     if (!isUltraCompact)
                       Text(
                         '${controller.channels.length} Channels',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 10.0,
-                          color: AppColors.darkTextMuted,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
@@ -780,7 +780,9 @@ class _LiveTVPageState extends State<LiveTVPage> {
                           : Icons.view_agenda_rounded,
                       size: 18.0,
                     ),
-                    color: isList ? AppColors.primary : Colors.white,
+                    color: isList
+                        ? AppColors.primary
+                        : Theme.of(context).colorScheme.onSurface,
                     tooltip: isList
                         ? 'Switch to Grid View'
                         : 'Switch to List View',
@@ -803,13 +805,13 @@ class _LiveTVPageState extends State<LiveTVPage> {
                 },
                 scale: 1.15,
                 borderRadius: BorderRadius.circular(24),
-                child: const IconButton(
-                  padding: EdgeInsets.all(6.0),
-                  constraints: BoxConstraints(),
+                child: IconButton(
+                  padding: const EdgeInsets.all(6.0),
+                  constraints: const BoxConstraints(),
                   icon: Icon(
                     Icons.calendar_view_week_rounded,
                     size: 18.0,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   tooltip: 'EPG TV Guide',
                   onPressed: null,
@@ -823,13 +825,13 @@ class _LiveTVPageState extends State<LiveTVPage> {
                 },
                 scale: 1.15,
                 borderRadius: BorderRadius.circular(24),
-                child: const IconButton(
-                  padding: EdgeInsets.all(6.0),
-                  constraints: BoxConstraints(),
+                child: IconButton(
+                  padding: const EdgeInsets.all(6.0),
+                  constraints: const BoxConstraints(),
                   icon: Icon(
                     Icons.search_rounded,
                     size: 18.0,
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ),
                   tooltip: 'Search Channels',
                   onPressed: null,
@@ -848,98 +850,53 @@ class _LiveTVPageState extends State<LiveTVPage> {
   }
 
   Widget _buildSortMenu() {
-    return TvFocusable(
-      onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
-      scale: 1.15,
-      borderRadius: BorderRadius.circular(24),
-      child: PopupMenuButton<String>(
-        key: _sortPopupKey,
-        padding: const EdgeInsets.all(6.0),
-        constraints: const BoxConstraints(),
-        icon: const Icon(Icons.sort_rounded, size: 18.0, color: Colors.white),
-        tooltip: 'Sort Channels',
-        color: AppColors.darkSurface,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.medium,
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        initialValue: controller.selectedSort.value,
-        onSelected: (val) => controller.setSort(val),
-        itemBuilder: (context) => [
-          const PopupMenuItem(
-            value: 'alphabetical',
-            child: Text('A - Z (Alphabetical)'),
+    return Builder(
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return TvFocusable(
+          onTap: () => _sortPopupKey.currentState?.showButtonMenu(),
+          scale: 1.15,
+          borderRadius: BorderRadius.circular(24),
+          child: PopupMenuButton<String>(
+            key: _sortPopupKey,
+            padding: const EdgeInsets.all(6.0),
+            constraints: const BoxConstraints(),
+            icon: Icon(Icons.sort_rounded, size: 18.0, color: colorScheme.onSurface),
+            tooltip: 'Sort Channels',
+            color: colorScheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadius.medium,
+              side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.15)),
+            ),
+            initialValue: controller.selectedSort.value,
+            onSelected: (val) => controller.setSort(val),
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'alphabetical',
+                child: Text('A - Z (Alphabetical)'),
+              ),
+              const PopupMenuItem(
+                value: 'recentlyAdded',
+                child: Text('Recently Added'),
+              ),
+              const PopupMenuItem(
+                value: 'provider',
+                child: Text('By Source / Provider'),
+              ),
+              const PopupMenuItem(value: 'country', child: Text('By Country')),
+            ],
           ),
-          const PopupMenuItem(
-            value: 'recentlyAdded',
-            child: Text('Recently Added'),
-          ),
-          const PopupMenuItem(
-            value: 'provider',
-            child: Text('By Source / Provider'),
-          ),
-          const PopupMenuItem(value: 'country', child: Text('By Country')),
-        ],
-      ),
+        );
+      },
     );
   }
 
   Widget _buildMultiViewButton() {
-    return TvFocusable(
-      onTap: () async {
-        final activeChannel =
-            controller.activePlayingChannel.value ??
-            controller.featuredChannel.value;
-        await showMultiViewLayoutDialog(
-          context,
-          onSelect: (mode) {
-            controller.stopInlinePlayer();
-            Get.toNamed(
-              AppRoutes.multiView,
-              arguments: {
-                'layoutMode': mode,
-                'channel': activeChannel,
-              },
-            );
-          },
-        );
-      },
-      scale: 1.15,
-      borderRadius: BorderRadius.circular(24),
-      child: const IconButton(
-        padding: EdgeInsets.all(6.0),
-        constraints: BoxConstraints(),
-        icon: Icon(Icons.grid_view_rounded, size: 18.0, color: Colors.white),
-        tooltip: 'Multi-View (Multi-Screen)',
-        onPressed: null,
-      ),
-    );
-  }
-
-  Widget _buildMoreMenu(bool isList) {
-    return TvFocusable(
-      onTap: () => _morePopupKey.currentState?.showButtonMenu(),
-      scale: 1.15,
-      borderRadius: BorderRadius.circular(24),
-      child: PopupMenuButton<String>(
-        key: _morePopupKey,
-        padding: const EdgeInsets.all(6.0),
-        constraints: const BoxConstraints(),
-        icon: const Icon(
-          Icons.more_vert_rounded,
-          size: 18.0,
-          color: Colors.white,
-        ),
-        tooltip: 'More Options',
-        color: AppColors.darkSurface,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppRadius.medium,
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
-        ),
-        onSelected: (val) async {
-          if (val == 'toggle_view') {
-            controller.setView(isList ? 'grid' : 'list');
-          } else if (val == 'multi_view') {
+    return Builder(
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return TvFocusable(
+          onTap: () async {
             final activeChannel =
                 controller.activePlayingChannel.value ??
                 controller.featuredChannel.value;
@@ -956,125 +913,185 @@ class _LiveTVPageState extends State<LiveTVPage> {
                 );
               },
             );
-          } else if (val.startsWith('sort_')) {
-            controller.setSort(val.replaceFirst('sort_', ''));
-          }
-        },
-        itemBuilder: (context) => [
-          PopupMenuItem(
-            value: 'toggle_view',
-            child: Row(
-              children: [
-                Icon(
-                  isList ? Icons.grid_view_rounded : Icons.view_agenda_rounded,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-                AppSpacing.widthSM,
-                Text(isList ? 'Switch to Grid View' : 'Switch to List View'),
-              ],
-            ),
+          },
+          scale: 1.15,
+          borderRadius: BorderRadius.circular(24),
+          child: IconButton(
+            padding: const EdgeInsets.all(6.0),
+            constraints: const BoxConstraints(),
+            icon: Icon(Icons.grid_view_rounded, size: 18.0, color: colorScheme.onSurface),
+            tooltip: 'Multi-View (Multi-Screen)',
+            onPressed: null,
           ),
-          const PopupMenuItem(
-            value: 'multi_view',
-            child: Row(
-              children: [
-                Icon(
-                  Icons.grid_view_rounded,
-                  size: 18,
-                  color: AppColors.primary,
-                ),
-                AppSpacing.widthSM,
-                Text('Multi-View'),
-              ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMoreMenu(bool isList) {
+    return Builder(
+      builder: (context) {
+        final colorScheme = Theme.of(context).colorScheme;
+        return TvFocusable(
+          onTap: () => _morePopupKey.currentState?.showButtonMenu(),
+          scale: 1.15,
+          borderRadius: BorderRadius.circular(24),
+          child: PopupMenuButton<String>(
+            key: _morePopupKey,
+            padding: const EdgeInsets.all(6.0),
+            constraints: const BoxConstraints(),
+            icon: Icon(
+              Icons.more_vert_rounded,
+              size: 18.0,
+              color: colorScheme.onSurface,
             ),
-          ),
-          const PopupMenuDivider(),
-          const PopupMenuItem(
-            enabled: false,
-            child: Text(
-              'SORT BY',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: AppColors.darkTextMuted,
+            tooltip: 'More Options',
+            color: colorScheme.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: AppRadius.medium,
+              side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.15)),
+            ),
+            onSelected: (val) async {
+              if (val == 'toggle_view') {
+                controller.setView(isList ? 'grid' : 'list');
+              } else if (val == 'multi_view') {
+                final activeChannel =
+                    controller.activePlayingChannel.value ??
+                    controller.featuredChannel.value;
+                await showMultiViewLayoutDialog(
+                  context,
+                  onSelect: (mode) {
+                    controller.stopInlinePlayer();
+                    Get.toNamed(
+                      AppRoutes.multiView,
+                      arguments: {
+                        'layoutMode': mode,
+                        'channel': activeChannel,
+                      },
+                    );
+                  },
+                );
+              } else if (val.startsWith('sort_')) {
+                controller.setSort(val.replaceFirst('sort_', ''));
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: 'toggle_view',
+                child: Row(
+                  children: [
+                    Icon(
+                      isList ? Icons.grid_view_rounded : Icons.view_agenda_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                    AppSpacing.widthSM,
+                    Text(isList ? 'Switch to Grid View' : 'Switch to List View'),
+                  ],
+                ),
               ),
-            ),
-          ),
-          PopupMenuItem(
-            value: 'sort_alphabetical',
-            child: Row(
-              children: [
-                Icon(
-                  controller.selectedSort.value == 'alphabetical'
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_off_rounded,
-                  size: 16,
-                  color: controller.selectedSort.value == 'alphabetical'
-                      ? AppColors.primary
-                      : Colors.white54,
+              PopupMenuItem(
+                value: 'multi_view',
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.grid_view_rounded,
+                      size: 18,
+                      color: colorScheme.primary,
+                    ),
+                    AppSpacing.widthSM,
+                    const Text('Multi-View'),
+                  ],
                 ),
-                AppSpacing.widthSM,
-                const Text('A - Z (Alphabetical)'),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'sort_recentlyAdded',
-            child: Row(
-              children: [
-                Icon(
-                  controller.selectedSort.value == 'recentlyAdded'
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_off_rounded,
-                  size: 16,
-                  color: controller.selectedSort.value == 'recentlyAdded'
-                      ? AppColors.primary
-                      : Colors.white54,
+              ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                enabled: false,
+                child: Text(
+                  'SORT BY',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                AppSpacing.widthSM,
-                const Text('Recently Added'),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'sort_provider',
-            child: Row(
-              children: [
-                Icon(
-                  controller.selectedSort.value == 'provider'
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_off_rounded,
-                  size: 16,
-                  color: controller.selectedSort.value == 'provider'
-                      ? AppColors.primary
-                      : Colors.white54,
+              ),
+              PopupMenuItem(
+                value: 'sort_alphabetical',
+                child: Row(
+                  children: [
+                    Icon(
+                      controller.selectedSort.value == 'alphabetical'
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      size: 16,
+                      color: controller.selectedSort.value == 'alphabetical'
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                    AppSpacing.widthSM,
+                    const Text('A - Z (Alphabetical)'),
+                  ],
                 ),
-                AppSpacing.widthSM,
-                const Text('By Provider'),
-              ],
-            ),
-          ),
-          PopupMenuItem(
-            value: 'sort_country',
-            child: Row(
-              children: [
-                Icon(
-                  controller.selectedSort.value == 'country'
-                      ? Icons.radio_button_checked_rounded
-                      : Icons.radio_button_off_rounded,
-                  size: 16,
-                  color: controller.selectedSort.value == 'country'
-                      ? AppColors.primary
-                      : Colors.white54,
+              ),
+              PopupMenuItem(
+                value: 'sort_recentlyAdded',
+                child: Row(
+                  children: [
+                    Icon(
+                      controller.selectedSort.value == 'recentlyAdded'
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      size: 16,
+                      color: controller.selectedSort.value == 'recentlyAdded'
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                    AppSpacing.widthSM,
+                    const Text('Recently Added'),
+                  ],
                 ),
-                AppSpacing.widthSM,
-                const Text('By Country'),
-              ],
-            ),
+              ),
+              PopupMenuItem(
+                value: 'sort_provider',
+                child: Row(
+                  children: [
+                    Icon(
+                      controller.selectedSort.value == 'provider'
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      size: 16,
+                      color: controller.selectedSort.value == 'provider'
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                    AppSpacing.widthSM,
+                    const Text('By Provider'),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'sort_country',
+                child: Row(
+                  children: [
+                    Icon(
+                      controller.selectedSort.value == 'country'
+                          ? Icons.radio_button_checked_rounded
+                          : Icons.radio_button_off_rounded,
+                      size: 16,
+                      color: controller.selectedSort.value == 'country'
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                    AppSpacing.widthSM,
+                    const Text('By Country'),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 

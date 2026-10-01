@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/errors/exceptions.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
@@ -9,6 +10,7 @@ import 'package:stream_hub/data/services/profile_service.dart';
 import 'package:stream_hub/data/services/settings_service.dart';
 import 'package:stream_hub/modules/authentication/models/user_model.dart';
 import 'package:stream_hub/modules/authentication/repositories/auth_repository.dart';
+import 'package:stream_hub/modules/settings/settings_controller.dart';
 
 /// Maximum number of profiles a user can create.
 const int kMaxProfiles = 5;
@@ -54,7 +56,21 @@ class ProfileController extends GetxController {
         displayName.value = authUser.displayName ?? '';
         photoUrl.value = authUser.photoUrl ?? '';
       }
-      final allProfiles = await _profileService.getAllProfiles();
+      var allProfiles = await _profileService.getAllProfiles();
+      if (allProfiles.isEmpty) {
+        final now = DateTime.now();
+        final defaultProfile = ProfileModel(
+          id: 'profile_${now.millisecondsSinceEpoch}',
+          displayName: 'Primary',
+          photoUrl: '0',
+          language: 'en',
+          themeMode: 'system',
+          createdAt: now,
+          updatedAt: now,
+        );
+        final created = await _profileService.createProfile(defaultProfile);
+        allProfiles = [created];
+      }
       profiles.value = allProfiles;
 
       // Restore last-selected profile from ActiveProfileService.
@@ -66,11 +82,9 @@ class ProfileController extends GetxController {
       if (savedId.isNotEmpty) {
         toSelect = allProfiles.firstWhereOrNull((p) => p.id == savedId);
       }
-      toSelect ??= allProfiles.isNotEmpty ? allProfiles.first : null;
+      toSelect ??= allProfiles.first;
 
-      if (toSelect != null) {
-        await _applyProfileLocally(toSelect);
-      }
+      await _applyProfileLocally(toSelect);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;
     } catch (e) {
@@ -106,7 +120,11 @@ class ProfileController extends GetxController {
         activeProfile.value = updated;
         // Update the list too.
         final idx = profiles.indexWhere((p) => p.id == updated.id);
-        if (idx >= 0) profiles[idx] = updated;
+        if (idx >= 0) {
+          profiles[idx] = updated;
+        } else {
+          profiles.add(updated);
+        }
       } else {
         await _createNewProfile(trimmedName, photoUrl.value.trim());
       }
@@ -132,6 +150,29 @@ class ProfileController extends GetxController {
     try {
       await _applyProfileLocally(profile);
       await _settingsService.updateActiveProfileId(profile.id);
+
+      final lang = profile.language;
+      if (lang.isNotEmpty) {
+        await _settingsService.updateLanguage(lang);
+        if (Get.isRegistered<SettingsController>()) {
+          Get.find<SettingsController>().language.value = lang;
+        }
+      }
+
+      final theme = profile.themeMode;
+      if (theme.isNotEmpty) {
+        await _settingsService.updateThemeMode(theme);
+        if (Get.isRegistered<SettingsController>()) {
+          final sc = Get.find<SettingsController>();
+          final mode = theme == 'light'
+              ? ThemeMode.light
+              : theme == 'dark'
+                  ? ThemeMode.dark
+                  : ThemeMode.system;
+          sc.themeMode.value = mode;
+          Get.changeThemeMode(mode);
+        }
+      }
     } catch (e) {
       _logger.error('Failed to select profile', tag: 'ProfileController', error: e);
       errorMessage.value = 'Failed to select profile.';
@@ -233,6 +274,11 @@ class ProfileController extends GetxController {
         final updated = activeProfile.value!.copyWith(language: langCode);
         await _profileService.updateProfile(updated);
         activeProfile.value = updated;
+        final idx = profiles.indexWhere((p) => p.id == updated.id);
+        if (idx >= 0) profiles[idx] = updated;
+      }
+      if (Get.isRegistered<SettingsController>()) {
+        Get.find<SettingsController>().changeLanguage(langCode);
       }
     } catch (e) {
       errorMessage.value = 'Failed to update language.';
@@ -246,6 +292,18 @@ class ProfileController extends GetxController {
         final updated = activeProfile.value!.copyWith(themeMode: themeMode);
         await _profileService.updateProfile(updated);
         activeProfile.value = updated;
+        final idx = profiles.indexWhere((p) => p.id == updated.id);
+        if (idx >= 0) profiles[idx] = updated;
+      }
+      if (Get.isRegistered<SettingsController>()) {
+        final sc = Get.find<SettingsController>();
+        final mode = themeMode == 'light'
+            ? ThemeMode.light
+            : themeMode == 'dark'
+                ? ThemeMode.dark
+                : ThemeMode.system;
+        sc.themeMode.value = mode;
+        Get.changeThemeMode(mode);
       }
     } catch (e) {
       errorMessage.value = 'Failed to update theme.';

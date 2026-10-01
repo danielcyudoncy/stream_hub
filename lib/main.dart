@@ -17,7 +17,7 @@ import 'core/services/screen_awake_service.dart';
 import 'data/models/settings_model.dart';
 import 'data/models/cache_info.dart';
 import 'modules/provider_manager/models/provider_model.dart';
-import 'modules/profiles/models/profile_model.dart';
+import 'data/models/profile_model.dart';
 import 'data/services/database_service.dart';
 import 'data/services/firebase_service.dart';
 import 'shared/widgets/tv_remote_key_telemetry.dart';

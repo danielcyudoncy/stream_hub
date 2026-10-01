@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_decorations.dart';
 import '../../core/theme/app_radius.dart';
 
@@ -11,6 +10,7 @@ class GlassPanel extends StatelessWidget {
   final BorderRadiusGeometry? borderRadius;
   final EdgeInsetsGeometry? padding;
   final BoxBorder? border;
+  final Color? backgroundColor;
 
   const GlassPanel({
     super.key,
@@ -20,10 +20,21 @@ class GlassPanel extends StatelessWidget {
     this.borderRadius,
     this.padding,
     this.border,
+    this.backgroundColor,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final surfaceColor = backgroundColor ?? theme.colorScheme.surface;
+    final defaultBorder = border ??
+        (theme.brightness == Brightness.dark
+            ? AppDecorations.glassBorder
+            : Border.all(
+                color: theme.colorScheme.outline.withValues(alpha: 0.12),
+                width: 1.0,
+              ));
+
     return ClipRRect(
       borderRadius: borderRadius ?? AppRadius.medium,
       child: BackdropFilter(
@@ -31,9 +42,9 @@ class GlassPanel extends StatelessWidget {
         child: Container(
           padding: padding,
           decoration: BoxDecoration(
-            color: AppColors.surface.withValues(alpha: opacity),
+            color: surfaceColor.withValues(alpha: opacity),
             borderRadius: borderRadius ?? AppRadius.medium,
-            border: border ?? AppDecorations.glassBorder,
+            border: defaultBorder,
           ),
           child: child,
         ),

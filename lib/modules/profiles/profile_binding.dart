@@ -10,7 +10,9 @@ class ProfileBinding extends Bindings {
     Get.lazyPut<ProfileController>(() => ProfileController(
       profileService: Get.find<ProfileService>(),
       settingsService: Get.find<SettingsService>(),
-      authRepository: Get.find<AuthRepository>(),
+      authRepository: Get.isRegistered<AuthRepository>()
+          ? Get.find<AuthRepository>()
+          : null,
     ));
   }
 }

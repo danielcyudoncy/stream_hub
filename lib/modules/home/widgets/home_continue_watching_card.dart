@@ -69,15 +69,14 @@ class HomeContinueWatchingCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
+    final landscapeArtwork =
+        ImageUrlFormatter.format(item.backdrop, item: item) ??
+        ImageUrlFormatter.format(item.thumbnail, item: item);
     final formattedPoster = ImageUrlFormatter.extractFromMediaItem(item);
     final rawPoster = (item.poster != null && item.poster!.trim().isNotEmpty)
         ? item.poster!.trim()
-        : ((item.thumbnail != null && item.thumbnail!.trim().isNotEmpty)
-              ? item.thumbnail!.trim()
-              : item.backdrop?.trim());
-    final poster = (formattedPoster != null && formattedPoster.isNotEmpty)
-        ? formattedPoster
-        : rawPoster;
+        : null;
+    final poster = landscapeArtwork ?? formattedPoster ?? rawPoster;
     final progress = _getProgress();
     final subtitleText = _getRemainingOrSubtitle();
 
@@ -105,7 +104,7 @@ class HomeContinueWatchingCard extends StatelessWidget {
                     if (poster != null && poster.isNotEmpty)
                       CachedHomeImage(
                         imageUrl: poster,
-                        fit: BoxFit.contain,
+                        fit: BoxFit.cover,
                         alignment: Alignment.center,
                         errorBuilder: (context, url) =>
                             _buildPlaceholder(colorScheme),

@@ -9,7 +9,7 @@ import 'package:stream_hub/shared/widgets/app_card.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/section_header.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
-import 'package:stream_hub/modules/settings/settings_controller.dart';
+import 'package:stream_hub/data/models/profile_model.dart';
 import 'profile_avatar_helper.dart';
 
 // ─── Page ──────────────────────────────────────────────────────────────────
@@ -125,7 +125,7 @@ class ProfilePage extends GetView<ProfileController> {
                       ),
                       subtitle: Text(
                         _themeLabel(
-                          Get.find<SettingsController>().themeMode.value,
+                          controller.activeProfile.value?.themeMode,
                         ),
                         style: AppTypography.getCaption(
                           color: Theme.of(context)
@@ -165,11 +165,11 @@ class ProfilePage extends GetView<ProfileController> {
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
 
-  String _themeLabel(ThemeMode mode) {
+  String _themeLabel(String? mode) {
     switch (mode) {
-      case ThemeMode.light:
+      case 'light':
         return 'Light';
-      case ThemeMode.dark:
+      case 'dark':
         return 'Dark';
       default:
         return 'System Default';
@@ -254,53 +254,61 @@ class ProfilePage extends GetView<ProfileController> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (ctx) {
-        final sc = Get.find<SettingsController>();
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xl,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Select Theme',
-                style: AppTypography.getHeadline(
-                  color: Theme.of(ctx).colorScheme.onSurface,
+        return Obx(() {
+          final currentMode =
+              controller.activeProfile.value?.themeMode ?? 'system';
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg, AppSpacing.lg, AppSpacing.lg, AppSpacing.xl,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select Theme',
+                  style: AppTypography.getHeadline(
+                    color: Theme.of(ctx).colorScheme.onSurface,
+                  ),
                 ),
-              ),
-              AppSpacing.heightMD,
-              Obx(() => Column(
-                children: [
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.system,
-                    groupValue: sc.themeMode.value,
-                    title: const Text('System Default'),
-                    onChanged: (v) {
-                      if (v != null) { sc.changeThemeMode(v); Navigator.of(ctx).pop(); }
-                    },
-                  ),
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.dark,
-                    groupValue: sc.themeMode.value,
-                    title: const Text('Dark'),
-                    onChanged: (v) {
-                      if (v != null) { sc.changeThemeMode(v); Navigator.of(ctx).pop(); }
-                    },
-                  ),
-                  RadioListTile<ThemeMode>(
-                    value: ThemeMode.light,
-                    groupValue: sc.themeMode.value,
-                    title: const Text('Light'),
-                    onChanged: (v) {
-                      if (v != null) { sc.changeThemeMode(v); Navigator.of(ctx).pop(); }
-                    },
-                  ),
-                ],
-              )),
-            ],
-          ),
-        );
+                AppSpacing.heightMD,
+                RadioListTile<String>(
+                  value: 'system',
+                  groupValue: currentMode,
+                  title: const Text('System Default'),
+                  onChanged: (v) {
+                    if (v != null) {
+                      controller.changeThemeMode(v);
+                      Navigator.of(ctx).pop();
+                    }
+                  },
+                ),
+                RadioListTile<String>(
+                  value: 'dark',
+                  groupValue: currentMode,
+                  title: const Text('Dark'),
+                  onChanged: (v) {
+                    if (v != null) {
+                      controller.changeThemeMode(v);
+                      Navigator.of(ctx).pop();
+                    }
+                  },
+                ),
+                RadioListTile<String>(
+                  value: 'light',
+                  groupValue: currentMode,
+                  title: const Text('Light'),
+                  onChanged: (v) {
+                    if (v != null) {
+                      controller.changeThemeMode(v);
+                      Navigator.of(ctx).pop();
+                    }
+                  },
+                ),
+              ],
+            ),
+          );
+        });
       },
     );
   }
@@ -381,6 +389,29 @@ class _ProfileSwitcher extends StatelessWidget {
                                 ),
                             ],
                           ),
+                          if (profiles.length > 1) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            TvFocusable(
+                              borderRadius: BorderRadius.circular(12),
+                              scale: 1.1,
+                              onTap: () => _confirmDelete(context, p),
+                              child: Tooltip(
+                                message: 'Delete profile',
+                                child: Padding(
+                                  padding: const EdgeInsets.all(4.0),
+                                  child: Icon(
+                                    Icons.close_rounded,
+                                    size: 16,
+                                    color: isActive
+                                        ? colorScheme.onPrimaryContainer
+                                            .withValues(alpha: 0.6)
+                                        : colorScheme.onSurface
+                                            .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -462,7 +493,7 @@ class _ProfileSwitcher extends StatelessWidget {
     }
   }
 
-  void _confirmDelete(BuildContext context, profile) {
+  void _confirmDelete(BuildContext context, ProfileModel profile) {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -502,7 +533,9 @@ class _AvatarPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final currentIdx = avatarIndexForProfile(controller.activeProfile.value);
+      final selectedPhoto = controller.photoUrl.value;
+      final currentIdx = int.tryParse(selectedPhoto) ??
+          avatarIndexForProfile(controller.activeProfile.value);
       return Wrap(
         spacing: AppSpacing.sm,
         runSpacing: AppSpacing.sm,
@@ -582,8 +615,11 @@ class _ProfileTextFieldState extends State<_ProfileTextField> {
   @override
   void didUpdateWidget(covariant _ProfileTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.initialValue != widget.initialValue) {
+    if (oldWidget.initialValue != widget.initialValue &&
+        _controller.text != widget.initialValue) {
       _controller.text = widget.initialValue;
+      _controller.selection =
+          TextSelection.collapsed(offset: _controller.text.length);
     }
   }
 

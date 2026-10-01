@@ -48,6 +48,11 @@ class HomeContentRail extends StatelessWidget {
     // image height (aspect 2:3 = itemContentWidth × 1.5) + title + subtitle + spacing
     final effectiveHeight = cardHeight ?? (itemContentWidth * 1.5 + 46.0);
 
+    // Provide vertical headroom for TvFocusable scale and neon glow decorations
+    // so focused cards never get clipped at the top and bottom.
+    final verticalPadding = isTv ? AppSpacing.sm : 2.0;
+    final railHeight = effectiveHeight + (verticalPadding * 2);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -109,7 +114,7 @@ class HomeContentRail extends StatelessWidget {
         // Horizontal scrolling rail
         ClipRect(
           child: SizedBox(
-            height: effectiveHeight,
+            height: railHeight,
             child: TvNavigationRegion(
               regionId:
                   'rail_${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')}',
@@ -117,13 +122,18 @@ class HomeContentRail extends StatelessWidget {
               child: FocusTraversalGroup(
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
+                  clipBehavior: Clip.none,
                   cacheExtent: 600.0,
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppSpacing.lg,
+                    vertical: verticalPadding,
+                  ),
                   itemCount: items.length,
                   itemBuilder: (context, index) {
                     final item = items[index];
                     return SizedBox(
                       width: effectiveCardWidth,
+                      height: effectiveHeight,
                       child: Padding(
                         padding: const EdgeInsets.only(right: AppSpacing.md),
                         child: itemBuilder(context, item, index),

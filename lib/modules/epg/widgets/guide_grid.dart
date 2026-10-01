@@ -119,12 +119,13 @@ class _GuideGridState extends State<GuideGrid> {
   }
 
   Widget _buildTimelineHeader(DateTime timelineStart, double nowOffset) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       height: 56.0,
       decoration: BoxDecoration(
-        color: AppColors.background.withValues(alpha: 0.9),
+        color: colorScheme.surface.withValues(alpha: 0.95),
         border: Border(
-          bottom: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          bottom: BorderSide(color: colorScheme.outline.withValues(alpha: 0.1)),
         ),
       ),
       child: ClipRect(
@@ -139,7 +140,7 @@ class _GuideGridState extends State<GuideGrid> {
                 child: Text(
                   'CHANNELS (${widget.channels.length})',
                   style: AppTypography.getCaption(
-                    color: AppColors.textSecondary,
+                    color: colorScheme.onSurfaceVariant,
                   ).copyWith(
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.0,
@@ -168,14 +169,14 @@ class _GuideGridState extends State<GuideGrid> {
                                 decoration: BoxDecoration(
                                   border: Border(
                                     left: BorderSide(
-                                      color: Colors.white.withValues(alpha: 0.1),
+                                      color: colorScheme.outline.withValues(alpha: 0.1),
                                     ),
                                   ),
                                 ),
                                 child: Text(
                                   timeLabel,
                                   style: AppTypography.getLabel(
-                                    color: AppColors.textSecondary,
+                                    color: colorScheme.onSurfaceVariant,
                                   ).copyWith(fontWeight: FontWeight.w600),
                                 ),
                               );
@@ -221,12 +222,13 @@ class _GuideGridState extends State<GuideGrid> {
   }
 
   Widget _buildChannelColumn() {
+    final colorScheme = Theme.of(context).colorScheme;
     return Container(
       width: _kChannelWidth,
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: colorScheme.surface,
         border: Border(
-          right: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+          right: BorderSide(color: colorScheme.outline.withValues(alpha: 0.1)),
         ),
         boxShadow: const [
           BoxShadow(
@@ -334,7 +336,7 @@ class _GuideGridState extends State<GuideGrid> {
                               child: Text(
                                 formattedTitle,
                                 style: AppTypography.getTitle(
-                                  color: isPlaying ? AppColors.primary : AppColors.textPrimary,
+                                  color: isPlaying ? AppColors.primary : colorScheme.onSurface,
                                 ).copyWith(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.bold,
@@ -544,6 +546,10 @@ class EPGProgramCard extends StatefulWidget {
 class _EPGProgramCardState extends State<EPGProgramCard> {
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return TvFocusable(
       onTap: widget.onTap,
       borderRadius: BorderRadius.circular(8.0),
@@ -551,13 +557,19 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
       child: Container(
         decoration: BoxDecoration(
           color: widget.program.isLive
-              ? AppColors.primaryContainer.withValues(alpha: 0.25)
-              : AppColors.surfaceVariant.withValues(alpha: 0.3),
+              ? (isDark
+                  ? AppColors.primaryContainer.withValues(alpha: 0.25)
+                  : colorScheme.primary.withValues(alpha: 0.12))
+              : (isDark
+                  ? AppColors.surfaceVariant.withValues(alpha: 0.3)
+                  : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)),
           borderRadius: BorderRadius.circular(8.0),
           border: Border.all(
             color: widget.program.isLive
-                ? AppColors.primary.withValues(alpha: 0.3)
-                : Colors.white.withValues(alpha: 0.06),
+                ? (isDark
+                    ? AppColors.primary.withValues(alpha: 0.3)
+                    : colorScheme.primary.withValues(alpha: 0.4))
+                : colorScheme.outline.withValues(alpha: 0.08),
             width: 1.0,
           ),
         ),
@@ -571,7 +583,7 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
                 Expanded(
                   child: Text(
                     widget.program.title,
-                    style: AppTypography.getTitle(color: AppColors.textPrimary).copyWith(
+                    style: AppTypography.getTitle(color: colorScheme.onSurface).copyWith(
                       fontSize: 13.5,
                       fontWeight: FontWeight.w600,
                     ),
@@ -601,7 +613,7 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
             const SizedBox(height: 4),
             Text(
               _formatTimeRange(widget.program.startTime, widget.program.endTime),
-              style: AppTypography.getLabel(color: AppColors.textSecondary).copyWith(
+              style: AppTypography.getLabel(color: colorScheme.onSurfaceVariant).copyWith(
                 fontSize: 11,
               ),
               maxLines: 1,

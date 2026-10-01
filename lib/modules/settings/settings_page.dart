@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/playback_engine_preference.dart';
 import 'package:stream_hub/core/routes/app_routes.dart';
-import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
@@ -1061,13 +1060,13 @@ class SettingsPage extends GetView<SettingsController> {
       },
     );
 
-    if (success == true) {
+    if (success == true && context.mounted) {
       Get.snackbar(
         'Parental Lock Enabled',
         'PIN protection is now active for playback and restricted settings.',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.darkSuccess.withValues(alpha: 0.2),
-        colorText: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        colorText: Theme.of(context).colorScheme.onSurface,
       );
     }
   }
@@ -1075,13 +1074,15 @@ class SettingsPage extends GetView<SettingsController> {
   Future<void> _showDisableParentalLockDialog(BuildContext context) async {
     if (!controller.hasParentalPin) {
       await controller.disableParentalLock('');
-      Get.snackbar(
-        'Parental Lock Disabled',
-        'Parental protection has been turned off.',
-        snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-        colorText: Colors.white,
-      );
+      if (context.mounted) {
+        Get.snackbar(
+          'Parental Lock Disabled',
+          'Parental protection has been turned off.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+          colorText: Theme.of(context).colorScheme.onSurface,
+        );
+      }
       return;
     }
 
@@ -1092,13 +1093,13 @@ class SettingsPage extends GetView<SettingsController> {
       },
     );
 
-    if (success == true) {
+    if (success == true && context.mounted) {
       Get.snackbar(
         'Parental Lock Disabled',
         'Parental protection has been turned off.',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.primary.withValues(alpha: 0.2),
-        colorText: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        colorText: Theme.of(context).colorScheme.onSurface,
       );
     }
   }
@@ -1119,13 +1120,13 @@ class SettingsPage extends GetView<SettingsController> {
       },
     );
 
-    if (success == true) {
+    if (success == true && context.mounted) {
       Get.snackbar(
         'PIN Updated',
         'Parental security PIN has been updated successfully.',
         snackPosition: SnackPosition.BOTTOM,
-        backgroundColor: AppColors.darkSuccess.withValues(alpha: 0.2),
-        colorText: Colors.white,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        colorText: Theme.of(context).colorScheme.onSurface,
       );
     }
   }

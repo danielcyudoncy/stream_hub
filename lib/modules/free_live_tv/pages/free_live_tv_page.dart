@@ -688,16 +688,24 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                         vertical: 3,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.surface.withValues(alpha: 0.8),
+                        color: Theme.of(context)
+                            .colorScheme
+                            .surfaceContainerHighest
+                            .withValues(alpha: 0.8),
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .outline
+                              .withValues(alpha: 0.12),
                         ),
                       ),
                       child: Text(
                         'FREE',
                         style: AppTypography.getLabel(
-                          color: AppColors.textSecondary,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -719,10 +727,16 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.surface.withValues(alpha: 0.7),
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withValues(alpha: 0.7),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.12),
+                            color: Theme.of(context)
+                                .colorScheme
+                                .outline
+                                .withValues(alpha: 0.15),
                           ),
                         ),
                         child: Row(
@@ -733,13 +747,13 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                                   ? Icons.grid_view_rounded
                                   : Icons.view_agenda_rounded,
                               size: 16,
-                              color: AppColors.primary,
+                              color: Theme.of(context).colorScheme.primary,
                             ),
                             const SizedBox(width: 6),
                             Text(
                               isList ? 'Grid View' : 'List View',
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -753,9 +767,9 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                       onTap: () => _showSearchDialog(context),
                       scale: 1.15,
                       borderRadius: BorderRadius.circular(24),
-                      child: const IconButton(
-                        icon: Icon(Icons.search),
-                        color: AppColors.textSecondary,
+                      child: IconButton(
+                        icon: const Icon(Icons.search),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         onPressed: null,
                       ),
                     ),
@@ -776,9 +790,9 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                       onTap: controller.refresh,
                       scale: 1.15,
                       borderRadius: BorderRadius.circular(24),
-                      child: const IconButton(
-                        icon: Icon(Icons.refresh),
-                        color: AppColors.textSecondary,
+                      child: IconButton(
+                        icon: const Icon(Icons.refresh),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         onPressed: null,
                       ),
                     ),
@@ -794,10 +808,16 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
           Container(
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: AppColors.surface.withValues(alpha: 0.5),
+              color: Theme.of(context)
+                  .colorScheme
+                  .surfaceContainerHighest
+                  .withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
+                color: Theme.of(context)
+                    .colorScheme
+                    .outline
+                    .withValues(alpha: 0.12),
               ),
             ),
             child: active != null
@@ -810,6 +830,8 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
   }
 
   Widget _buildChannelShowcase(FreeTvChannel channel) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     final categoryName = channel.categories.isNotEmpty
         ? channel.categories.first
         : 'Free TV';
@@ -831,10 +853,10 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               width: 52,
               height: 52,
               decoration: BoxDecoration(
-                color: AppColors.surfaceVariant.withValues(alpha: 0.6),
+                color: colorScheme.surfaceContainer,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.15),
+                  color: colorScheme.outline.withValues(alpha: 0.15),
                 ),
               ),
               child: Center(
@@ -844,14 +866,14 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                         width: 38,
                         height: 38,
                         errorBuilder: (_, _, _) =>
-                            const Icon(Icons.tv, color: Colors.white),
+                            Icon(Icons.tv, color: colorScheme.onSurface),
                       )
                     : Text(
                         channel.name.isNotEmpty
                             ? channel.name.substring(0, 1).toUpperCase()
                             : 'TV',
                         style: AppTypography.getTitle(
-                          color: AppColors.primary,
+                          color: colorScheme.primary,
                         ),
                       ),
               ),
@@ -867,7 +889,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                         child: Text(
                           channel.name,
                           style: AppTypography.getHeadline(
-                            color: Colors.white,
+                            color: colorScheme.onSurface,
                           ).copyWith(
                             fontWeight: FontWeight.bold,
                             fontSize: 20,
@@ -883,20 +905,20 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryContainer.withValues(
+                          color: colorScheme.primaryContainer.withValues(
                             alpha: 0.4,
                           ),
                           borderRadius: BorderRadius.circular(4),
                           border: Border.all(
-                            color: AppColors.primary.withValues(alpha: 0.5),
+                            color: colorScheme.primary.withValues(alpha: 0.5),
                           ),
                         ),
                         child: Text(
                           channel.qualityTier == FreeTvQualityTier.recommended
                               ? 'RECOMMENDED'
                               : 'HD',
-                          style: const TextStyle(
-                            color: AppColors.primary,
+                          style: TextStyle(
+                            color: colorScheme.primary,
                             fontSize: 10,
                             fontWeight: FontWeight.bold,
                           ),
@@ -908,7 +930,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                   Text(
                     '$categoryName • ${channel.country}',
                     style: AppTypography.getLabel(
-                      color: AppColors.textSecondary,
+                      color: colorScheme.onSurfaceVariant,
                     ).copyWith(fontSize: 13),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -926,7 +948,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               child: Text(
                 description,
                 style: AppTypography.getBody(
-                  color: Colors.white.withValues(alpha: 0.9),
+                  color: colorScheme.onSurface,
                 ).copyWith(fontSize: 13),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -935,8 +957,8 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
             if (channel.resolvedStreamUrls.length > 1)
               Text(
                 '${channel.resolvedStreamUrls.length} streams',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
                   fontSize: 11,
                 ),
               ),
@@ -1055,17 +1077,17 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                   Text(
                     'Free Live TV',
                     style: AppTypography.getTitle(
-                      color: Colors.white,
+                      color: Theme.of(context).colorScheme.onSurface,
                     ).copyWith(
                       fontWeight: FontWeight.w700,
                       fontSize: 16,
                     ),
                   ),
                   const SizedBox(height: 2),
-                  const Text(
+                  Text(
                     'Thousands of free global channels. No provider required.',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 11.5,
                     ),
                     maxLines: 2,
@@ -1084,7 +1106,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                 child: Text(
                   featured.name,
                   style: AppTypography.getHeadline(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.onSurface,
                   ).copyWith(
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
@@ -1363,10 +1385,10 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
         right: AppSpacing.sm,
       ),
       decoration: BoxDecoration(
-        color: AppColors.background.withValues(alpha: 0.95),
+        color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.95),
         border: Border(
           bottom: BorderSide(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.1),
             width: 1.0,
           ),
         ),
@@ -1381,13 +1403,13 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                 Text(
                   'Free Live TV',
                   style: AppTypography.getDisplay(
-                    color: AppColors.primary,
+                    color: Theme.of(context).colorScheme.primary,
                   ).copyWith(
                     fontWeight: FontWeight.bold,
                     fontSize: 19.0,
                     shadows: [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.4),
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
                         blurRadius: 8.0,
                       )
                     ],
@@ -1399,9 +1421,9 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                   controller.isLoading.value
                       ? 'Loading channels...'
                       : '${controller.channels.length} Public Free Channels',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 10.0,
-                    color: AppColors.darkTextMuted,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,
@@ -1421,17 +1443,17 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               key: _countryPopupKey,
               padding: const EdgeInsets.all(6.0),
               constraints: const BoxConstraints(maxHeight: 400),
-              icon: const Icon(
+              icon: Icon(
                 Icons.public_rounded,
                 size: 18.0,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               tooltip: 'Filter by Country',
-              color: AppColors.darkSurface,
+              color: Theme.of(context).colorScheme.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: AppRadius.medium,
                 side: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
                 ),
               ),
               initialValue: controller.selectedCountry.value,
@@ -1446,8 +1468,8 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                           ? FontWeight.bold
                           : FontWeight.normal,
                       color: country == 'Nigeria'
-                          ? AppColors.primary
-                          : Colors.white,
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -1471,7 +1493,9 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                     : Icons.view_agenda_rounded,
                 size: 18.0,
               ),
-              color: isList ? AppColors.primary : Colors.white,
+              color: isList
+                  ? Theme.of(context).colorScheme.primary
+                  : Theme.of(context).colorScheme.onSurface,
               tooltip: isList ? 'Switch to Grid View' : 'Switch to List View',
               onPressed: null,
             ),
@@ -1486,17 +1510,17 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               key: _sortPopupKey,
               padding: const EdgeInsets.all(6.0),
               constraints: const BoxConstraints(),
-              icon: const Icon(
+              icon: Icon(
                 Icons.sort_rounded,
                 size: 18.0,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               tooltip: 'Sort Channels',
-              color: AppColors.darkSurface,
+              color: Theme.of(context).colorScheme.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: AppRadius.medium,
                 side: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
                 ),
               ),
               initialValue: controller.selectedSort.value,
@@ -1523,13 +1547,13 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
             onTap: () => _showSearchDialog(context),
             scale: 1.15,
             borderRadius: BorderRadius.circular(24),
-            child: const IconButton(
-              padding: EdgeInsets.all(6.0),
-              constraints: BoxConstraints(),
+            child: IconButton(
+              padding: const EdgeInsets.all(6.0),
+              constraints: const BoxConstraints(),
               icon: Icon(
                 Icons.search_rounded,
                 size: 18.0,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
               tooltip: 'Search Free Channels',
               onPressed: null,
@@ -1544,7 +1568,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.darkSurface,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         title: const Text('Search Free Channels'),
         content: TextField(
           autofocus: true,

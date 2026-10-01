@@ -15,7 +15,11 @@ class ProfileRepository extends GetxService {
       final box = _dbService.profilesBox;
       final List<dynamic> raw = box.values.toList();
       return raw
-          .map((e) => _mapFromHive(e as Map))
+          .map((e) {
+            if (e is ProfileModel) return e;
+            if (e is Map) return _mapFromHive(e);
+            return null;
+          })
           .whereType<ProfileModel>()
           .toList();
     } catch (e) {
@@ -29,7 +33,9 @@ class ProfileRepository extends GetxService {
       final box = _dbService.profilesBox;
       final raw = box.get(id);
       if (raw == null) return null;
-      return _mapFromHive(raw as Map);
+      if (raw is ProfileModel) return raw;
+      if (raw is Map) return _mapFromHive(raw);
+      return null;
     } catch (e) {
       _logger.error('Failed to get profile by id', tag: 'ProfileRepository', error: e);
       throw DatabaseException(message: 'Failed to get profile', originalError: e);
