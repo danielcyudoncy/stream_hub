@@ -773,6 +773,10 @@ void main() {
       await tester.pump();
 
       expect(find.byType(HomeSkeletonLoader), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 3));
+      controller.onClose();
+      Get.delete<HomeController>();
     });
   });
 }

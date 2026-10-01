@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -11,7 +12,7 @@ import '../../modules/provider_manager/models/provider_model.dart';
 import 'provider_filter_sheet.dart';
 import 'tv_focusable.dart';
 
-class ProviderSelectorButton extends StatelessWidget {
+class ProviderSelectorButton extends StatefulWidget {
   final String selectedProviderId;
   final ValueChanged<String> onSelectProvider;
   final String sheetTitle;
@@ -29,11 +30,50 @@ class ProviderSelectorButton extends StatelessWidget {
     this.onMoveDown,
   });
 
+  @override
+  State<ProviderSelectorButton> createState() => _ProviderSelectorButtonState();
+}
+
+class _ProviderSelectorButtonState extends State<ProviderSelectorButton> {
+  Future<List<ProviderModel>>? _providersFuture;
+  StreamSubscription? _providerSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProviders();
+    if (Get.isRegistered<ProviderRepository>()) {
+      _providerSubscription =
+          Get.find<ProviderRepository>().watchProviders().listen((_) {
+        if (mounted) {
+          setState(() {
+            _loadProviders();
+          });
+        }
+      });
+    }
+  }
+
+  void _loadProviders() {
+    final providerRepo = Get.isRegistered<ProviderRepository>()
+        ? Get.find<ProviderRepository>()
+        : null;
+    _providersFuture = providerRepo != null
+        ? providerRepo.getAllProviders()
+        : Future.value([]);
+  }
+
+  @override
+  void dispose() {
+    _providerSubscription?.cancel();
+    super.dispose();
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.arrowDown &&
-        onMoveDown != null) {
-      onMoveDown!();
+        widget.onMoveDown != null) {
+      widget.onMoveDown!();
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -42,27 +82,22 @@ class ProviderSelectorButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final providerRepo = Get.isRegistered<ProviderRepository>()
-        ? Get.find<ProviderRepository>()
-        : null;
 
     return FutureBuilder<List<ProviderModel>>(
-      future: providerRepo != null
-          ? providerRepo.getAllProviders()
-          : Future.value([]),
+      future: _providersFuture,
       builder: (context, snapshot) {
         final allProviders = snapshot.data ?? [];
 
         ProviderModel? provider;
-        if (selectedProviderId.isNotEmpty) {
+        if (widget.selectedProviderId.isNotEmpty) {
           provider = allProviders.firstWhereOrNull(
             (p) =>
-                p.id == selectedProviderId ||
-                p.name.toLowerCase() == selectedProviderId.toLowerCase() ||
+                p.id == widget.selectedProviderId ||
+                p.name.toLowerCase() == widget.selectedProviderId.toLowerCase() ||
                 p.providerType.displayName.toLowerCase() ==
-                    selectedProviderId.toLowerCase() ||
+                    widget.selectedProviderId.toLowerCase() ||
                 p.providerType.name.toLowerCase() ==
-                    selectedProviderId.toLowerCase(),
+                    widget.selectedProviderId.toLowerCase(),
           );
         } else if (allProviders.length == 1) {
           provider = allProviders.first;
@@ -71,8 +106,8 @@ class ProviderSelectorButton extends StatelessWidget {
         final hasSpecificProvider = provider != null;
         final label = hasSpecificProvider
             ? provider.name
-            : (selectedProviderId.isNotEmpty
-                ? selectedProviderId
+            : (widget.selectedProviderId.isNotEmpty
+                ? widget.selectedProviderId
                 : (allProviders.isNotEmpty
                     ? (allProviders.length == 1
                         ? allProviders.first.name
@@ -84,18 +119,18 @@ class ProviderSelectorButton extends StatelessWidget {
             ? label.trim()[0].toUpperCase()
             : 'P';
 
-        if (isCompact) {
+        if (widget.isCompact) {
           return Tooltip(
             message: 'Provider: $label',
             child: TvFocusable(
-              focusNode: focusNode,
+              focusNode: widget.focusNode,
               onKeyEvent: _handleKeyEvent,
               onTap: () {
                 ProviderFilterSheet.show(
                   context,
-                  selectedProviderId: selectedProviderId,
-                  onSelectProvider: onSelectProvider,
-                  title: sheetTitle,
+                  selectedProviderId: widget.selectedProviderId,
+                  onSelectProvider: widget.onSelectProvider,
+                  title: widget.sheetTitle,
                 );
               },
               borderRadius: AppRadius.pill,
@@ -146,14 +181,14 @@ class ProviderSelectorButton extends StatelessWidget {
             vertical: AppSpacing.xs,
           ),
           child: TvFocusable(
-            focusNode: focusNode,
+            focusNode: widget.focusNode,
             onKeyEvent: _handleKeyEvent,
             onTap: () {
               ProviderFilterSheet.show(
                 context,
-                selectedProviderId: selectedProviderId,
-                onSelectProvider: onSelectProvider,
-                title: sheetTitle,
+                selectedProviderId: widget.selectedProviderId,
+                onSelectProvider: widget.onSelectProvider,
+                title: widget.sheetTitle,
               );
             },
             borderRadius: AppRadius.pill,
