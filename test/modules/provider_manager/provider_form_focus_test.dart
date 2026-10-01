@@ -238,4 +238,188 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'TV mode: Name and Server URL fields are readOnly until Select, and full D-pad chain works',
+    (tester) async {
+      PlatformHelper.forceTvMode = true;
+      addTearDown(() => PlatformHelper.forceTvMode = false);
+
+      await tester.binding.setSurfaceSize(const Size(1920, 1080));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: Scaffold(
+            body: ProviderFormPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // On launch in TV mode, Name field is autofocused
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_name_field'),
+      );
+
+      // Verify Name field is readOnly (no keyboard pop)
+      final nameFinder = find.ancestor(
+        of: find.text('Provider Name'),
+        matching: find.byType(TextFormField),
+      );
+      final nameTextField = tester.widget<TextField>(
+        find.descendant(of: nameFinder, matching: find.byType(TextField)),
+      );
+      expect(nameTextField.readOnly, isTrue);
+
+      // Press D-pad Down -> moves to M3U ChoiceChip
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_type_m3u'),
+      );
+
+      // Press D-pad Right -> moves to Xtream ChoiceChip
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_type_xtream'),
+      );
+
+      // Press D-pad Up -> moves back to Provider Name
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_name_field'),
+      );
+
+      // Press Select on Provider Name -> enters edit mode
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      final editingName = tester.widget<TextField>(
+        find.descendant(of: nameFinder, matching: find.byType(TextField)),
+      );
+      expect(editingName.readOnly, isFalse);
+
+      // Press D-pad Down while editing Name -> exits edit mode and moves to M3U chip
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_type_m3u'),
+      );
+
+      // Press D-pad Down from chip -> moves to Server URL
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_server_url_field'),
+      );
+
+      // Verify Server URL is readOnly
+      final serverFinder = find.ancestor(
+        of: find.text('Server URL'),
+        matching: find.byType(TextFormField),
+      );
+      final serverTextField = tester.widget<TextField>(
+        find.descendant(of: serverFinder, matching: find.byType(TextField)),
+      );
+      expect(serverTextField.readOnly, isTrue);
+
+      // Press D-pad Down from Server URL -> moves to Notes
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_notes_field'),
+      );
+
+      // Press D-pad Up from Notes -> moves back to Server URL
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_server_url_field'),
+      );
+    },
+  );
+
+  testWidgets(
+    'TV mode: Xtream provider type reveals Username and Password in D-pad chain',
+    (tester) async {
+      PlatformHelper.forceTvMode = true;
+      addTearDown(() => PlatformHelper.forceTvMode = false);
+
+      await tester.binding.setSurfaceSize(const Size(1920, 1080));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: Scaffold(
+            body: ProviderFormPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Navigate down to M3U chip
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      // Navigate right to Xtream chip and select it
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_type_xtream'),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+
+      // Navigate down to Server URL
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_server_url_field'),
+      );
+
+      // Navigate down to Username
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_username_field'),
+      );
+
+      // Navigate down to Password
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_password_field'),
+      );
+
+      // Navigate down to Notes
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_notes_field'),
+      );
+
+      // Navigate up back to Password
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+      expect(
+        tester.binding.focusManager.primaryFocus?.debugLabel,
+        equals('provider_password_field'),
+      );
+    },
+  );
 }

@@ -41,12 +41,21 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
   late final TextEditingController _notesController;
   late final Rx<ProviderType> _selectedType;
 
+  late final FocusNode _nameFocusNode;
+  late final Map<ProviderType, FocusNode> _typeFocusNodes;
+  late final FocusNode _serverUrlFocusNode;
+  late final FocusNode _serverUrlPasteFocusNode;
+  late final FocusNode _usernameFocusNode;
+  late final FocusNode _passwordFocusNode;
+  late final FocusNode _macFocusNode;
+  late final FocusNode _xmltvFocusNode;
+  late final FocusNode _xmltvPasteFocusNode;
   late final FocusNode _notesFocusNode;
   late final FocusNode _cancelFocusNode;
   late final FocusNode _scanToAddFocusNode;
   late final FocusNode _submitFocusNode;
 
-  bool _isEditingNotes = false;
+  String? _activeEditingField;
 
   bool get _isTv =>
       PlatformHelper.isTV ||
@@ -93,22 +102,205 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     _selectedType = initialType.obs;
     _serverUrlController.addListener(_handleServerUrlChanged);
 
+    _initFocusNodes();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isTv) {
+        _nameFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _initFocusNodes() {
+    _nameFocusNode = FocusNode(
+      debugLabel: 'provider_name_field',
+      onKeyEvent: (node, event) => _handleFieldKeyEvent(
+        node: node,
+        event: event,
+        fieldId: 'name',
+        controller: _nameController,
+        nextNode: _getNextNodeForField('name'),
+        prevNode: _getPrevNodeForField('name'),
+      ),
+    );
+    _nameFocusNode.addListener(() => _handleFieldFocusChange('name', _nameFocusNode));
+
+    _typeFocusNodes = {
+      for (final type in ProviderType.values)
+        type: FocusNode(
+          debugLabel: 'provider_type_${type.name}',
+          onKeyEvent: (node, event) => _handleTypeChipKeyEvent(type, event),
+        ),
+    };
+
+    _serverUrlFocusNode = FocusNode(
+      debugLabel: 'provider_server_url_field',
+      onKeyEvent: (node, event) => _handleFieldKeyEvent(
+        node: node,
+        event: event,
+        fieldId: 'serverUrl',
+        controller: _serverUrlController,
+        nextNode: _getNextNodeForField('serverUrl'),
+        prevNode: _getPrevNodeForField('serverUrl'),
+        rightNode: _serverUrlPasteFocusNode,
+      ),
+    );
+    _serverUrlFocusNode.addListener(
+      () => _handleFieldFocusChange('serverUrl', _serverUrlFocusNode),
+    );
+
+    _serverUrlPasteFocusNode = FocusNode(
+      debugLabel: 'provider_server_url_paste_button',
+      onKeyEvent: _handleServerUrlPasteKeyEvent,
+    );
+
+    _usernameFocusNode = FocusNode(
+      debugLabel: 'provider_username_field',
+      onKeyEvent: (node, event) => _handleFieldKeyEvent(
+        node: node,
+        event: event,
+        fieldId: 'username',
+        controller: _usernameController,
+        nextNode: _getNextNodeForField('username'),
+        prevNode: _getPrevNodeForField('username'),
+      ),
+    );
+    _usernameFocusNode.addListener(
+      () => _handleFieldFocusChange('username', _usernameFocusNode),
+    );
+
+    _passwordFocusNode = FocusNode(
+      debugLabel: 'provider_password_field',
+      onKeyEvent: (node, event) => _handleFieldKeyEvent(
+        node: node,
+        event: event,
+        fieldId: 'password',
+        controller: _passwordController,
+        nextNode: _getNextNodeForField('password'),
+        prevNode: _getPrevNodeForField('password'),
+      ),
+    );
+    _passwordFocusNode.addListener(
+      () => _handleFieldFocusChange('password', _passwordFocusNode),
+    );
+
+    _macFocusNode = FocusNode(
+      debugLabel: 'provider_mac_field',
+      onKeyEvent: (node, event) => _handleFieldKeyEvent(
+        node: node,
+        event: event,
+        fieldId: 'mac',
+        controller: _macController,
+        nextNode: _getNextNodeForField('mac'),
+        prevNode: _getPrevNodeForField('mac'),
+      ),
+    );
+    _macFocusNode.addListener(
+      () => _handleFieldFocusChange('mac', _macFocusNode),
+    );
+
+    _xmltvFocusNode = FocusNode(
+      debugLabel: 'provider_xmltv_field',
+      onKeyEvent: (node, event) => _handleFieldKeyEvent(
+        node: node,
+        event: event,
+        fieldId: 'xmltv',
+        controller: _xmltvController,
+        nextNode: _getNextNodeForField('xmltv'),
+        prevNode: _getPrevNodeForField('xmltv'),
+        rightNode: _xmltvPasteFocusNode,
+      ),
+    );
+    _xmltvFocusNode.addListener(
+      () => _handleFieldFocusChange('xmltv', _xmltvFocusNode),
+    );
+
+    _xmltvPasteFocusNode = FocusNode(
+      debugLabel: 'provider_xmltv_paste_button',
+      onKeyEvent: _handleXmltvPasteKeyEvent,
+    );
+
     _notesFocusNode = FocusNode(
       debugLabel: 'provider_notes_field',
-      onKeyEvent: _handleNotesKeyEvent,
+      onKeyEvent: (node, event) => _handleFieldKeyEvent(
+        node: node,
+        event: event,
+        fieldId: 'notes',
+        controller: _notesController,
+        nextNode: _getNextNodeForField('notes'),
+        prevNode: _getPrevNodeForField('notes'),
+        isMultiLine: true,
+      ),
     );
-    _notesFocusNode.addListener(_handleNotesFocusChange);
-    _cancelFocusNode = FocusNode(debugLabel: 'provider_cancel_button');
-    _scanToAddFocusNode = FocusNode(debugLabel: 'provider_scan_to_add_button');
+    _notesFocusNode.addListener(
+      () => _handleFieldFocusChange('notes', _notesFocusNode),
+    );
+
+    _cancelFocusNode = FocusNode(
+      debugLabel: 'provider_cancel_button',
+      onKeyEvent: _handleCancelKeyEvent,
+    );
+
+    _scanToAddFocusNode = FocusNode(
+      debugLabel: 'provider_scan_to_add_button',
+      onKeyEvent: _handleScanToAddKeyEvent,
+    );
+
     _submitFocusNode = FocusNode(
       debugLabel: 'provider_submit_button',
       onKeyEvent: _handleSubmitKeyEvent,
     );
   }
 
+  FocusNode? _getNextNodeForField(String fieldId) {
+    switch (fieldId) {
+      case 'name':
+        return _typeFocusNodes[_selectedType.value];
+      case 'serverUrl':
+        return switch (_selectedType.value) {
+          ProviderType.xtream => _usernameFocusNode,
+          ProviderType.stalker => _macFocusNode,
+          _ => _notesFocusNode,
+        };
+      case 'username':
+        return _passwordFocusNode;
+      case 'password':
+      case 'mac':
+      case 'xmltv':
+        return _notesFocusNode;
+      case 'notes':
+        return !isEditing ? _scanToAddFocusNode : _submitFocusNode;
+      default:
+        return null;
+    }
+  }
+
+  FocusNode? _getPrevNodeForField(String fieldId) {
+    switch (fieldId) {
+      case 'serverUrl':
+        return _typeFocusNodes[_selectedType.value];
+      case 'username':
+        return _serverUrlFocusNode;
+      case 'password':
+        return _usernameFocusNode;
+      case 'mac':
+        return _serverUrlFocusNode;
+      case 'xmltv':
+        return _typeFocusNodes[ProviderType.xmltv];
+      case 'notes':
+        return switch (_selectedType.value) {
+          ProviderType.xtream => _passwordFocusNode,
+          ProviderType.stalker => _macFocusNode,
+          ProviderType.xmltv => _xmltvFocusNode,
+          _ => _serverUrlFocusNode,
+        };
+      default:
+        return null;
+    }
+  }
+
   @override
   void dispose() {
-    _notesFocusNode.removeListener(_handleNotesFocusChange);
     _serverUrlController.removeListener(_handleServerUrlChanged);
     _nameController.dispose();
     _serverUrlController.dispose();
@@ -118,6 +310,17 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     _xmltvController.dispose();
     _notesController.dispose();
 
+    _nameFocusNode.dispose();
+    for (final node in _typeFocusNodes.values) {
+      node.dispose();
+    }
+    _serverUrlFocusNode.dispose();
+    _serverUrlPasteFocusNode.dispose();
+    _usernameFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    _macFocusNode.dispose();
+    _xmltvFocusNode.dispose();
+    _xmltvPasteFocusNode.dispose();
     _notesFocusNode.dispose();
     _cancelFocusNode.dispose();
     _scanToAddFocusNode.dispose();
@@ -125,12 +328,21 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     super.dispose();
   }
 
-  void _handleNotesFocusChange() {
-    if (!_notesFocusNode.hasFocus && _isEditingNotes) {
+  void _stopEditing() {
+    if (_activeEditingField != null) {
       if (mounted) {
-        setState(() => _isEditingNotes = false);
+        setState(() => _activeEditingField = null);
         SystemChannels.textInput.invokeMethod('TextInput.hide');
       }
+    }
+  }
+
+  void _handleFieldFocusChange(String fieldId, FocusNode node) {
+    if (!node.hasFocus && _activeEditingField == fieldId) {
+      _stopEditing();
+    }
+    if (mounted) {
+      setState(() {});
     }
   }
 
@@ -154,7 +366,53 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     return prevNewline == -1;
   }
 
-  KeyEventResult _handleNotesKeyEvent(FocusNode node, KeyEvent event) {
+  KeyEventResult _handleTypeChipKeyEvent(ProviderType pt, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _nameFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      if (_selectedType.value == ProviderType.xmltv) {
+        _xmltvFocusNode.requestFocus();
+      } else {
+        _serverUrlFocusNode.requestFocus();
+      }
+      return KeyEventResult.handled;
+    }
+
+    final values = ProviderType.values;
+    final currentIndex = values.indexOf(pt);
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft && currentIndex > 0) {
+      _typeFocusNodes[values[currentIndex - 1]]?.requestFocus();
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
+        currentIndex < values.length - 1) {
+      _typeFocusNodes[values[currentIndex + 1]]?.requestFocus();
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleFieldKeyEvent({
+    required FocusNode node,
+    required KeyEvent event,
+    required String fieldId,
+    required FocusNode? nextNode,
+    required FocusNode? prevNode,
+    FocusNode? rightNode,
+    FocusNode? leftNode,
+    bool isMultiLine = false,
+    TextEditingController? controller,
+  }) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
@@ -164,51 +422,109 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
         event.logicalKey == LogicalKeyboardKey.numpadEnter ||
         event.logicalKey == LogicalKeyboardKey.gameButtonA;
 
+    final isEditing = _activeEditingField == fieldId;
+
     if (isSelect) {
-      if (_isTv && !_isEditingNotes) {
-        setState(() => _isEditingNotes = true);
+      if (_isTv && !isEditing) {
+        setState(() => _activeEditingField = fieldId);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
-            _notesFocusNode.requestFocus();
+            node.requestFocus();
+            SystemChannels.textInput.invokeMethod('TextInput.show');
           }
         });
         return KeyEventResult.handled;
       }
     }
 
-    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      if (!_isTv || !_isEditingNotes || _isAtLastLine(_notesController)) {
-        if (_isEditingNotes) {
-          setState(() => _isEditingNotes = false);
-          SystemChannels.textInput.invokeMethod('TextInput.hide');
-        }
-        if (!isEditing && _scanToAddFocusNode.canRequestFocus) {
-          _scanToAddFocusNode.requestFocus();
-          return KeyEventResult.handled;
-        } else if (isEditing && _submitFocusNode.canRequestFocus) {
-          _submitFocusNode.requestFocus();
-          return KeyEventResult.handled;
-        }
-        final moved = node.focusInDirection(TraversalDirection.down);
-        if (!moved) {
-          node.nextFocus();
-        }
-        return KeyEventResult.handled;
-      }
-    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      if (!_isTv || !_isEditingNotes || _isAtFirstLine(_notesController)) {
-        if (_isEditingNotes) {
-          setState(() => _isEditingNotes = false);
-          SystemChannels.textInput.invokeMethod('TextInput.hide');
-        }
-        final moved = node.focusInDirection(TraversalDirection.up);
-        if (!moved) {
-          node.previousFocus();
-        }
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      if (isEditing) {
+        _stopEditing();
         return KeyEventResult.handled;
       }
     }
 
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      final canExitDown =
+          !isMultiLine || controller == null || _isAtLastLine(controller);
+      if (!isEditing || canExitDown) {
+        if (isEditing) {
+          _stopEditing();
+        }
+        if (nextNode != null && nextNode.canRequestFocus) {
+          nextNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+        final moved = node.focusInDirection(TraversalDirection.down);
+        if (!moved) node.nextFocus();
+        return KeyEventResult.handled;
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      final canExitUp =
+          !isMultiLine || controller == null || _isAtFirstLine(controller);
+      if (!isEditing || canExitUp) {
+        if (isEditing) {
+          _stopEditing();
+        }
+        if (prevNode != null && prevNode.canRequestFocus) {
+          prevNode.requestFocus();
+          return KeyEventResult.handled;
+        }
+        final moved = node.focusInDirection(TraversalDirection.up);
+        if (!moved) node.previousFocus();
+        return KeyEventResult.handled;
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowRight &&
+        rightNode != null &&
+        !isEditing) {
+      if (rightNode.canRequestFocus) {
+        rightNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+    } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
+        leftNode != null &&
+        !isEditing) {
+      if (leftNode.canRequestFocus) {
+        leftNode.requestFocus();
+        return KeyEventResult.handled;
+      }
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleCancelKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _notesFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      final nextNode = !isEditing ? _scanToAddFocusNode : _submitFocusNode;
+      nextNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleScanToAddKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _notesFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      _cancelFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+      _submitFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
     return KeyEventResult.ignored;
   }
 
@@ -220,7 +536,117 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
       _notesFocusNode.requestFocus();
       return KeyEventResult.handled;
     }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      final prevNode = !isEditing ? _scanToAddFocusNode : _cancelFocusNode;
+      prevNode.requestFocus();
+      return KeyEventResult.handled;
+    }
     return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleServerUrlPasteKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      _serverUrlFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _getNextNodeForField('serverUrl')?.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _typeFocusNodes[_selectedType.value]?.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  KeyEventResult _handleXmltvPasteKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+      _xmltvFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _notesFocusNode.requestFocus();
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _typeFocusNodes[ProviderType.xmltv]?.requestFocus();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  Widget _buildTvFormField({
+    required String fieldId,
+    required FocusNode focusNode,
+    required TextEditingController controller,
+    required String labelText,
+    required String defaultHint,
+    TextInputType keyboardType = TextInputType.text,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    bool isPassword = false,
+    bool isMultiLine = false,
+    int maxLines = 1,
+    int? maxLength,
+    Widget? suffixIcon,
+    FormFieldValidator<String>? validator,
+  }) {
+    final isEditing = _activeEditingField == fieldId;
+    final isTvMode = _isTv;
+    final isFocused = focusNode.hasFocus;
+
+    return TextFormField(
+      focusNode: focusNode,
+      controller: controller,
+      readOnly: isTvMode && !isEditing,
+      showCursor: !isTvMode || isEditing,
+      enableInteractiveSelection: !isTvMode || isEditing,
+      obscureText: isPassword,
+      keyboardType: isMultiLine ? TextInputType.multiline : keyboardType,
+      textCapitalization: textCapitalization,
+      maxLines: maxLines,
+      maxLength: maxLength,
+      textInputAction: isTvMode
+          ? (isMultiLine ? TextInputAction.newline : TextInputAction.next)
+          : (isMultiLine ? TextInputAction.newline : TextInputAction.next),
+      onTap: () {
+        if (isTvMode && !isEditing) {
+          setState(() => _activeEditingField = fieldId);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              focusNode.requestFocus();
+              SystemChannels.textInput.invokeMethod('TextInput.show');
+            }
+          });
+        }
+      },
+      onFieldSubmitted: (_) {
+        if (isTvMode) {
+          _stopEditing();
+          final next = _getNextNodeForField(fieldId);
+          if (next != null && next.canRequestFocus) {
+            next.requestFocus();
+          }
+        }
+      },
+      decoration: InputDecoration(
+        labelText: labelText,
+        hintText: (isTvMode && !isEditing)
+            ? 'Press OK to edit $labelText'
+            : defaultHint,
+        helperText: (isTvMode && isFocused && !isEditing)
+            ? 'Press OK on remote to enter text'
+            : null,
+        suffixIcon: suffixIcon,
+      ),
+      validator: validator,
+    );
   }
 
   @override
@@ -250,13 +676,13 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
             AppCard(
               child: Column(
                 children: [
-                  TextFormField(
+                  _buildTvFormField(
+                    fieldId: 'name',
+                    focusNode: _nameFocusNode,
                     controller: _nameController,
+                    labelText: 'Provider Name',
+                    defaultHint: 'Enter a memorable name',
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
-                      labelText: 'Provider Name',
-                      hintText: 'Enter a memorable name',
-                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Provider name is required.';
@@ -285,9 +711,13 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                       children: ProviderType.values.map((pt) {
                         final isSelected = _selectedType.value == pt;
                         return TvFocusable(
+                          focusNode: _typeFocusNodes[pt],
+                          descendantsAreFocusable: false,
                           onTap: () => _selectedType.value = pt,
                           borderRadius: AppRadius.pill,
                           scale: 1.05,
+                          onKeyEvent: (node, event) =>
+                              _handleTypeChipKeyEvent(pt, event),
                           child: ChoiceChip(
                             label: Text(pt.displayName),
                             selected: isSelected,
@@ -305,16 +735,18 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                     return Column(
                       children: [
                         if (type != ProviderType.xmltv) ...[
-                          TextFormField(
+                          _buildTvFormField(
+                            fieldId: 'serverUrl',
+                            focusNode: _serverUrlFocusNode,
                             controller: _serverUrlController,
-                            decoration: InputDecoration(
-                              labelText: 'Server URL',
-                              hintText: 'https://example.com',
-                              suffixIcon: _buildPasteButton(
-                                _serverUrlController,
-                              ),
-                            ),
+                            labelText: 'Server URL',
+                            defaultHint: 'https://example.com',
                             keyboardType: TextInputType.url,
+                            suffixIcon: _buildPasteButton(
+                              _serverUrlController,
+                              focusNode: _serverUrlPasteFocusNode,
+                              onKeyEvent: _handleServerUrlPasteKeyEvent,
+                            ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Server URL is required.';
@@ -328,12 +760,12 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                           AppSpacing.heightMD,
                         ],
                         if (type == ProviderType.xtream) ...[
-                          TextFormField(
+                          _buildTvFormField(
+                            fieldId: 'username',
+                            focusNode: _usernameFocusNode,
                             controller: _usernameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Username',
-                              hintText: 'Enter username',
-                            ),
+                            labelText: 'Username',
+                            defaultHint: 'Enter username',
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Username is required.';
@@ -342,13 +774,13 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                             },
                           ),
                           AppSpacing.heightMD,
-                          TextFormField(
+                          _buildTvFormField(
+                            fieldId: 'password',
+                            focusNode: _passwordFocusNode,
                             controller: _passwordController,
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                              hintText: 'Enter password',
-                            ),
-                            obscureText: true,
+                            labelText: 'Password',
+                            defaultHint: 'Enter password',
+                            isPassword: true,
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'Password is required.';
@@ -359,12 +791,12 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                           AppSpacing.heightMD,
                         ],
                         if (type == ProviderType.stalker) ...[
-                          TextFormField(
+                          _buildTvFormField(
+                            fieldId: 'mac',
+                            focusNode: _macFocusNode,
                             controller: _macController,
-                            decoration: const InputDecoration(
-                              labelText: 'MAC Address',
-                              hintText: 'Required for Stalker Portal',
-                            ),
+                            labelText: 'MAC Address',
+                            defaultHint: 'Required for Stalker Portal',
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return 'MAC address is required.';
@@ -378,14 +810,18 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                           AppSpacing.heightMD,
                         ],
                         if (type == ProviderType.xmltv) ...[
-                          TextFormField(
+                          _buildTvFormField(
+                            fieldId: 'xmltv',
+                            focusNode: _xmltvFocusNode,
                             controller: _xmltvController,
-                            decoration: InputDecoration(
-                              labelText: 'XMLTV URL',
-                              hintText: 'https://example.com/guide.xml',
-                              suffixIcon: _buildPasteButton(_xmltvController),
-                            ),
+                            labelText: 'XMLTV URL',
+                            defaultHint: 'https://example.com/guide.xml',
                             keyboardType: TextInputType.url,
+                            suffixIcon: _buildPasteButton(
+                              _xmltvController,
+                              focusNode: _xmltvPasteFocusNode,
+                              onKeyEvent: _handleXmltvPasteKeyEvent,
+                            ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
                                 return null;
@@ -401,25 +837,13 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                       ],
                     );
                   }),
-                  TextFormField(
+                  _buildTvFormField(
+                    fieldId: 'notes',
                     focusNode: _notesFocusNode,
                     controller: _notesController,
-                    readOnly: _isTv && !_isEditingNotes,
-                    showCursor: !_isTv || _isEditingNotes,
-                    enableInteractiveSelection: !_isTv || _isEditingNotes,
-                    textInputAction:
-                        _isTv ? TextInputAction.done : TextInputAction.newline,
-                    onTap: () {
-                      if (_isTv && !_isEditingNotes) {
-                        setState(() => _isEditingNotes = true);
-                      }
-                    },
-                    decoration: InputDecoration(
-                      labelText: 'Notes',
-                      hintText: (_isTv && !_isEditingNotes)
-                          ? 'Press OK to edit notes'
-                          : 'Optional notes about this provider',
-                    ),
+                    labelText: 'Notes',
+                    defaultHint: 'Optional notes about this provider',
+                    isMultiLine: true,
                     maxLines: 3,
                     maxLength: AppConstants.maxNotesLength,
                   ),
@@ -429,69 +853,52 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
             AppSpacing.heightLG,
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 TvFocusable(
-                   focusNode: _cancelFocusNode,
-                   onTap: () => Get.back(),
-                   borderRadius: AppRadius.medium,
-                   scale: 1.05,
-                   descendantsAreFocusable: false,
-                   onKeyEvent: (node, event) {
-                     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-                       return KeyEventResult.ignored;
-                     }
-                     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                       _notesFocusNode.requestFocus();
-                       return KeyEventResult.handled;
-                     }
-                     return KeyEventResult.ignored;
-                   },
-                   child: const OutlinedButton(
-                     onPressed: null,
-                     child: Text('Cancel'),
-                   ),
-                 ),
-                 AppSpacing.widthMD,
-                 if (!isEditing)
-                   TvFocusable(
-                     focusNode: _scanToAddFocusNode,
-                     onTap: _showPairingDialog,
-                     borderRadius: AppRadius.medium,
-                     scale: 1.05,
-                     descendantsAreFocusable: false,
-                     onKeyEvent: (node, event) {
-                       if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-                         return KeyEventResult.ignored;
-                       }
-                       if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                         _notesFocusNode.requestFocus();
-                         return KeyEventResult.handled;
-                       }
-                       return KeyEventResult.ignored;
-                     },
-                     child: OutlinedButton(
-                       onPressed: null,
-                       style: OutlinedButton.styleFrom(
-                         foregroundColor: Theme.of(context).colorScheme.primary,
-                         disabledForegroundColor:
-                             Theme.of(context).colorScheme.primary,
-                         side: BorderSide(
-                           color: Theme.of(context).colorScheme.primary,
-                         ),
-                       ),
-                       child: const Row(
-                         mainAxisSize: MainAxisSize.min,
-                         children: [
-                           Icon(Icons.qr_code_scanner, size: 18),
-                           SizedBox(width: 6),
-                           Text('Scan to Add'),
-                         ],
-                       ),
-                     ),
-                   ),
-                 if (!isEditing) AppSpacing.widthMD,
+              children: [
+                TvFocusable(
+                  focusNode: _cancelFocusNode,
+                  onKeyEvent: _handleCancelKeyEvent,
+                  onTap: () => Get.back(),
+                  borderRadius: AppRadius.medium,
+                  scale: 1.05,
+                  descendantsAreFocusable: false,
+                  child: const OutlinedButton(
+                    onPressed: null,
+                    child: Text('Cancel'),
+                  ),
+                ),
+                AppSpacing.widthMD,
+                if (!isEditing)
+                  TvFocusable(
+                    focusNode: _scanToAddFocusNode,
+                    onKeyEvent: _handleScanToAddKeyEvent,
+                    onTap: _showPairingDialog,
+                    borderRadius: AppRadius.medium,
+                    scale: 1.05,
+                    descendantsAreFocusable: false,
+                    child: OutlinedButton(
+                      onPressed: null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        disabledForegroundColor:
+                            Theme.of(context).colorScheme.primary,
+                        side: BorderSide(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.qr_code_scanner, size: 18),
+                          SizedBox(width: 6),
+                          Text('Scan to Add'),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (!isEditing) AppSpacing.widthMD,
                 AppButton(
                   focusNode: _submitFocusNode,
+                  onKeyEvent: _handleSubmitKeyEvent,
                   text: isEditing ? 'Save Changes' : 'Add Link',
                   onPressed: () {
                     if (_formKey.currentState?.validate() ?? false) {
@@ -656,7 +1063,11 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     );
   }
 
-  Widget _buildPasteButton(TextEditingController controller) {
+  Widget _buildPasteButton(
+    TextEditingController controller, {
+    FocusNode? focusNode,
+    FocusOnKeyEventCallback? onKeyEvent,
+  }) {
     Future<void> paste() async {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       final text = data?.text;
@@ -666,8 +1077,11 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     }
 
     return TvFocusable(
+      focusNode: focusNode,
+      onKeyEvent: onKeyEvent,
       borderRadius: AppRadius.small,
       scale: 1.0,
+      descendantsAreFocusable: false,
       onTap: paste,
       child: IconButton(
         icon: const Icon(AppIcons.paste, size: 20),
