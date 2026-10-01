@@ -375,7 +375,8 @@ class TvNavigationService extends GetxService {
       for (int i = currentIndex + 1; i < _railOrder.length; i++) {
         final railId = _railOrder[i];
         if (_liveRegionNodes(railId).isNotEmpty ||
-            (_regionMemory[railId]?.lastFocusedNode?.canRequestFocus == true)) {
+            (_regionMemory[railId]?.lastFocusedNode?.canRequestFocus == true) ||
+            _regionMemory.containsKey(railId)) {
           targetRailIndex = i;
           break;
         }
@@ -389,7 +390,8 @@ class TvNavigationService extends GetxService {
       for (int i = currentIndex - 1; i >= 0; i--) {
         final railId = _railOrder[i];
         if (_liveRegionNodes(railId).isNotEmpty ||
-            (_regionMemory[railId]?.lastFocusedNode?.canRequestFocus == true)) {
+            (_regionMemory[railId]?.lastFocusedNode?.canRequestFocus == true) ||
+            _regionMemory.containsKey(railId)) {
           targetRailIndex = i;
           break;
         }
@@ -529,7 +531,10 @@ class TvNavigationService extends GetxService {
     Duration duration = const Duration(milliseconds: 250),
     Curve curve = Curves.easeOutCubic,
   }) {
-    // Scroll the nearest enclosing scrollable
+    final renderObject = context.findRenderObject();
+    if (renderObject == null || !renderObject.attached) return;
+
+    // 1. Scroll the nearest enclosing scrollable (e.g. horizontal ListView)
     Scrollable.ensureVisible(
       context,
       alignment: alignment,
@@ -537,28 +542,37 @@ class TvNavigationService extends GetxService {
       curve: curve,
     );
 
-    // Also look for parent vertical scrollable if current is horizontal
+    // 2. Find parent vertical scrollable (e.g. CustomScrollView) and bring the
+    // focused renderObject into view.
     final nearestScrollable = Scrollable.maybeOf(context);
     if (nearestScrollable != null &&
-        nearestScrollable.axisDirection == AxisDirection.right) {
-      // Find parent scrollable
-      Element? parentElement;
+        (nearestScrollable.axisDirection == AxisDirection.right ||
+            nearestScrollable.axisDirection == AxisDirection.left)) {
+      ScrollableState? outerScrollable;
       context.visitAncestorElements((ancestor) {
-        if (ancestor.widget is Scrollable &&
-            ancestor != nearestScrollable.context) {
-          parentElement = ancestor;
-          return false;
+        if (ancestor is StatefulElement && ancestor.state is ScrollableState) {
+          final state = ancestor.state as ScrollableState;
+          if (state != nearestScrollable &&
+              (state.axisDirection == AxisDirection.down ||
+                  state.axisDirection == AxisDirection.up)) {
+            outerScrollable = state;
+            return false;
+          }
         }
         return true;
       });
 
-      if (parentElement != null) {
-        Scrollable.ensureVisible(
-          parentElement!,
-          alignment: alignment,
-          duration: duration,
-          curve: curve,
-        );
+      if (outerScrollable != null &&
+          outerScrollable!.position.hasContentDimensions &&
+          renderObject.attached) {
+        try {
+          outerScrollable!.position.ensureVisible(
+            renderObject,
+            alignment: alignment,
+            duration: duration,
+            curve: curve,
+          );
+        } catch (_) {}
       }
     }
   }
