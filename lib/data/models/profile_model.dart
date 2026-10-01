@@ -1,5 +1,7 @@
 import 'package:hive/hive.dart';
 
+part 'profile_model.g.dart';
+
 @HiveType(typeId: 1)
 class ProfileModel extends HiveObject {
   @HiveField(0)
