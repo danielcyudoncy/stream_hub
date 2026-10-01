@@ -585,7 +585,7 @@ class SettingsPage extends GetView<SettingsController> {
                 title: 'Manage Categories & Visibility',
                 subtitle: 'Hide or organize playlist categories',
                 leadingIcon: Icons.category_rounded,
-                onTap: () => Get.toNamed('/categories'),
+                onTap: () => Get.toNamed(AppRoutes.categories),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               SettingsTile(

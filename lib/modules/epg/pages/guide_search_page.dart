@@ -22,7 +22,7 @@ class GuideSearchPage extends GetView<GuideController> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isTV = ResponsiveHelper.isTV(context);
+    final isTV = ResponsiveHelper.isTvLayout(context);
 
     return AppScaffold(
       title: 'Guide Search',
@@ -250,14 +250,17 @@ class GuideSearchPage extends GetView<GuideController> {
         final program = controller.filteredPrograms[index];
         return Padding(
           padding: const EdgeInsets.only(bottom: AppSpacing.md),
-          child: ProgramCard(
-            program: program,
-            onTap: () {
-              Get.toNamed(
-                AppRoutes.programDetails,
-                parameters: {'programId': program.id},
-              );
-            },
+          child: SizedBox(
+            height: 240,
+            child: ProgramCard(
+              program: program,
+              onTap: () {
+                Get.toNamed(
+                  AppRoutes.programDetails,
+                  parameters: {'programId': program.id},
+                );
+              },
+            ),
           ),
         );
       },

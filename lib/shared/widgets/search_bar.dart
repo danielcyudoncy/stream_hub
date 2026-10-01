@@ -63,7 +63,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
 
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.arrowDown) {
-      if (_isEditing && mounted) {
+      if (mounted) {
         setState(() => _isEditing = false);
         _textFocusNode.canRequestFocus = false;
         final moved = node.focusInDirection(TraversalDirection.down);
@@ -73,7 +73,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
         return KeyEventResult.handled;
       }
     } else if (key == LogicalKeyboardKey.arrowUp) {
-      if (_isEditing && mounted) {
+      if (mounted) {
         setState(() => _isEditing = false);
         _textFocusNode.canRequestFocus = false;
         final moved = node.focusInDirection(TraversalDirection.up);
@@ -83,7 +83,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
         return KeyEventResult.handled;
       }
     } else if (key == LogicalKeyboardKey.escape || key == LogicalKeyboardKey.goBack) {
-      if (_isEditing && mounted) {
+      if (mounted) {
         setState(() => _isEditing = false);
         _textFocusNode.canRequestFocus = false;
         _tvBarFocusNode.requestFocus();
@@ -95,8 +95,14 @@ class _AppSearchBarState extends State<AppSearchBar> {
   }
 
   void _onTextFocusChanged() {
-    if (!_textFocusNode.hasFocus && _isEditing && mounted) {
-      setState(() => _isEditing = false);
+    if (!_textFocusNode.hasFocus && mounted) {
+      if (_isEditing) {
+        setState(() => _isEditing = false);
+      }
+      final isTv = PlatformHelper.isTV || ResponsiveHelper.isTvLayout(context);
+      if (isTv) {
+        _textFocusNode.canRequestFocus = false;
+      }
     }
   }
 
@@ -161,7 +167,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isTv = PlatformHelper.isTV || ResponsiveHelper.isTV(context);
+    final isTv = PlatformHelper.isTV || ResponsiveHelper.isTvLayout(context);
 
     // If on TV and not actively editing, disable text field focus so D-pad navigates over the search bar
     if (isTv) {

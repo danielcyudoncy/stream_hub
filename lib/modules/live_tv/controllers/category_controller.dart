@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/media/enums/media_type.dart';
 import '../../../data/models/category.dart';
@@ -11,13 +11,59 @@ import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 import 'live_tv_controller.dart';
+import '../../movies/movies_controller.dart';
+import '../../series/series_controller.dart';
+
+enum CategorySortOption {
+  nameAsc,
+  nameDesc,
+  countDesc,
+  countAsc,
+  visibleFirst,
+  hiddenFirst;
+
+  String get label {
+    switch (this) {
+      case CategorySortOption.nameAsc:
+        return 'Name (A-Z)';
+      case CategorySortOption.nameDesc:
+        return 'Name (Z-A)';
+      case CategorySortOption.countDesc:
+        return 'Count: High to Low';
+      case CategorySortOption.countAsc:
+        return 'Count: Low to High';
+      case CategorySortOption.visibleFirst:
+        return 'Visible First';
+      case CategorySortOption.hiddenFirst:
+        return 'Hidden First';
+    }
+  }
+
+  IconData get icon {
+    switch (this) {
+      case CategorySortOption.nameAsc:
+      case CategorySortOption.nameDesc:
+        return Icons.sort_by_alpha_rounded;
+      case CategorySortOption.countDesc:
+        return Icons.arrow_downward_rounded;
+      case CategorySortOption.countAsc:
+        return Icons.arrow_upward_rounded;
+      case CategorySortOption.visibleFirst:
+        return Icons.visibility_rounded;
+      case CategorySortOption.hiddenFirst:
+        return Icons.visibility_off_rounded;
+    }
+  }
+}
 
 class CategoryController extends GetxController {
   final MediaEngine mediaEngine;
   final MediaLibrary mediaLibrary;
   final CatalogRepository catalogRepository;
   final FavoriteRepository? favoriteRepository;
+
   StreamSubscription? _catalogSubscription;
+  StreamSubscription? _favoriteSubscription;
 
   CategoryController({
     required this.mediaEngine,
@@ -31,59 +77,113 @@ class CategoryController extends GetxController {
   final RxString selectedCategoryId = ''.obs;
   final RxString searchQuery = ''.obs;
   final RxString filterTab = 'all'.obs; // 'all', 'visible', 'hidden'
+  final Rx<MediaType> selectedMediaType = MediaType.channel.obs;
+  final Rx<CategorySortOption> sortOption = CategorySortOption.nameAsc.obs;
   final RxSet<String> hiddenCategories = <String>{}.obs;
   final RxSet<String> hiddenChannels = <String>{}.obs;
-  final RxBool isLoading = true.obs;
+  final RxBool isLoading = false.obs;
 
   List<Category> get filteredCategories {
     final query = searchQuery.value.trim().toLowerCase();
-    return categories.where((c) {
+    final list = categories.where((c) {
       if (query.isNotEmpty && !c.name.toLowerCase().contains(query)) {
         return false;
       }
+      final hidden = isCategoryHidden(c.id);
       if (filterTab.value == 'visible') {
-        return !hiddenCategories.contains(c.id);
+        return !hidden;
       }
       if (filterTab.value == 'hidden') {
-        return hiddenCategories.contains(c.id);
+        return hidden;
       }
       return true;
     }).toList();
+
+    _applySort(list);
+    return list;
   }
 
   int get visibleCategoriesCount =>
-      categories.where((c) => !hiddenCategories.contains(c.id)).length;
+      categories.where((c) => !isCategoryHidden(c.id)).length;
 
   int get hiddenCategoriesCount =>
-      categories.where((c) => hiddenCategories.contains(c.id)).length;
+      categories.where((c) => isCategoryHidden(c.id)).length;
+
+  int get totalItemsCount {
+    var count = 0;
+    for (final c in categories) {
+      count += c.channelCount;
+    }
+    return count;
+  }
 
   void clearSelection() {
     selectedCategoryId.value = '';
     selectedCategoryChannels.clear();
   }
 
-  bool isCategoryHidden(String categoryId) =>
-      hiddenCategories.contains(categoryId);
+  bool isCategoryHidden(String idOrName) {
+    final cat = categories.firstWhereOrNull(
+      (c) => c.id == idOrName || c.name.toLowerCase() == idOrName.toLowerCase(),
+    );
+    if (hiddenCategories.contains(idOrName)) return true;
+    if (cat != null) {
+      if (hiddenCategories.contains(cat.id)) return true;
+      if (hiddenCategories.contains(cat.name)) return true;
+      if (hiddenCategories.contains(cat.name.toLowerCase().replaceAll(' ', '_'))) {
+        return true;
+      }
+      if (hiddenCategories.contains(cat.name.trim())) return true;
+    }
+    return false;
+  }
 
   void toggleCategoryVisibility(String categoryId) {
     final cat = categories.firstWhereOrNull((c) => c.id == categoryId);
-    if (hiddenCategories.contains(categoryId)) {
+    final currentlyHidden = isCategoryHidden(categoryId);
+
+    if (currentlyHidden) {
       hiddenCategories.remove(categoryId);
       if (cat != null) {
+        hiddenCategories.remove(cat.id);
         hiddenCategories.remove(cat.name);
         hiddenCategories.remove(cat.name.toLowerCase().replaceAll(' ', '_'));
+        hiddenCategories.remove(cat.name.trim());
       }
     } else {
       hiddenCategories.add(categoryId);
       if (cat != null) {
+        hiddenCategories.add(cat.id);
         hiddenCategories.add(cat.name);
         hiddenCategories.add(cat.name.toLowerCase().replaceAll(' ', '_'));
       }
     }
     _saveHiddenState();
-    if (Get.isRegistered<LiveTVController>()) {
-      Get.find<LiveTVController>().refresh();
+    _notifyOtherControllers();
+    categories.refresh();
+  }
+
+  void hideAll() {
+    for (final c in categories) {
+      hiddenCategories.add(c.id);
+      hiddenCategories.add(c.name);
+      hiddenCategories.add(c.name.toLowerCase().replaceAll(' ', '_'));
     }
+    _saveHiddenState();
+    _notifyOtherControllers();
+    categories.refresh();
+  }
+
+  void showAll() {
+    for (final c in categories) {
+      hiddenCategories.remove(c.id);
+      hiddenCategories.remove(c.name);
+      hiddenCategories.remove(c.name.toLowerCase().replaceAll(' ', '_'));
+      hiddenCategories.remove(c.name.trim());
+    }
+    _saveHiddenState();
+    _notifyOtherControllers();
+    categories.refresh();
   }
 
   bool isChannelHidden(String channelId) =>
@@ -96,8 +196,62 @@ class CategoryController extends GetxController {
       hiddenChannels.add(channelId);
     }
     _saveHiddenState();
-    if (Get.isRegistered<LiveTVController>()) {
-      Get.find<LiveTVController>().refresh();
+    _notifyOtherControllers();
+  }
+
+  void setMediaType(MediaType type) {
+    if (selectedMediaType.value == type) return;
+    selectedMediaType.value = type;
+    clearSelection();
+    _loadCategories();
+  }
+
+  void setSortOption(CategorySortOption option) {
+    sortOption.value = option;
+    _applySort(categories);
+    categories.refresh();
+  }
+
+  void _applySort(List<Category> list) {
+    switch (sortOption.value) {
+      case CategorySortOption.nameAsc:
+        list.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        break;
+      case CategorySortOption.nameDesc:
+        list.sort((a, b) => b.name.toLowerCase().compareTo(a.name.toLowerCase()));
+        break;
+      case CategorySortOption.countDesc:
+        list.sort((a, b) {
+          final cmp = b.channelCount.compareTo(a.channelCount);
+          return cmp != 0 ? cmp : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
+      case CategorySortOption.countAsc:
+        list.sort((a, b) {
+          final cmp = a.channelCount.compareTo(b.channelCount);
+          return cmp != 0 ? cmp : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
+      case CategorySortOption.visibleFirst:
+        list.sort((a, b) {
+          final aHidden = isCategoryHidden(a.id);
+          final bHidden = isCategoryHidden(b.id);
+          if (aHidden != bHidden) {
+            return aHidden ? 1 : -1;
+          }
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
+      case CategorySortOption.hiddenFirst:
+        list.sort((a, b) {
+          final aHidden = isCategoryHidden(a.id);
+          final bHidden = isCategoryHidden(b.id);
+          if (aHidden != bHidden) {
+            return aHidden ? -1 : 1;
+          }
+          return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        });
+        break;
     }
   }
 
@@ -127,7 +281,17 @@ class CategoryController extends GetxController {
     } catch (_) {}
   }
 
-  StreamSubscription? _favoriteSubscription;
+  void _notifyOtherControllers() {
+    if (Get.isRegistered<LiveTVController>()) {
+      Get.find<LiveTVController>().refresh();
+    }
+    if (Get.isRegistered<MoviesController>()) {
+      Get.find<MoviesController>().refresh();
+    }
+    if (Get.isRegistered<SeriesController>()) {
+      Get.find<SeriesController>().refresh();
+    }
+  }
 
   @override
   void onInit() {
@@ -164,84 +328,218 @@ class CategoryController extends GetxController {
     super.onClose();
   }
 
+  /// Ensures categories are loaded whenever page is opened or revisited
+  Future<void> ensureCategoriesLoaded({bool force = false}) async {
+    if (force || categories.isEmpty) {
+      await _loadCategories();
+    }
+  }
+
+  Set<String> _extractItemCategories(MediaItem item) {
+    final result = <String>{};
+
+    final catName = item.metadata['category_name']?.toString().trim();
+    if (catName != null && catName.isNotEmpty) result.add(catName);
+
+    final catNameAlt = item.metadata['categoryName']?.toString().trim();
+    if (catNameAlt != null && catNameAlt.isNotEmpty) result.add(catNameAlt);
+
+    final catMeta = item.metadata['category']?.toString().trim();
+    if (catMeta != null && catMeta.isNotEmpty) result.add(catMeta);
+
+    final groupTitle = item.metadata['groupTitle']?.toString().trim();
+    if (groupTitle != null && groupTitle.isNotEmpty) result.add(groupTitle);
+
+    final groupTitleAlt = item.metadata['group-title']?.toString().trim();
+    if (groupTitleAlt != null && groupTitleAlt.isNotEmpty) result.add(groupTitleAlt);
+
+    final genreMeta = item.metadata['genre']?.toString().trim();
+    if (genreMeta != null && genreMeta.isNotEmpty) result.add(genreMeta);
+
+    final catsMeta = item.metadata['categories'];
+    if (catsMeta is List) {
+      for (final c in catsMeta) {
+        final str = c?.toString().trim();
+        if (str != null && str.isNotEmpty) result.add(str);
+      }
+    }
+
+    for (final g in item.genres) {
+      final str = g.trim();
+      if (str.isNotEmpty) result.add(str);
+    }
+
+    return result;
+  }
+
   Future<void> _loadCategories() async {
     isLoading.value = true;
     try {
-      final channelItems = await catalogRepository.getByType(
-        MediaType.channel,
-      );
+      final currentType = selectedMediaType.value;
 
-      final categoryItems = await catalogRepository.getByType(
-        MediaType.collection,
-      );
-      final collectionItems = categoryItems
-          .where((item) =>
-              item.metadata['type'] == 'live' ||
-              item.metadata['type'] == null)
-          .toList();
-
-      // Index channels by genre name, genreId, and category title
-      final channelsByGenreName = <String, List<MediaItem>>{};
-      final channelsByGenreId = <String, List<MediaItem>>{};
-
-      for (final item in channelItems) {
-        final genreId = item.metadata['genreId']?.toString() ?? '';
-        if (genreId.isNotEmpty) {
-          channelsByGenreId.putIfAbsent(genreId, () => []).add(item);
+      // 1. Fetch media items for current type
+      List<MediaItem> mediaItems = await catalogRepository.getByType(currentType);
+      if (mediaItems.isEmpty) {
+        switch (currentType) {
+          case MediaType.channel:
+            mediaItems = mediaLibrary.getLiveTV();
+            break;
+          case MediaType.movie:
+            mediaItems = mediaLibrary.getMovies();
+            break;
+          case MediaType.series:
+            mediaItems = mediaLibrary.getSeries();
+            break;
+          default:
+            mediaItems = mediaLibrary.getByType(currentType);
+            break;
         }
-        for (final genre in item.genres) {
-          if (genre.isNotEmpty) {
-            channelsByGenreName.putIfAbsent(genre, () => []).add(item);
+      }
+
+      // If still empty and channel was requested, also try all catalog items
+      if (mediaItems.isEmpty && currentType == MediaType.channel) {
+        final all = await catalogRepository.getAllItems();
+        mediaItems = all.where((i) => i.mediaType == MediaType.channel).toList();
+      }
+
+      // 2. Fetch collection items from catalog & fallback to library
+      List<MediaItem> rawCollections =
+          await catalogRepository.getByType(MediaType.collection);
+      if (rawCollections.isEmpty) {
+        rawCollections = mediaLibrary.getCollections();
+      }
+
+      final relevantCollections = rawCollections.where((c) {
+        if (currentType == MediaType.channel) {
+          return c.id.startsWith('xtream-live-cat-') ||
+              c.metadata['type'] == 'live' ||
+              c.metadata['type'] == 'channel' ||
+              (!c.id.startsWith('xtream-vod-cat-') &&
+                  !c.id.startsWith('xtream-series-cat-') &&
+                  c.metadata['type'] != 'movie' &&
+                  c.metadata['type'] != 'series' &&
+                  c.metadata['isVod'] != true);
+        } else if (currentType == MediaType.movie) {
+          return c.id.startsWith('xtream-vod-cat-') ||
+              c.metadata['type'] == 'movie' ||
+              c.metadata['type'] == 'vod' ||
+              c.metadata['isVod'] == true;
+        } else if (currentType == MediaType.series) {
+          return c.id.startsWith('xtream-series-cat-') ||
+              c.metadata['type'] == 'series';
+        }
+        return true;
+      }).toList();
+
+      // 3. Index items by category name and genreId
+      final itemsByCategoryName = <String, List<MediaItem>>{};
+      final itemsByGenreId = <String, List<MediaItem>>{};
+      final uncategorizedItems = <MediaItem>[];
+
+      for (final item in mediaItems) {
+        final genreId = (item.metadata['genreId'] ??
+                item.metadata['category_id'] ??
+                item.metadata['categoryId'])
+            ?.toString()
+            .trim() ??
+            '';
+        if (genreId.isNotEmpty) {
+          itemsByGenreId.putIfAbsent(genreId, () => []).add(item);
+        }
+
+        final catNames = _extractItemCategories(item);
+        if (catNames.isEmpty) {
+          uncategorizedItems.add(item);
+        } else {
+          for (final name in catNames) {
+            itemsByCategoryName.putIfAbsent(name, () => []).add(item);
           }
         }
       }
 
       final categoryMap = <String, Category>{};
 
-      // 1. Add all collection items from catalog (e.g. all 114 categories)
-      for (final catItem in collectionItems) {
-        final genreId = catItem.metadata['genreId']?.toString() ?? catItem.id;
-        final name = catItem.title;
+      // 4. Populate from collections
+      for (final col in relevantCollections) {
+        final name = col.title.trim();
         if (name.isEmpty) continue;
+        final genreId = col.metadata['genreId']?.toString() ??
+            col.metadata['category_id']?.toString() ??
+            col.id;
 
-        final matching = <String>{};
-        if (channelsByGenreName.containsKey(name)) {
-          matching.addAll(channelsByGenreName[name]!.map((e) => e.id));
-        }
-        if (genreId.isNotEmpty && channelsByGenreId.containsKey(genreId)) {
-          matching.addAll(channelsByGenreId[genreId]!.map((e) => e.id));
+        final matchingIds = <String>{};
+        if (itemsByCategoryName.containsKey(name)) {
+          matchingIds.addAll(itemsByCategoryName[name]!.map((e) => e.id));
+        } else {
+          for (final entry in itemsByCategoryName.entries) {
+            if (entry.key.toLowerCase() == name.toLowerCase()) {
+              matchingIds.addAll(entry.value.map((e) => e.id));
+            }
+          }
         }
 
-        final id = catItem.id.isNotEmpty
-            ? catItem.id
+        if (genreId.isNotEmpty && itemsByGenreId.containsKey(genreId)) {
+          matchingIds.addAll(itemsByGenreId[genreId]!.map((e) => e.id));
+        }
+
+        final id = col.id.isNotEmpty
+            ? col.id
             : name.toLowerCase().replaceAll(' ', '_');
 
         categoryMap[name] = Category(
           id: id,
           name: name,
-          channelIds: matching.toList(),
-          updatedAt: catItem.updatedAt,
-          createdAt: catItem.createdAt,
+          channelIds: matchingIds.toList(),
+          updatedAt: col.updatedAt,
+          createdAt: col.createdAt,
         );
       }
 
-      // 2. Add any additional genres found on channels
-      for (final entry in channelsByGenreName.entries) {
-        if (!categoryMap.containsKey(entry.key)) {
-          categoryMap[entry.key] = Category(
-            id: entry.key.toLowerCase().replaceAll(' ', '_'),
-            name: entry.key,
-            channelIds: entry.value.map((item) => item.id).toList(),
-            updatedAt: DateTime.now(),
+      // 5. Populate from discovered categories on items
+      for (final entry in itemsByCategoryName.entries) {
+        final name = entry.key;
+        String? existingKey;
+        for (final k in categoryMap.keys) {
+          if (k.toLowerCase() == name.toLowerCase()) {
+            existingKey = k;
+            break;
+          }
+        }
+
+        if (existingKey == null) {
+          categoryMap[name] = Category(
+            id: name.toLowerCase().replaceAll(' ', '_'),
+            name: name,
+            channelIds: entry.value.map((e) => e.id).toList(),
             createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
           );
+        } else {
+          final existing = categoryMap[existingKey]!;
+          final mergedIds = <String>{
+            ...existing.channelIds,
+            ...entry.value.map((e) => e.id),
+          }.toList();
+          if (mergedIds.length != existing.channelIds.length) {
+            categoryMap[existingKey] = existing.copyWith(channelIds: mergedIds);
+          }
         }
       }
 
-      final sortedCategories = categoryMap.values.toList()
-        ..sort((a, b) => a.name.compareTo(b.name));
+      // 6. Add Uncategorized if present and no categories
+      if (uncategorizedItems.isNotEmpty && categoryMap.isEmpty) {
+        categoryMap['Uncategorized'] = Category(
+          id: 'uncategorized',
+          name: 'Uncategorized',
+          channelIds: uncategorizedItems.map((e) => e.id).toList(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+      }
 
-      categories.assignAll(sortedCategories);
+      final sortedList = categoryMap.values.toList();
+      _applySort(sortedList);
+      categories.assignAll(sortedList);
 
       if (selectedCategoryId.value.isNotEmpty) {
         if (categories.any((c) => c.id == selectedCategoryId.value)) {
@@ -250,8 +548,8 @@ class CategoryController extends GetxController {
           clearSelection();
         }
       }
-    } catch (e) {
-      // Log error
+    } catch (e, stack) {
+      debugPrint('CategoryController error loading categories: $e\n$stack');
     } finally {
       isLoading.value = false;
     }
@@ -259,32 +557,33 @@ class CategoryController extends GetxController {
 
   Future<void> selectCategory(String categoryId) async {
     selectedCategoryId.value = categoryId;
-    final category = categories.firstWhere(
-      (c) => c.id == categoryId,
-      orElse: () => Category(
-        id: '',
-        name: '',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      ),
-    );
+    final category = categories.firstWhereOrNull((c) => c.id == categoryId);
 
-    if (category.id.isNotEmpty) {
+    if (category != null && category.id.isNotEmpty) {
       final favList = await favoriteRepository?.getAll() ?? [];
       final favIds = favList.map((e) => e.id).toSet();
 
-      final allItems = await catalogRepository.getAllItems();
-      selectedCategoryChannels.assignAll(
-        allItems
-            .where((item) =>
-                item.mediaType == MediaType.channel &&
-                (item.genres.contains(category.name) ||
-                    item.metadata['genreId']?.toString() == category.id ||
-                    item.metadata['genre']?.toString() == category.name ||
-                    category.channelIds.contains(item.id)))
-            .map((item) => item.copyWith(favorite: favIds.contains(item.id)))
-            .toList(),
-      );
+      List<MediaItem> allItems =
+          await catalogRepository.getByType(selectedMediaType.value);
+      if (allItems.isEmpty) {
+        allItems = mediaLibrary.getByType(selectedMediaType.value);
+      }
+
+      final matched = allItems.where((item) {
+        if (category.channelIds.contains(item.id)) return true;
+        final cats = _extractItemCategories(item);
+        if (cats.any((c) => c.toLowerCase() == category.name.toLowerCase())) {
+          return true;
+        }
+        final genreId = (item.metadata['genreId'] ??
+                item.metadata['category_id'] ??
+                item.metadata['categoryId'])
+            ?.toString();
+        if (genreId != null && genreId == category.id) return true;
+        return false;
+      }).map((item) => item.copyWith(favorite: favIds.contains(item.id))).toList();
+
+      selectedCategoryChannels.assignAll(matched);
     } else {
       selectedCategoryChannels.clear();
     }

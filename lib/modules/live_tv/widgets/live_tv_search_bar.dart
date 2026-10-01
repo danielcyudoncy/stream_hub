@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -35,6 +36,32 @@ class _LiveTvSearchBarState extends State<LiveTvSearchBar> {
     _textController = TextEditingController(text: widget.query);
     _focusNode = FocusNode();
     _focusNode.addListener(_handleFocusChange);
+    _focusNode.onKeyEvent = _handleKeyEvent;
+  }
+
+  /// Without this, D-pad Down/Up are swallowed by DefaultTextEditingShortcuts,
+  /// which binds them to ExtendSelectionVerticallyToAdjacentLineIntent — a
+  /// no-op on a single-line field that still consumes the key, so focus never
+  /// leaves the search bar.
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      final moved = node.focusInDirection(TraversalDirection.down);
+      if (!moved) {
+        node.nextFocus();
+      }
+      return KeyEventResult.handled;
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      final moved = node.focusInDirection(TraversalDirection.up);
+      if (!moved) {
+        node.previousFocus();
+      }
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   void _handleFocusChange() {
