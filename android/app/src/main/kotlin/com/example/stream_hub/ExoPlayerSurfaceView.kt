@@ -54,6 +54,7 @@ class ExoPlayerSurfaceView(
     messenger: BinaryMessenger,
     viewId: Int,
     private val hardwareDecode: Boolean,
+    private var handleAudioFocus: Boolean = true,
 ) : PlatformView, MethodChannel.MethodCallHandler {
 
     companion object {
@@ -96,7 +97,7 @@ class ExoPlayerSurfaceView(
                     if (hardwareDecode) MediaCodecSelector.DEFAULT else MediaCodecSelector.PREFER_SOFTWARE
                 ),
         )
-            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ true)
+            .setAudioAttributes(audioAttributes, /* handleAudioFocus = */ handleAudioFocus)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .setLoadControl(
@@ -427,6 +428,16 @@ class ExoPlayerSurfaceView(
                 "setAudioTrack" -> selectTrack(call.argument<String>("trackId"), C.TRACK_TYPE_AUDIO, result)
                 "setSubtitleTrack" -> selectTrack(call.argument<String>("trackId"), C.TRACK_TYPE_TEXT, result)
                 "setQuality" -> selectQuality(call.argument<String>("quality"), result)
+                "setHandleAudioFocus" -> {
+                    val enable = call.argument<Boolean>("handleAudioFocus") ?: true
+                    handleAudioFocus = enable
+                    val audioAttributes = AudioAttributes.Builder()
+                        .setUsage(C.USAGE_MEDIA)
+                        .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                        .build()
+                    player.setAudioAttributes(audioAttributes, enable)
+                    result.success(null)
+                }
                 else -> result.notImplemented()
             }
         } catch (_: Throwable) {

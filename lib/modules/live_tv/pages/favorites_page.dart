@@ -14,10 +14,27 @@ import '../../../shared/widgets/section_header.dart';
 import '../../../shared/widgets/empty_library.dart';
 import '../../../shared/widgets/tv_focusable.dart';
 
-class FavoritesPage extends GetView<FavoritesController> {
-  FavoritesPage({super.key});
+class FavoritesPage extends StatefulWidget {
+  const FavoritesPage({super.key});
 
+  @override
+  State<FavoritesPage> createState() => _FavoritesPageState();
+}
+
+class _FavoritesPageState extends State<FavoritesPage> {
   final _sortPopupKey = GlobalKey<PopupMenuButtonState<String>>();
+
+  FavoritesController get controller => Get.find<FavoritesController>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (Get.isRegistered<FavoritesController>()) {
+        Get.find<FavoritesController>().refreshFavorites();
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,9 +88,52 @@ class FavoritesPage extends GetView<FavoritesController> {
           );
         }
 
-        return CustomScrollView(
-          slivers: [
-            if (controller.recentlyFavorited.isNotEmpty)
+        return RefreshIndicator(
+          onRefresh: () => controller.refreshFavorites(),
+          child: CustomScrollView(
+            slivers: [
+              if (controller.recentlyFavorited.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.md,
+                      vertical: AppSpacing.sm,
+                    ),
+                    child: SectionHeader(
+                      title: 'Recently Favorited',
+                    ),
+                  ),
+                ),
+              if (controller.recentlyFavorited.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 165,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                      ),
+                      itemCount: controller.recentlyFavorited.length,
+                      itemBuilder: (context, index) {
+                        final item = controller.recentlyFavorited[index];
+                        return SizedBox(
+                          width: 140,
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              right: AppSpacing.md,
+                            ),
+                            child: ChannelCard(
+                              channel: item,
+                              onTap: () => _openChannel(item),
+                              onFavorite: () => controller.toggleFavorite(item),
+                              showFavoriteButton: true,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
@@ -81,77 +141,37 @@ class FavoritesPage extends GetView<FavoritesController> {
                     vertical: AppSpacing.sm,
                   ),
                   child: SectionHeader(
-                    title: 'Recently Favorited',
+                    title: 'Favorite Channels',
+                    subtitle:
+                        '${controller.favoriteChannels.length} channels',
                   ),
                 ),
               ),
-            if (controller.recentlyFavorited.isNotEmpty)
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 165,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.md,
-                    ),
-                    itemCount: controller.recentlyFavorited.length,
-                    itemBuilder: (context, index) {
-                      final item = controller.recentlyFavorited[index];
-                      return SizedBox(
-                        width: 140,
-                        child: Padding(
-                          padding: const EdgeInsets.only(
-                            right: AppSpacing.md,
-                          ),
-                          child: ChannelCard(
-                            channel: item,
-                            onTap: () => _openChannel(item),
-                            onFavorite: () => controller.toggleFavorite(item),
-                            showFavoriteButton: true,
-                          ),
-                        ),
+              SliverPadding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                sliver: SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: ResponsiveHelper.isPhone(context) ? 3 : (ResponsiveHelper.isDesktop(context) ? 6 : 4),
+                    crossAxisSpacing: AppSpacing.sm,
+                    mainAxisSpacing: AppSpacing.sm,
+                    childAspectRatio: 0.85,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final item = controller.favoriteChannels[index];
+                      return ChannelCard(
+                        channel: item,
+                        onTap: () => _openChannel(item),
+                        onFavorite: () => controller.toggleFavorite(item),
+                        showFavoriteButton: true,
                       );
                     },
+                    childCount: controller.favoriteChannels.length,
                   ),
                 ),
               ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: AppSpacing.sm,
-                ),
-                child: SectionHeader(
-                  title: 'Favorite Channels',
-                  subtitle:
-                      '${controller.favoriteChannels.length} channels',
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              sliver: SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: ResponsiveHelper.isPhone(context) ? 3 : (ResponsiveHelper.isDesktop(context) ? 6 : 4),
-                  crossAxisSpacing: AppSpacing.sm,
-                  mainAxisSpacing: AppSpacing.sm,
-                  childAspectRatio: 0.85,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final item = controller.favoriteChannels[index];
-                    return ChannelCard(
-                      channel: item,
-                      onTap: () => _openChannel(item),
-                      onFavorite: () => controller.toggleFavorite(item),
-                      showFavoriteButton: true,
-                    );
-                  },
-                  childCount: controller.favoriteChannels.length,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         );
       }),
     );

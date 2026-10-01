@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:stream_hub/core/helpers/profile_key_helper.dart';
 import 'package:stream_hub/core/logging/logging_service.dart';
+import 'package:stream_hub/core/media/enums/media_source_type.dart';
+import 'package:stream_hub/core/media/enums/media_type.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/services/active_profile_service.dart';
 
@@ -21,6 +23,7 @@ class FavoriteService {
 
   final Set<String> _favoriteIds = {};
   final Map<String, DateTime> _favoritedAt = {};
+  final Map<String, MediaItem> _favoriteItems = {};
   final StreamController<void> _changeController =
       StreamController<void>.broadcast();
 
@@ -66,6 +69,7 @@ class FavoriteService {
   void _reloadForProfile() {
     _favoriteIds.clear();
     _favoritedAt.clear();
+    _favoriteItems.clear();
     _loadFromBox();
     _changeController.add(null);
     logger.info(
@@ -85,15 +89,23 @@ class FavoriteService {
 
         final itemId = _itemId(keyStr);
         _favoriteIds.add(itemId);
-        final val = _box.get(key);
-        if (val is String) {
-          _favoritedAt[itemId] = DateTime.tryParse(val) ?? DateTime.now();
+        final raw = _box.get(key);
+        if (raw is Map) {
+          final item = _mapToMediaItem(raw);
+          if (item != null) {
+            _favoriteItems[item.id] = item;
+            _favoritedAt[item.id] = item.updatedAt;
+          } else {
+            _favoritedAt[itemId] = DateTime.now();
+          }
+        } else if (raw is String) {
+          _favoritedAt[itemId] = DateTime.tryParse(raw) ?? DateTime.now();
         } else {
           _favoritedAt[itemId] = DateTime.now();
         }
       }
       logger.info(
-        'Loaded ${_favoriteIds.length} favorites (profile: "$_profileId")',
+        'Loaded ${_favoriteIds.length} favorites (profile: "$_profileId", items: ${_favoriteItems.length})',
         tag: 'FavoriteService',
       );
     } catch (e) {
@@ -108,11 +120,13 @@ class FavoriteService {
   // ─── Public API ───────────────────────────────────────────────────────────
 
   Future<void> addFavorite(MediaItem item) async {
+    final favItem = item.copyWith(favorite: true);
     _favoriteIds.add(item.id);
     _favoritedAt[item.id] = DateTime.now();
+    _favoriteItems[item.id] = favItem;
     if (_box != null) {
       try {
-        await _box.put(_key(item.id), DateTime.now().toIso8601String());
+        await _box.put(_key(item.id), _mediaItemToMap(favItem));
       } catch (e) {
         logger.warning(
           'Failed to persist favorite ${item.id}',
@@ -128,6 +142,7 @@ class FavoriteService {
   Future<void> removeFavorite(String itemId) async {
     _favoriteIds.remove(itemId);
     _favoritedAt.remove(itemId);
+    _favoriteItems.remove(itemId);
     if (_box != null) {
       try {
         await _box.delete(_key(itemId));
@@ -148,6 +163,11 @@ class FavoriteService {
   List<MediaItem> getFavorites(List<MediaItem> allItems) {
     return allItems.where((item) => _favoriteIds.contains(item.id)).toList();
   }
+
+  List<MediaItem> get favoriteItems =>
+      List.unmodifiable(_favoriteItems.values);
+
+  MediaItem? getFavoriteItem(String id) => _favoriteItems[id];
 
   Set<String> get favoriteIds => Set.unmodifiable(_favoriteIds);
 
@@ -171,6 +191,7 @@ class FavoriteService {
     }
     _favoriteIds.clear();
     _favoritedAt.clear();
+    _favoriteItems.clear();
     _changeController.add(null);
     logger.info('Favorites cleared (profile: "$_profileId")', tag: 'FavoriteService');
   }
@@ -178,5 +199,70 @@ class FavoriteService {
   void dispose() {
     _profileSub?.cancel();
     _changeController.close();
+  }
+
+  // ─── Serialization ────────────────────────────────────────────────────────
+
+  Map<String, dynamic> _mediaItemToMap(MediaItem item) => {
+        'id': item.id,
+        'providerId': item.providerId,
+        'providerType': item.providerType.name,
+        'mediaType': item.mediaType.name,
+        'title': item.title,
+        'subtitle': item.subtitle,
+        'description': item.description,
+        'thumbnail': item.thumbnail,
+        'poster': item.poster,
+        'backdrop': item.backdrop,
+        'genres': item.genres,
+        'language': item.language,
+        'rating': item.rating,
+        'hidden': item.hidden,
+        'metadata': item.metadata,
+        'createdAt': item.createdAt.millisecondsSinceEpoch,
+        'updatedAt': item.updatedAt.millisecondsSinceEpoch,
+      };
+
+  MediaItem? _mapToMediaItem(Map raw) {
+    try {
+      final now = DateTime.now();
+      return MediaItem(
+        id: (raw['id'] ?? '').toString(),
+        providerId: (raw['providerId'] ?? '').toString(),
+        providerType: MediaSourceType.values.firstWhere(
+          (e) => e.name == (raw['providerType'] as String? ?? ''),
+          orElse: () => MediaSourceType.m3u,
+        ),
+        mediaType: MediaType.values.firstWhere(
+          (e) => e.name == (raw['mediaType'] as String? ?? ''),
+          orElse: () => MediaType.channel,
+        ),
+        title: (raw['title'] ?? '').toString(),
+        subtitle: raw['subtitle'] as String?,
+        description: raw['description'] as String?,
+        thumbnail: raw['thumbnail'] as String?,
+        poster: raw['poster'] as String?,
+        backdrop: raw['backdrop'] as String?,
+        genres: raw['genres'] is List
+            ? List<String>.from(raw['genres'] as List)
+            : const [],
+        language: raw['language'] as String?,
+        country: raw['country'] as String?,
+        rating: (raw['rating'] as num?)?.toDouble(),
+        favorite: true,
+        hidden: raw['hidden'] == true,
+        metadata: raw['metadata'] is Map
+            ? Map<String, dynamic>.from(raw['metadata'] as Map)
+            : const {},
+        createdAt: raw['createdAt'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(raw['createdAt'] as int)
+            : now,
+        updatedAt: raw['updatedAt'] != null
+            ? DateTime.fromMillisecondsSinceEpoch(raw['updatedAt'] as int)
+            : now,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 }

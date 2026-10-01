@@ -8,6 +8,7 @@ import '../../../core/media/media_engine.dart';
 import '../../../core/media/media_library.dart';
 import '../../../core/media/player/exo_player_surface_view_adapter.dart';
 import '../../../core/media/player/ijk_player_adapter.dart';
+import '../../../core/media/player/player_adapter_factory.dart';
 import '../../../core/media/player/vlc_player_adapter.dart';
 import '../../../core/media/stream_resolver.dart';
 import '../../../core/media/stream_resolvers/m3u_stream_resolver.dart';
@@ -44,10 +45,20 @@ class MultiViewController extends GetxController {
   void onInit() {
     super.onInit();
     _loadChannels();
-    // Pre-populate slot 0 if passed via Get.arguments
+    // Pre-populate layout mode or slot 0 if passed via Get.arguments
     if (Get.arguments is MediaItem) {
       final initialChannel = Get.arguments as MediaItem;
       setChannelForSlot(0, initialChannel);
+    } else if (Get.arguments is MultiViewLayoutMode) {
+      layoutMode.value = Get.arguments as MultiViewLayoutMode;
+    } else if (Get.arguments is Map) {
+      final map = Get.arguments as Map;
+      if (map['layoutMode'] is MultiViewLayoutMode) {
+        layoutMode.value = map['layoutMode'] as MultiViewLayoutMode;
+      }
+      if (map['channel'] is MediaItem) {
+        setChannelForSlot(0, map['channel'] as MediaItem);
+      }
     }
   }
 
@@ -232,6 +243,18 @@ class MultiViewController extends GetxController {
 
     // Re-assert audio focus across all slots now that playback session and views have initialized
     setActiveAudioSlot(activeAudioSlot.value);
+
+    // Ensure all other populated slots continue playback concurrently without interruption
+    for (int i = 0; i < 4; i++) {
+      if (i != slotIndex && slots[i].value != null) {
+        final otherCtrl = slotControllers[i];
+        if (otherCtrl != null && otherCtrl.state == PlaybackState.paused) {
+          try {
+            otherCtrl.resume();
+          } catch (_) {}
+        }
+      }
+    }
   }
 
   void clearSlot(int slotIndex) {
@@ -274,6 +297,11 @@ class MultiViewController extends GetxController {
         } else {
           ctrl.setVolume(0.0);
           ctrl.setMuted(true);
+          try {
+            if (ctrl.state == PlaybackState.paused) {
+              ctrl.resume();
+            }
+          } catch (_) {}
         }
       }
     }
@@ -311,8 +339,13 @@ class MultiViewController extends GetxController {
       chosenEngine = PlaybackEngineKind.exoPlayer;
     }
 
+    final adapter = PlayerAdapterFactory.create(
+      chosenEngine,
+      handleAudioFocus: false,
+    );
+
     final player = PlayerController(
-      engineKind: chosenEngine,
+      adapter: adapter,
       catalogRepository: catalogRepository,
     );
     player.onInit();

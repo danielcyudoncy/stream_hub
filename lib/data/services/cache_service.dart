@@ -11,6 +11,26 @@ class CacheService extends GetxService {
 
   CacheService(this._settingsRepository);
 
+  Future<int> _calculateDirectorySize(Directory dir) async {
+    int total = 0;
+    try {
+      if (!await dir.exists()) return 0;
+      await for (final entity in dir
+          .list(recursive: false, followLinks: false)
+          .handleError((_) {})) {
+        if (entity is File) {
+          try {
+            final stat = await entity.stat();
+            total += stat.size;
+          } catch (_) {}
+        } else if (entity is Directory) {
+          total += await _calculateDirectorySize(entity);
+        }
+      }
+    } catch (_) {}
+    return total;
+  }
+
   Future<CacheInfo> calculateCacheSize() async {
     try {
       int imageCacheSize = 0;
@@ -18,14 +38,33 @@ class CacheService extends GetxService {
       int metadataCacheSize = 0;
 
       try {
+        final knownAppTempDirs = [
+          Directory('${Directory.systemTemp.path}/stream_hub_downloads'),
+          Directory('${Directory.systemTemp.path}/stream_hub'),
+          Directory('${Directory.systemTemp.path}/m3u_playlists'),
+        ];
+
+        for (final dir in knownAppTempDirs) {
+          tempFilesSize += await _calculateDirectorySize(dir);
+        }
+
         final tempDir = Directory.systemTemp;
         if (await tempDir.exists()) {
-          await for (final entity in tempDir.list(recursive: true, followLinks: false)) {
-            if (entity is File) {
-              try {
-                final stat = await entity.stat();
-                tempFilesSize += stat.size;
-              } catch (_) {}
+          await for (final entity in tempDir
+              .list(recursive: false, followLinks: false)
+              .handleError((_) {})) {
+            final name = entity.uri.pathSegments.isNotEmpty
+                ? entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => '')
+                : '';
+            if (name.startsWith('stream_hub') || name.startsWith('streamhub')) {
+              if (entity is File) {
+                try {
+                  final stat = await entity.stat();
+                  tempFilesSize += stat.size;
+                } catch (_) {}
+              } else if (entity is Directory && !knownAppTempDirs.any((d) => d.path == entity.path)) {
+                tempFilesSize += await _calculateDirectorySize(entity);
+              }
             }
           }
         }
@@ -36,16 +75,7 @@ class CacheService extends GetxService {
       try {
         final appDir = Directory.current;
         final cacheDir = Directory('${appDir.path}/.dart_tool');
-        if (await cacheDir.exists()) {
-          await for (final entity in cacheDir.list(recursive: true, followLinks: false)) {
-            if (entity is File) {
-              try {
-                final stat = await entity.stat();
-                metadataCacheSize += stat.size;
-              } catch (_) {}
-            }
-          }
-        }
+        metadataCacheSize = await _calculateDirectorySize(cacheDir);
       } catch (e) {
         _logger.warning('Failed to calculate metadata cache size', tag: 'CacheService', error: e);
       }
@@ -80,14 +110,37 @@ class CacheService extends GetxService {
       final errors = <String>[];
 
       try {
+        final knownAppTempDirs = [
+          Directory('${Directory.systemTemp.path}/stream_hub_downloads'),
+          Directory('${Directory.systemTemp.path}/stream_hub'),
+          Directory('${Directory.systemTemp.path}/m3u_playlists'),
+        ];
+
+        for (final dir in knownAppTempDirs) {
+          try {
+            if (await dir.exists()) {
+              await dir.delete(recursive: true);
+            }
+          } catch (e) {
+            errors.add(dir.path);
+          }
+        }
+
         final tempDir = Directory.systemTemp;
         if (await tempDir.exists()) {
-          await for (final entity in tempDir.list(recursive: true, followLinks: false)) {
-            try {
-              if (entity is File) await entity.delete();
-              if (entity is Directory) await entity.delete(recursive: true);
-            } catch (e) {
-              errors.add(entity.path);
+          await for (final entity in tempDir
+              .list(recursive: false, followLinks: false)
+              .handleError((_) {})) {
+            final name = entity.uri.pathSegments.isNotEmpty
+                ? entity.uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => '')
+                : '';
+            if (name.startsWith('stream_hub') || name.startsWith('streamhub')) {
+              try {
+                if (entity is File) await entity.delete();
+                if (entity is Directory) await entity.delete(recursive: true);
+              } catch (e) {
+                errors.add(entity.path);
+              }
             }
           }
         }
@@ -99,7 +152,9 @@ class CacheService extends GetxService {
         final appDir = Directory.current;
         final cacheDir = Directory('${appDir.path}/.dart_tool');
         if (await cacheDir.exists()) {
-          await for (final entity in cacheDir.list(recursive: true, followLinks: false)) {
+          await for (final entity in cacheDir
+              .list(recursive: false, followLinks: false)
+              .handleError((_) {})) {
             try {
               if (entity is File) await entity.delete();
               if (entity is Directory) await entity.delete(recursive: true);

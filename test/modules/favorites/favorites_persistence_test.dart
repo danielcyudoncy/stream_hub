@@ -273,4 +273,54 @@ void main() {
 
     liveTvController.onClose();
   });
+
+  test('FavoriteRepositoryImpl recovers favorites from FavoriteService when CatalogRepository is empty', () async {
+    final service = FavoriteService(logger: logger, box: fakeBox);
+    await service.addFavorite(testChannel1);
+
+    // Empty catalog repo without testChannel1
+    final emptyCatalogRepo = CatalogRepositoryImpl(MediaCatalog(), MediaSourceManager(), logger);
+    final repo = FavoriteRepositoryImpl(service, emptyCatalogRepo);
+
+    final allFavs = await repo.getAll();
+    expect(allFavs.length, equals(1));
+    expect(allFavs.first.id, equals('ch-1'));
+    expect(allFavs.first.title, equals('Bein Sport 01'));
+    expect(allFavs.first.favorite, isTrue);
+
+    final isFav = await repo.isFavorite('ch-1');
+    expect(isFav, isTrue);
+  });
+
+  test('FavoritesController.refreshFavorites() reloads favorites without relying on onInit', () async {
+    final service = FavoriteService(logger: logger, box: fakeBox);
+    final emptyCatalogRepo = CatalogRepositoryImpl(MediaCatalog(), MediaSourceManager(), logger);
+    final repo = FavoriteRepositoryImpl(service, emptyCatalogRepo);
+    final mediaEngine = _FakeMediaEngine();
+    final mediaLibrary = _FakeMediaLibrary();
+
+    final favController = FavoritesController(
+      mediaEngine: mediaEngine,
+      mediaLibrary: mediaLibrary,
+      catalogRepository: emptyCatalogRepo,
+      favoriteRepository: repo,
+    );
+
+    // Initially empty
+    favController.onInit();
+    await Future.delayed(const Duration(milliseconds: 50));
+    expect(favController.favoriteChannels.isEmpty, isTrue);
+
+    // Add favorite directly to service / repo
+    await repo.add(testChannel1);
+
+    // Refresh explicitly (as FavoritesPage does on mount)
+    await favController.refreshFavorites();
+
+    expect(favController.favoriteChannels.length, equals(1));
+    expect(favController.favoriteChannels.first.id, equals('ch-1'));
+    expect(favController.favoriteChannels.first.title, equals('Bein Sport 01'));
+
+    favController.onClose();
+  });
 }

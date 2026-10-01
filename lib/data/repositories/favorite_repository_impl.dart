@@ -23,8 +23,12 @@ class FavoriteRepositoryImpl implements FavoriteRepository {
 
   @override
   Future<void> add(MediaItem item) async {
-    _itemCache[item.id] = item.copyWith(favorite: true);
+    final favItem = item.copyWith(favorite: true);
+    _itemCache[item.id] = favItem;
     await _service.addFavorite(item);
+    if (_catalogRepository != null) {
+      await _catalogRepository.upsertItems([favItem]);
+    }
     _triggerCloudSync();
   }
 
@@ -40,12 +44,12 @@ class FavoriteRepositoryImpl implements FavoriteRepository {
     final ids = _service.favoriteIds;
     if (ids.isEmpty) return const [];
 
+    final result = <MediaItem>[];
+    final seen = <String>{};
+
     if (_catalogRepository != null) {
       try {
         final allItems = await _catalogRepository.getAllItems();
-        final result = <MediaItem>[];
-        final seen = <String>{};
-
         for (final item in allItems) {
           if (ids.contains(item.id)) {
             final favItem = item.copyWith(favorite: true);
@@ -54,20 +58,28 @@ class FavoriteRepositoryImpl implements FavoriteRepository {
             seen.add(item.id);
           }
         }
-
-        // Add any cached items not yet found in catalog
-        for (final id in ids) {
-          if (!seen.contains(id) && _itemCache.containsKey(id)) {
-            result.add(_itemCache[id]!);
-            seen.add(id);
-          }
-        }
-
-        return result;
       } catch (_) {}
     }
 
-    return _itemCache.values.where((item) => ids.contains(item.id)).toList();
+    // Add persisted items from FavoriteService (stored in Hive)
+    for (final item in _service.favoriteItems) {
+      if (ids.contains(item.id) && !seen.contains(item.id)) {
+        final favItem = item.copyWith(favorite: true);
+        _itemCache[item.id] = favItem;
+        result.add(favItem);
+        seen.add(item.id);
+      }
+    }
+
+    // Add any cached items not yet found in catalog or service
+    for (final id in ids) {
+      if (!seen.contains(id) && _itemCache.containsKey(id)) {
+        result.add(_itemCache[id]!);
+        seen.add(id);
+      }
+    }
+
+    return result;
   }
 
   @override

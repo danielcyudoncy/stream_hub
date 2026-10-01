@@ -102,6 +102,15 @@ class TvNavigationService extends GetxService {
   /// its items. Once built, the UI calls [restoreFocus] on the target region.
   VoidCallback? onLazyRailRequest;
 
+  /// Optional ID of the region sitting directly above the topmost rail
+  /// (e.g. 'hero_actions'). When navigating UP from the topmost rail, focus
+  /// will be restored to this region.
+  String? topRegionId;
+
+  /// Called when navigating UP from the topmost rail. Allows screens to
+  /// scroll to the top or perform custom handoff to header/hero widgets.
+  VoidCallback? onExitTopRail;
+
   // Callback to trigger sidebar opening from boundary detection
   VoidCallback? onOpenSidebar;
 
@@ -368,8 +377,23 @@ class TvNavigationService extends GetxService {
       return false;
     }
 
-    if (targetRailIndex < 0 || targetRailIndex >= _railOrder.length) {
-      // At the top/bottom rail — consume the key rather than letting
+    if (targetRailIndex < 0) {
+      // At the topmost rail navigating UP.
+      if (onExitTopRail != null) {
+        logNav('Exit top rail via onExitTopRail from $currentRegionId');
+        onExitTopRail!();
+        return true;
+      }
+      if (topRegionId != null && restoreFocus(topRegionId!)) {
+        logNav('Exit top rail to $topRegionId from $currentRegionId');
+        return true;
+      }
+      logNav('Exit top rail: allowing native traversal from $currentRegionId');
+      return false;
+    }
+
+    if (targetRailIndex >= _railOrder.length) {
+      // At the bottom rail — consume the key rather than letting
       // Flutter's traversal wrap around or move to an unintended target.
       return true;
     }
@@ -393,9 +417,24 @@ class TvNavigationService extends GetxService {
         return true;
       }
       final restored = restoreFocus(targetRegionId);
-      if (!restored) {
-        logNav('Inter-rail target rail unbuilt: $targetRegionId');
+      if (restored) return true;
+
+      // If the target rail could not be focused (e.g. it was conditionally
+      // not rendered because it has no items, such as an empty Continue Watching):
+      if (direction == TraversalDirection.up && targetRailIndex == 0) {
+        if (onExitTopRail != null) {
+          logNav('Target rail unbuilt at top; exit top rail via onExitTopRail');
+          onExitTopRail!();
+          return true;
+        }
+        if (topRegionId != null && restoreFocus(topRegionId!)) {
+          logNav('Target rail unbuilt at top; exit to $topRegionId');
+          return true;
+        }
+        return false;
       }
+
+      logNav('Inter-rail target rail unbuilt: $targetRegionId');
       return true;
     }
 

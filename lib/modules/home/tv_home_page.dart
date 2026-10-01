@@ -16,6 +16,7 @@ import '../../../shared/widgets/glass_panel.dart';
 import '../../../shared/widgets/premium_media_card.dart';
 import '../../../shared/widgets/provider_selector_button.dart';
 import '../../../shared/widgets/tv_focusable.dart';
+import '../../../shared/widgets/tv_navigation_region.dart';
 import '../free_live_tv/controllers/free_live_tv_controller.dart';
 import '../live_tv/controllers/live_tv_controller.dart';
 import 'home_controller.dart';
@@ -35,6 +36,7 @@ class TvHomePage extends StatefulWidget {
 
 class _TvHomePageState extends State<TvHomePage> {
   final HomeController controller = Get.find<HomeController>();
+  final ScrollController _scrollController = ScrollController();
   MediaItem? _focusedItem;
   String? _resolvedBackdropUrl;
   String? _lastResolvedItemId;
@@ -48,14 +50,39 @@ class _TvHomePageState extends State<TvHomePage> {
     // builds. Pinning the canonical order here makes UP/DOWN inter-rail
     // navigation deterministic regardless of which rails are present.
     if (Get.isRegistered<TvNavigationService>()) {
-      Get.find<TvNavigationService>().registerRailOrder(const [
+      final nav = Get.find<TvNavigationService>();
+      nav.registerRailOrder(const [
         'rail_continue_watching',
         'rail_live_tv_quick_picks',
         'rail_trending_movies',
         'rail_popular_series',
         'rail_recently_added',
       ]);
+      nav.topRegionId = 'hero_actions';
+      nav.onExitTopRail = () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0.0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+          );
+        }
+        nav.restoreFocus('hero_actions');
+      };
     }
+  }
+
+  @override
+  void dispose() {
+    if (Get.isRegistered<TvNavigationService>()) {
+      final nav = Get.find<TvNavigationService>();
+      if (nav.topRegionId == 'hero_actions') {
+        nav.topRegionId = null;
+      }
+      nav.onExitTopRail = null;
+    }
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _onItemFocus(MediaItem item, bool isFocused) {
@@ -312,6 +339,7 @@ class _TvHomePageState extends State<TvHomePage> {
             // 3. Main Scrolling Content (Hero + Content Rails)
             Positioned.fill(
               child: CustomScrollView(
+                controller: _scrollController,
                 slivers: [
                   // Hero Spotlight Header
                   SliverToBoxAdapter(
@@ -768,99 +796,103 @@ class _TvHomePageState extends State<TvHomePage> {
           AppSpacing.heightLG,
 
           // Action Buttons
-          Row(
-            children: [
-              // Watch Now / Resume Button
-              TvFocusable(
-                autofocus: ResponsiveHelper.isTvLayout(context),
-                onTap: () => _openItem(item),
-                borderRadius: AppRadius.pill,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 28,
-                    vertical: 14,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: AppColors.primaryGradient,
-                    ),
-                    borderRadius: AppRadius.pill,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.4),
-                        blurRadius: 16,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(AppIcons.play, color: Colors.white, size: 22),
-                      AppSpacing.widthSM,
-                      Text(
-                        'Watch Now',
-                        style: AppTypography.getTitle(
-                          color: Colors.white,
-                        ).copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              AppSpacing.widthMD,
-
-              // More Info / Details Button
-              TvFocusable(
-                onTap: () => _openDetails(item),
-                borderRadius: AppRadius.pill,
-                child: GlassPanel(
+          TvNavigationRegion(
+            regionId: 'hero_actions',
+            type: TvFocusRegionType.hero,
+            child: Row(
+              children: [
+                // Watch Now / Resume Button
+                TvFocusable(
+                  autofocus: ResponsiveHelper.isTvLayout(context),
+                  onTap: () => _openItem(item),
                   borderRadius: AppRadius.pill,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 14,
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.info_outline_rounded,
-                        color: AppColors.textPrimary,
-                        size: 20,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 28,
+                      vertical: 14,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: AppColors.primaryGradient,
                       ),
-                      AppSpacing.widthSM,
-                      Text(
-                        'More Info',
-                        style: AppTypography.getTitle(
-                          color: AppColors.textPrimary,
+                      borderRadius: AppRadius.pill,
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primary.withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(AppIcons.play, color: Colors.white, size: 22),
+                        AppSpacing.widthSM,
+                        Text(
+                          'Watch Now',
+                          style: AppTypography.getTitle(
+                            color: Colors.white,
+                          ).copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              AppSpacing.widthMD,
+                AppSpacing.widthMD,
 
-              // Favorite Toggle
-              Obx(() {
-                final isFav = controller.isItemFavorite(item.id);
-                return TvFocusable(
-                  onTap: () => controller.toggleFavorite(item),
+                // More Info / Details Button
+                TvFocusable(
+                  onTap: () => _openDetails(item),
                   borderRadius: AppRadius.pill,
                   child: GlassPanel(
                     borderRadius: AppRadius.pill,
-                    padding: const EdgeInsets.all(14),
-                    child: Icon(
-                      isFav
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: isFav ? AppColors.darkError : Colors.white,
-                      size: 20,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 14,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.info_outline_rounded,
+                          color: AppColors.textPrimary,
+                          size: 20,
+                        ),
+                        AppSpacing.widthSM,
+                        Text(
+                          'More Info',
+                          style: AppTypography.getTitle(
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                );
-              }),
-            ],
+                ),
+                AppSpacing.widthMD,
+
+                // Favorite Toggle
+                Obx(() {
+                  final isFav = controller.isItemFavorite(item.id);
+                  return TvFocusable(
+                    onTap: () => controller.toggleFavorite(item),
+                    borderRadius: AppRadius.pill,
+                    child: GlassPanel(
+                      borderRadius: AppRadius.pill,
+                      padding: const EdgeInsets.all(14),
+                      child: Icon(
+                        isFav
+                            ? Icons.favorite_rounded
+                            : Icons.favorite_border_rounded,
+                        color: isFav ? AppColors.darkError : Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  );
+                }),
+              ],
+            ),
           ),
         ],
       ),

@@ -52,6 +52,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
 
     return AppScaffold(
       title: 'Media Sources',
+      showNavigation: false,
       actions: [
         if (!isTvMode)
           TvFocusable(

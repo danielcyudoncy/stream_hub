@@ -11,10 +11,13 @@ import '../../core/theme/app_icons.dart';
 import '../../data/repositories/provider_repository.dart';
 import '../../modules/free_live_tv/controllers/free_live_tv_controller.dart';
 import '../../modules/live_tv/controllers/live_tv_controller.dart';
+import '../../modules/live_tv/controllers/favorites_controller.dart';
+import '../../data/services/favorite_service.dart';
 import '../../modules/player/controllers/player_controller.dart';
 import '../../modules/player/pages/floating_player_page.dart';
 import '../../modules/profiles/profile_controller.dart';
 import '../../modules/provider_manager/provider_manager_controller.dart';
+import '../../modules/live_tv/widgets/multi_view_layout_dialog.dart';
 import '../../core/services/tv_navigation_service.dart';
 import '../../core/constants/tv_navigation_constants.dart';
 import 'sync_progress_bar.dart';
@@ -371,6 +374,30 @@ class _TvScaffoldState extends State<TvScaffold> {
       return;
     }
 
+    if (index == 7) {
+      // Prompt user to pick multi-view layout before entering
+      showMultiViewLayoutDialog(
+        context,
+        onSelect: (mode) {
+          _isNavigating = true;
+          if (mounted) {
+            setState(() {
+              _instantCollapse = true;
+              _isExpanded = false;
+            });
+          }
+          if (Get.isRegistered<LiveTVController>()) {
+            Get.find<LiveTVController>().stopInlinePlayer();
+          }
+          if (Get.isRegistered<FreeLiveTvController>()) {
+            Get.find<FreeLiveTvController>().stopInlinePlayer();
+          }
+          Get.offAllNamed(AppRoutes.multiView, arguments: mode);
+        },
+      );
+      return;
+    }
+
     _isNavigating = true;
     if (mounted) {
       setState(() {
@@ -396,6 +423,7 @@ class _TvScaffoldState extends State<TvScaffold> {
       resizeToAvoidBottomInset: true,
       backgroundColor: AppColors.background,
       body: Stack(
+        fit: StackFit.expand,
         children: [
           // Main Body pushed by collapsed sidebar width
           Positioned.fill(
@@ -852,10 +880,25 @@ class _TvScaffoldState extends State<TvScaffold> {
     final liveCtrl = Get.isRegistered<LiveTVController>()
         ? Get.find<LiveTVController>()
         : null;
-    if (liveCtrl == null) return null;
+    final favCtrl = Get.isRegistered<FavoritesController>()
+        ? Get.find<FavoritesController>()
+        : null;
+    final favService = Get.isRegistered<FavoriteService>()
+        ? Get.find<FavoriteService>()
+        : null;
+
+    if (liveCtrl == null && favCtrl == null && favService == null) return null;
 
     return Obx(() {
-      final count = liveCtrl.favorites.length;
+      int count = 0;
+      if (favCtrl != null && favCtrl.favoriteChannels.isNotEmpty) {
+        count = favCtrl.favoriteChannels.length;
+      } else if (liveCtrl != null && liveCtrl.favorites.isNotEmpty) {
+        count = liveCtrl.favorites.length;
+      } else if (favService != null) {
+        count = favService.favoriteCount;
+      }
+
       if (count == 0) return const SizedBox.shrink();
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -1006,7 +1049,7 @@ class _TvScaffoldState extends State<TvScaffold> {
             child: _isExpanded
                 // Expanded Mode: Horizontal Row with Icon, Title, and Badge
                 ? KeyedSubtree(
-                    key: const ValueKey('nav_expanded'),
+                    key: ValueKey('nav_expanded_$index'),
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       physics: const NeverScrollableScrollPhysics(),
@@ -1048,7 +1091,7 @@ class _TvScaffoldState extends State<TvScaffold> {
                   )
                 // Collapsed Mode: Vertical Stack with Icon on Top and Text Below
                 : KeyedSubtree(
-                    key: const ValueKey('nav_collapsed'),
+                    key: ValueKey('nav_collapsed_$index'),
                     child: SizedBox(
                       width: double.infinity,
                       child: Column(

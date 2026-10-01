@@ -10,13 +10,16 @@ import 'tv_body_focus_registry.dart';
 import 'tv_navigation_region.dart';
 
 class TvFocusable extends StatefulWidget {
-  final Widget child;
+  final Widget? child;
+  final Widget Function(BuildContext context, bool hasFocus)? builder;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
   final double scale;
   final Duration duration;
   final BorderRadius? borderRadius;
   final Color? focusColor;
+  final Color? focusedBackgroundColor;
+  final Color? unfocusedBackgroundColor;
   final ValueChanged<bool>? onFocusChange;
   final bool autofocus;
   final bool canRequestFocus;
@@ -30,13 +33,16 @@ class TvFocusable extends StatefulWidget {
 
   const TvFocusable({
     super.key,
-    required this.child,
+    this.child,
+    this.builder,
     this.onTap,
     this.onLongPress,
     this.scale = 1.08,
     this.duration = const Duration(milliseconds: 200),
     this.borderRadius,
     this.focusColor,
+    this.focusedBackgroundColor,
+    this.unfocusedBackgroundColor,
     this.onFocusChange,
     this.autofocus = false,
     this.canRequestFocus = true,
@@ -47,7 +53,7 @@ class TvFocusable extends StatefulWidget {
     this.itemId,
     this.itemIndex,
     this.showFocusDecoration = true,
-  });
+  }) : assert(child != null || builder != null, 'Either child or builder must be provided');
 
   @override
   State<TvFocusable> createState() => _TvFocusableState();
@@ -333,14 +339,26 @@ class _TvFocusableState extends State<TvFocusable> {
                 duration: widget.duration,
                 decoration: widget.showFocusDecoration
                     ? BoxDecoration(
+                        color: _hasFocus
+                            ? (widget.focusedBackgroundColor ?? widget.unfocusedBackgroundColor)
+                            : widget.unfocusedBackgroundColor,
                         borderRadius: borderRadius,
                         border: _hasFocus
                             ? Border.all(color: focusColor, width: 2.0)
                             : Border.all(color: Colors.transparent, width: 2.0),
                         boxShadow: _hasFocus ? [AppShadows.neonFocusGlow] : null,
                       )
-                    : null,
-                child: widget.child,
+                    : (widget.unfocusedBackgroundColor != null || widget.focusedBackgroundColor != null
+                        ? BoxDecoration(
+                            color: _hasFocus
+                                ? (widget.focusedBackgroundColor ?? widget.unfocusedBackgroundColor)
+                                : widget.unfocusedBackgroundColor,
+                            borderRadius: borderRadius,
+                          )
+                        : null),
+                child: widget.builder != null
+                    ? widget.builder!(context, _hasFocus)
+                    : (widget.child ?? const SizedBox.shrink()),
               ),
             ),
           ),

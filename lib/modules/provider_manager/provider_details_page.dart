@@ -39,6 +39,7 @@ class ProviderDetailsPage extends GetView<ProviderManagerController> {
 
     return AppScaffold(
       title: 'Provider Details',
+      showNavigation: false,
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());

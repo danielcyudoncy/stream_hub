@@ -20,12 +20,14 @@ class PlayerAdapterFactory {
     PlaybackEngineKind kind, {
     LoggingService? logger,
     bool hardwareDecode = true,
+    bool handleAudioFocus = true,
   }) {
     if (kind == PlaybackEngineKind.exoPlayer &&
         ExoPlayerSurfaceViewAdapter.isSupported) {
       return ExoPlayerSurfaceViewAdapter(
         logger: logger,
         hardwareDecode: hardwareDecode,
+        handleAudioFocus: handleAudioFocus,
       );
     }
     if (kind == PlaybackEngineKind.nativeActivity &&

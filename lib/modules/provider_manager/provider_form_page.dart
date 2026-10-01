@@ -231,6 +231,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
 
     return AppScaffold(
       title: isEditing ? 'Edit Provider' : 'Add Provider',
+      showNavigation: false,
       body: Form(
         key: _formKey,
         child: TvKeyboardAwareScrollView(

@@ -222,6 +222,103 @@ void main() {
       );
       aNode.dispose();
     });
+
+    test('navigating UP from topmost rail triggers onExitTopRail when set', () {
+      navService.registerRailOrder(<String>['rail_top', 'rail_bottom']);
+      navService.registerRegion('rail_top', TvFocusRegionType.rail);
+      navService.registerRegion('rail_bottom', TvFocusRegionType.rail);
+
+      bool exitCallbackCalled = false;
+      navService.onExitTopRail = () {
+        exitCallbackCalled = true;
+      };
+
+      final handled = navService.handleInterRailNavigation(
+        currentRegionId: 'rail_top',
+        direction: TraversalDirection.up,
+      );
+
+      expect(handled, isTrue);
+      expect(exitCallbackCalled, isTrue);
+      navService.onExitTopRail = null;
+    });
+
+    testWidgets(
+      'navigating UP from topmost rail restores focus to topRegionId',
+      (tester) async {
+        navService.registerRailOrder(<String>['rail_top', 'rail_bottom']);
+        navService.registerRegion('hero_actions', TvFocusRegionType.hero);
+        navService.registerRegion('rail_top', TvFocusRegionType.rail);
+
+        final heroNode = FocusNode(debugLabel: 'watch_now');
+        final railNode = FocusNode(debugLabel: 'rail_item');
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Column(
+              children: [
+                TvNavigationRegion(
+                  regionId: 'hero_actions',
+                  type: TvFocusRegionType.hero,
+                  child: TvFocusable(
+                    focusNode: heroNode,
+                    itemId: 'watch_now',
+                    child: const Text('Watch Now'),
+                  ),
+                ),
+                TvNavigationRegion(
+                  regionId: 'rail_top',
+                  type: TvFocusRegionType.rail,
+                  child: TvFocusable(
+                    focusNode: railNode,
+                    itemId: 'item_0',
+                    child: const Text('Rail Item 0'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        railNode.requestFocus();
+        await tester.pump();
+        expect(railNode.hasFocus, isTrue);
+
+        navService.topRegionId = 'hero_actions';
+
+        final handled = navService.handleInterRailNavigation(
+          currentRegionId: 'rail_top',
+          direction: TraversalDirection.up,
+        );
+        await tester.pump();
+
+        expect(handled, isTrue);
+        expect(heroNode.hasFocus, isTrue);
+
+        navService.topRegionId = null;
+        heroNode.dispose();
+        railNode.dispose();
+      },
+    );
+
+    test('navigating UP from topmost rail returns false when no top handler set', () {
+      navService.registerRailOrder(<String>['rail_top', 'rail_bottom']);
+      navService.registerRegion('rail_top', TvFocusRegionType.rail);
+      navService.topRegionId = null;
+      navService.onExitTopRail = null;
+
+      final handled = navService.handleInterRailNavigation(
+        currentRegionId: 'rail_top',
+        direction: TraversalDirection.up,
+      );
+
+      expect(
+        handled,
+        isFalse,
+        reason: 'Should return false to allow native directional focus traversal to reach widgets above',
+      );
+    });
   });
 
   group('TvNavigationRegion & TvFocusable Widget Tests', () {
