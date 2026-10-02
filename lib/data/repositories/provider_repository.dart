@@ -54,6 +54,14 @@ class ProviderRepository extends GetxService {
     }
   }
 
+  Stream<dynamic> watchProviders() {
+    try {
+      return _dbService.providersBox.watch();
+    } catch (_) {
+      return const Stream.empty();
+    }
+  }
+
   Future<ProviderModel?> getProviderById(String id) async {
     try {
       final box = _dbService.providersBox;

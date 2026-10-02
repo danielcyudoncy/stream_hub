@@ -14,7 +14,9 @@ enum TvFocusRegionType {
   player,
   dialog,
   content,
+  header,
 }
+
 
 /// Snapshot of the last focused state within a specific TV navigation region.
 class TvRegionMemory {
@@ -368,34 +370,48 @@ class TvNavigationService extends GetxService {
     if (!_railOrder.contains(currentRegionId)) return false;
     final currentIndex = _railOrder.indexOf(currentRegionId);
 
-    int targetRailIndex;
+    int? targetRailIndex;
     if (direction == TraversalDirection.down) {
-      targetRailIndex = currentIndex + 1;
+      for (int i = currentIndex + 1; i < _railOrder.length; i++) {
+        final railId = _railOrder[i];
+        if (_liveRegionNodes(railId).isNotEmpty ||
+            (_regionMemory[railId]?.lastFocusedNode?.canRequestFocus == true) ||
+            _regionMemory.containsKey(railId)) {
+          targetRailIndex = i;
+          break;
+        }
+      }
+      if (targetRailIndex == null) {
+        // At the bottommost live rail — consume the key rather than letting
+        // Flutter's traversal wrap around or move to an unintended target.
+        return true;
+      }
     } else if (direction == TraversalDirection.up) {
-      targetRailIndex = currentIndex - 1;
+      for (int i = currentIndex - 1; i >= 0; i--) {
+        final railId = _railOrder[i];
+        if (_liveRegionNodes(railId).isNotEmpty ||
+            (_regionMemory[railId]?.lastFocusedNode?.canRequestFocus == true) ||
+            _regionMemory.containsKey(railId)) {
+          targetRailIndex = i;
+          break;
+        }
+      }
+      if (targetRailIndex == null) {
+        // At the topmost live rail navigating UP.
+        if (onExitTopRail != null) {
+          logNav('Exit top rail via onExitTopRail from $currentRegionId');
+          onExitTopRail!();
+          return true;
+        }
+        if (topRegionId != null && restoreFocus(topRegionId!)) {
+          logNav('Exit top rail to $topRegionId from $currentRegionId');
+          return true;
+        }
+        logNav('Exit top rail: allowing native traversal from $currentRegionId');
+        return false;
+      }
     } else {
       return false;
-    }
-
-    if (targetRailIndex < 0) {
-      // At the topmost rail navigating UP.
-      if (onExitTopRail != null) {
-        logNav('Exit top rail via onExitTopRail from $currentRegionId');
-        onExitTopRail!();
-        return true;
-      }
-      if (topRegionId != null && restoreFocus(topRegionId!)) {
-        logNav('Exit top rail to $topRegionId from $currentRegionId');
-        return true;
-      }
-      logNav('Exit top rail: allowing native traversal from $currentRegionId');
-      return false;
-    }
-
-    if (targetRailIndex >= _railOrder.length) {
-      // At the bottom rail — consume the key rather than letting
-      // Flutter's traversal wrap around or move to an unintended target.
-      return true;
     }
 
     final targetRegionId = _railOrder[targetRailIndex];
@@ -405,12 +421,6 @@ class TvNavigationService extends GetxService {
     final targetNodes = _liveRegionNodes(targetRegionId);
 
     if (targetNodes.isEmpty) {
-      // Rail exists but has no live nodes yet — it's lazy/unbuilt or all of
-      // its items were scrolled out of view. Prefer the lazy-build callback
-      // so the rail can populate, otherwise fall back to any stored focus
-      // memory for the region. Either way the key is consumed: letting
-      // Flutter's geometry-based traversal pick an arbitrary target for an
-      // unbuilt rail is exactly the non-deterministic jump we are removing.
       if (onLazyRailRequest != null) {
         logNav('Lazy rail requested: $targetRegionId');
         onLazyRailRequest!();
@@ -418,21 +428,6 @@ class TvNavigationService extends GetxService {
       }
       final restored = restoreFocus(targetRegionId);
       if (restored) return true;
-
-      // If the target rail could not be focused (e.g. it was conditionally
-      // not rendered because it has no items, such as an empty Continue Watching):
-      if (direction == TraversalDirection.up && targetRailIndex == 0) {
-        if (onExitTopRail != null) {
-          logNav('Target rail unbuilt at top; exit top rail via onExitTopRail');
-          onExitTopRail!();
-          return true;
-        }
-        if (topRegionId != null && restoreFocus(topRegionId!)) {
-          logNav('Target rail unbuilt at top; exit to $topRegionId');
-          return true;
-        }
-        return false;
-      }
 
       logNav('Inter-rail target rail unbuilt: $targetRegionId');
       return true;
@@ -536,7 +531,10 @@ class TvNavigationService extends GetxService {
     Duration duration = const Duration(milliseconds: 250),
     Curve curve = Curves.easeOutCubic,
   }) {
-    // Scroll the nearest enclosing scrollable
+    final renderObject = context.findRenderObject();
+    if (renderObject == null || !renderObject.attached) return;
+
+    // 1. Scroll the nearest enclosing scrollable (e.g. horizontal ListView)
     Scrollable.ensureVisible(
       context,
       alignment: alignment,
@@ -544,28 +542,37 @@ class TvNavigationService extends GetxService {
       curve: curve,
     );
 
-    // Also look for parent vertical scrollable if current is horizontal
+    // 2. Find parent vertical scrollable (e.g. CustomScrollView) and bring the
+    // focused renderObject into view.
     final nearestScrollable = Scrollable.maybeOf(context);
     if (nearestScrollable != null &&
-        nearestScrollable.axisDirection == AxisDirection.right) {
-      // Find parent scrollable
-      Element? parentElement;
+        (nearestScrollable.axisDirection == AxisDirection.right ||
+            nearestScrollable.axisDirection == AxisDirection.left)) {
+      ScrollableState? outerScrollable;
       context.visitAncestorElements((ancestor) {
-        if (ancestor.widget is Scrollable &&
-            ancestor != nearestScrollable.context) {
-          parentElement = ancestor;
-          return false;
+        if (ancestor is StatefulElement && ancestor.state is ScrollableState) {
+          final state = ancestor.state as ScrollableState;
+          if (state != nearestScrollable &&
+              (state.axisDirection == AxisDirection.down ||
+                  state.axisDirection == AxisDirection.up)) {
+            outerScrollable = state;
+            return false;
+          }
         }
         return true;
       });
 
-      if (parentElement != null) {
-        Scrollable.ensureVisible(
-          parentElement!,
-          alignment: alignment,
-          duration: duration,
-          curve: curve,
-        );
+      if (outerScrollable != null &&
+          outerScrollable!.position.hasContentDimensions &&
+          renderObject.attached) {
+        try {
+          outerScrollable!.position.ensureVisible(
+            renderObject,
+            alignment: alignment,
+            duration: duration,
+            curve: curve,
+          );
+        } catch (_) {}
       }
     }
   }

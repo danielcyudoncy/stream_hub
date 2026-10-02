@@ -841,6 +841,76 @@ void main() {
         await tester.pumpAndSettle();
       },
     );
+
+    testWidgets(
+      'ensureVisible scrolls ancestor vertical CustomScrollView when focused item is in horizontal list',
+      (tester) async {
+        tester.view.physicalSize = const Size(1920, 1080);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final scrollController = ScrollController();
+        final focusNodeTarget = FocusNode(debugLabel: 'offscreen_card');
+
+        await tester.pumpWidget(
+          _wrap(
+            CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Container(
+                    height: 1200.0,
+                    color: Colors.blue,
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: SizedBox(
+                    height: 300.0,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: 10,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return TvFocusable(
+                            focusNode: focusNodeTarget,
+                            itemId: 'target_card',
+                            child: const SizedBox(
+                              width: 200.0,
+                              height: 300.0,
+                              child: Text('Card 0'),
+                            ),
+                          );
+                        }
+                        return const SizedBox(
+                          width: 200.0,
+                          height: 300.0,
+                          child: Text('Other Card'),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(scrollController.offset, 0.0);
+
+        // Request focus on the target card at Y >= 1200
+        focusNodeTarget.requestFocus();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
+
+        // The vertical CustomScrollView should have scrolled down to bring the target card into view
+        expect(scrollController.offset, greaterThan(0.0));
+
+        focusNodeTarget.dispose();
+        scrollController.dispose();
+      },
+    );
   });
 }
 

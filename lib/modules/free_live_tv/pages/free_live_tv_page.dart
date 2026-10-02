@@ -47,6 +47,8 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
       GlobalKey<PopupMenuButtonState<String>>();
   final GlobalKey<PopupMenuButtonState<String>> _countryPopupKey =
       GlobalKey<PopupMenuButtonState<String>>();
+  final GlobalKey<PopupMenuButtonState<String>> _tvCountryPopupKey =
+      GlobalKey<PopupMenuButtonState<String>>();
   final GlobalKey<FreeTvEmbeddedPlayerState> _embeddedPlayerKey =
       GlobalKey<FreeTvEmbeddedPlayerState>();
   final FocusNode _refreshFocusNode = FocusNode(debugLabel: 'FreeTv_Refresh');
@@ -763,6 +765,12 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                       ),
                     ),
                     AppSpacing.widthSM,
+                    _buildCountryFilterMenu(
+                      context,
+                      _tvCountryPopupKey,
+                      iconColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    AppSpacing.widthSM,
                     TvFocusable(
                       onTap: () => _showSearchDialog(context),
                       scale: 1.15,
@@ -1435,47 +1443,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
           const SizedBox(width: 4.0),
 
           // Country Filter Menu
-          TvFocusable(
-            onTap: () => _countryPopupKey.currentState?.showButtonMenu(),
-            scale: 1.15,
-            borderRadius: BorderRadius.circular(24),
-            child: PopupMenuButton<String>(
-              key: _countryPopupKey,
-              padding: const EdgeInsets.all(6.0),
-              constraints: const BoxConstraints(maxHeight: 400),
-              icon: Icon(
-                Icons.public_rounded,
-                size: 18.0,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              tooltip: 'Filter by Country',
-              color: Theme.of(context).colorScheme.surface,
-              shape: RoundedRectangleBorder(
-                borderRadius: AppRadius.medium,
-                side: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
-                ),
-              ),
-              initialValue: controller.selectedCountry.value,
-              onSelected: controller.setCountry,
-              itemBuilder: (context) => controller.countries.map(
-                (country) => PopupMenuItem(
-                  value: country,
-                  child: Text(
-                    country == 'Nigeria' ? '🇳🇬 Nigeria' : country,
-                    style: TextStyle(
-                      fontWeight: country == 'Nigeria'
-                          ? FontWeight.bold
-                          : FontWeight.normal,
-                      color: country == 'Nigeria'
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurface,
-                    ),
-                  ),
-                ),
-              ).toList(),
-            ),
-          ),
+          _buildCountryFilterMenu(context, _countryPopupKey),
 
           // View Mode Toggle (Grid vs List)
           TvFocusable(
@@ -1560,6 +1528,60 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCountryFilterMenu(
+    BuildContext context,
+    GlobalKey<PopupMenuButtonState<String>> key, {
+    Color? iconColor,
+  }) {
+    final isFiltered = controller.selectedCountry.value != 'All Countries';
+    return TvFocusable(
+      onTap: () => key.currentState?.showButtonMenu(),
+      scale: 1.15,
+      borderRadius: BorderRadius.circular(24),
+      child: PopupMenuButton<String>(
+        key: key,
+        padding: const EdgeInsets.all(6.0),
+        constraints: const BoxConstraints(maxHeight: 400),
+        icon: Icon(
+          Icons.public_rounded,
+          size: 18.0,
+          color: isFiltered
+              ? Theme.of(context).colorScheme.primary
+              : (iconColor ?? Theme.of(context).colorScheme.onSurface),
+        ),
+        tooltip: 'Filter by Country',
+        color: Theme.of(context).colorScheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: AppRadius.medium,
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.15),
+          ),
+        ),
+        initialValue: controller.selectedCountry.value,
+        onSelected: controller.setCountry,
+        itemBuilder: (context) => controller.countries.map(
+          (country) => PopupMenuItem(
+            value: country,
+            child: Text(
+              country == 'Nigeria' ? '🇳🇬 Nigeria' : country,
+              style: TextStyle(
+                fontWeight: country == 'Nigeria' ||
+                        country == controller.selectedCountry.value
+                    ? FontWeight.bold
+                    : FontWeight.normal,
+                color: country == 'Nigeria'
+                    ? Theme.of(context).colorScheme.primary
+                    : (country == controller.selectedCountry.value
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurface),
+              ),
+            ),
+          ),
+        ).toList(),
       ),
     );
   }

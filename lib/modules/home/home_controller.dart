@@ -33,6 +33,7 @@ class HomeController extends GetxController {
   StreamSubscription? _catalogSubscription;
   StreamSubscription? _favoriteSubscription;
   Timer? _backgroundRefreshTimer;
+  Worker? _activeProviderWorker;
 
   HomeController({
     required this.mediaEngine,
@@ -76,7 +77,7 @@ class HomeController extends GetxController {
     if (Get.isRegistered<ProviderRepository>()) {
       final providerRepo = Get.find<ProviderRepository>();
       selectedProviderId.value = providerRepo.activeProviderId.value;
-      ever(providerRepo.activeProviderId, (id) {
+      _activeProviderWorker = ever(providerRepo.activeProviderId, (id) {
         if (selectedProviderId.value != id) {
           selectedProviderId.value = id;
           refresh();
@@ -115,9 +116,12 @@ class HomeController extends GetxController {
 
   @override
   void onClose() {
+    _activeProviderWorker?.dispose();
+    _activeProviderWorker = null;
     _catalogSubscription?.cancel();
     _favoriteSubscription?.cancel();
     _backgroundRefreshTimer?.cancel();
+    _backgroundRefreshTimer = null;
     super.onClose();
   }
 
@@ -134,6 +138,7 @@ class HomeController extends GetxController {
         const Duration(seconds: 2),
         onTimeout: () => null,
       );
+      if (isClosed) return;
       if (snapshot != null && !snapshot.isEmpty) {
         _applySnapshot(snapshot);
         _hasLoadedFromCache.value = true;
@@ -203,6 +208,12 @@ class HomeController extends GetxController {
       if (providerRepo.activeProviderId.value != providerId) {
         providerRepo.setActiveProviderId(providerId);
       }
+    }
+    if (providerId.isNotEmpty) {
+      movies.clear();
+      series.clear();
+      liveChannels.clear();
+      featuredHeroItems.clear();
     }
     refresh();
   }
@@ -335,10 +346,16 @@ class HomeController extends GetxController {
           final tmdbMovies = await _tmdbService!.getTrendingMovies();
           if (tmdbMovies.isNotEmpty && !_areMediaListsEqual(movies, tmdbMovies)) {
             movies.assignAll(tmdbMovies.take(20).toList());
+          } else if (tmdbMovies.isEmpty && providerId.isNotEmpty) {
+            movies.clear();
           }
-        } catch (_) {}
+        } catch (_) {
+          if (providerId.isNotEmpty) movies.clear();
+        }
       } else if (newItems.isNotEmpty && !_areMediaListsEqual(movies, newItems)) {
         movies.assignAll(newItems);
+      } else if (newItems.isEmpty && providerId.isNotEmpty) {
+        movies.clear();
       }
       moviesState.value = SectionLoadState.loaded;
     } catch (e) {
@@ -359,10 +376,16 @@ class HomeController extends GetxController {
           final tmdbSeries = await _tmdbService!.getPopularSeries();
           if (tmdbSeries.isNotEmpty && !_areMediaListsEqual(series, tmdbSeries)) {
             series.assignAll(tmdbSeries.take(20).toList());
+          } else if (tmdbSeries.isEmpty && providerId.isNotEmpty) {
+            series.clear();
           }
-        } catch (_) {}
+        } catch (_) {
+          if (providerId.isNotEmpty) series.clear();
+        }
       } else if (newItems.isNotEmpty && !_areMediaListsEqual(series, newItems)) {
         series.assignAll(newItems);
+      } else if (newItems.isEmpty && providerId.isNotEmpty) {
+        series.clear();
       }
       seriesState.value = SectionLoadState.loaded;
     } catch (e) {
@@ -380,9 +403,10 @@ class HomeController extends GetxController {
             )
           : await catalogRepository.getByType(MediaType.channel);
       if (channelItems.isEmpty) {
-        if (liveChannels.isEmpty) {
-          channelsState.value = SectionLoadState.loaded;
+        if (providerId.isNotEmpty) {
+          liveChannels.clear();
         }
+        channelsState.value = SectionLoadState.loaded;
         return;
       }
 

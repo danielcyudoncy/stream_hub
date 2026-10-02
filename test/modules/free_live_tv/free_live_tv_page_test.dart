@@ -255,10 +255,10 @@ void main() {
 
       final focusDetector = find.descendant(
         of: refreshFocusable,
-        matching: find.byType(FocusableActionDetector),
+        matching: find.byType(Focus),
       );
       final FocusNode refreshNode =
-          tester.widget<FocusableActionDetector>(focusDetector).focusNode!;
+          tester.widget<Focus>(focusDetector.first).focusNode!;
       refreshNode.requestFocus();
       await tester.pump();
       expect(refreshNode.hasFocus, isTrue);
@@ -277,6 +277,45 @@ void main() {
             playerState.playPauseFocusNode.hasFocus,
         isTrue,
       );
+    });
+
+    testWidgets(
+        'renders country filter button alongside view mode, search, and refresh on TV/large screen',
+        (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      final fakeChannels = [
+        const FreeTvChannel(
+          id: 'ChannelsTV.ng',
+          name: 'Channels Television',
+          country: 'Nigeria',
+          countryCode: 'NG',
+          categories: ['News'],
+          streamUrls: ['https://stream.channelstv.com/live.m3u8'],
+        ),
+      ];
+
+      final fakeRepo = _FakeFreeTvRepository(fakeChannels);
+      final controller = FreeLiveTvController(repository: fakeRepo);
+      Get.put<FreeLiveTvController>(controller);
+
+      await tester.pumpWidget(
+        const GetMaterialApp(
+          home: FreeLiveTvPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Country filter button is present with its tooltip and icon
+      expect(find.byTooltip('Filter by Country'), findsOneWidget);
+      expect(find.byIcon(Icons.search), findsOneWidget);
+      expect(find.byIcon(Icons.refresh), findsOneWidget);
+      expect(find.text('List View'), findsOneWidget);
     });
   });
 }

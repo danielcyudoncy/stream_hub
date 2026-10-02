@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/repositories/playback_repository.dart';
@@ -188,6 +189,43 @@ class _TvHomePageState extends State<TvHomePage> {
     }
   }
 
+  Future<void> _watchItem(MediaItem item) async {
+    if (item.mediaType == MediaType.channel) {
+      _openItem(item);
+    } else if (item.mediaType == MediaType.movie) {
+      Duration? startPosition;
+      if (Get.isRegistered<PlaybackRepository>()) {
+        try {
+          final session = await Get.find<PlaybackRepository>().getWatchSession(
+            item.id,
+          );
+          if (session != null && session.resumePosition > Duration.zero) {
+            startPosition = session.resumePosition;
+          }
+        } catch (_) {}
+      }
+      if (startPosition == null) {
+        final posMs =
+            item.metadata['position'] ?? item.metadata['watchProgress'];
+        if (posMs is num && posMs > 1000) {
+          startPosition = Duration(milliseconds: posMs.toInt());
+        }
+      }
+      Get.toNamed(
+        AppRoutes.fullscreenPlayer,
+        arguments: {
+          'items': [item],
+          'currentId': item.id,
+          'resumePosition': startPosition,
+        },
+      );
+    } else if (item.mediaType == MediaType.series) {
+      _openDetails(item);
+    } else {
+      _openItem(item);
+    }
+  }
+
   void _openDetails(MediaItem item) {
     if (item.mediaType == MediaType.series) {
       Get.toNamed(AppRoutes.seriesDetails, arguments: {'item': item});
@@ -217,17 +255,22 @@ class _TvHomePageState extends State<TvHomePage> {
         // 2. First hero item
         // 3. First continue watching item
         // 4. First movie/series
+        // 5. First live channel / recently added
         final backgroundItem =
             _focusedItem ??
             (controller.featuredHeroItems.isNotEmpty
                 ? controller.featuredHeroItems.first
                 : (controller.continueWatching.isNotEmpty
-                      ? controller.continueWatching.first
-                      : (controller.movies.isNotEmpty
-                            ? controller.movies.first
-                            : (controller.series.isNotEmpty
-                                  ? controller.series.first
-                                  : null))));
+                    ? controller.continueWatching.first
+                    : (controller.movies.isNotEmpty
+                        ? controller.movies.first
+                        : (controller.series.isNotEmpty
+                            ? controller.series.first
+                            : (controller.liveChannels.isNotEmpty
+                                ? controller.liveChannels.first
+                                : (controller.recentlyAdded.isNotEmpty
+                                    ? controller.recentlyAdded.first
+                                    : null))))));
 
         _resolveBackdrop(backgroundItem);
 
@@ -262,6 +305,8 @@ class _TvHomePageState extends State<TvHomePage> {
                       imageUrl: backdrop,
                       fit: BoxFit.cover,
                       alignment: Alignment.topRight,
+                      cacheWidth: 1280,
+                      cacheHeight: 720,
                       errorBuilder: (_, _) => const SizedBox.expand(),
                     ),
                   ),
@@ -420,7 +465,6 @@ class _TvHomePageState extends State<TvHomePage> {
                               itemBuilder: (context, item, index) {
                                 return PremiumMediaCard(
                                   item: item,
-                                  width: 155,
                                   aspectRatio: 2 / 3,
                                   onTap: () => _openItem(item),
                                   onFocusChange: (f) => _onItemFocus(item, f),
@@ -439,7 +483,6 @@ class _TvHomePageState extends State<TvHomePage> {
                               itemBuilder: (context, item, index) {
                                 return PremiumMediaCard(
                                   item: item,
-                                  width: 155,
                                   aspectRatio: 2 / 3,
                                   onTap: () => _openItem(item),
                                   onFocusChange: (f) => _onItemFocus(item, f),
@@ -464,7 +507,6 @@ class _TvHomePageState extends State<TvHomePage> {
                                 }
                                 return PremiumMediaCard(
                                   item: item,
-                                  width: 155,
                                   aspectRatio: 2 / 3,
                                   onTap: () => _openItem(item),
                                   onFocusChange: (f) => _onItemFocus(item, f),
@@ -486,37 +528,52 @@ class _TvHomePageState extends State<TvHomePage> {
             Positioned(
               top: 32.0,
               right: 48.0,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Obx(() {
-                    return ProviderSelectorButton(
-                      selectedProviderId: controller.selectedProviderId.value,
-                      onSelectProvider: controller.setSelectedProvider,
-                      isCompact: true,
-                    );
-                  }),
-                  AppSpacing.widthSM,
-                  TvFocusable(
-                    onTap: () => Get.toNamed(AppRoutes.search),
-                    borderRadius: AppRadius.pill,
-                    child: Container(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.25),
+              child: TvNavigationRegion(
+                regionId: 'header_actions',
+                type: TvFocusRegionType.header,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Obx(() {
+                      return ProviderSelectorButton(
+                        selectedProviderId: controller.selectedProviderId.value,
+                        onSelectProvider: controller.setSelectedProvider,
+                        isCompact: true,
+                        onMoveDown: () {
+                          Get.find<TvNavigationService>().restoreFocus('hero_actions');
+                        },
+                      );
+                    }),
+                    AppSpacing.widthSM,
+                    TvFocusable(
+                      onTap: () => Get.toNamed(AppRoutes.search),
+                      borderRadius: AppRadius.pill,
+                      onKeyEvent: (node, event) {
+                        if (event is KeyDownEvent &&
+                            event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          Get.find<TvNavigationService>().restoreFocus('hero_actions');
+                          return KeyEventResult.handled;
+                        }
+                        return KeyEventResult.ignored;
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(AppSpacing.sm),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.25),
+                          ),
+                        ),
+                        child: const Icon(
+                          AppIcons.search,
+                          color: Colors.white,
+                          size: 20.0,
                         ),
                       ),
-                      child: const Icon(
-                        AppIcons.search,
-                        color: Colors.white,
-                        size: 20.0,
-                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -806,8 +863,16 @@ class _TvHomePageState extends State<TvHomePage> {
                 // Watch Now / Resume Button
                 TvFocusable(
                   autofocus: ResponsiveHelper.isTvLayout(context),
-                  onTap: () => _openItem(item),
+                  onTap: () => _watchItem(item),
                   borderRadius: AppRadius.pill,
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                      Get.find<TvNavigationService>().restoreFocus('header_actions');
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 28,
@@ -847,6 +912,14 @@ class _TvHomePageState extends State<TvHomePage> {
                 TvFocusable(
                   onTap: () => _openDetails(item),
                   borderRadius: AppRadius.pill,
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                      Get.find<TvNavigationService>().restoreFocus('header_actions');
+                      return KeyEventResult.handled;
+                    }
+                    return KeyEventResult.ignored;
+                  },
                   child: GlassPanel(
                     borderRadius: AppRadius.pill,
                     backgroundColor: const Color(0xFF1D2022),
@@ -881,6 +954,14 @@ class _TvHomePageState extends State<TvHomePage> {
                   return TvFocusable(
                     onTap: () => controller.toggleFavorite(item),
                     borderRadius: AppRadius.pill,
+                    onKeyEvent: (node, event) {
+                      if (event is KeyDownEvent &&
+                          event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                        Get.find<TvNavigationService>().restoreFocus('header_actions');
+                        return KeyEventResult.handled;
+                      }
+                      return KeyEventResult.ignored;
+                    },
                     child: GlassPanel(
                       borderRadius: AppRadius.pill,
                       backgroundColor: const Color(0xFF1D2022),
