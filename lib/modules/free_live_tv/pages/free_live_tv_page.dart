@@ -333,6 +333,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                       padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
                       child: FreeTvCategoryBar(
                         categories: controller.categories,
+                        portalCategories: controller.portalCategories,
                         selectedCategory: controller.selectedCategory.value,
                         countries: controller.countries,
                         selectedCountry: controller.selectedCountry.value,
@@ -417,6 +418,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
               child: FreeTvCategoryBar(
                 categories: controller.categories,
+                portalCategories: controller.portalCategories,
                 selectedCategory: controller.selectedCategory.value,
                 countries: controller.countries,
                 selectedCountry: controller.selectedCountry.value,
@@ -518,6 +520,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               ),
               child: FreeTvCategoryBar(
                 categories: controller.categories,
+                portalCategories: controller.portalCategories,
                 selectedCategory: controller.selectedCategory.value,
                 countries: controller.countries,
                 selectedCountry: controller.selectedCountry.value,

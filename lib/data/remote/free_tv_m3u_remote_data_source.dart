@@ -276,7 +276,11 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
       String lang = source.defaultLanguage ?? 'English';
 
       final catUpper = rawCategory.toUpperCase();
-      if (catUpper.startsWith('UK - ') || catUpper.contains('UNITED KINGDOM')) {
+      if (catUpper.startsWith('US - ') || catUpper.contains('UNITED STATES')) {
+        country = 'United States';
+        countryCode = 'US';
+        region = 'Americas';
+      } else if (catUpper.startsWith('UK - ') || catUpper.contains('UNITED KINGDOM')) {
         country = 'United Kingdom';
         countryCode = 'GB';
         region = 'Europe';
@@ -320,6 +324,7 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
         region: region,
         categories: normalizedCategories,
         languages: lang == 'English' ? ['English'] : [lang, 'English'],
+        source: source.id,
         qualityScore: 100,
         qualityTier: FreeTvQualityTier.recommended,
         streamUrls: [streamUrl],

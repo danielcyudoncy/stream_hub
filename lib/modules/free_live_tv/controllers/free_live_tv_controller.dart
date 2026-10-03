@@ -40,6 +40,7 @@ class FreeLiveTvController extends GetxController {
   final RxList<FreeTvChannel> recentChannels = <FreeTvChannel>[].obs;
 
   final RxList<String> categories = <String>[].obs;
+  final RxList<String> portalCategories = <String>[].obs;
   final RxList<String> countries = <String>[].obs;
   final RxList<String> regions = <String>[].obs;
   final RxList<String> languages = <String>[].obs;
@@ -335,6 +336,7 @@ class FreeLiveTvController extends GetxController {
 
   void _populateFilterLists() {
     final Set<String> catSet = {};
+    final Set<String> portalCatSet = {};
     final Set<String> countrySet = {};
     _countryCodeLookup.clear();
     final Set<String> regionSet = {};
@@ -343,6 +345,12 @@ class FreeLiveTvController extends GetxController {
     for (final ch in _allChannels) {
       for (final cat in ch.categories) {
         if (cat.trim().isNotEmpty) catSet.add(cat.trim());
+      }
+      if (ch.id.startsWith('portal5458') || ch.source == 'portal5458') {
+        if (ch.categories.isNotEmpty) {
+          final primary = ch.categories.first.trim();
+          if (primary.isNotEmpty) portalCatSet.add(primary);
+        }
       }
       if (ch.country.trim().isNotEmpty) {
         final cName = ch.country.trim();
@@ -376,6 +384,38 @@ class FreeLiveTvController extends GetxController {
       }
     }
     categories.assignAll(['All Categories', ...sortedCats]);
+
+    const priorityPortalCats = [
+      'Main Events / PPV',
+      'Bein Sports',
+      'US - Sports',
+      'US - News',
+      'US - Movies',
+      'US - Entertainment',
+      'US - Locals',
+      'US - Kids',
+      'US - Music',
+      'UK - Sports',
+      'UK - Movies',
+      'UK - Entertainment',
+      'UK - Documentaries',
+      'UK - Kids',
+      'MLB.1',
+      'NBA.1',
+      'NFL.1',
+      'NHL.1',
+      'Deportes',
+      'Latino',
+      'Canada',
+    ];
+    final sortedPortalCats = portalCatSet.toList()..sort();
+    for (final p in priorityPortalCats.reversed) {
+      if (sortedPortalCats.contains(p)) {
+        sortedPortalCats.remove(p);
+        sortedPortalCats.insert(0, p);
+      }
+    }
+    portalCategories.assignAll(sortedPortalCats);
 
     final sortedCountries = countrySet.toList()..sort();
     // Move selected curated countries to the top for prominent discovery.
