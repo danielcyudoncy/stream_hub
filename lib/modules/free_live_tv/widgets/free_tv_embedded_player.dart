@@ -1,6 +1,7 @@
 // modules/free_live_tv/widgets/free_tv_embedded_player.dart
 import 'dart:async';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -1917,10 +1918,14 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
         children: [
           // Background Logo Image
           if (hasLogo)
-            Image.network(
-              logoUrl,
+            CachedNetworkImage(
+              imageUrl: logoUrl,
               fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) =>
+              memCacheWidth: 600,
+              memCacheHeight: 400,
+              errorWidget: (context, url, error) =>
+                  const ChannelPlaceholder(iconSize: 48.0, fontSize: 13.0),
+              placeholder: (context, url) =>
                   const ChannelPlaceholder(iconSize: 48.0, fontSize: 13.0),
             )
           else

@@ -192,7 +192,7 @@ abstract final class FreeTvSources {
     id: 'portal5458',
     name: 'Portal 5458',
     url:
-        'http://portal5458.com:8080/get.php?username=spehar6&password=2934778645&type=m3u_plus',
+        'http://portal5458.com:8080/player_api.php?username=spehar6&password=2934778645',
     kind: FreeTvSourceKind.global,
   );
 

@@ -743,18 +743,19 @@ class FreeLiveTvController extends GetxController {
   void _waitForPlaybackToActuallyRender(PlayerController playerCtrl) {
     _playbackPositionSubscription?.cancel();
 
-    // If the player is already actively decoding and has rendered past 0, complete immediately
+    // If the player is already actively decoding and has rendered past 0 or has buffered packets, complete immediately
     final currentPos = playerCtrl.playbackController.engine.positionRx.value;
-    if (currentPos > Duration.zero) {
+    final currentBuffer = playerCtrl.playbackController.engine.bufferRx.value;
+    if (currentPos > Duration.zero || currentBuffer > Duration.zero) {
       _stopPlayerLoading(complete: true);
       playbackStatusMessage.value = '';
       return;
     }
 
-    // Keep the loading spinner active until the first video frame/position advances.
-    // Use a bounded fallback timer (2.5s) in case position updates are slow or stream is audio-only.
+    // Keep the loading spinner active until the first video frame/position/buffer advances.
+    // Use a fast bounded fallback timer (500ms) in case position updates are static on live MPEG-TS streams.
     Timer? fallbackTimer;
-    fallbackTimer = Timer(const Duration(milliseconds: 2500), () {
+    fallbackTimer = Timer(const Duration(milliseconds: 500), () {
       _playbackPositionSubscription?.cancel();
       _stopPlayerLoading(complete: true);
       playbackStatusMessage.value = '';
@@ -878,12 +879,25 @@ class FreeLiveTvController extends GetxController {
 
     // If backup streams exist, start a watchdog to fail over fast if the stream stalls/hangs
     if (availableUrls.length > 1 && safeStreamIndex < availableUrls.length - 1) {
+      _streamStartupWatchdogTimer = Timer(const Duration(seconds: 4), () {
+        if (currentGen == _openChannelGeneration &&
+            isPlayerLoading.value &&
+            activePlayingChannel.value?.id == channel.id) {
+          _logger.warning(
+            'Stream ${safeStreamIndex + 1} for "${channel.name}" exceeded startup threshold (4s). Failing over to next stream...',
+            tag: 'FreeLiveTvController',
+          );
+          _handlePlaybackError();
+        }
+      });
+    } else {
+      // Bounded timeout for single/last stream so user isn't stuck with an infinite spinner
       _streamStartupWatchdogTimer = Timer(const Duration(seconds: 7), () {
         if (currentGen == _openChannelGeneration &&
             isPlayerLoading.value &&
             activePlayingChannel.value?.id == channel.id) {
           _logger.warning(
-            'Stream ${safeStreamIndex + 1} for "${channel.name}" exceeded startup threshold (7s). Failing over to next stream...',
+            'Final stream for "${channel.name}" timed out without responding.',
             tag: 'FreeLiveTvController',
           );
           _handlePlaybackError();

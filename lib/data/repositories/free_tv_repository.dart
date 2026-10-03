@@ -196,6 +196,7 @@ class FreeTvRepository {
 
     final workingIds = _loadWorkingIds().toSet();
 
+    var probeCounter = 0;
     final probed = await _reachability.probeMany(
       candidates,
       concurrency: concurrency,
@@ -206,9 +207,15 @@ class FreeTvRepository {
         } else {
           workingIds.remove(ch.id);
         }
-        _persistWorkingIds(workingIds, checkedAt: DateTime.now());
+        probeCounter++;
+        if (probeCounter % 25 == 0) {
+          _persistWorkingIds(workingIds, checkedAt: DateTime.now());
+        }
       },
     );
+
+    // Final flush of remaining probe results
+    await _persistWorkingIds(workingIds, checkedAt: DateTime.now());
 
     final workingCount = probed.where((c) => c.isWorking == true).length;
     _logger.info(

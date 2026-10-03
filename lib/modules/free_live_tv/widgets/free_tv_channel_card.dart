@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
@@ -79,26 +80,25 @@ class FreeTvChannelCard extends StatelessWidget {
                     padding: const EdgeInsets.all(AppSpacing.sm),
                     child: Center(
                       child: hasLogo
-                          ? Image.network(
-                              channel.logo!,
+                          ? CachedNetworkImage(
+                              imageUrl: channel.logo!,
                               fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) =>
+                              memCacheWidth: 256,
+                              memCacheHeight: 256,
+                              placeholder: (context, url) => const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                ),
+                              ),
+                              errorWidget: (context, url, error) =>
                                   const ChannelPlaceholder(
                                 iconSize: 28,
                                 fontSize: 10,
                               ),
-                              loadingBuilder: (context, child, progress) {
-                                if (progress == null) return child;
-                                return const Center(
-                                  child: SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  ),
-                                );
-                              },
                             )
                           : const ChannelPlaceholder(
                               iconSize: 28,
@@ -287,10 +287,21 @@ class FreeTvChannelCard extends StatelessWidget {
                 ),
                 padding: const EdgeInsets.all(4),
                 child: hasLogo
-                    ? Image.network(
-                        channel.logo!,
+                    ? CachedNetworkImage(
+                        imageUrl: channel.logo!,
                         fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) =>
+                        memCacheWidth: 96,
+                        memCacheHeight: 96,
+                        placeholder: (context, url) => const Center(
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 1.5,
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) =>
                             const ChannelPlaceholder(
                           iconSize: 20,
                           fontSize: 8,

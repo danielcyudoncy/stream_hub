@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/network/doh_http_client.dart';
@@ -30,16 +32,35 @@ class DearbulutFreeTvRemoteDataSource implements FreeTvRemoteDataSource {
   @override
   Future<List<DearbulutChannelDto>> fetchOnlineChannels({Duration? timeout}) async {
     final effectiveTimeout = timeout ?? FreeTvApiConfig.defaultTimeout;
-    _logger.info('Fetching online channels from ${FreeTvApiConfig.channelsOnlineUrl}...',
-        tag: 'DearbulutRemote');
+    _logger.info('Fetching online channels (compressed)...', tag: 'DearbulutRemote');
 
-    final jsonList = await _fetchJsonList(FreeTvApiConfig.channelsOnlineUrl, effectiveTimeout);
-    final List<DearbulutChannelDto> channels = [];
-    for (final item in jsonList) {
-      if (item is Map) {
-        channels.add(DearbulutChannelDto.fromJson(Map<String, dynamic>.from(item)));
-      }
+    List<dynamic> jsonList;
+    try {
+      jsonList = await _fetchJsonList(
+        FreeTvApiConfig.channelsOnlineGzUrl,
+        effectiveTimeout,
+      );
+    } catch (e) {
+      _logger.warning(
+        'Failed to fetch compressed channels ($e), falling back to uncompressed: ${FreeTvApiConfig.channelsOnlineUrl}',
+        tag: 'DearbulutRemote',
+      );
+      jsonList = await _fetchJsonList(
+        FreeTvApiConfig.channelsOnlineUrl,
+        effectiveTimeout,
+      );
     }
+
+    final channels = await Isolate.run(() {
+      final List<DearbulutChannelDto> list = [];
+      for (final item in jsonList) {
+        if (item is Map) {
+          list.add(DearbulutChannelDto.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+      return list;
+    });
+
     _logger.info('Fetched ${channels.length} online channels from dearbulut API.',
         tag: 'DearbulutRemote');
     return channels;
@@ -109,7 +130,7 @@ class DearbulutFreeTvRemoteDataSource implements FreeTvRemoteDataSource {
     final uri = Uri.parse(url);
     final request = await _httpClient.getUrl(uri).timeout(timeout);
     request.headers.set('User-Agent', 'StreamHubPro/1.0 (FreeLiveTV)');
-    request.headers.set('Accept', 'application/json, */*');
+    request.headers.set('Accept', 'application/json, application/gzip, */*');
 
     final response = await request.close().timeout(timeout);
     if (response.statusCode != HttpStatus.ok) {
@@ -119,8 +140,17 @@ class DearbulutFreeTvRemoteDataSource implements FreeTvRemoteDataSource {
       );
     }
 
-    final bytes = await response.fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
-    final decodedText = utf8.decode(bytes, allowMalformed: true);
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in response) {
+      builder.add(chunk);
+    }
+    final rawBytes = builder.takeBytes();
+
+    final isGz = url.endsWith('.gz') ||
+        (rawBytes.length >= 2 && rawBytes[0] == 0x1f && rawBytes[1] == 0x8b);
+
+    final decompressedBytes = isGz ? gzip.decode(rawBytes) : rawBytes;
+    final decodedText = utf8.decode(decompressedBytes, allowMalformed: true);
     final dynamic parsed = jsonDecode(decodedText);
     
     if (parsed is List) {
