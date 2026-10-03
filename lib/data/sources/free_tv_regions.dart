@@ -77,70 +77,126 @@ abstract final class FreeTvRegions {
 
   /// Well-known country code → display name used to enrich M3U-originated
   /// records that have a country code but no name.
+  static const Map<String, String> _names = {
+    'NG': 'Nigeria',
+    'ZA': 'South Africa',
+    'UK': 'United Kingdom',
+    'GB': 'United Kingdom',
+    'US': 'United States',
+    'FR': 'France',
+    'DE': 'Germany',
+    'CA': 'Canada',
+    'AU': 'Australia',
+    'IN': 'India',
+    'JP': 'Japan',
+    'BR': 'Brazil',
+    'MX': 'Mexico',
+    'GH': 'Ghana',
+    'KE': 'Kenya',
+    'EG': 'Egypt',
+    'MA': 'Morocco',
+    'IE': 'Ireland',
+    'NZ': 'New Zealand',
+    'ES': 'Spain',
+    'IT': 'Italy',
+    'PT': 'Portugal',
+    'NL': 'Netherlands',
+    'BE': 'Belgium',
+    'SE': 'Sweden',
+    'NO': 'Norway',
+    'DK': 'Denmark',
+    'FI': 'Finland',
+    'PL': 'Poland',
+    'RU': 'Russia',
+    'UA': 'Ukraine',
+    'TR': 'Turkey',
+    'AR': 'Argentina',
+    'CL': 'Chile',
+    'CO': 'Colombia',
+    'PE': 'Peru',
+    'VE': 'Venezuela',
+    'EC': 'Ecuador',
+    'TW': 'Taiwan',
+    'HK': 'Hong Kong',
+    'KR': 'Korea',
+    'SG': 'Singapore',
+    'MY': 'Malaysia',
+    'TH': 'Thailand',
+    'ID': 'Indonesia',
+    'PH': 'Philippines',
+    'VN': 'Vietnam',
+    'SA': 'Saudi Arabia',
+    'AE': 'United Arab Emirates',
+    'QA': 'Qatar',
+    'KW': 'Kuwait',
+    'IL': 'Israel',
+    'GR': 'Greece',
+    'CH': 'Switzerland',
+    'AT': 'Austria',
+    'CZ': 'Czech Republic',
+    'HU': 'Hungary',
+    'RO': 'Romania',
+    'BG': 'Bulgaria',
+    'HR': 'Croatia',
+    'RS': 'Serbia',
+  };
+
+  static final Map<String, String> _nameToCode = () {
+    final map = <String, String>{};
+    for (final entry in _names.entries) {
+      map[entry.value.toLowerCase()] = entry.key;
+    }
+    map['united states of america'] = 'US';
+    map['usa'] = 'US';
+    map['great britain'] = 'GB';
+    map['uk'] = 'GB';
+    map['england'] = 'GB';
+    map['russia'] = 'RU';
+    map['south korea'] = 'KR';
+    map['uae'] = 'AE';
+    return map;
+  }();
+
+  /// Well-known country code → display name used to enrich M3U-originated
+  /// records that have a country code but no name.
   static String? countryNameForCode(String countryCode) {
-    const names = <String, String>{
-      'NG': 'Nigeria',
-      'ZA': 'South Africa',
-      'UK': 'United Kingdom',
-      'GB': 'United Kingdom',
-      'US': 'United States',
-      'FR': 'France',
-      'DE': 'Germany',
-      'CA': 'Canada',
-      'AU': 'Australia',
-      'IN': 'India',
-      'JP': 'Japan',
-      'BR': 'Brazil',
-      'MX': 'Mexico',
-      'GH': 'Ghana',
-      'KE': 'Kenya',
-      'EG': 'Egypt',
-      'MA': 'Morocco',
-      'IE': 'Ireland',
-      'NZ': 'New Zealand',
-      'ES': 'Spain',
-      'IT': 'Italy',
-      'PT': 'Portugal',
-      'NL': 'Netherlands',
-      'BE': 'Belgium',
-      'SE': 'Sweden',
-      'NO': 'Norway',
-      'DK': 'Denmark',
-      'FI': 'Finland',
-      'PL': 'Poland',
-      'RU': 'Russia',
-      'UA': 'Ukraine',
-      'TR': 'Turkey',
-      'AR': 'Argentina',
-      'CL': 'Chile',
-      'CO': 'Colombia',
-      'PE': 'Peru',
-      'VE': 'Venezuela',
-      'EC': 'Ecuador',
-      'TW': 'Taiwan',
-      'HK': 'Hong Kong',
-      'KR': 'Korea',
-      'SG': 'Singapore',
-      'MY': 'Malaysia',
-      'TH': 'Thailand',
-      'ID': 'Indonesia',
-      'PH': 'Philippines',
-      'VN': 'Vietnam',
-      'SA': 'Saudi Arabia',
-      'AE': 'United Arab Emirates',
-      'QA': 'Qatar',
-      'KW': 'Kuwait',
-      'IL': 'Israel',
-      'GR': 'Greece',
-      'CH': 'Switzerland',
-      'AT': 'Austria',
-      'CZ': 'Czech Republic',
-      'HU': 'Hungary',
-      'RO': 'Romania',
-      'BG': 'Bulgaria',
-      'HR': 'Croatia',
-      'RS': 'Serbia',
-    };
-    return names[countryCode.trim().toUpperCase()];
+    return _names[countryCode.trim().toUpperCase()];
+  }
+
+  /// Returns the ISO 2-letter country code for a given country name, or null.
+  static String? countryCodeForName(String countryName) {
+    return _nameToCode[countryName.trim().toLowerCase()];
+  }
+
+  /// Converts a 2-letter ISO 3166-1 country code into its corresponding flag emoji.
+  static String flagEmojiForCode(String countryCode) {
+    var cc = countryCode.trim().toUpperCase();
+    if (cc == 'UK') cc = 'GB';
+    if (cc.length != 2) return '';
+    final first = cc.codeUnitAt(0);
+    final second = cc.codeUnitAt(1);
+    if (first >= 65 && first <= 90 && second >= 65 && second <= 90) {
+      return String.fromCharCode(0x1F1E6 + (first - 65)) +
+          String.fromCharCode(0x1F1E6 + (second - 65));
+    }
+    return '';
+  }
+
+  /// Converts a country name or code into its corresponding flag emoji.
+  static String flagEmojiForCountry(String countryName, [String? fallbackCode]) {
+    if (countryName == 'All Countries') return '🌍';
+    if (fallbackCode != null && fallbackCode.trim().isNotEmpty) {
+      final flag = flagEmojiForCode(fallbackCode);
+      if (flag.isNotEmpty) return flag;
+    }
+    final code = countryCodeForName(countryName);
+    if (code != null) {
+      final flag = flagEmojiForCode(code);
+      if (flag.isNotEmpty) return flag;
+    }
+    if (countryName.trim().length == 2) {
+      return flagEmojiForCode(countryName);
+    }
+    return '';
   }
 }

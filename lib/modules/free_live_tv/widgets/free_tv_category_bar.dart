@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
+import 'package:stream_hub/data/sources/free_tv_regions.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 /// Curated quick-access groupings surfaced at the start of the Free TV browse
@@ -223,22 +224,8 @@ class FreeTvCategoryBar extends StatelessWidget {
   }
 
   static String _countryFlag(String country) {
-    switch (country) {
-      case 'Nigeria':
-        return '🇳🇬 ';
-      case 'South Africa':
-        return '🇿🇦 ';
-      case 'United Kingdom':
-        return '🇬🇧 ';
-      case 'United States':
-        return '🇺🇸 ';
-      case 'France':
-        return '🇫🇷 ';
-      case 'Germany':
-        return '🇩🇪 ';
-      default:
-        return '';
-    }
+    final flag = FreeTvRegions.flagEmojiForCountry(country);
+    return flag.isNotEmpty ? '$flag ' : '';
   }
 
   Widget _chipDivider() {

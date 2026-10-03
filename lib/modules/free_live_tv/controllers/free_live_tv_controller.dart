@@ -14,6 +14,7 @@ import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/repositories/free_tv_repository.dart';
+import 'package:stream_hub/data/sources/free_tv_regions.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/settings/settings_controller.dart';
 import '../../live_tv/controllers/live_tv_controller.dart';
@@ -42,6 +43,13 @@ class FreeLiveTvController extends GetxController {
   final RxList<String> countries = <String>[].obs;
   final RxList<String> regions = <String>[].obs;
   final RxList<String> languages = <String>[].obs;
+  final Map<String, String> _countryCodeLookup = <String, String>{};
+
+  /// Returns the flag emoji for a given country name.
+  String countryFlag(String country) {
+    final code = _countryCodeLookup[country];
+    return FreeTvRegions.flagEmojiForCountry(country, code);
+  }
 
   final RxString selectedView = 'grid'.obs;
   final RxString selectedCategory = 'All Categories'.obs;
@@ -328,6 +336,7 @@ class FreeLiveTvController extends GetxController {
   void _populateFilterLists() {
     final Set<String> catSet = {};
     final Set<String> countrySet = {};
+    _countryCodeLookup.clear();
     final Set<String> regionSet = {};
     final Set<String> langSet = {};
 
@@ -336,7 +345,11 @@ class FreeLiveTvController extends GetxController {
         if (cat.trim().isNotEmpty) catSet.add(cat.trim());
       }
       if (ch.country.trim().isNotEmpty) {
-        countrySet.add(ch.country.trim());
+        final cName = ch.country.trim();
+        countrySet.add(cName);
+        if (ch.countryCode.trim().isNotEmpty) {
+          _countryCodeLookup[cName] = ch.countryCode.trim();
+        }
       }
       if (ch.region != null && ch.region!.trim().isNotEmpty) {
         regionSet.add(ch.region!.trim());

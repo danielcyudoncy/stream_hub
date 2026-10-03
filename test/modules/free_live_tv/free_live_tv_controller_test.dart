@@ -379,5 +379,15 @@ void main() {
       expect(controller.activePlayingChannel.value?.id, 'portal5458_12554');
       expect(controller.playbackStatusMessage.value, isEmpty);
     });
+
+    test('countryFlag returns flag emoji for countries and globe for All Countries', () async {
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(controller.countryFlag('All Countries'), '🌍');
+      expect(controller.countryFlag('Nigeria'), '🇳🇬');
+      expect(controller.countryFlag('United Kingdom'), '🇬🇧');
+      expect(controller.countryFlag('France'), '🇫🇷');
+    });
   });
 }
