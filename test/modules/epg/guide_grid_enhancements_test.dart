@@ -42,7 +42,8 @@ void main() {
       description: 'Good-natured but labored story of three drag queens...',
       startTime: now.subtract(const Duration(minutes: 30)),
       endTime: now.add(const Duration(minutes: 90)),
-      mediaType: MediaType.program,
+      mediaType: MediaType.movie,
+      genres: const ['Comedy', 'Movie'],
       providerId: 'prov-1',
       providerType: MediaSourceType.m3u,
       createdAt: now,
@@ -79,7 +80,16 @@ void main() {
       findsOneWidget,
     );
 
-    // 4. Focus on the program tile and verify popover overlay appears
+    // 4. Verify Purple Movie Genre accent bar is rendered inside tile
+    final purpleBarFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is Container &&
+          widget.decoration is BoxDecoration &&
+          (widget.decoration as BoxDecoration).color == const Color(0xFFAB47BC),
+    );
+    expect(purpleBarFinder, findsOneWidget);
+
+    // 5. Focus on the program tile and verify popover overlay appears
     final programTileFinder = find.ancestor(
       of: find.text('To Wong Foo, Thanks for Everything! Julie Newmar'),
       matching: find.byType(TvFocusable),
@@ -98,7 +108,7 @@ void main() {
     focusWidget.focusNode?.requestFocus();
     await tester.pumpAndSettle();
 
-    // Verify rating badge and description in popover
+    // Verify rating badge and description in popover (4-row layout)
     expect(find.text('TV14'), findsWidgets);
     expect(
       find.text('Good-natured but labored story of three drag queens...'),

@@ -182,28 +182,28 @@ class _GuideGridState extends State<GuideGrid> {
 
                               return Container(
                                 width: 256.0, // 30-min block width
-                                padding: const EdgeInsets.only(left: 12.0, top: 12.0, bottom: 8.0),
+                                padding: const EdgeInsets.symmetric(horizontal: 14.0),
+                                alignment: Alignment.centerLeft,
                                 decoration: BoxDecoration(
                                   color: isCurrentSlot
-                                      ? AppColors.primary.withValues(alpha: 0.18)
-                                      : null,
+                                      ? const Color(0xFF00AEEF) // Vibrant cyan active slot block
+                                      : const Color(0xFF1B1E26).withValues(alpha: 0.6),
                                   border: Border(
                                     left: BorderSide(
-                                      color: colorScheme.outline.withValues(alpha: 0.1),
+                                      color: Colors.white.withValues(alpha: 0.12),
+                                      width: 1.0,
                                     ),
-                                    top: isCurrentSlot
-                                        ? const BorderSide(color: AppColors.primary, width: 2.5)
-                                        : BorderSide.none,
                                   ),
                                 ),
                                 child: Text(
                                   timeLabel,
                                   style: TextStyle(
                                     color: isCurrentSlot
-                                        ? AppColors.primary
-                                        : colorScheme.onSurfaceVariant,
-                                    fontSize: 12.0,
+                                        ? Colors.white
+                                        : Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 12.5,
                                     fontWeight: isCurrentSlot ? FontWeight.bold : FontWeight.w600,
+                                    letterSpacing: 0.2,
                                   ),
                                 ),
                               );
@@ -556,11 +556,52 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
     return globalOffset.dy < 240;
   }
 
+  Color? _getGenreColor(EPGProgram program) {
+    final text = [
+      ...?program.categories,
+      ...program.genres,
+      program.title,
+      program.description ?? '',
+    ].join(' ').toLowerCase();
+
+    if (text.contains('movie') ||
+        text.contains('cinema') ||
+        text.contains('film') ||
+        text.contains('drama') ||
+        text.contains('comedy') ||
+        program.mediaType == MediaType.movie) {
+      return const Color(0xFFAB47BC); // Purple (Movies - exact Xfinity color)
+    }
+    if (text.contains('sport') ||
+        text.contains('football') ||
+        text.contains('soccer') ||
+        text.contains('basketball') ||
+        text.contains('racing') ||
+        text.contains('golf')) {
+      return const Color(0xFF4CAF50); // Green (Sports)
+    }
+    if (text.contains('news') ||
+        text.contains('weather') ||
+        text.contains('politics') ||
+        text.contains('business') ||
+        text.contains('market')) {
+      return const Color(0xFF29B6F6); // Cyan / Blue (News)
+    }
+    if (text.contains('kid') ||
+        text.contains('animation') ||
+        text.contains('cartoon') ||
+        text.contains('family')) {
+      return const Color(0xFFFFA726); // Orange (Kids)
+    }
+
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
+    final genreColor = _getGenreColor(widget.program);
 
     return OverlayPortal(
       controller: _overlayController,
@@ -581,7 +622,7 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
           onTap: widget.onTap,
           focusColor: const Color(0xFFFFD54F), // Gold/yellow focus ring matching Xfinity
           scale: 1.0,
-          borderRadius: BorderRadius.circular(4.0),
+          borderRadius: BorderRadius.circular(3.0),
           onFocusChange: (focused) {
             if (_hasFocus == focused) return;
             setState(() {
@@ -595,76 +636,91 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
           },
           child: Container(
             decoration: BoxDecoration(
-              color: _hasFocus
-                  ? const Color(0xFF262832)
-                  : (widget.program.isLive
-                      ? (isDark
-                          ? AppColors.primaryContainer.withValues(alpha: 0.25)
-                          : colorScheme.primary.withValues(alpha: 0.12))
-                      : (isDark
-                          ? AppColors.surfaceVariant.withValues(alpha: 0.3)
-                          : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6))),
-              borderRadius: BorderRadius.circular(4.0),
+              gradient: _hasFocus
+                  ? null
+                  : const LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF333A44), // Slate gradient matching Xfinity tiles
+                        Color(0xFF22262E),
+                      ],
+                    ),
+              color: _hasFocus ? const Color(0xFF1B1E26) : null,
+              borderRadius: BorderRadius.circular(3.0),
               border: Border.all(
                 color: _hasFocus
-                    ? const Color(0xFFFFD54F)
-                    : (widget.program.isLive
-                        ? (isDark
-                            ? AppColors.primary.withValues(alpha: 0.3)
-                            : colorScheme.primary.withValues(alpha: 0.4))
-                        : colorScheme.outline.withValues(alpha: 0.08)),
-                width: _hasFocus ? 2.0 : 1.0,
+                    ? const Color(0xFFFFD54F) // Xfinity bright gold-yellow outline
+                    : Colors.white.withValues(alpha: 0.10),
+                width: _hasFocus ? 2.5 : 1.0,
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        widget.program.title,
-                        style: AppTypography.getTitle(
-                          color: _hasFocus ? Colors.white : colorScheme.onSurface,
+                // Thin vertical genre accent line (matches Xfinity sample purple/green/blue bars)
+                if (genreColor != null)
+                  Container(
+                    width: 3.5,
+                    height: 26.0,
+                    margin: const EdgeInsets.only(right: 7.0),
+                    decoration: BoxDecoration(
+                      color: genreColor,
+                      borderRadius: BorderRadius.circular(1.5),
+                    ),
+                  ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              widget.program.title,
+                              style: AppTypography.getTitle(
+                                color: _hasFocus ? Colors.white : colorScheme.onSurface,
+                              ).copyWith(
+                                fontSize: 13.0,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (widget.program.isLive)
+                            Container(
+                              margin: const EdgeInsets.only(left: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary,
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                              child: const Text(
+                                'LIVE',
+                                style: TextStyle(
+                                  color: Colors.black,
+                                  fontSize: 8.0,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _formatTimeRange(widget.program.startTime, widget.program.endTime),
+                        style: AppTypography.getLabel(
+                          color: _hasFocus ? Colors.white70 : colorScheme.onSurfaceVariant,
                         ).copyWith(
-                          fontSize: 13.0,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 10.5,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    if (widget.program.isLive)
-                      Container(
-                        margin: const EdgeInsets.only(left: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: const Text(
-                          'LIVE',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 8.0,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatTimeRange(widget.program.startTime, widget.program.endTime),
-                  style: AppTypography.getLabel(
-                    color: _hasFocus ? Colors.white70 : colorScheme.onSurfaceVariant,
-                  ).copyWith(
-                    fontSize: 10.5,
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -688,18 +744,18 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
         'Live broadcast on ${widget.channel?.title ?? 'Channel'}';
 
     final cardBody = Container(
-      width: 290.0,
-      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
+      width: 300.0,
+      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 11.0),
       decoration: BoxDecoration(
-        color: const Color(0xFF181A20),
-        borderRadius: BorderRadius.circular(8.0),
+        color: const Color(0xFF14161C),
+        borderRadius: BorderRadius.circular(6.0),
         border: Border.all(color: Colors.white24, width: 1.0),
         boxShadow: const [
           BoxShadow(
             color: Colors.black87,
-            blurRadius: 18.0,
+            blurRadius: 20.0,
             spreadRadius: 2.0,
-            offset: Offset(0, 4),
+            offset: Offset(0, 5),
           ),
         ],
       ),
@@ -707,72 +763,73 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
+          // Row 1: Title (exact Xfinity layout)
           Text(
             widget.program.title,
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.bold,
-              fontSize: 13.5,
+              fontSize: 14.0,
               height: 1.2,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 5.0),
-          // Time & Channel Info with Rating Badge
+          // Row 2: Time & Channel Info
           Row(
             children: [
               Text(
                 '${DateFormat('h:mm').format(widget.program.startTime)}-${DateFormat('h:mma').format(widget.program.endTime).toLowerCase()}',
                 style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  fontSize: 12.0,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               if (channelLine.isNotEmpty) ...[
-                const SizedBox(width: 6.0),
+                const SizedBox(width: 8.0),
                 Flexible(
                   child: Text(
                     channelLine,
                     style: const TextStyle(
-                      color: AppColors.primary,
-                      fontSize: 11.0,
-                      fontWeight: FontWeight.bold,
+                      color: Colors.white70,
+                      fontSize: 12.0,
+                      fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 1.5),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(3.0),
-                  border: Border.all(color: Colors.white30, width: 0.8),
-                ),
-                child: Text(
-                  rating,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 9.5,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
             ],
           ),
+          const SizedBox(height: 5.0),
+          // Row 3: Rating Badge on its own line (exact Xfinity style)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 1.5),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(2.5),
+              border: Border.all(color: Colors.white70, width: 1.0),
+            ),
+            child: Text(
+              rating,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10.0,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
           const SizedBox(height: 6.0),
-          // Synopsis / Description
+          // Row 4: Synopsis / Description
           Text(
             description,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.72),
-              fontSize: 11.0,
-              height: 1.25,
+              color: Colors.white.withValues(alpha: 0.75),
+              fontSize: 11.5,
+              height: 1.3,
             ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
@@ -785,19 +842,26 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
       color: Colors.transparent,
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (showBelow)
-            _PopoverArrow(
-              pointingDown: false,
-              color: const Color(0xFF181A20),
-              borderColor: Colors.white24,
+            const Padding(
+              padding: EdgeInsets.only(left: 24.0),
+              child: _PopoverArrow(
+                pointingDown: false,
+                color: Color(0xFF14161C),
+                borderColor: Colors.white24,
+              ),
             ),
           cardBody,
           if (!showBelow)
-            _PopoverArrow(
-              pointingDown: true,
-              color: const Color(0xFF181A20),
-              borderColor: Colors.white24,
+            const Padding(
+              padding: EdgeInsets.only(left: 24.0),
+              child: _PopoverArrow(
+                pointingDown: true,
+                color: Color(0xFF14161C),
+                borderColor: Colors.white24,
+              ),
             ),
         ],
       ),

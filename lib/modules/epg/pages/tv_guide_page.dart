@@ -272,6 +272,26 @@ class _TVGuidePageState extends State<TVGuidePage> {
                 liveCtrl.filteredChannels.isEmpty) {
               return const LiveTvSkeleton();
             }
+
+            final isTimeline = liveCtrl?.selectedView.value == 'timeline';
+            if (isTimeline) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. Sleek Compact Header matching Xfinity (Brand, Filter, Mini Player)
+                  _buildTimelineTopBar(context, liveCtrl),
+
+                  // 2. Full-Screen Guide Grid taking all remaining height
+                  Expanded(
+                    child: _buildTVLayout(context),
+                  ),
+
+                  // 3. Status Bar (Time, Weather, Remote Key Hints)
+                  _buildRemoteLegendBar(),
+                ],
+              );
+            }
+
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -301,6 +321,329 @@ class _TVGuidePageState extends State<TVGuidePage> {
         ),
       );
     });
+  }
+
+  void _showCategoryFilterDialog(BuildContext context, LiveTVController? liveCtrl) {
+    if (liveCtrl == null) return;
+    final categories = liveCtrl.categories.isNotEmpty
+        ? liveCtrl.categories
+        : (controller.categories.isNotEmpty
+            ? controller.categories
+            : ['All Channels']);
+    final selectedCat = liveCtrl.selectedCategory.value;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return Dialog(
+          backgroundColor: const Color(0xFF161920),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Colors.white24, width: 1),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 360, maxHeight: 480),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.filter_list, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Filter Channels by Genre',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white54, size: 18),
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white12),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: categories.length,
+                      itemBuilder: (ctx, index) {
+                        final cat = categories[index];
+                        final isSelected =
+                            (selectedCat.isEmpty && index == 0) || selectedCat == cat;
+                        return ListTile(
+                          dense: true,
+                          title: Text(
+                            cat,
+                            style: TextStyle(
+                              color: isSelected ? AppColors.primary : Colors.white70,
+                              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            ),
+                          ),
+                          trailing: isSelected
+                              ? const Icon(Icons.check_circle, color: AppColors.primary, size: 18)
+                              : null,
+                          onTap: () {
+                            liveCtrl.setCategory(cat);
+                            controller.setCategory(cat);
+                            Navigator.of(dialogCtx).pop();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimelineTopBar(BuildContext context, LiveTVController? liveCtrl) {
+    final providerRepo = Get.isRegistered<ProviderRepository>()
+        ? Get.find<ProviderRepository>()
+        : null;
+
+    final currentProvider = liveCtrl?.selectedProvider.value ??
+        providerRepo?.activeProviderId.value ??
+        '';
+
+    final activeCategory = liveCtrl?.selectedCategory.value ?? 'All Channels';
+    final hasCategoryFilter = activeCategory.isNotEmpty && activeCategory != 'All Channels';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 8.0),
+      color: const Color(0xFF0F1218),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Left: Brand & Primary Actions
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // StreamHub | Guide Brand Header + ▲ FILTER
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'streamhub',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8.0),
+                      child: Text(
+                        '|',
+                        style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 22,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      'Guide',
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 24,
+                        shadows: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.4),
+                            blurRadius: 8.0,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Exact Xfinity "▲ FILTER" action button
+                    TvFocusable(
+                      focusColor: const Color(0xFFFFD54F),
+                      onKeyEvent: _handleShowcaseKeyEvent,
+                      onTap: () => _showCategoryFilterDialog(context, liveCtrl),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: hasCategoryFilter
+                              ? AppColors.primary.withValues(alpha: 0.2)
+                              : const Color(0xFF232832),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: hasCategoryFilter
+                                ? AppColors.primary
+                                : Colors.white24,
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              size: 13,
+                              color: Color(0xFFFFD54F),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              hasCategoryFilter ? 'FILTER: $activeCategory' : 'FILTER',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                // Controls Row: View Mode Toggle, Provider, Search, Refresh
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (currentProvider.isNotEmpty) ...[
+                      ProviderSelectorButton(
+                        selectedProviderId: currentProvider,
+                        onSelectProvider: (newProviderId) {
+                          liveCtrl?.setProvider(newProviderId);
+                          controller.setProvider(newProviderId);
+                          providerRepo?.setActiveProviderId(newProviderId);
+                        },
+                        sheetTitle: 'TV Guide Provider',
+                        isCompact: true,
+                      ),
+                      const SizedBox(width: 10),
+                    ],
+                    if (liveCtrl != null)
+                      TvFocusable(
+                        focusNode: _viewModeFocusNode,
+                        onKeyEvent: _handleShowcaseKeyEvent,
+                        onTap: () {
+                          liveCtrl.setView('grid');
+                        },
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF232832),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.white12),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.grid_view, size: 13, color: Colors.white70),
+                              SizedBox(width: 5),
+                              Text(
+                                'Grid View',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(width: 10),
+                    TvFocusable(
+                      focusNode: _searchFocusNode,
+                      onKeyEvent: _handleShowcaseKeyEvent,
+                      onTap: () => Get.toNamed(AppRoutes.search),
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF232832),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: const Icon(Icons.search, size: 14, color: Colors.white70),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TvFocusable(
+                      focusNode: _refreshFocusNode,
+                      onKeyEvent: _handleShowcaseKeyEvent,
+                      onTap: () {
+                        controller.refreshGuide();
+                        liveCtrl?.refresh();
+                      },
+                      borderRadius: BorderRadius.circular(6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF232832),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white12),
+                        ),
+                        child: const Icon(Icons.refresh, size: 14, color: Colors.white70),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Right: 16:9 Live Embedded Mini-Player
+          if (liveCtrl != null)
+            Container(
+              width: 220,
+              height: 124,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: Colors.white24,
+                  width: 1.0,
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black87,
+                    blurRadius: 15,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(5),
+                child: LiveTvEmbeddedPlayer(
+                  key: _embeddedPlayerKey,
+                  controller: liveCtrl,
+                  isFullscreen: false,
+                  autofocus: false,
+                  onMoveLeft: () => _refreshFocusNode.requestFocus(),
+                  onMoveDown: _focusActiveCategory,
+                  onMoveUp: () => _refreshFocusNode.requestFocus(),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   Widget _buildTopShowcase(BuildContext context) {
@@ -339,14 +682,35 @@ class _TVGuidePageState extends State<TVGuidePage> {
                         crossAxisAlignment: WrapCrossAlignment.center,
                         spacing: 16,
                         children: [
-                          Text(
-                            'Live TV Guide',
-                            style:
-                                AppTypography.getDisplay(
-                                  color: AppColors.primary,
-                                ).copyWith(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                'streamhub',
+                                style: TextStyle(
+                                  color: Colors.white,
                                   fontWeight: FontWeight.bold,
-                                  fontSize: 26,
+                                  fontSize: 24,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 6.0),
+                                child: Text(
+                                  '|',
+                                  style: TextStyle(
+                                    color: Colors.white38,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w300,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                'Guide',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 24,
                                   shadows: [
                                     BoxShadow(
                                       color: AppColors.primary.withValues(
@@ -356,31 +720,52 @@ class _TVGuidePageState extends State<TVGuidePage> {
                                     ),
                                   ],
                                 ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .surfaceContainerHighest
-                                  .withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .outline
-                                    .withValues(alpha: 0.12),
                               ),
-                            ),
-                            child: Text(
-                              'Live',
-                              style: AppTypography.getLabel(
+                            ],
+                          ),
+                          // Exact Xfinity "▲ FILTER" action button
+                          TvFocusable(
+                            focusColor: const Color(0xFFFFD54F),
+                            onKeyEvent: _handleShowcaseKeyEvent,
+                            onTap: _focusActiveCategory,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
                                 color: Theme.of(context)
                                     .colorScheme
-                                    .onSurfaceVariant,
+                                    .surfaceContainerHighest
+                                    .withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .outline
+                                      .withValues(alpha: 0.15),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 13,
+                                    color: Color(0xFFFFD54F),
+                                  ),
+                                  SizedBox(width: 5),
+                                  Text(
+                                    'FILTER',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -916,6 +1301,91 @@ class _TVGuidePageState extends State<TVGuidePage> {
     final liveCtrl = Get.isRegistered<LiveTVController>()
         ? Get.find<LiveTVController>()
         : null;
+    final isTimeline = liveCtrl?.selectedView.value == 'timeline';
+
+    final content = Obx(() {
+      if (liveCtrl != null && liveCtrl.isLoading.value) {
+        return const Center(child: LoadingIndicator());
+      }
+
+      // TV Live Channel Catalog Grid based on selected category & filters
+      List<MediaItem> channels = <MediaItem>[];
+      if (liveCtrl != null) {
+        if (liveCtrl.filteredChannels.isNotEmpty) {
+          channels = liveCtrl.filteredChannels.toList();
+        } else if (liveCtrl.channels.isNotEmpty &&
+            (liveCtrl.selectedCategory.value == 'All Channels' ||
+                liveCtrl.selectedCategory.value.isEmpty)) {
+          channels = liveCtrl.channels.toList();
+        }
+      }
+      if (channels.isEmpty && controller.channels.isNotEmpty) {
+        channels = controller.channels.toList();
+      }
+
+      if (channels.isNotEmpty) {
+        if (isTimeline) {
+          return _buildTimelineEpgView(channels, liveCtrl!);
+        }
+        return _buildTvChannelCatalogGrid(channels, liveCtrl!);
+      }
+
+      if (liveCtrl != null &&
+          liveCtrl.channels.isEmpty &&
+          controller.channels.isEmpty) {
+        return const EmptyView(
+          title: 'No Live Channels Available',
+          description:
+              'Connect an IPTV provider to start watching Live TV.',
+        );
+      }
+
+      if (channels.isEmpty &&
+          liveCtrl != null &&
+          liveCtrl.channels.isNotEmpty &&
+          liveCtrl.selectedCategory.value != 'All Channels') {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.tv_off,
+                size: 48,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+              AppSpacing.heightMD,
+              Text(
+                'No channels in "${liveCtrl.selectedCategory.value}"',
+                style: AppTypography.getHeadline(
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
+              AppSpacing.heightMD,
+              ElevatedButton.icon(
+                onPressed: () => liveCtrl.setCategory('All Channels'),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Show All Channels'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor:
+                      Theme.of(context).colorScheme.onPrimary,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      return const EmptyView(
+        title: 'No Live Channels Available',
+        description:
+            'Connect an IPTV provider to start watching Live TV.',
+      );
+    });
+
+    if (isTimeline) {
+      return content;
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -936,85 +1406,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
         borderRadius: BorderRadius.circular(16),
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Obx(() {
-            if (liveCtrl != null && liveCtrl.isLoading.value) {
-              return const Center(child: LoadingIndicator());
-            }
-
-            // TV Live Channel Catalog Grid based on selected category & filters
-            List<MediaItem> channels = <MediaItem>[];
-            if (liveCtrl != null) {
-              if (liveCtrl.filteredChannels.isNotEmpty) {
-                channels = liveCtrl.filteredChannels.toList();
-              } else if (liveCtrl.channels.isNotEmpty &&
-                  (liveCtrl.selectedCategory.value == 'All Channels' ||
-                      liveCtrl.selectedCategory.value.isEmpty)) {
-                channels = liveCtrl.channels.toList();
-              }
-            }
-            if (channels.isEmpty && controller.channels.isNotEmpty) {
-              channels = controller.channels.toList();
-            }
-
-            if (channels.isNotEmpty) {
-              if (liveCtrl?.selectedView.value == 'timeline') {
-                return _buildTimelineEpgView(channels, liveCtrl!);
-              }
-              return _buildTvChannelCatalogGrid(channels, liveCtrl!);
-            }
-
-            if (liveCtrl != null &&
-                liveCtrl.channels.isEmpty &&
-                controller.channels.isEmpty) {
-              return const EmptyView(
-                title: 'No Live Channels Available',
-                description:
-                    'Connect an IPTV provider to start watching Live TV.',
-              );
-            }
-
-            if (channels.isEmpty &&
-                liveCtrl != null &&
-                liveCtrl.channels.isNotEmpty &&
-                liveCtrl.selectedCategory.value != 'All Channels') {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.tv_off,
-                      size: 48,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    AppSpacing.heightMD,
-                    Text(
-                      'No channels in "${liveCtrl.selectedCategory.value}"',
-                      style: AppTypography.getHeadline(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                    AppSpacing.heightMD,
-                    ElevatedButton.icon(
-                      onPressed: () => liveCtrl.setCategory('All Channels'),
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: const Text('Show All Channels'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor:
-                            Theme.of(context).colorScheme.onPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }
-
-            return const EmptyView(
-              title: 'No Live Channels Available',
-              description:
-                  'Connect an IPTV provider to start watching Live TV.',
-            );
-          }),
+          child: content,
         ),
       ),
     );
@@ -1121,48 +1513,52 @@ class _TVGuidePageState extends State<TVGuidePage> {
 
   Widget _buildRemoteLegendBar() {
     final now = DateTime.now();
-    final timeStr = DateFormat('h:mm a').format(now).toUpperCase();
+    final timeStr = DateFormat('h:mma').format(now).toUpperCase();
 
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xl,
-        vertical: 9,
+        vertical: 8,
       ),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.65),
+        color: Colors.black.withValues(alpha: 0.8),
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
         ),
       ),
       child: Row(
         children: [
           Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Icon(Icons.access_time_rounded, size: 13, color: AppColors.primary),
-              const SizedBox(width: 5),
               Text(
                 timeStr,
                 style: const TextStyle(
                   color: Colors.white,
-                  fontSize: 11.5,
+                  fontSize: 16.5,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 0.5,
                 ),
               ),
-              const SizedBox(width: 8),
-              Container(
-                width: 1,
-                height: 12,
-                color: Colors.white24,
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10.0),
+                child: Text(
+                  '|',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w300,
+                  ),
+                ),
               ),
-              const SizedBox(width: 8),
               const Text(
-                'StreamHub Guide',
+                '59°F',
                 style: TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
