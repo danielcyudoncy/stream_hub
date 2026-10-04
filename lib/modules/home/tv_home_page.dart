@@ -41,6 +41,7 @@ class _TvHomePageState extends State<TvHomePage> {
   MediaItem? _focusedItem;
   String? _resolvedBackdropUrl;
   String? _lastResolvedItemId;
+  bool _hasInitialFocusBeenSet = false;
 
   @override
   void initState() {
@@ -87,10 +88,13 @@ class _TvHomePageState extends State<TvHomePage> {
   }
 
   void _onItemFocus(MediaItem item, bool isFocused) {
-    if (isFocused && _focusedItem?.id != item.id) {
-      setState(() {
-        _focusedItem = item;
-      });
+    if (isFocused) {
+      _hasInitialFocusBeenSet = true;
+      if (_focusedItem?.id != item.id) {
+        setState(() {
+          _focusedItem = item;
+        });
+      }
     }
   }
 
@@ -862,7 +866,11 @@ class _TvHomePageState extends State<TvHomePage> {
               children: [
                 // Watch Now / Resume Button
                 TvFocusable(
-                  autofocus: ResponsiveHelper.isTvLayout(context),
+                  key: const ValueKey('hero_watch_now'),
+                  autofocus: !_hasInitialFocusBeenSet && ResponsiveHelper.isTvLayout(context),
+                  onFocusChange: (focused) {
+                    if (focused) _hasInitialFocusBeenSet = true;
+                  },
                   onTap: () => _watchItem(item),
                   borderRadius: AppRadius.pill,
                   onKeyEvent: (node, event) {
@@ -916,6 +924,10 @@ class _TvHomePageState extends State<TvHomePage> {
 
                 // More Info / Details Button
                 TvFocusable(
+                  key: const ValueKey('hero_more_info'),
+                  onFocusChange: (focused) {
+                    if (focused) _hasInitialFocusBeenSet = true;
+                  },
                   onTap: () => _openDetails(item),
                   borderRadius: AppRadius.pill,
                   onKeyEvent: (node, event) {
@@ -964,6 +976,10 @@ class _TvHomePageState extends State<TvHomePage> {
                 Obx(() {
                   final isFav = controller.isItemFavorite(item.id);
                   return TvFocusable(
+                    key: const ValueKey('hero_favorite'),
+                    onFocusChange: (focused) {
+                      if (focused) _hasInitialFocusBeenSet = true;
+                    },
                     onTap: () => controller.toggleFavorite(item),
                     borderRadius: AppRadius.pill,
                     onKeyEvent: (node, event) {
