@@ -1,6 +1,7 @@
 // test/modules/live_tv/live_tv_embedded_player_narrow_test.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/iptv/models/player_negotiation.dart';
@@ -288,5 +289,78 @@ void main() {
     expect(find.byIcon(Icons.close_rounded), findsOneWidget);
     expect(find.byIcon(Icons.pause_circle_filled_rounded), findsOneWidget);
     expect(find.byIcon(Icons.fullscreen_rounded), findsOneWidget);
+  });
+
+  testWidgets(
+      'LiveTvEmbeddedPlayer reclaims focus when controls hide in fullscreen and pressing OK reveals controls and focuses play/pause',
+      (tester) async {
+    final channel = Channel(
+      id: 'ch_fs_1',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'Sky Sports Live',
+      mediaType: MediaType.channel,
+      number: '101',
+      isLive: true,
+      genres: const ['Sports'],
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    final liveTvCtrl = LiveTVController(
+      mediaEngine: _FakeMediaEngine(),
+      mediaLibrary: _FakeMediaLibrary(),
+      catalogRepository: _FakeCatalogRepository(),
+      favoriteRepository: _FakeFavoriteRepository(),
+    );
+    Get.put<LiveTVController>(liveTvCtrl);
+
+    final playerCtrl = PlayerController(
+      adapter: _StubPlayerAdapter(),
+      engineKind: PlaybackEngineKind.mediaKit,
+      streamRepository: _StubStreamRepository(),
+    );
+    Get.put<PlayerController>(playerCtrl);
+    liveTvCtrl.inlinePlayerController = playerCtrl;
+    liveTvCtrl.activePlayingChannel.value = channel;
+    playerCtrl.playbackController.engine.stateRx.value = PlaybackState.playing;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox.expand(
+            child: LiveTvEmbeddedPlayer(
+              controller: liveTvCtrl,
+              isFullscreen: true,
+              autofocus: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final playerFinder = find.byType(LiveTvEmbeddedPlayer);
+    expect(playerFinder, findsOneWidget);
+    final playerState = tester.state<LiveTvEmbeddedPlayerState>(playerFinder);
+
+    // Play/Pause should have focus initially on fullscreen mount
+    expect(playerState.playPauseFocusNode.hasFocus, isTrue);
+
+    // Unfocus play/pause so controls auto-hide timer can elapse
+    playerState.playPauseFocusNode.unfocus();
+    await tester.pump();
+
+    // Fast forward past the 5-second fullscreen controls auto-hide timer
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+
+    // Controls are hidden and focus is reclaimed to the player keyboard anchor
+    // Now press remote OK (select key)
+    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    await tester.pumpAndSettle();
+
+    // Controls must be visible again and Play/Pause focused so user can reach onscreen icons
+    expect(playerState.playPauseFocusNode.hasFocus, isTrue);
   });
 }

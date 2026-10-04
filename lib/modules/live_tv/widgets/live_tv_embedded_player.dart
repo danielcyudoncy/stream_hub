@@ -46,6 +46,8 @@ class LiveTvEmbeddedPlayer extends StatefulWidget {
 }
 
 class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
+  final GlobalKey<TvPlayerKeyboardState> _keyboardKey =
+      GlobalKey<TvPlayerKeyboardState>();
   bool _controlsVisible = true;
   Timer? _controlsTimer;
   bool _quickZapperOpen = false;
@@ -120,17 +122,36 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     });
   }
 
+  void _reclaimPlayerFocus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _controlsVisible) return;
+      if (_keyboardKey.currentState != null) {
+        _keyboardKey.currentState!.reclaimFocus();
+      } else if (_playerAnchorFocusNode.canRequestFocus) {
+        _playerAnchorFocusNode.requestFocus();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _startControlsTimer();
-    if (widget.autofocus) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        _requestFocusOrFallback(_playPauseFocusNode);
-      });
+    if (widget.isFullscreen || widget.autofocus) {
+      _focusPlayPauseIfControlsVisible();
     }
   }
+
+  bool get _hasAnyControlFocus =>
+      _playPauseFocusNode.hasFocus ||
+      _bottomPlayPauseFocusNode.hasFocus ||
+      _stopFocusNode.hasFocus ||
+      _favoriteFocusNode.hasFocus ||
+      _aspectRatioFocusNode.hasFocus ||
+      _audioFocusNode.hasFocus ||
+      _subtitleFocusNode.hasFocus ||
+      _quickZapperFocusNode.hasFocus ||
+      _fullscreenFocusNode.hasFocus;
 
   void _startControlsTimer() {
     _controlsTimer?.cancel();
@@ -139,9 +160,14 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
       if (!mounted || !_controlsVisible) return;
       final ctrl = widget.controller.inlinePlayerController;
       final state = ctrl?.playbackController.engine.stateRx.value;
-      // Keep controls on screen while paused; hiding them hides the resume button.
+      // Keep controls on screen while paused or while any control is focused
       if (state == PlaybackState.paused) return;
+      if (_hasAnyControlFocus) {
+        _startControlsTimer();
+        return;
+      }
       setState(() => _controlsVisible = false);
+      _reclaimPlayerFocus();
     });
   }
 
@@ -149,23 +175,7 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     if (_controlsVisible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_controlsVisible) return;
-
-        // 1. If no focus is held anywhere, target the play/pause node.
-        final current = FocusManager.instance.primaryFocus;
-        if (current == null || !current.hasFocus) {
-          _requestFocusOrFallback(_playPauseFocusNode);
-          return;
-        }
-
-        // 2. If focus is outside the player, pull it back to play/pause.
-        final inPlayer =
-            current.context != null &&
-            current.context!.mounted &&
-            current.context!
-                    .findAncestorWidgetOfExactType<LiveTvEmbeddedPlayer>() !=
-                null;
-
-        if (!inPlayer) {
+        if (!_hasAnyControlFocus) {
           _requestFocusOrFallback(_playPauseFocusNode);
         }
       });
@@ -196,6 +206,7 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
         _focusPlayPauseIfControlsVisible();
       } else {
         _controlsTimer?.cancel();
+        _reclaimPlayerFocus();
       }
     });
   }
@@ -228,7 +239,6 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
       _toggleControls();
       return;
     }
-    widget.controller.inlinePlayerController?.togglePlayPause();
     _showControlsTemporarily();
   }
 
@@ -582,6 +592,10 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     // (e.g. from an interruption), resume playback. Do not trigger play() if already
     // playing or buffering so we don't disrupt decoding or cause duplicate re-buffers.
     if (oldWidget.isFullscreen != widget.isFullscreen) {
+      if (!oldWidget.isFullscreen && widget.isFullscreen) {
+        _showControlsTemporarily();
+        _focusPlayPauseIfControlsVisible();
+      }
       final playerCtrl = widget.controller.inlinePlayerController;
       if (playerCtrl != null) {
         final state = playerCtrl.playbackController.engine.stateRx.value;
@@ -713,6 +727,7 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
         return KeyEventResult.ignored;
       },
       child: TvPlayerKeyboard(
+        key: _keyboardKey,
         autofocus: widget.autofocus,
       onAnyKey: _showControlsTemporarily,
       onToggleControls: _handleSelectKey,

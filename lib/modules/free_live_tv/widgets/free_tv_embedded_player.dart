@@ -45,6 +45,8 @@ class FreeTvEmbeddedPlayer extends StatefulWidget {
 }
 
 class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
+  final GlobalKey<TvPlayerKeyboardState> _keyboardKey =
+      GlobalKey<TvPlayerKeyboardState>();
   bool _controlsVisible = true;
   Timer? _controlsTimer;
   bool _quickZapperOpen = false;
@@ -269,10 +271,24 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
     }
   }
 
+  void _reclaimPlayerFocus() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _controlsVisible) return;
+      if (_keyboardKey.currentState != null) {
+        _keyboardKey.currentState!.reclaimFocus();
+      } else if (_playerAnchorFocusNode.canRequestFocus) {
+        _playerAnchorFocusNode.requestFocus();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _startControlsTimer();
+    if (widget.isFullscreen || widget.autofocus) {
+      _focusPlayPauseIfControlsVisible();
+    }
   }
 
   void _startControlsTimer() {
@@ -289,6 +305,7 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
         return;
       }
       setState(() => _controlsVisible = false);
+      _reclaimPlayerFocus();
     });
   }
 
@@ -296,23 +313,7 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
     if (_controlsVisible) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_controlsVisible) return;
-
-        // 1. If no focus is held anywhere, target the play/pause node.
-        final current = FocusManager.instance.primaryFocus;
-        if (current == null || !current.hasFocus) {
-          _requestFocusOrFallback(_playPauseFocusNode);
-          return;
-        }
-
-        // 2. If focus is outside the player, pull it back to play/pause.
-        final inPlayer =
-            current.context != null &&
-            current.context!.mounted &&
-            current.context!
-                    .findAncestorWidgetOfExactType<FreeTvEmbeddedPlayer>() !=
-                null;
-
-        if (!inPlayer) {
+        if (!_hasAnyControlFocus) {
           _requestFocusOrFallback(_playPauseFocusNode);
         }
       });
@@ -327,6 +328,7 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
         _focusPlayPauseIfControlsVisible();
       } else {
         _controlsTimer?.cancel();
+        _reclaimPlayerFocus();
       }
     });
   }
@@ -341,15 +343,14 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
     }
   }
 
-  /// Remote Select/OK handling. While controls are visible it hides them; while
-  /// they are hidden it reveals them AND acts as play/pause so the first OK on
-  /// the remote always responds (the press bubbles up to `TvPlayerKeyboard`).
+  /// Remote Select/OK handling. If controls are visible, hides them; if they
+  /// are hidden, reveals them and focuses the Play/Pause control so the user
+  /// can navigate and reach all onscreen icons.
   void _handleSelectKey() {
     if (_controlsVisible) {
       _toggleControls();
       return;
     }
-    widget.controller.inlinePlayerController?.togglePlayPause();
     _showControlsTemporarily();
   }
 
@@ -677,6 +678,10 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
     // (e.g. from an interruption), resume playback. Do not trigger play() if already
     // playing or buffering so we don't disrupt decoding or cause duplicate re-buffers.
     if (oldWidget.isFullscreen != widget.isFullscreen) {
+      if (!oldWidget.isFullscreen && widget.isFullscreen) {
+        _showControlsTemporarily();
+        _focusPlayPauseIfControlsVisible();
+      }
       final playerCtrl = widget.controller.inlinePlayerController;
       if (playerCtrl != null) {
         final state = playerCtrl.playbackController.engine.stateRx.value;
@@ -808,6 +813,7 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
         return KeyEventResult.ignored;
       },
       child: TvPlayerKeyboard(
+        key: _keyboardKey,
         autofocus: widget.autofocus,
       onAnyKey: _showControlsTemporarily,
       onToggleControls: _handleSelectKey,
