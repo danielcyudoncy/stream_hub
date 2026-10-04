@@ -522,6 +522,70 @@ class TvNavigationService extends GetxService {
             TvNavigationConstants.sidebarEdgeTolerance;
   }
 
+  /// Navigates DOWN from the top region (e.g. 'hero_actions') into the
+  /// topmost active rail, preserving horizontal intent when possible.
+  /// Returns `true` if navigation was handled.
+  bool moveDownFromTopRegion({FocusNode? sourceNode}) {
+    for (int i = 0; i < _railOrder.length; i++) {
+      final railId = _railOrder[i];
+      final targetNodes = _liveRegionNodes(railId);
+      if (targetNodes.isNotEmpty) {
+        // Calculate desired horizontal ratio from sourceNode
+        double desiredRatio = 0.0;
+        if (sourceNode != null) {
+          try {
+            final box = sourceNode.context?.findRenderObject();
+            if (box is RenderBox && box.hasSize) {
+              final offset = box.localToGlobal(Offset.zero);
+              final screenWidth = (sourceNode.context != null)
+                  ? MediaQuery.sizeOf(sourceNode.context!).width
+                  : 1920.0;
+              desiredRatio = (offset.dx / screenWidth).clamp(0.0, 1.0);
+            }
+          } catch (_) {}
+        }
+
+        // Find the node in the target rail closest to desiredRatio
+        FocusNode? bestNode;
+        double bestDistance = double.infinity;
+        for (final node in targetNodes) {
+          try {
+            final box = node.context?.findRenderObject();
+            if (box is RenderBox && box.hasSize) {
+              final offset = box.localToGlobal(Offset.zero);
+              final screenWidth = (node.context != null)
+                  ? MediaQuery.sizeOf(node.context!).width
+                  : 1920.0;
+              final nodeRatio = (offset.dx / screenWidth).clamp(0.0, 1.0);
+              final dist = (nodeRatio - desiredRatio).abs();
+              if (dist < bestDistance) {
+                bestDistance = dist;
+                bestNode = node;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (bestNode != null) {
+          bestNode.requestFocus();
+          logNav('Moved DOWN from top region to $railId, ratio=$desiredRatio');
+          return true;
+        }
+
+        if (restoreFocus(railId)) {
+          logNav('Restored focus DOWN from top region to $railId');
+          return true;
+        }
+      } else if (_regionMemory.containsKey(railId)) {
+        if (restoreFocus(railId)) {
+          logNav('Restored focus DOWN from top region to $railId memory');
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   /// Ensures that both the immediate [Scrollable] (e.g. horizontal carousel)
   /// and any ancestor [Scrollable] (e.g. vertical page CustomScrollView)
   /// bring the focused widget smoothly into view.
@@ -530,9 +594,37 @@ class TvNavigationService extends GetxService {
     double alignment = 0.5,
     Duration duration = const Duration(milliseconds: 250),
     Curve curve = Curves.easeOutCubic,
+    String? regionId,
   }) {
     final renderObject = context.findRenderObject();
     if (renderObject == null || !renderObject.attached) return;
+
+    // Check if the focused item belongs to a hero or header region.
+    // For hero and header elements pinned at the top of a scroll view,
+    // we must never scroll down to center them vertically (alignment: 0.5).
+    // If the view was scrolled, we gently return it to top (0.0).
+    final activeRegion = regionId ?? currentRegionId.value;
+    final regionType = _regionMemory[activeRegion]?.type;
+    final isHeroOrHeader = regionType == TvFocusRegionType.hero ||
+        regionType == TvFocusRegionType.header ||
+        activeRegion == 'hero_actions' ||
+        activeRegion == 'header_actions';
+
+    if (isHeroOrHeader) {
+      final nearest = Scrollable.maybeOf(context);
+      if (nearest != null &&
+          (nearest.axisDirection == AxisDirection.down ||
+              nearest.axisDirection == AxisDirection.up)) {
+        if (nearest.position.hasContentDimensions && nearest.position.pixels > 0.0) {
+          nearest.position.animateTo(
+            0.0,
+            duration: duration,
+            curve: curve,
+          );
+        }
+      }
+      return;
+    }
 
     // 1. Scroll the nearest enclosing scrollable (e.g. horizontal ListView)
     Scrollable.ensureVisible(
@@ -577,3 +669,4 @@ class TvNavigationService extends GetxService {
     }
   }
 }
+

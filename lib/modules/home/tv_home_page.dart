@@ -866,10 +866,16 @@ class _TvHomePageState extends State<TvHomePage> {
                   onTap: () => _watchItem(item),
                   borderRadius: AppRadius.pill,
                   onKeyEvent: (node, event) {
-                    if (event is KeyDownEvent &&
-                        event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                      Get.find<TvNavigationService>().restoreFocus('header_actions');
-                      return KeyEventResult.handled;
+                    if (event is KeyDownEvent) {
+                      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                        Get.find<TvNavigationService>().restoreFocus('header_actions');
+                        return KeyEventResult.handled;
+                      }
+                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                        final handled = Get.find<TvNavigationService>()
+                            .moveDownFromTopRegion(sourceNode: node);
+                        if (handled) return KeyEventResult.handled;
+                      }
                     }
                     return KeyEventResult.ignored;
                   },
@@ -913,10 +919,16 @@ class _TvHomePageState extends State<TvHomePage> {
                   onTap: () => _openDetails(item),
                   borderRadius: AppRadius.pill,
                   onKeyEvent: (node, event) {
-                    if (event is KeyDownEvent &&
-                        event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                      Get.find<TvNavigationService>().restoreFocus('header_actions');
-                      return KeyEventResult.handled;
+                    if (event is KeyDownEvent) {
+                      if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                        Get.find<TvNavigationService>().restoreFocus('header_actions');
+                        return KeyEventResult.handled;
+                      }
+                      if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                        final handled = Get.find<TvNavigationService>()
+                            .moveDownFromTopRegion(sourceNode: node);
+                        if (handled) return KeyEventResult.handled;
+                      }
                     }
                     return KeyEventResult.ignored;
                   },
@@ -955,10 +967,16 @@ class _TvHomePageState extends State<TvHomePage> {
                     onTap: () => controller.toggleFavorite(item),
                     borderRadius: AppRadius.pill,
                     onKeyEvent: (node, event) {
-                      if (event is KeyDownEvent &&
-                          event.logicalKey == LogicalKeyboardKey.arrowUp) {
-                        Get.find<TvNavigationService>().restoreFocus('header_actions');
-                        return KeyEventResult.handled;
+                      if (event is KeyDownEvent) {
+                        if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                          Get.find<TvNavigationService>().restoreFocus('header_actions');
+                          return KeyEventResult.handled;
+                        }
+                        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                          final handled = Get.find<TvNavigationService>()
+                              .moveDownFromTopRegion(sourceNode: node);
+                          if (handled) return KeyEventResult.handled;
+                        }
                       }
                       return KeyEventResult.ignored;
                     },
