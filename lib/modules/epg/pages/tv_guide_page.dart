@@ -422,226 +422,240 @@ class _TVGuidePageState extends State<TVGuidePage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16.0, 10.0, 16.0, 8.0),
       color: const Color(0xFF0F1218),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          // Left: Brand & Primary Actions
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // StreamHub | Guide Brand Header + ▲ FILTER
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'streamhub',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8.0),
-                      child: Text(
-                        '|',
-                        style: TextStyle(
-                          color: Colors.white38,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w300,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'Guide',
-                      style: TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 24,
-                        shadows: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.4),
-                            blurRadius: 8.0,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final playerWidth = (constraints.maxWidth * 0.28).clamp(160.0, 230.0);
+          final playerHeight = playerWidth * (9.0 / 16.0);
+          final shortCategory = activeCategory.length > 12
+              ? '${activeCategory.substring(0, 12)}…'
+              : activeCategory;
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Left: Brand & Primary Actions with FittedBox so it never overflows
+              Expanded(
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // StreamHub | Guide Brand Header + ▲ FILTER
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'streamhub',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
+                              letterSpacing: -0.5,
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 8.0),
+                            child: Text(
+                              '|',
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            'Guide',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 24,
+                              shadows: [
+                                BoxShadow(
+                                  color: AppColors.primary.withValues(alpha: 0.4),
+                                  blurRadius: 8.0,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          // Exact Xfinity "▲ FILTER" action button
+                          TvFocusable(
+                            focusColor: const Color(0xFFFFD54F),
+                            onKeyEvent: _handleShowcaseKeyEvent,
+                            onTap: () => _showCategoryFilterDialog(context, liveCtrl),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: hasCategoryFilter
+                                    ? const Color(0xFFFFD54F).withValues(alpha: 0.18)
+                                    : const Color(0xFF232832),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: hasCategoryFilter
+                                      ? const Color(0xFFFFD54F)
+                                      : Colors.white24,
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(
+                                    Icons.warning_amber_rounded,
+                                    size: 13,
+                                    color: Color(0xFFFFD54F),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    hasCategoryFilter ? 'FILTER • $shortCategory' : 'FILTER',
+                                    style: TextStyle(
+                                      color: hasCategoryFilter ? const Color(0xFFFFD54F) : Colors.white,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.8,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Exact Xfinity "▲ FILTER" action button
-                    TvFocusable(
-                      focusColor: const Color(0xFFFFD54F),
-                      onKeyEvent: _handleShowcaseKeyEvent,
-                      onTap: () => _showCategoryFilterDialog(context, liveCtrl),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: hasCategoryFilter
-                              ? AppColors.primary.withValues(alpha: 0.2)
-                              : const Color(0xFF232832),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: hasCategoryFilter
-                                ? AppColors.primary
-                                : Colors.white24,
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.warning_amber_rounded,
-                              size: 13,
-                              color: Color(0xFFFFD54F),
+                      const SizedBox(height: 8),
+                      // Controls Row: View Mode Toggle, Provider, Search, Refresh
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (currentProvider.isNotEmpty) ...[
+                            ProviderSelectorButton(
+                              selectedProviderId: currentProvider,
+                              onSelectProvider: (newProviderId) {
+                                liveCtrl?.setProvider(newProviderId);
+                                controller.setProvider(newProviderId);
+                                providerRepo?.setActiveProviderId(newProviderId);
+                              },
+                              sheetTitle: 'TV Guide Provider',
+                              isCompact: true,
                             ),
-                            const SizedBox(width: 5),
-                            Text(
-                              hasCategoryFilter ? 'FILTER: $activeCategory' : 'FILTER',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 0.8,
-                              ),
-                            ),
+                            const SizedBox(width: 10),
                           ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // Controls Row: View Mode Toggle, Provider, Search, Refresh
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (currentProvider.isNotEmpty) ...[
-                      ProviderSelectorButton(
-                        selectedProviderId: currentProvider,
-                        onSelectProvider: (newProviderId) {
-                          liveCtrl?.setProvider(newProviderId);
-                          controller.setProvider(newProviderId);
-                          providerRepo?.setActiveProviderId(newProviderId);
-                        },
-                        sheetTitle: 'TV Guide Provider',
-                        isCompact: true,
-                      ),
-                      const SizedBox(width: 10),
-                    ],
-                    if (liveCtrl != null)
-                      TvFocusable(
-                        focusNode: _viewModeFocusNode,
-                        onKeyEvent: _handleShowcaseKeyEvent,
-                        onTap: () {
-                          liveCtrl.setView('grid');
-                        },
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF232832),
-                            borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: Colors.white12),
-                          ),
-                          child: const Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(Icons.grid_view, size: 13, color: Colors.white70),
-                              SizedBox(width: 5),
-                              Text(
-                                'Grid View',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
+                          if (liveCtrl != null)
+                            TvFocusable(
+                              focusNode: _viewModeFocusNode,
+                              onKeyEvent: _handleShowcaseKeyEvent,
+                              onTap: () {
+                                liveCtrl.setView('grid');
+                              },
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF232832),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: Colors.white12),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.grid_view, size: 13, color: Colors.white70),
+                                    SizedBox(width: 5),
+                                    Text(
+                                      'Grid View',
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
+                            ),
+                          const SizedBox(width: 10),
+                          TvFocusable(
+                            focusNode: _searchFocusNode,
+                            onKeyEvent: _handleShowcaseKeyEvent,
+                            onTap: () => Get.toNamed(AppRoutes.search),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF232832),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: const Icon(Icons.search, size: 14, color: Colors.white70),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 8),
+                          TvFocusable(
+                            focusNode: _refreshFocusNode,
+                            onKeyEvent: _handleShowcaseKeyEvent,
+                            onTap: () {
+                              controller.refreshGuide();
+                              liveCtrl?.refresh();
+                            },
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF232832),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: const Icon(Icons.refresh, size: 14, color: Colors.white70),
+                            ),
+                          ),
+                        ],
                       ),
-                    const SizedBox(width: 10),
-                    TvFocusable(
-                      focusNode: _searchFocusNode,
-                      onKeyEvent: _handleShowcaseKeyEvent,
-                      onTap: () => Get.toNamed(AppRoutes.search),
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF232832),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white12),
-                        ),
-                        child: const Icon(Icons.search, size: 14, color: Colors.white70),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    TvFocusable(
-                      focusNode: _refreshFocusNode,
-                      onKeyEvent: _handleShowcaseKeyEvent,
-                      onTap: () {
-                        controller.refreshGuide();
-                        liveCtrl?.refresh();
-                      },
-                      borderRadius: BorderRadius.circular(6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF232832),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.white12),
-                        ),
-                        child: const Icon(Icons.refresh, size: 14, color: Colors.white70),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Right: 16:9 Live Embedded Mini-Player
-          if (liveCtrl != null)
-            Container(
-              width: 220,
-              height: 124,
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: Colors.white24,
-                  width: 1.0,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black87,
-                    blurRadius: 15,
-                    offset: Offset(0, 4),
+                    ],
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(5),
-                child: LiveTvEmbeddedPlayer(
-                  key: _embeddedPlayerKey,
-                  controller: liveCtrl,
-                  isFullscreen: false,
-                  autofocus: false,
-                  onMoveLeft: () => _refreshFocusNode.requestFocus(),
-                  onMoveDown: _focusActiveCategory,
-                  onMoveUp: () => _refreshFocusNode.requestFocus(),
                 ),
               ),
-            ),
-        ],
+              const SizedBox(width: 12),
+              // Right: 16:9 Live Embedded Mini-Player
+              if (liveCtrl != null)
+                Container(
+                  width: playerWidth,
+                  height: playerHeight,
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: Colors.white24,
+                      width: 1.0,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black87,
+                        blurRadius: 15,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(5),
+                    child: LiveTvEmbeddedPlayer(
+                      key: _embeddedPlayerKey,
+                      controller: liveCtrl,
+                      isFullscreen: false,
+                      autofocus: false,
+                      onMoveLeft: () => _refreshFocusNode.requestFocus(),
+                      onMoveDown: _focusActiveCategory,
+                      onMoveUp: () => _refreshFocusNode.requestFocus(),
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -678,100 +692,53 @@ class _TVGuidePageState extends State<TVGuidePage> {
                 Row(
                   children: [
                     Expanded(
-                      child: Wrap(
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        spacing: 16,
-                        children: [
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Text(
-                                'streamhub',
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'streamhub',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                            const Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 6.0),
+                              child: Text(
+                                '|',
                                 style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 24,
-                                  letterSpacing: -0.5,
+                                  color: Colors.white38,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w300,
                                 ),
                               ),
-                              const Padding(
-                                padding: EdgeInsets.symmetric(horizontal: 6.0),
-                                child: Text(
-                                  '|',
-                                  style: TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                'Guide',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 24,
-                                  shadows: [
-                                    BoxShadow(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.4,
-                                      ),
-                                      blurRadius: 8.0,
+                            ),
+                            Text(
+                              'Guide',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 24,
+                                shadows: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.4,
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          // Exact Xfinity "▲ FILTER" action button
-                          TvFocusable(
-                            focusColor: const Color(0xFFFFD54F),
-                            onKeyEvent: _handleShowcaseKeyEvent,
-                            onTap: _focusActiveCategory,
-                            borderRadius: BorderRadius.circular(6),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest
-                                    .withValues(alpha: 0.8),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .outline
-                                      .withValues(alpha: 0.15),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.warning_amber_rounded,
-                                    size: 13,
-                                    color: Color(0xFFFFD54F),
-                                  ),
-                                  SizedBox(width: 5),
-                                  Text(
-                                    'FILTER',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 0.8,
-                                    ),
+                                    blurRadius: 8.0,
                                   ),
                                 ],
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 10),
 
                     // Dual View Mode Toggle Button (Grid ↔ Timeline)
                     if (liveCtrl != null)
@@ -791,8 +758,8 @@ class _TVGuidePageState extends State<TVGuidePage> {
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                              horizontal: 10,
+                              vertical: 5,
                             ),
                             decoration: BoxDecoration(
                               color: colorScheme.surfaceContainerHighest
@@ -811,15 +778,15 @@ class _TVGuidePageState extends State<TVGuidePage> {
                                   isTimeline
                                       ? Icons.grid_view_rounded
                                       : Icons.view_timeline_outlined,
-                                  size: 16,
+                                  size: 15,
                                   color: colorScheme.primary,
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 5),
                                 Text(
                                   isTimeline ? 'Grid View' : 'Timeline EPG',
                                   style: TextStyle(
                                     color: colorScheme.onSurface,
-                                    fontSize: 12,
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -828,30 +795,44 @@ class _TVGuidePageState extends State<TVGuidePage> {
                           ),
                         );
                       }),
-                    AppSpacing.widthSM,
+                    const SizedBox(width: 8),
                     TvFocusable(
                       focusNode: _searchFocusNode,
                       onKeyEvent: _handleShowcaseKeyEvent,
                       onTap: () => Get.toNamed(AppRoutes.guideSearch),
-                      scale: 1.15,
-                      borderRadius: BorderRadius.circular(24),
-                      child: IconButton(
-                        icon: const Icon(Icons.search),
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        onPressed: null,
+                      scale: 1.1,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.search,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
-                    AppSpacing.widthSM,
+                    const SizedBox(width: 8),
                     TvFocusable(
                       focusNode: _refreshFocusNode,
                       onKeyEvent: _handleShowcaseKeyEvent,
                       onTap: () => controller.refreshGuide(),
-                      scale: 1.15,
-                      borderRadius: BorderRadius.circular(24),
-                      child: IconButton(
-                        icon: const Icon(Icons.refresh),
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        onPressed: null,
+                      scale: 1.1,
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        padding: const EdgeInsets.all(7),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.refresh,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
                       ),
                     ),
                   ],
