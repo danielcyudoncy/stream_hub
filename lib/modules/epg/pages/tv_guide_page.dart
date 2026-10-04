@@ -688,10 +688,11 @@ class _TVGuidePageState extends State<TVGuidePage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                // 1. Top Action Row: Title, Today Badge, View Mode Switch, Search, Refresh
+                // 1. Top Action Row: Title, View Mode Switch, Search, Refresh
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
+                    Flexible(
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerLeft,
@@ -738,101 +739,110 @@ class _TVGuidePageState extends State<TVGuidePage> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
 
-                    // Dual View Mode Toggle Button (Grid ↔ Timeline)
-                    if (liveCtrl != null)
-                      Obx(() {
-                        final isTimeline =
-                            liveCtrl.selectedView.value == 'timeline';
-                        final colorScheme = Theme.of(context).colorScheme;
-                        return TvFocusable(
-                          focusNode: _viewModeFocusNode,
-                          onKeyEvent: _handleShowcaseKeyEvent,
-                          onTap: () {
-                            _viewModeFocusNode.requestFocus();
-                            liveCtrl.setView(
-                              isTimeline ? 'grid' : 'timeline',
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colorScheme.surfaceContainerHighest
-                                  .withValues(alpha: 0.7),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(
-                                color: isTimeline
-                                    ? colorScheme.primary
-                                    : colorScheme.outline.withValues(alpha: 0.15),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  isTimeline
-                                      ? Icons.grid_view_rounded
-                                      : Icons.view_timeline_outlined,
-                                  size: 15,
-                                  color: colorScheme.primary,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  isTimeline ? 'Grid View' : 'Timeline EPG',
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w600,
+                    // Actions: View Mode Switch, Search, Refresh (scales cleanly on narrow displays)
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerRight,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (liveCtrl != null)
+                            Obx(() {
+                              final isTimeline =
+                                  liveCtrl.selectedView.value == 'timeline';
+                              final colorScheme = Theme.of(context).colorScheme;
+                              return TvFocusable(
+                                focusNode: _viewModeFocusNode,
+                                onKeyEvent: _handleShowcaseKeyEvent,
+                                onTap: () {
+                                  _viewModeFocusNode.requestFocus();
+                                  liveCtrl.setView(
+                                    isTimeline ? 'grid' : 'timeline',
+                                  );
+                                },
+                                borderRadius: BorderRadius.circular(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colorScheme.surfaceContainerHighest
+                                        .withValues(alpha: 0.7),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: isTimeline
+                                          ? colorScheme.primary
+                                          : colorScheme.outline.withValues(alpha: 0.15),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        isTimeline
+                                            ? Icons.grid_view_rounded
+                                            : Icons.view_timeline_outlined,
+                                        size: 15,
+                                        color: colorScheme.primary,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        isTimeline ? 'Grid View' : 'Timeline EPG',
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              );
+                            }),
+                          const SizedBox(width: 8),
+                          TvFocusable(
+                            focusNode: _searchFocusNode,
+                            onKeyEvent: _handleShowcaseKeyEvent,
+                            onTap: () => Get.toNamed(AppRoutes.guideSearch),
+                            scale: 1.1,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.search,
+                                size: 16,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
                             ),
                           ),
-                        );
-                      }),
-                    const SizedBox(width: 8),
-                    TvFocusable(
-                      focusNode: _searchFocusNode,
-                      onKeyEvent: _handleShowcaseKeyEvent,
-                      onTap: () => Get.toNamed(AppRoutes.guideSearch),
-                      scale: 1.1,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.search,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    TvFocusable(
-                      focusNode: _refreshFocusNode,
-                      onKeyEvent: _handleShowcaseKeyEvent,
-                      onTap: () => controller.refreshGuide(),
-                      scale: 1.1,
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        padding: const EdgeInsets.all(7),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.refresh,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                          const SizedBox(width: 8),
+                          TvFocusable(
+                            focusNode: _refreshFocusNode,
+                            onKeyEvent: _handleShowcaseKeyEvent,
+                            onTap: () => controller.refreshGuide(),
+                            scale: 1.1,
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              padding: const EdgeInsets.all(7),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                Icons.refresh,
+                                size: 16,
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -1544,20 +1554,25 @@ class _TVGuidePageState extends State<TVGuidePage> {
               ),
             ],
           ),
-          const Spacer(),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
-                AppSpacing.widthLG,
-                _legendItem(Icons.touch_app, 'Long-press OK: Channel Info'),
-                AppSpacing.widthLG,
-                _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Hours'),
-                AppSpacing.widthLG,
-                _legendItem(Icons.grid_view, 'View: Toggle Grid / Timeline EPG'),
-              ],
+          const SizedBox(width: 16),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
+                    AppSpacing.widthLG,
+                    _legendItem(Icons.touch_app, 'Long-press OK: Channel Info'),
+                    AppSpacing.widthLG,
+                    _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Hours'),
+                    AppSpacing.widthLG,
+                    _legendItem(Icons.grid_view, 'View: Toggle Grid / Timeline EPG'),
+                  ],
+                ),
+              ),
             ),
           ),
         ],
