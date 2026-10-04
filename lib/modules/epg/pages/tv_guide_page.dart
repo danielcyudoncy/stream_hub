@@ -317,8 +317,10 @@ class _TVGuidePageState extends State<TVGuidePage> {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final playerWidth =
-              (constraints.maxWidth * 0.42).clamp(280.0, 440.0);
+          final isTimeline = liveCtrl?.selectedView.value == 'timeline';
+          final playerWidth = isTimeline
+              ? (constraints.maxWidth * 0.35).clamp(240.0, 360.0)
+              : (constraints.maxWidth * 0.42).clamp(280.0, 440.0);
           final playerHeight = playerWidth * (9.0 / 16.0);
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1118,31 +1120,70 @@ class _TVGuidePageState extends State<TVGuidePage> {
   }
 
   Widget _buildRemoteLegendBar() {
+    final now = DateTime.now();
+    final timeStr = DateFormat('h:mm a').format(now).toUpperCase();
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.xl,
-        vertical: 10,
+        vertical: 9,
       ),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.6),
+        color: Colors.black.withValues(alpha: 0.65),
         border: Border(
           top: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
       ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
-            AppSpacing.widthLG,
-            _legendItem(Icons.touch_app, 'Long-press OK: Channel Info'),
-            AppSpacing.widthLG,
-            _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Hours'),
-            AppSpacing.widthLG,
-            _legendItem(Icons.grid_view, 'View: Toggle Grid / Timeline EPG'),
-          ],
-        ),
+      child: Row(
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.access_time_rounded, size: 13, color: AppColors.primary),
+              const SizedBox(width: 5),
+              Text(
+                timeStr,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                width: 1,
+                height: 12,
+                color: Colors.white24,
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'StreamHub Guide',
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _legendItem(Icons.play_circle_fill, 'OK: Play Fullscreen'),
+                AppSpacing.widthLG,
+                _legendItem(Icons.touch_app, 'Long-press OK: Channel Info'),
+                AppSpacing.widthLG,
+                _legendItem(Icons.swap_horiz, '◄ / ►: Categories & Hours'),
+                AppSpacing.widthLG,
+                _legendItem(Icons.grid_view, 'View: Toggle Grid / Timeline EPG'),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
