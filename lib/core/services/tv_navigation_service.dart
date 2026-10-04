@@ -369,102 +369,110 @@ class TvNavigationService extends GetxService {
   }) {
     if (!_railOrder.contains(currentRegionId)) return false;
     final currentIndex = _railOrder.indexOf(currentRegionId);
-
-    int? targetRailIndex;
-    if (direction == TraversalDirection.down) {
-      for (int i = currentIndex + 1; i < _railOrder.length; i++) {
-        final railId = _railOrder[i];
-        if (_liveRegionNodes(railId).isNotEmpty ||
-            (_regionMemory[railId]?.lastFocusedNode?.canRequestFocus == true) ||
-            _regionMemory.containsKey(railId)) {
-          targetRailIndex = i;
-          break;
-        }
-      }
-      if (targetRailIndex == null) {
-        // At the bottommost live rail — consume the key rather than letting
-        // Flutter's traversal wrap around or move to an unintended target.
-        return true;
-      }
-    } else if (direction == TraversalDirection.up) {
-      for (int i = currentIndex - 1; i >= 0; i--) {
-        final railId = _railOrder[i];
-        if (_liveRegionNodes(railId).isNotEmpty ||
-            (_regionMemory[railId]?.lastFocusedNode?.canRequestFocus == true) ||
-            _regionMemory.containsKey(railId)) {
-          targetRailIndex = i;
-          break;
-        }
-      }
-      if (targetRailIndex == null) {
-        // At the topmost live rail navigating UP.
-        if (onExitTopRail != null) {
-          logNav('Exit top rail via onExitTopRail from $currentRegionId');
-          onExitTopRail!();
-          return true;
-        }
-        if (topRegionId != null && restoreFocus(topRegionId!)) {
-          logNav('Exit top rail to $topRegionId from $currentRegionId');
-          return true;
-        }
-        logNav('Exit top rail: allowing native traversal from $currentRegionId');
-        return false;
-      }
-    } else {
-      return false;
-    }
-
-    final targetRegionId = _railOrder[targetRailIndex];
     final currentMemory = _regionMemory[currentRegionId];
     final desiredRatio = currentMemory?.lastHorizontalRatio ?? 0.0;
 
-    final targetNodes = _liveRegionNodes(targetRegionId);
+    if (direction == TraversalDirection.down) {
+      for (int i = currentIndex + 1; i < _railOrder.length; i++) {
+        final targetRegionId = _railOrder[i];
+        final targetNodes = _liveRegionNodes(targetRegionId);
 
-    if (targetNodes.isEmpty) {
-      if (onLazyRailRequest != null) {
-        logNav('Lazy rail requested: $targetRegionId');
-        onLazyRailRequest!();
-        return true;
-      }
-      final restored = restoreFocus(targetRegionId);
-      if (restored) return true;
-
-      logNav('Inter-rail target rail unbuilt: $targetRegionId');
-      return true;
-    }
-
-    // Find the node in targetNodes that best matches desiredRatio or geometric dx
-    FocusNode? bestNode;
-    double bestDistance = double.infinity;
-
-    for (int i = 0; i < targetNodes.length; i++) {
-      final node = targetNodes[i];
-      try {
-        final box = node.context?.findRenderObject();
-        if (box is RenderBox && box.hasSize) {
-          final offset = box.localToGlobal(Offset.zero);
-          final screenWidth = (node.context != null)
-              ? MediaQuery.sizeOf(node.context!).width
-              : 1920.0;
-          final nodeRatio = (offset.dx / screenWidth).clamp(0.0, 1.0);
-          final dist = (nodeRatio - desiredRatio).abs();
-          if (dist < bestDistance) {
-            bestDistance = dist;
-            bestNode = node;
+        if (targetNodes.isNotEmpty) {
+          FocusNode? bestNode;
+          double bestDistance = double.infinity;
+          for (int n = 0; n < targetNodes.length; n++) {
+            final node = targetNodes[n];
+            try {
+              final box = node.context?.findRenderObject();
+              if (box is RenderBox && box.hasSize) {
+                final offset = box.localToGlobal(Offset.zero);
+                final screenWidth = (node.context != null)
+                    ? MediaQuery.sizeOf(node.context!).width
+                    : 1920.0;
+                final nodeRatio = (offset.dx / screenWidth).clamp(0.0, 1.0);
+                final dist = (nodeRatio - desiredRatio).abs();
+                if (dist < bestDistance) {
+                  bestDistance = dist;
+                  bestNode = node;
+                }
+              }
+            } catch (_) {}
+          }
+          if (bestNode != null) {
+            bestNode.requestFocus();
+            logNav('Inter-rail move DOWN: $currentRegionId -> $targetRegionId, ratio=$desiredRatio');
+            return true;
           }
         }
-      } catch (_) {}
-    }
 
-    if (bestNode != null) {
-      bestNode.requestFocus();
-      logNav(
-        'Inter-rail move: $currentRegionId -> $targetRegionId, ratio=$desiredRatio',
-      );
+        if (restoreFocus(targetRegionId)) {
+          logNav('Inter-rail restore DOWN: $currentRegionId -> $targetRegionId');
+          return true;
+        }
+
+        if (onLazyRailRequest != null) {
+          logNav('Lazy rail requested DOWN: $targetRegionId');
+          onLazyRailRequest!();
+          return true;
+        }
+      }
+
+      // At bottommost live rail — consume key rather than wrapping
       return true;
+    } else if (direction == TraversalDirection.up) {
+      for (int i = currentIndex - 1; i >= 0; i--) {
+        final targetRegionId = _railOrder[i];
+        final targetNodes = _liveRegionNodes(targetRegionId);
+
+        if (targetNodes.isNotEmpty) {
+          FocusNode? bestNode;
+          double bestDistance = double.infinity;
+          for (int n = 0; n < targetNodes.length; n++) {
+            final node = targetNodes[n];
+            try {
+              final box = node.context?.findRenderObject();
+              if (box is RenderBox && box.hasSize) {
+                final offset = box.localToGlobal(Offset.zero);
+                final screenWidth = (node.context != null)
+                    ? MediaQuery.sizeOf(node.context!).width
+                    : 1920.0;
+                final nodeRatio = (offset.dx / screenWidth).clamp(0.0, 1.0);
+                final dist = (nodeRatio - desiredRatio).abs();
+                if (dist < bestDistance) {
+                  bestDistance = dist;
+                  bestNode = node;
+                }
+              }
+            } catch (_) {}
+          }
+          if (bestNode != null) {
+            bestNode.requestFocus();
+            logNav('Inter-rail move UP: $currentRegionId -> $targetRegionId, ratio=$desiredRatio');
+            return true;
+          }
+        }
+
+        if (restoreFocus(targetRegionId)) {
+          logNav('Inter-rail restore UP: $currentRegionId -> $targetRegionId');
+          return true;
+        }
+      }
+
+      // At topmost live rail navigating UP
+      if (onExitTopRail != null) {
+        logNav('Exit top rail via onExitTopRail from $currentRegionId');
+        onExitTopRail!();
+        return true;
+      }
+      if (topRegionId != null && restoreFocus(topRegionId!)) {
+        logNav('Exit top rail to $topRegionId from $currentRegionId');
+        return true;
+      }
+      logNav('Exit top rail: allowing native traversal from $currentRegionId');
+      return false;
     }
 
-    return restoreFocus(targetRegionId);
+    return false;
   }
 
   /// Determines whether [node] sits on the leftmost boundary of its container/page,
@@ -635,13 +643,13 @@ class TvNavigationService extends GetxService {
     );
 
     // 2. Find parent vertical scrollable (e.g. CustomScrollView) and bring the
-    // focused renderObject into view.
+    // focused rail into view.
     final nearestScrollable = Scrollable.maybeOf(context);
     if (nearestScrollable != null &&
         (nearestScrollable.axisDirection == AxisDirection.right ||
             nearestScrollable.axisDirection == AxisDirection.left)) {
       ScrollableState? outerScrollable;
-      context.visitAncestorElements((ancestor) {
+      nearestScrollable.context.visitAncestorElements((ancestor) {
         if (ancestor is StatefulElement && ancestor.state is ScrollableState) {
           final state = ancestor.state as ScrollableState;
           if (state != nearestScrollable &&
@@ -655,16 +663,21 @@ class TvNavigationService extends GetxService {
       });
 
       if (outerScrollable != null &&
-          outerScrollable!.position.hasContentDimensions &&
-          renderObject.attached) {
-        try {
-          outerScrollable!.position.ensureVisible(
-            renderObject,
-            alignment: alignment,
-            duration: duration,
-            curve: curve,
-          );
-        } catch (_) {}
+          outerScrollable!.position.hasContentDimensions) {
+        final railBox = nearestScrollable.context.findRenderObject();
+        final targetBox = (railBox is RenderBox && railBox.attached)
+            ? railBox
+            : (renderObject.attached ? renderObject : null);
+        if (targetBox != null) {
+          try {
+            outerScrollable!.position.ensureVisible(
+              targetBox,
+              alignment: alignment,
+              duration: duration,
+              curve: curve,
+            );
+          } catch (_) {}
+        }
       }
     }
   }
