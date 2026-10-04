@@ -911,6 +911,138 @@ void main() {
         scrollController.dispose();
       },
     );
+
+    testWidgets(
+      'ensureVisible keeps vertical scroll offset at 0.0 for hero regions',
+      (tester) async {
+        tester.view.physicalSize = const Size(1920, 1080);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final scrollController = ScrollController();
+        final heroNode = FocusNode(debugLabel: 'hero_btn');
+
+        await tester.pumpWidget(
+          _wrap(
+            CustomScrollView(
+              controller: scrollController,
+              slivers: [
+                SliverToBoxAdapter(
+                  child: TvNavigationRegion(
+                    regionId: 'hero_actions',
+                    type: TvFocusRegionType.hero,
+                    child: Container(
+                      height: 500.0,
+                      color: Colors.red,
+                      alignment: Alignment.bottomLeft,
+                      child: TvFocusable(
+                        focusNode: heroNode,
+                        itemId: 'hero_btn',
+                        child: const SizedBox(
+                          width: 200.0,
+                          height: 50.0,
+                          child: Text('Hero Action'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                SliverToBoxAdapter(
+                  child: Container(height: 1000.0, color: Colors.blue),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(scrollController.offset, 0.0);
+
+        // Request focus on the hero button
+        heroNode.requestFocus();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pumpAndSettle();
+
+        // The vertical CustomScrollView must NOT scroll down to center the hero button
+        expect(scrollController.offset, 0.0);
+
+        heroNode.dispose();
+        scrollController.dispose();
+      },
+    );
+
+    testWidgets(
+      'moveDownFromTopRegion smoothly navigates focus from hero into topmost live rail',
+      (tester) async {
+        tester.view.physicalSize = const Size(1920, 1080);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final nav = TvNavigationService.to;
+        nav.registerRailOrder(['rail_first', 'rail_second']);
+        nav.topRegionId = 'hero_actions';
+
+        final heroNode = FocusNode(debugLabel: 'hero_watch');
+        final railCard0 = FocusNode(debugLabel: 'card_0');
+        final railCard1 = FocusNode(debugLabel: 'card_1');
+
+        await tester.pumpWidget(
+          _wrap(
+            Column(
+              children: [
+                TvNavigationRegion(
+                  regionId: 'hero_actions',
+                  type: TvFocusRegionType.hero,
+                  child: Row(
+                    children: [
+                      TvFocusable(
+                        focusNode: heroNode,
+                        itemId: 'watch_now',
+                        child: const SizedBox(width: 150.0, height: 40.0, child: Text('Watch')),
+                      ),
+                    ],
+                  ),
+                ),
+                TvNavigationRegion(
+                  regionId: 'rail_first',
+                  type: TvFocusRegionType.rail,
+                  child: Row(
+                    children: [
+                      TvFocusable(
+                        focusNode: railCard0,
+                        itemId: 'r1_c0',
+                        child: const SizedBox(width: 150.0, height: 100.0, child: Text('C0')),
+                      ),
+                      TvFocusable(
+                        focusNode: railCard1,
+                        itemId: 'r1_c1',
+                        child: const SizedBox(width: 150.0, height: 100.0, child: Text('C1')),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        heroNode.requestFocus();
+        await tester.pumpAndSettle();
+        expect(heroNode.hasFocus, isTrue);
+
+        final handled = nav.moveDownFromTopRegion(sourceNode: heroNode);
+        expect(handled, isTrue);
+        await tester.pumpAndSettle();
+
+        expect(railCard0.hasFocus, isTrue);
+
+        heroNode.dispose();
+        railCard0.dispose();
+        railCard1.dispose();
+      },
+    );
   });
 }
 

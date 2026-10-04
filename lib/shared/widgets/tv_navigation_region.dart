@@ -67,6 +67,11 @@ class _TvNavigationRegionState extends State<TvNavigationRegion> {
     final nav = _navService;
     if (nav == null) return KeyEventResult.ignored;
 
+    if (isDown && widget.regionId == nav.topRegionId) {
+      final handled = nav.moveDownFromTopRegion(sourceNode: node);
+      if (handled) return KeyEventResult.handled;
+    }
+
     final handled = nav.handleInterRailNavigation(
       currentRegionId: widget.regionId,
       direction: isDown ? TraversalDirection.down : TraversalDirection.up,

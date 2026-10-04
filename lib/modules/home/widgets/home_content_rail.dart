@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -83,6 +85,19 @@ class HomeContentRail extends StatelessWidget {
                 TvFocusable(
                   onTap: onSeeAll,
                   borderRadius: AppRadius.pill,
+                  onKeyEvent: (node, event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                      final railRegionId =
+                          'rail_${title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')}';
+                      if (Get.isRegistered<TvNavigationService>()) {
+                        final restored =
+                            Get.find<TvNavigationService>().restoreFocus(railRegionId);
+                        if (restored) return KeyEventResult.handled;
+                      }
+                    }
+                    return KeyEventResult.ignored;
+                  },
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: AppSpacing.sm,

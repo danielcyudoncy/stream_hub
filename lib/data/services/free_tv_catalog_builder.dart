@@ -109,67 +109,77 @@ class FreeTvCatalogBuilder {
   }) async {
     final sourcesResults = <FreeTvSourceFetchResult>[];
     List<DearbulutChannelDto> rawDtos = [];
+    List<FreeTvChannel> fetchedM3uChannels = [];
     Map<String, String> countryNameLookup = {};
 
-    // 1. Fetch countries metadata for accurate country naming
-    try {
-      final countries = await _remoteDataSource.fetchCountries(timeout: timeout);
-      for (final c in countries) {
-        if (c.code.isNotEmpty && c.name.isNotEmpty) {
-          countryNameLookup[c.code] = c.name;
-        }
-      }
-    } catch (e) {
-      _logger.warning('Failed to fetch country metadata: $e', tag: 'FreeTvCatalogBuilder');
-    }
-
-    // 2. Fetch online channels from JSON API
-    try {
-      rawDtos = await _remoteDataSource.fetchOnlineChannels(timeout: timeout);
-      sourcesResults.add(FreeTvSourceFetchResult(
-        sourceName: 'dearbulut/channels.online',
-        succeeded: true,
-        rawRecords: rawDtos.length,
-      ));
-    } catch (e) {
-      _logger.error('Failed to fetch online channels from dearbulut: $e',
-          tag: 'FreeTvCatalogBuilder');
-      sourcesResults.add(FreeTvSourceFetchResult(
-        sourceName: 'dearbulut/channels.online',
-        succeeded: false,
-        rawRecords: 0,
-        error: '$e',
-      ));
-      rethrow;
-    }
-
-    // 3. Ingest M3U channels (explicitly provided or from registered remote data source)
-    List<FreeTvChannel> fetchedM3uChannels = [];
-    if (m3uChannels != null) {
-      fetchedM3uChannels = m3uChannels;
-      sourcesResults.add(FreeTvSourceFetchResult(
-        sourceName: 'm3u/provided',
-        succeeded: true,
-        rawRecords: m3uChannels.length,
-      ));
-    } else if (_m3uRemoteDataSource != null) {
+    // Concurrently fetch country metadata, online channels, and M3U/Xtream sources in parallel
+    final countriesFuture = () async {
       try {
-        fetchedM3uChannels = await _m3uRemoteDataSource.fetchOnlineChannels(timeout: timeout);
+        final countries = await _remoteDataSource.fetchCountries(timeout: timeout);
+        for (final c in countries) {
+          if (c.code.isNotEmpty && c.name.isNotEmpty) {
+            countryNameLookup[c.code] = c.name;
+          }
+        }
+      } catch (e) {
+        _logger.warning('Failed to fetch country metadata: $e', tag: 'FreeTvCatalogBuilder');
+      }
+    }();
+
+    final dearbulutFuture = () async {
+      try {
+        rawDtos = await _remoteDataSource.fetchOnlineChannels(timeout: timeout);
         sourcesResults.add(FreeTvSourceFetchResult(
-          sourceName: _m3uRemoteDataSource.source.id,
+          sourceName: 'dearbulut/channels.online',
           succeeded: true,
-          rawRecords: fetchedM3uChannels.length,
+          rawRecords: rawDtos.length,
         ));
       } catch (e) {
-        _logger.warning('Failed to fetch M3U channels: $e', tag: 'FreeTvCatalogBuilder');
+        _logger.error('Failed to fetch online channels from dearbulut: $e',
+            tag: 'FreeTvCatalogBuilder');
         sourcesResults.add(FreeTvSourceFetchResult(
-          sourceName: _m3uRemoteDataSource.source.id,
+          sourceName: 'dearbulut/channels.online',
           succeeded: false,
           rawRecords: 0,
           error: '$e',
         ));
+        rethrow;
       }
-    }
+    }();
+
+    final m3uFuture = () async {
+      if (m3uChannels != null) {
+        fetchedM3uChannels = m3uChannels;
+        sourcesResults.add(FreeTvSourceFetchResult(
+          sourceName: 'm3u/provided',
+          succeeded: true,
+          rawRecords: m3uChannels.length,
+        ));
+      } else if (_m3uRemoteDataSource != null) {
+        try {
+          fetchedM3uChannels = await _m3uRemoteDataSource.fetchOnlineChannels(timeout: timeout);
+          sourcesResults.add(FreeTvSourceFetchResult(
+            sourceName: _m3uRemoteDataSource.source.id,
+            succeeded: true,
+            rawRecords: fetchedM3uChannels.length,
+          ));
+        } catch (e) {
+          _logger.warning('Failed to fetch M3U channels: $e', tag: 'FreeTvCatalogBuilder');
+          sourcesResults.add(FreeTvSourceFetchResult(
+            sourceName: _m3uRemoteDataSource.source.id,
+            succeeded: false,
+            rawRecords: 0,
+            error: '$e',
+          ));
+        }
+      }
+    }();
+
+    await Future.wait([
+      countriesFuture,
+      dearbulutFuture,
+      m3uFuture,
+    ]);
 
     // 4. Map JSON DTOs to canonical FreeTvChannel records
     final jsonChannels = <FreeTvChannel>[];

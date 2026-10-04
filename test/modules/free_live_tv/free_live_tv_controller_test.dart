@@ -379,5 +379,34 @@ void main() {
       expect(controller.activePlayingChannel.value?.id, 'portal5458_12554');
       expect(controller.playbackStatusMessage.value, isEmpty);
     });
+
+    test('countryFlag returns flag emoji for countries and globe for All Countries', () async {
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(controller.countryFlag('All Countries'), '🌍');
+      expect(controller.countryFlag('Nigeria'), '🇳🇬');
+      expect(controller.countryFlag('United Kingdom'), '🇬🇧');
+      expect(controller.countryFlag('France'), '🇫🇷');
+    });
+
+    test('portalCategories extracts and prioritizes categories from portal5458 source', () async {
+      fakeRepo.catalog.add(
+        const FreeTvChannel(
+          id: 'portal5458_9999',
+          name: 'PPV Channel',
+          country: 'United States',
+          countryCode: 'US',
+          categories: ['Main Events / PPV', 'Sports'],
+          streamUrls: ['http://portal5458.com/live.ts'],
+          source: 'portal5458',
+        ),
+      );
+
+      controller.onInit();
+      await Future.delayed(const Duration(milliseconds: 50));
+
+      expect(controller.portalCategories, contains('Main Events / PPV'));
+    });
   });
 }

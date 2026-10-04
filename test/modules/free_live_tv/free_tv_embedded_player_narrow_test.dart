@@ -316,4 +316,68 @@ void main() {
       expect(playerState.playPauseFocusNode.hasFocus, isTrue);
     },
   );
+
+  testWidgets(
+    'Fullscreen player reclaims focus when controls hide and pressing OK reveals controls and focuses play/pause',
+    (tester) async {
+      final channel = FreeTvChannel(
+        id: 'test_ch_fullscreen',
+        name: 'Fullscreen News',
+        country: 'United States',
+        countryCode: 'US',
+        categories: const ['News'],
+        streamUrls: ['https://example.com/live.m3u8'],
+      );
+
+      final controller = FreeLiveTvController(
+        repository: _FakeFreeTvRepository(),
+      );
+      Get.put<FreeLiveTvController>(controller);
+
+      final playerCtrl = PlayerController(
+        adapter: _StubPlayerAdapter(),
+        engineKind: PlaybackEngineKind.mediaKit,
+        streamRepository: _StubStreamRepository(),
+      );
+      controller.inlinePlayerController = playerCtrl;
+      controller.activePlayingChannel.value = channel;
+      playerCtrl.playbackController.engine.stateRx.value =
+          PlaybackState.playing;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox.expand(
+              child: FreeTvEmbeddedPlayer(
+                controller: controller,
+                isFullscreen: true,
+                autofocus: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final playerFinder = find.byType(FreeTvEmbeddedPlayer);
+      expect(playerFinder, findsOneWidget);
+      final playerState =
+          tester.state<FreeTvEmbeddedPlayerState>(playerFinder);
+
+      // Play/Pause should have focus initially on fullscreen mount
+      expect(playerState.playPauseFocusNode.hasFocus, isTrue);
+
+      // Fast forward past the 5-second fullscreen controls auto-hide timer without manual unfocus
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
+
+      // Controls are hidden and focus is reclaimed to the player anchor
+      // Now press remote OK (select key)
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+
+      // Controls must be visible again and Play/Pause focused so user can reach onscreen icons
+      expect(playerState.playPauseFocusNode.hasFocus, isTrue);
+    },
+  );
 }

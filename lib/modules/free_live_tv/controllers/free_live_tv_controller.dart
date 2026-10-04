@@ -14,6 +14,7 @@ import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/repositories/free_tv_repository.dart';
+import 'package:stream_hub/data/sources/free_tv_regions.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/settings/settings_controller.dart';
 import '../../live_tv/controllers/live_tv_controller.dart';
@@ -39,9 +40,17 @@ class FreeLiveTvController extends GetxController {
   final RxList<FreeTvChannel> recentChannels = <FreeTvChannel>[].obs;
 
   final RxList<String> categories = <String>[].obs;
+  final RxList<String> portalCategories = <String>[].obs;
   final RxList<String> countries = <String>[].obs;
   final RxList<String> regions = <String>[].obs;
   final RxList<String> languages = <String>[].obs;
+  final Map<String, String> _countryCodeLookup = <String, String>{};
+
+  /// Returns the flag emoji for a given country name.
+  String countryFlag(String country) {
+    final code = _countryCodeLookup[country];
+    return FreeTvRegions.flagEmojiForCountry(country, code);
+  }
 
   final RxString selectedView = 'grid'.obs;
   final RxString selectedCategory = 'All Categories'.obs;
@@ -327,7 +336,9 @@ class FreeLiveTvController extends GetxController {
 
   void _populateFilterLists() {
     final Set<String> catSet = {};
+    final Set<String> portalCatSet = {};
     final Set<String> countrySet = {};
+    _countryCodeLookup.clear();
     final Set<String> regionSet = {};
     final Set<String> langSet = {};
 
@@ -335,8 +346,18 @@ class FreeLiveTvController extends GetxController {
       for (final cat in ch.categories) {
         if (cat.trim().isNotEmpty) catSet.add(cat.trim());
       }
+      if (ch.id.startsWith('portal5458') || ch.source == 'portal5458') {
+        if (ch.categories.isNotEmpty) {
+          final primary = ch.categories.first.trim();
+          if (primary.isNotEmpty) portalCatSet.add(primary);
+        }
+      }
       if (ch.country.trim().isNotEmpty) {
-        countrySet.add(ch.country.trim());
+        final cName = ch.country.trim();
+        countrySet.add(cName);
+        if (ch.countryCode.trim().isNotEmpty) {
+          _countryCodeLookup[cName] = ch.countryCode.trim();
+        }
       }
       if (ch.region != null && ch.region!.trim().isNotEmpty) {
         regionSet.add(ch.region!.trim());
@@ -363,6 +384,38 @@ class FreeLiveTvController extends GetxController {
       }
     }
     categories.assignAll(['All Categories', ...sortedCats]);
+
+    const priorityPortalCats = [
+      'Main Events / PPV',
+      'Bein Sports',
+      'US - Sports',
+      'US - News',
+      'US - Movies',
+      'US - Entertainment',
+      'US - Locals',
+      'US - Kids',
+      'US - Music',
+      'UK - Sports',
+      'UK - Movies',
+      'UK - Entertainment',
+      'UK - Documentaries',
+      'UK - Kids',
+      'MLB.1',
+      'NBA.1',
+      'NFL.1',
+      'NHL.1',
+      'Deportes',
+      'Latino',
+      'Canada',
+    ];
+    final sortedPortalCats = portalCatSet.toList()..sort();
+    for (final p in priorityPortalCats.reversed) {
+      if (sortedPortalCats.contains(p)) {
+        sortedPortalCats.remove(p);
+        sortedPortalCats.insert(0, p);
+      }
+    }
+    portalCategories.assignAll(sortedPortalCats);
 
     final sortedCountries = countrySet.toList()..sort();
     // Move selected curated countries to the top for prominent discovery.
@@ -743,18 +796,19 @@ class FreeLiveTvController extends GetxController {
   void _waitForPlaybackToActuallyRender(PlayerController playerCtrl) {
     _playbackPositionSubscription?.cancel();
 
-    // If the player is already actively decoding and has rendered past 0, complete immediately
+    // If the player is already actively decoding and has rendered past 0 or has buffered packets, complete immediately
     final currentPos = playerCtrl.playbackController.engine.positionRx.value;
-    if (currentPos > Duration.zero) {
+    final currentBuffer = playerCtrl.playbackController.engine.bufferRx.value;
+    if (currentPos > Duration.zero || currentBuffer > Duration.zero) {
       _stopPlayerLoading(complete: true);
       playbackStatusMessage.value = '';
       return;
     }
 
-    // Keep the loading spinner active until the first video frame/position advances.
-    // Use a bounded fallback timer (2.5s) in case position updates are slow or stream is audio-only.
+    // Keep the loading spinner active until the first video frame/position/buffer advances.
+    // Use a fast bounded fallback timer (500ms) in case position updates are static on live MPEG-TS streams.
     Timer? fallbackTimer;
-    fallbackTimer = Timer(const Duration(milliseconds: 2500), () {
+    fallbackTimer = Timer(const Duration(milliseconds: 500), () {
       _playbackPositionSubscription?.cancel();
       _stopPlayerLoading(complete: true);
       playbackStatusMessage.value = '';
@@ -878,12 +932,25 @@ class FreeLiveTvController extends GetxController {
 
     // If backup streams exist, start a watchdog to fail over fast if the stream stalls/hangs
     if (availableUrls.length > 1 && safeStreamIndex < availableUrls.length - 1) {
+      _streamStartupWatchdogTimer = Timer(const Duration(seconds: 4), () {
+        if (currentGen == _openChannelGeneration &&
+            isPlayerLoading.value &&
+            activePlayingChannel.value?.id == channel.id) {
+          _logger.warning(
+            'Stream ${safeStreamIndex + 1} for "${channel.name}" exceeded startup threshold (4s). Failing over to next stream...',
+            tag: 'FreeLiveTvController',
+          );
+          _handlePlaybackError();
+        }
+      });
+    } else {
+      // Bounded timeout for single/last stream so user isn't stuck with an infinite spinner
       _streamStartupWatchdogTimer = Timer(const Duration(seconds: 7), () {
         if (currentGen == _openChannelGeneration &&
             isPlayerLoading.value &&
             activePlayingChannel.value?.id == channel.id) {
           _logger.warning(
-            'Stream ${safeStreamIndex + 1} for "${channel.name}" exceeded startup threshold (7s). Failing over to next stream...',
+            'Final stream for "${channel.name}" timed out without responding.',
             tag: 'FreeLiveTvController',
           );
           _handlePlaybackError();

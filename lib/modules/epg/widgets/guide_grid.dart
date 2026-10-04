@@ -13,7 +13,7 @@ import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 // Constants for EPG Grid
 const double _kChannelWidth = 290.0; // Increased width so full channel names are shown
-const double _kRowHeight = 90.0;
+const double _kRowHeight = 64.0;
 const double _kPixelsPerMinute = 512.0 / 60.0; // 512px per hour
 
 class GuideGrid extends StatefulWidget {
@@ -121,7 +121,7 @@ class _GuideGridState extends State<GuideGrid> {
   Widget _buildTimelineHeader(DateTime timelineStart, double nowOffset) {
     final colorScheme = Theme.of(context).colorScheme;
     return Container(
-      height: 56.0,
+      height: 48.0,
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.95),
         border: Border(
@@ -165,7 +165,7 @@ class _GuideGridState extends State<GuideGrid> {
                               final timeLabel = DateFormat('h:mm a').format(hourTime);
                               return Container(
                                 width: 512.0, // 1 hour width
-                                padding: const EdgeInsets.only(left: 16.0, top: 16.0),
+                                padding: const EdgeInsets.only(left: 16.0, top: 13.0),
                                 decoration: BoxDecoration(
                                   border: Border(
                                     left: BorderSide(
@@ -263,7 +263,7 @@ class _GuideGridState extends State<GuideGrid> {
             onTap: () => widget.onChannelTap?.call(channel),
             child: Container(
               height: _kRowHeight,
-              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 6.0),
               decoration: BoxDecoration(
                 color: isPlaying ? AppColors.primary.withValues(alpha: 0.14) : null,
                 border: Border(
@@ -290,13 +290,13 @@ class _GuideGridState extends State<GuideGrid> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Container(
-                    width: 46,
-                    height: 46,
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: isPlaying
                           ? AppColors.primary.withValues(alpha: 0.25)
                           : AppColors.surfaceVariant.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8.0),
+                      borderRadius: BorderRadius.circular(6.0),
                       border: Border.all(
                         color: isPlaying
                             ? AppColors.primary
@@ -308,11 +308,11 @@ class _GuideGridState extends State<GuideGrid> {
                       child: channel.logoUrl != null && channel.logoUrl!.isNotEmpty
                           ? Image.network(
                               channel.logoUrl!,
-                              width: 36,
-                              height: 36,
+                              width: 28,
+                              height: 28,
                               fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.tv, color: Colors.white70, size: 22),
+                                  const Icon(Icons.tv, color: Colors.white70, size: 18),
                             )
                           : Text(
                               channel.title.isNotEmpty
@@ -320,7 +320,7 @@ class _GuideGridState extends State<GuideGrid> {
                                   : 'TV',
                               style: AppTypography.getTitle(
                                 color: AppColors.primary,
-                              ),
+                              ).copyWith(fontSize: 14),
                             ),
                     ),
                   ),
@@ -338,9 +338,9 @@ class _GuideGridState extends State<GuideGrid> {
                                 style: AppTypography.getTitle(
                                   color: isPlaying ? AppColors.primary : colorScheme.onSurface,
                                 ).copyWith(
-                                  fontSize: 13.5,
+                                  fontSize: 13.0,
                                   fontWeight: FontWeight.bold,
-                                  height: 1.2,
+                                  height: 1.15,
                                   shadows: isPlaying
                                       ? [
                                           Shadow(
@@ -350,7 +350,7 @@ class _GuideGridState extends State<GuideGrid> {
                                         ]
                                       : null,
                                 ),
-                                maxLines: 2, // Displays full channel name across up to 2 lines
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -367,14 +367,14 @@ class _GuideGridState extends State<GuideGrid> {
                                     Icon(
                                       Icons.graphic_eq_rounded,
                                       color: Colors.black,
-                                      size: 9.0,
+                                      size: 8.0,
                                     ),
                                     SizedBox(width: 2.0),
                                     Text(
                                       'PLAYING',
                                       style: TextStyle(
                                         color: Colors.black,
-                                        fontSize: 7.5,
+                                        fontSize: 7.0,
                                         fontWeight: FontWeight.w900,
                                       ),
                                     ),
@@ -389,7 +389,7 @@ class _GuideGridState extends State<GuideGrid> {
                             child: Text(
                               'CH ${channel.number}',
                               style: AppTypography.getLabel(color: AppColors.primary).copyWith(
-                                fontSize: 10.5,
+                                fontSize: 10.0,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -520,7 +520,7 @@ class _GuideGridState extends State<GuideGrid> {
 
     return Container(
       width: width,
-      padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 6.0),
+      padding: const EdgeInsets.symmetric(horizontal: 3.0, vertical: 4.0),
       child: EPGProgramCard(
         program: program,
         onTap: widget.onProgramTap != null ? () => widget.onProgramTap!(program) : null,
@@ -563,7 +563,7 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
               : (isDark
                   ? AppColors.surfaceVariant.withValues(alpha: 0.3)
                   : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6)),
-          borderRadius: BorderRadius.circular(8.0),
+          borderRadius: BorderRadius.circular(6.0),
           border: Border.all(
             color: widget.program.isLive
                 ? (isDark
@@ -573,7 +573,7 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
             width: 1.0,
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -584,7 +584,7 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
                   child: Text(
                     widget.program.title,
                     style: AppTypography.getTitle(color: colorScheme.onSurface).copyWith(
-                      fontSize: 13.5,
+                      fontSize: 13.0,
                       fontWeight: FontWeight.w600,
                     ),
                     maxLines: 1,
@@ -603,18 +603,18 @@ class _EPGProgramCardState extends State<EPGProgramCard> {
                       'LIVE',
                       style: TextStyle(
                         color: Colors.black,
-                        fontSize: 8.5,
+                        fontSize: 8.0,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
               ],
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
             Text(
               _formatTimeRange(widget.program.startTime, widget.program.endTime),
               style: AppTypography.getLabel(color: colorScheme.onSurfaceVariant).copyWith(
-                fontSize: 11,
+                fontSize: 10.5,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

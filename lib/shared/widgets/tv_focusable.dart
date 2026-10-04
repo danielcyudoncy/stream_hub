@@ -270,6 +270,7 @@ class _TvFocusableState extends State<TvFocusable> {
           Get.find<TvNavigationService>().ensureVisible(
             context,
             alignment: 0.5,
+            regionId: effectiveRegion,
           );
         } else {
           Scrollable.ensureVisible(

@@ -265,5 +265,121 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       expect(find.text('Quick Channel Zapper'), findsOneWidget);
     });
+
+    testWidgets(
+        'fullscreen controls auto-hide after 5 seconds and pressing OK reveals controls and focuses play/pause',
+        (tester) async {
+      final key = GlobalKey<LiveTvEmbeddedPlayerState>();
+      liveTvCtrl.isFullscreenMode.value = true;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 1280.0,
+              height: 720.0,
+              child: LiveTvEmbeddedPlayer(
+                key: key,
+                controller: liveTvCtrl,
+                isFullscreen: true,
+                autofocus: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final playerFinder = find.byType(LiveTvEmbeddedPlayer);
+      expect(playerFinder, findsOneWidget);
+      final playerState = tester.state<LiveTvEmbeddedPlayerState>(playerFinder);
+
+      // Play/Pause should have focus initially on fullscreen mount
+      expect(playerState.playPauseFocusNode.hasFocus, isTrue);
+
+      // Fast forward past the 5-second fullscreen controls auto-hide timer
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
+
+      // Controls are hidden and focus is reclaimed to the player anchor
+      // Now press remote OK (select key)
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+
+      // Controls must be visible again and Play/Pause focused so user can reach onscreen icons
+      expect(playerState.playPauseFocusNode.hasFocus, isTrue);
+    });
+
+    testWidgets(
+        'bidirectional horizontal navigation between Aspect Ratio, Audio, and Subtitle controls',
+        (tester) async {
+      final key = GlobalKey<LiveTvEmbeddedPlayerState>();
+      liveTvCtrl.isFullscreenMode.value = true;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 1280.0,
+              height: 720.0,
+              child: LiveTvEmbeddedPlayer(
+                key: key,
+                controller: liveTvCtrl,
+                isFullscreen: true,
+                autofocus: true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Navigate down to bottom controls
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(FocusManager.instance.primaryFocus!.debugLabel,
+          equals('LiveTvBottomPlayPause'));
+
+      // Right to Stop
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(FocusManager.instance.primaryFocus!.debugLabel, equals('LiveTvStop'));
+
+      // Right to Favorite
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(FocusManager.instance.primaryFocus!.debugLabel,
+          equals('LiveTvFavorite'));
+
+      // Right to Aspect Ratio
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(FocusManager.instance.primaryFocus!.debugLabel,
+          equals('LiveTvAspectRatio'));
+
+      // Right to Audio Tracks
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+          FocusManager.instance.primaryFocus!.debugLabel, equals('LiveTvAudio'));
+
+      // Right to Subtitles
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(FocusManager.instance.primaryFocus!.debugLabel,
+          equals('LiveTvSubtitle'));
+
+      // Left back to Audio Tracks
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(
+          FocusManager.instance.primaryFocus!.debugLabel, equals('LiveTvAudio'));
+
+      // Left back to Aspect Ratio
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(FocusManager.instance.primaryFocus!.debugLabel,
+          equals('LiveTvAspectRatio'));
+    });
   });
 }

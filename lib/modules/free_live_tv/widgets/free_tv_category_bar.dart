@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
+import 'package:stream_hub/data/sources/free_tv_regions.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
 /// Curated quick-access groupings surfaced at the start of the Free TV browse
@@ -20,6 +21,7 @@ class FreeTvCuratedChips {
 
 class FreeTvCategoryBar extends StatelessWidget {
   final List<String> categories;
+  final List<String> portalCategories;
   final String selectedCategory;
   final List<String> countries;
   final String selectedCountry;
@@ -39,6 +41,7 @@ class FreeTvCategoryBar extends StatelessWidget {
   const FreeTvCategoryBar({
     super.key,
     required this.categories,
+    this.portalCategories = const [],
     required this.selectedCategory,
     required this.countries,
     required this.selectedCountry,
@@ -154,26 +157,29 @@ class FreeTvCategoryBar extends StatelessWidget {
           _chipDivider(),
           const SizedBox(width: AppSpacing.xs),
 
-          // Curated Region chips
-          ...curated.regions.map((region) {
-            final isSelected = !showFavoritesOnly && selectedRegion == region;
+          // Categories from Second Source (portal5458) immediately after the first demarcation!
+          ...portalCategories.map((category) {
+            final isSelected =
+                !showFavoritesOnly && selectedCategory == category;
             return Padding(
               padding: const EdgeInsets.only(right: AppSpacing.xs),
               child: _CategoryChip(
-                label: region,
-                icon: Icons.public_rounded,
+                label: category,
+                icon: _portalCategoryIcon(category),
                 isSelected: isSelected,
                 onTap: () {
                   if (showFavoritesOnly) onFavoritesToggle(false);
-                  onRegionSelected(isSelected ? 'All Regions' : region);
+                  onCategorySelected(isSelected ? 'All Categories' : category);
                 },
               ),
             );
           }),
 
-          const SizedBox(width: AppSpacing.xs),
-          _chipDivider(),
-          const SizedBox(width: AppSpacing.xs),
+          if (portalCategories.isNotEmpty) ...[
+            const SizedBox(width: AppSpacing.xs),
+            _chipDivider(),
+            const SizedBox(width: AppSpacing.xs),
+          ],
 
           // Curated Category chips
           ...curated.categories.map((category) {
@@ -195,11 +201,12 @@ class FreeTvCategoryBar extends StatelessWidget {
             );
           }),
 
-          // Dynamic Category chips from loaded channels (excluding already shown curated chips)
+          // Dynamic Category chips from loaded channels (excluding already shown curated and portal chips)
           ...categories
               .where((c) =>
                   c != 'All Categories' &&
                   !curated.categories.contains(c) &&
+                  !portalCategories.contains(c) &&
                   !(c == 'Documentary' &&
                       curated.categories.contains('Documentaries')))
               .map((category) {
@@ -217,28 +224,68 @@ class FreeTvCategoryBar extends StatelessWidget {
               ),
             );
           }),
+
+          if (curated.regions.isNotEmpty) ...[
+            const SizedBox(width: AppSpacing.xs),
+            _chipDivider(),
+            const SizedBox(width: AppSpacing.xs),
+
+            // Curated Region chips
+            ...curated.regions.map((region) {
+              final isSelected = !showFavoritesOnly && selectedRegion == region;
+              return Padding(
+                padding: const EdgeInsets.only(right: AppSpacing.xs),
+                child: _CategoryChip(
+                  label: region,
+                  icon: Icons.public_rounded,
+                  isSelected: isSelected,
+                  onTap: () {
+                    if (showFavoritesOnly) onFavoritesToggle(false);
+                    onRegionSelected(isSelected ? 'All Regions' : region);
+                  },
+                ),
+              );
+            }),
+          ],
         ],
       ),
     );
   }
 
   static String _countryFlag(String country) {
-    switch (country) {
-      case 'Nigeria':
-        return '🇳🇬 ';
-      case 'South Africa':
-        return '🇿🇦 ';
-      case 'United Kingdom':
-        return '🇬🇧 ';
-      case 'United States':
-        return '🇺🇸 ';
-      case 'France':
-        return '🇫🇷 ';
-      case 'Germany':
-        return '🇩🇪 ';
-      default:
-        return '';
+    final flag = FreeTvRegions.flagEmojiForCountry(country);
+    return flag.isNotEmpty ? '$flag ' : '';
+  }
+
+  static IconData? _portalCategoryIcon(String category) {
+    final catLower = category.toLowerCase();
+    if (catLower.contains('sport') ||
+        catLower.contains('deporte') ||
+        catLower.contains('mlb') ||
+        catLower.contains('nba') ||
+        catLower.contains('nfl') ||
+        catLower.contains('nhl')) {
+      return Icons.sports_soccer_rounded;
     }
+    if (catLower.contains('ppv') || catLower.contains('event')) {
+      return Icons.stars_rounded;
+    }
+    if (catLower.contains('movie') || catLower.contains('cinema')) {
+      return Icons.movie_rounded;
+    }
+    if (catLower.contains('news') || catLower.contains('noticia')) {
+      return Icons.newspaper_rounded;
+    }
+    if (catLower.contains('doc')) {
+      return Icons.video_library_rounded;
+    }
+    if (catLower.contains('kid')) {
+      return Icons.child_care_rounded;
+    }
+    if (catLower.contains('music')) {
+      return Icons.music_note_rounded;
+    }
+    return Icons.live_tv_rounded;
   }
 
   Widget _chipDivider() {

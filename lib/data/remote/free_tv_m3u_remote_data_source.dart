@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:stream_hub/core/logging/logging_service.dart';
 import 'package:stream_hub/core/network/doh_http_client.dart';
@@ -54,15 +55,52 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
       tag: 'CustomM3uRemote',
     );
 
+    final uri = Uri.tryParse(source.url);
+    final username = uri?.queryParameters['username'];
+    final password = uri?.queryParameters['password'];
+
+    // Fast-path: If the source points directly to an Xtream Codes player_api.php
+    // endpoint or is known to be an Xtream provider, fetch directly without
+    // attempting an M3U get.php request that would return HTTP 404.
+    if (uri != null &&
+        username != null &&
+        password != null &&
+        (uri.path.contains('player_api.php') || source.id == 'portal5458')) {
+      _logger.info(
+        'Directly querying Xtream API for source ${source.id} ($sanitizedHost)...',
+        tag: 'CustomM3uRemote',
+      );
+      try {
+        final xtreamChannels = await _fetchFromXtreamApi(
+          uri,
+          username,
+          password,
+          effectiveTimeout,
+        );
+        if (xtreamChannels.isNotEmpty) {
+          _logger.info(
+            'Fetched ${xtreamChannels.length} channels directly via Xtream API for source ${source.id} ($sanitizedHost).',
+            tag: 'CustomM3uRemote',
+          );
+          return xtreamChannels;
+        }
+      } catch (e) {
+        _logger.warning(
+          'Direct Xtream fetch failed for ${source.id}: $e. Trying standard M3U...',
+          tag: 'CustomM3uRemote',
+        );
+      }
+    }
+
     try {
-      final uri = Uri.parse(source.url);
-      final request = await _httpClient.getUrl(uri).timeout(effectiveTimeout);
+      final requestUri = uri ?? Uri.parse(source.url);
+      final request = await _httpClient.getUrl(requestUri).timeout(effectiveTimeout);
       request.headers.set('User-Agent', 'StreamHubPro/1.0 (FreeLiveTV)');
       request.headers.set('Accept', 'text/plain, */*');
 
       final response = await request.close().timeout(effectiveTimeout);
       if (response.statusCode == HttpStatus.ok) {
-        final bytes = await response.fold<List<int>>([], (prev, chunk) => prev..addAll(chunk));
+        final bytes = await _readResponseBytes(response);
         final content = utf8.decode(bytes, allowMalformed: true);
 
         if (content.contains('#EXTM3U')) {
@@ -99,9 +137,7 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
       }
 
       // Check for Xtream fallback if M3U endpoint returns non-OK or non-M3U content
-      final username = uri.queryParameters['username'];
-      final password = uri.queryParameters['password'];
-      if (username != null && username.isNotEmpty && password != null && password.isNotEmpty) {
+      if (uri != null && username != null && username.isNotEmpty && password != null && password.isNotEmpty) {
         _logger.info(
           'Attempting Xtream Codes API fallback for source ${source.id} ($sanitizedHost)...',
           tag: 'CustomM3uRemote',
@@ -122,9 +158,6 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
       );
       return const [];
     } catch (e) {
-      final uri = Uri.tryParse(source.url);
-      final username = uri?.queryParameters['username'];
-      final password = uri?.queryParameters['password'];
       if (uri != null && username != null && password != null) {
         try {
           final fallbackChannels = await _fetchFromXtreamApi(uri, username, password, effectiveTimeout);
@@ -140,62 +173,87 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
     }
   }
 
+  Future<List<int>> _readResponseBytes(HttpClientResponse response) async {
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in response) {
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
+  }
+
   Future<List<FreeTvChannel>> _fetchFromXtreamApi(
     Uri baseUri,
     String username,
     String password,
     Duration timeout,
   ) async {
-    final catMap = <String, String>{};
-    try {
-      final catUri = baseUri.replace(
-        path: '/player_api.php',
-        queryParameters: {
-          'username': username,
-          'password': password,
-          'action': 'get_live_categories',
-        },
-      );
-      final catReq = await _httpClient.getUrl(catUri).timeout(timeout);
-      catReq.headers.set('User-Agent', 'IPTVSmartersPro/1.0');
-      final catRes = await catReq.close().timeout(timeout);
-      if (catRes.statusCode == HttpStatus.ok) {
-        final catBytes = await catRes.fold<List<int>>([], (p, c) => p..addAll(c));
-        final catJson = jsonDecode(utf8.decode(catBytes, allowMalformed: true));
-        if (catJson is List) {
-          for (final item in catJson) {
-            if (item is Map) {
-              final id = item['category_id']?.toString();
-              final name = item['category_name']?.toString();
-              if (id != null && name != null) {
-                catMap[id] = name;
+    Future<Map<String, String>> fetchCategories() async {
+      final catMap = <String, String>{};
+      try {
+        final catUri = baseUri.replace(
+          path: '/player_api.php',
+          queryParameters: {
+            'username': username,
+            'password': password,
+            'action': 'get_live_categories',
+          },
+        );
+        final catReq = await _httpClient.getUrl(catUri).timeout(timeout);
+        catReq.headers.set('User-Agent', 'IPTVSmartersPro/1.0');
+        final catRes = await catReq.close().timeout(timeout);
+        if (catRes.statusCode == HttpStatus.ok) {
+          final catBytes = await _readResponseBytes(catRes);
+          final catJson = jsonDecode(utf8.decode(catBytes, allowMalformed: true));
+          if (catJson is List) {
+            for (final item in catJson) {
+              if (item is Map) {
+                final id = item['category_id']?.toString();
+                final name = item['category_name']?.toString();
+                if (id != null && name != null) {
+                  catMap[id] = name;
+                }
               }
             }
           }
         }
+      } catch (e) {
+        _logger.warning('Failed to fetch Xtream categories: $e', tag: 'CustomM3uRemote');
       }
-    } catch (e) {
-      _logger.warning('Failed to fetch Xtream categories: $e', tag: 'CustomM3uRemote');
+      return catMap;
     }
 
-    final streamsUri = baseUri.replace(
-      path: '/player_api.php',
-      queryParameters: {
-        'username': username,
-        'password': password,
-        'action': 'get_live_streams',
-      },
-    );
-    final streamReq = await _httpClient.getUrl(streamsUri).timeout(timeout);
-    streamReq.headers.set('User-Agent', 'IPTVSmartersPro/1.0');
-    final streamRes = await streamReq.close().timeout(timeout);
-    if (streamRes.statusCode != HttpStatus.ok) {
+    Future<List<dynamic>> fetchStreams() async {
+      try {
+        final streamsUri = baseUri.replace(
+          path: '/player_api.php',
+          queryParameters: {
+            'username': username,
+            'password': password,
+            'action': 'get_live_streams',
+          },
+        );
+        final streamReq = await _httpClient.getUrl(streamsUri).timeout(timeout);
+        streamReq.headers.set('User-Agent', 'IPTVSmartersPro/1.0');
+        final streamRes = await streamReq.close().timeout(timeout);
+        if (streamRes.statusCode != HttpStatus.ok) {
+          return const [];
+        }
+
+        final streamBytes = await _readResponseBytes(streamRes);
+        final streamJson = jsonDecode(utf8.decode(streamBytes, allowMalformed: true));
+        if (streamJson is List) return streamJson;
+      } catch (e) {
+        _logger.warning('Failed to fetch Xtream streams: $e', tag: 'CustomM3uRemote');
+      }
       return const [];
     }
 
-    final streamBytes = await streamRes.fold<List<int>>([], (p, c) => p..addAll(c));
-    final streamJson = jsonDecode(utf8.decode(streamBytes, allowMalformed: true));
-    if (streamJson is! List) return const [];
+    final parallelResults = await Future.wait([
+      fetchCategories(),
+      fetchStreams(),
+    ]);
+    final catMap = parallelResults[0] as Map<String, String>;
+    final streamJson = parallelResults[1] as List<dynamic>;
 
     final result = <FreeTvChannel>[];
     for (final item in streamJson) {
@@ -218,7 +276,11 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
       String lang = source.defaultLanguage ?? 'English';
 
       final catUpper = rawCategory.toUpperCase();
-      if (catUpper.startsWith('UK - ') || catUpper.contains('UNITED KINGDOM')) {
+      if (catUpper.startsWith('US - ') || catUpper.contains('UNITED STATES')) {
+        country = 'United States';
+        countryCode = 'US';
+        region = 'Americas';
+      } else if (catUpper.startsWith('UK - ') || catUpper.contains('UNITED KINGDOM')) {
         country = 'United Kingdom';
         countryCode = 'GB';
         region = 'Europe';
@@ -262,6 +324,7 @@ class CustomM3uFreeTvRemoteDataSource implements FreeTvM3uRemoteDataSource {
         region: region,
         categories: normalizedCategories,
         languages: lang == 'English' ? ['English'] : [lang, 'English'],
+        source: source.id,
         qualityScore: 100,
         qualityTier: FreeTvQualityTier.recommended,
         streamUrls: [streamUrl],

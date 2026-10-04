@@ -333,6 +333,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                       padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
                       child: FreeTvCategoryBar(
                         categories: controller.categories,
+                        portalCategories: controller.portalCategories,
                         selectedCategory: controller.selectedCategory.value,
                         countries: controller.countries,
                         selectedCountry: controller.selectedCountry.value,
@@ -417,6 +418,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
               child: FreeTvCategoryBar(
                 categories: controller.categories,
+                portalCategories: controller.portalCategories,
                 selectedCategory: controller.selectedCategory.value,
                 countries: controller.countries,
                 selectedCountry: controller.selectedCountry.value,
@@ -518,6 +520,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               ),
               child: FreeTvCategoryBar(
                 categories: controller.categories,
+                portalCategories: controller.portalCategories,
                 selectedCategory: controller.selectedCategory.value,
                 countries: controller.countries,
                 selectedCountry: controller.selectedCountry.value,
@@ -1564,23 +1567,23 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
         initialValue: controller.selectedCountry.value,
         onSelected: controller.setCountry,
         itemBuilder: (context) => controller.countries.map(
-          (country) => PopupMenuItem(
-            value: country,
-            child: Text(
-              country == 'Nigeria' ? '🇳🇬 Nigeria' : country,
-              style: TextStyle(
-                fontWeight: country == 'Nigeria' ||
-                        country == controller.selectedCountry.value
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-                color: country == 'Nigeria'
-                    ? Theme.of(context).colorScheme.primary
-                    : (country == controller.selectedCountry.value
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface),
+          (country) {
+            final flag = controller.countryFlag(country);
+            final label = flag.isNotEmpty ? '$flag  $country' : country;
+            final isSelected = country == controller.selectedCountry.value;
+            return PopupMenuItem(
+              value: country,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  color: isSelected
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
+                ),
               ),
-            ),
-          ),
+            );
+          },
         ).toList(),
       ),
     );
