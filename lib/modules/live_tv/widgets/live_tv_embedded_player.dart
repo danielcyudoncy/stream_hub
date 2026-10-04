@@ -77,6 +77,9 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
   final FocusNode _quickZapperFocusNode = FocusNode(
     debugLabel: 'LiveTvQuickZapper',
   );
+  final FocusNode _pipFocusNode = FocusNode(
+    debugLabel: 'LiveTvPip',
+  );
   final FocusNode _fullscreenFocusNode = FocusNode(
     debugLabel: 'LiveTvFullscreen',
   );
@@ -91,6 +94,9 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     debugLabel: 'LiveTvPlayerAnchor',
   );
 
+  bool _canFocus(FocusNode node) =>
+      node.context != null && node.canRequestFocus;
+
   KeyEventResult _handleBottomControlKeyEvent(FocusNode node, KeyEvent event) {
     if (event is KeyDownEvent) {
       if (event.logicalKey == LogicalKeyboardKey.arrowDown &&
@@ -98,15 +104,174 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
         widget.onMoveDown!();
         return KeyEventResult.handled;
       } else if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-        if (_playPauseFocusNode.canRequestFocus) {
+        if (_canFocus(_playPauseFocusNode)) {
           _playPauseFocusNode.requestFocus();
           return KeyEventResult.handled;
         }
-      } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft &&
-          node == _bottomPlayPauseFocusNode &&
-          widget.onMoveLeft != null) {
-        widget.onMoveLeft!();
-        return KeyEventResult.handled;
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
+        if (node == _bottomPlayPauseFocusNode) {
+          if (widget.onMoveLeft != null) {
+            widget.onMoveLeft!();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _stopFocusNode) {
+          if (_canFocus(_bottomPlayPauseFocusNode)) {
+            _bottomPlayPauseFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _favoriteFocusNode) {
+          if (_canFocus(_stopFocusNode)) {
+            _stopFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_bottomPlayPauseFocusNode)) {
+            _bottomPlayPauseFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _aspectRatioFocusNode) {
+          if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _audioFocusNode) {
+          if (_canFocus(_aspectRatioFocusNode)) {
+            _aspectRatioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _subtitleFocusNode) {
+          if (_canFocus(_audioFocusNode)) {
+            _audioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_aspectRatioFocusNode)) {
+            _aspectRatioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _quickZapperFocusNode) {
+          if (_canFocus(_subtitleFocusNode)) {
+            _subtitleFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_audioFocusNode)) {
+            _audioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_aspectRatioFocusNode)) {
+            _aspectRatioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _pipFocusNode) {
+          if (_canFocus(_quickZapperFocusNode)) {
+            _quickZapperFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_subtitleFocusNode)) {
+            _subtitleFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _fullscreenFocusNode) {
+          if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_quickZapperFocusNode)) {
+            _quickZapperFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_subtitleFocusNode)) {
+            _subtitleFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+        if (node == _bottomPlayPauseFocusNode) {
+          if (_canFocus(_stopFocusNode)) {
+            _stopFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _stopFocusNode) {
+          if (_canFocus(_favoriteFocusNode)) {
+            _favoriteFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _favoriteFocusNode) {
+          if (_canFocus(_aspectRatioFocusNode)) {
+            _aspectRatioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_audioFocusNode)) {
+            _audioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _aspectRatioFocusNode) {
+          if (_canFocus(_audioFocusNode)) {
+            _audioFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_subtitleFocusNode)) {
+            _subtitleFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _audioFocusNode) {
+          if (_canFocus(_subtitleFocusNode)) {
+            _subtitleFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_quickZapperFocusNode)) {
+            _quickZapperFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _subtitleFocusNode) {
+          if (_canFocus(_quickZapperFocusNode)) {
+            _quickZapperFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _quickZapperFocusNode) {
+          if (_canFocus(_pipFocusNode)) {
+            _pipFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          } else if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        } else if (node == _pipFocusNode) {
+          if (_canFocus(_fullscreenFocusNode)) {
+            _fullscreenFocusNode.requestFocus();
+            return KeyEventResult.handled;
+          }
+        }
       }
     }
     return KeyEventResult.ignored;
@@ -122,13 +287,27 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     });
   }
 
+  void _unfocusControls() {
+    if (_playPauseFocusNode.hasFocus) _playPauseFocusNode.unfocus();
+    if (_bottomPlayPauseFocusNode.hasFocus) _bottomPlayPauseFocusNode.unfocus();
+    if (_stopFocusNode.hasFocus) _stopFocusNode.unfocus();
+    if (_favoriteFocusNode.hasFocus) _favoriteFocusNode.unfocus();
+    if (_aspectRatioFocusNode.hasFocus) _aspectRatioFocusNode.unfocus();
+    if (_audioFocusNode.hasFocus) _audioFocusNode.unfocus();
+    if (_subtitleFocusNode.hasFocus) _subtitleFocusNode.unfocus();
+    if (_quickZapperFocusNode.hasFocus) _quickZapperFocusNode.unfocus();
+    if (_pipFocusNode.hasFocus) _pipFocusNode.unfocus();
+    if (_fullscreenFocusNode.hasFocus) _fullscreenFocusNode.unfocus();
+  }
+
   void _reclaimPlayerFocus() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _controlsVisible) return;
-      if (_keyboardKey.currentState != null) {
-        _keyboardKey.currentState!.reclaimFocus();
-      } else if (_playerAnchorFocusNode.canRequestFocus) {
+      _unfocusControls();
+      if (_playerAnchorFocusNode.canRequestFocus) {
         _playerAnchorFocusNode.requestFocus();
+      } else if (_keyboardKey.currentState != null) {
+        _keyboardKey.currentState!.reclaimFocus();
       }
     });
   }
@@ -151,6 +330,7 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
       _audioFocusNode.hasFocus ||
       _subtitleFocusNode.hasFocus ||
       _quickZapperFocusNode.hasFocus ||
+      _pipFocusNode.hasFocus ||
       _fullscreenFocusNode.hasFocus;
 
   void _startControlsTimer() {
@@ -160,12 +340,8 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
       if (!mounted || !_controlsVisible) return;
       final ctrl = widget.controller.inlinePlayerController;
       final state = ctrl?.playbackController.engine.stateRx.value;
-      // Keep controls on screen while paused or while any control is focused
-      if (state == PlaybackState.paused) return;
-      if (_hasAnyControlFocus) {
-        _startControlsTimer();
-        return;
-      }
+      // Keep controls on screen while paused or quick zapper is open
+      if (state == PlaybackState.paused || _quickZapperOpen) return;
       setState(() => _controlsVisible = false);
       _reclaimPlayerFocus();
     });
@@ -618,6 +794,7 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
     _audioFocusNode.dispose();
     _subtitleFocusNode.dispose();
     _quickZapperFocusNode.dispose();
+    _pipFocusNode.dispose();
     _fullscreenFocusNode.dispose();
     _playerAnchorFocusNode.dispose();
     super.dispose();
@@ -872,7 +1049,7 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
             IgnorePointer(
               ignoring: !_controlsVisible,
               child: ExcludeFocus(
-                excluding: !_controlsVisible && !_playPauseFocusNode.hasFocus,
+                excluding: !_controlsVisible,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -906,6 +1083,17 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                 widget.onMoveLeft != null) {
                               widget.onMoveLeft!();
                               return KeyEventResult.handled;
+                            } else if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
+                              if (_canFocus(_favoriteFocusNode)) {
+                                _favoriteFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              } else if (_canFocus(_aspectRatioFocusNode)) {
+                                _aspectRatioFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              } else if (_canFocus(_fullscreenFocusNode)) {
+                                _fullscreenFocusNode.requestFocus();
+                                return KeyEventResult.handled;
+                              }
                             }
                           }
                           return KeyEventResult.ignored;
@@ -1525,6 +1713,7 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                                       !isUltraCompact &&
                                       Platform.isAndroid) ...[
                                     TvFocusable(
+                                      focusNode: _pipFocusNode,
                                       onKeyEvent: _handleBottomControlKeyEvent,
                                       onTap: () {
                                         _showControlsTemporarily();

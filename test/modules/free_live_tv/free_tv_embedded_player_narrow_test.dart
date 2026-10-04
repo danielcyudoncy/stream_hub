@@ -367,11 +367,7 @@ void main() {
       // Play/Pause should have focus initially on fullscreen mount
       expect(playerState.playPauseFocusNode.hasFocus, isTrue);
 
-      // Unfocus play/pause so controls auto-hide timer can elapse
-      playerState.playPauseFocusNode.unfocus();
-      await tester.pump();
-
-      // Fast forward past the 5-second fullscreen controls auto-hide timer
+      // Fast forward past the 5-second fullscreen controls auto-hide timer without manual unfocus
       await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
 

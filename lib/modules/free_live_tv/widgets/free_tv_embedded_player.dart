@@ -271,13 +271,27 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
     }
   }
 
+  void _unfocusControls() {
+    if (_playPauseFocusNode.hasFocus) _playPauseFocusNode.unfocus();
+    if (_bottomPlayPauseFocusNode.hasFocus) _bottomPlayPauseFocusNode.unfocus();
+    if (_stopFocusNode.hasFocus) _stopFocusNode.unfocus();
+    if (_favoriteFocusNode.hasFocus) _favoriteFocusNode.unfocus();
+    if (_aspectRatioFocusNode.hasFocus) _aspectRatioFocusNode.unfocus();
+    if (_audioFocusNode.hasFocus) _audioFocusNode.unfocus();
+    if (_subtitleFocusNode.hasFocus) _subtitleFocusNode.unfocus();
+    if (_quickZapperFocusNode.hasFocus) _quickZapperFocusNode.unfocus();
+    if (_pipFocusNode.hasFocus) _pipFocusNode.unfocus();
+    if (_fullscreenFocusNode.hasFocus) _fullscreenFocusNode.unfocus();
+  }
+
   void _reclaimPlayerFocus() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _controlsVisible) return;
-      if (_keyboardKey.currentState != null) {
-        _keyboardKey.currentState!.reclaimFocus();
-      } else if (_playerAnchorFocusNode.canRequestFocus) {
+      _unfocusControls();
+      if (_playerAnchorFocusNode.canRequestFocus) {
         _playerAnchorFocusNode.requestFocus();
+      } else if (_keyboardKey.currentState != null) {
+        _keyboardKey.currentState!.reclaimFocus();
       }
     });
   }
@@ -298,12 +312,8 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
       if (!mounted || !_controlsVisible) return;
       final ctrl = widget.controller.inlinePlayerController;
       final state = ctrl?.playbackController.engine.stateRx.value;
-      // Keep controls on screen while paused or while any control is focused
-      if (state == PlaybackState.paused) return;
-      if (_hasAnyControlFocus) {
-        _startControlsTimer();
-        return;
-      }
+      // Keep controls on screen while paused or quick zapper is open
+      if (state == PlaybackState.paused || _quickZapperOpen) return;
       setState(() => _controlsVisible = false);
       _reclaimPlayerFocus();
     });
@@ -963,7 +973,7 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             IgnorePointer(
               ignoring: !_controlsVisible,
               child: ExcludeFocus(
-                excluding: !_controlsVisible && !_playPauseFocusNode.hasFocus,
+                excluding: !_controlsVisible,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -1064,7 +1074,7 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             IgnorePointer(
               ignoring: !_controlsVisible,
               child: ExcludeFocus(
-                excluding: !_controlsVisible && !_hasAnyControlFocus,
+                excluding: !_controlsVisible,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
@@ -1323,7 +1333,7 @@ class FreeTvEmbeddedPlayerState extends State<FreeTvEmbeddedPlayer> {
             IgnorePointer(
               ignoring: !_controlsVisible,
               child: ExcludeFocus(
-                excluding: !_controlsVisible && !_hasAnyControlFocus,
+                excluding: !_controlsVisible,
                 child: AnimatedOpacity(
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 200),
