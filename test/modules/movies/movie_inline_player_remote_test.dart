@@ -377,6 +377,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(playPauseNode.focusNode?.hasFocus, isTrue);
 
+      // Resume playback so auto-hide timer can engage while playing
+      await playerController.playbackController.resume();
+      await tester.pumpAndSettle();
+
       // 11. Wait for controls to auto-hide after 5 seconds
       await tester.pump(const Duration(seconds: 6));
       await tester.pumpAndSettle();
@@ -388,6 +392,8 @@ void main() {
         (w) => w.focusNode?.debugLabel == 'MoviePlayPause',
       );
       expect(playPauseAfterNode.focusNode?.hasFocus, isTrue);
+
+      await playerController.playbackController.stop();
     },
   );
 }

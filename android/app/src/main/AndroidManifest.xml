@@ -17,6 +17,7 @@
         android:icon="@mipmap/ic_launcher"
         android:banner="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true"
+        android:largeHeap="true"
         android:usesCleartextTraffic="true">
         <!-- NOTE: Impeller opt-out (EnableImpeller=false) was removed in Flutter 3.24+
              as it is deprecated. The Unisoc/Mali black-screen workaround is now

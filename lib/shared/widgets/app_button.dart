@@ -18,6 +18,7 @@ class AppButton extends StatelessWidget {
   final bool autofocus;
   final FocusNode? focusNode;
   final FocusOnKeyEventCallback? onKeyEvent;
+  final EdgeInsetsGeometry? padding;
 
   const AppButton({
     super.key,
@@ -31,6 +32,7 @@ class AppButton extends StatelessWidget {
     this.autofocus = false,
     this.focusNode,
     this.onKeyEvent,
+    this.padding,
   });
 
   const AppButton.primary({
@@ -44,6 +46,7 @@ class AppButton extends StatelessWidget {
     this.autofocus = false,
     this.focusNode,
     this.onKeyEvent,
+    this.padding,
   }) : type = ButtonType.primary;
 
   const AppButton.secondary({
@@ -57,6 +60,7 @@ class AppButton extends StatelessWidget {
     this.autofocus = false,
     this.focusNode,
     this.onKeyEvent,
+    this.padding,
   }) : type = ButtonType.secondary;
 
   const AppButton.text({
@@ -70,6 +74,7 @@ class AppButton extends StatelessWidget {
     this.autofocus = false,
     this.focusNode,
     this.onKeyEvent,
+    this.padding,
   }) : type = ButtonType.text;
 
   const AppButton.danger({
@@ -83,6 +88,7 @@ class AppButton extends StatelessWidget {
     this.autofocus = false,
     this.focusNode,
     this.onKeyEvent,
+    this.padding,
   }) : type = ButtonType.danger;
 
   @override
@@ -140,7 +146,7 @@ class AppButton extends StatelessWidget {
                 : foregroundColor,
             side: isButtonDisabled ? BorderSide.none : borderSide,
             shape: const RoundedRectangleBorder(borderRadius: AppRadius.medium),
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            padding: padding ?? const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
           ),
           child: isLoading
               ? const LoadingIndicator(size: 20.0, strokeWidth: 2.0)

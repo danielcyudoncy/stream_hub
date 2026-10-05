@@ -130,26 +130,26 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: widget.isPlaying
-              ? AppColors.primary.withValues(alpha: 0.12)
-              : colorScheme.surface,
+              ? AppColors.primary.withValues(alpha: 0.15)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
           borderRadius: AppRadius.medium,
           border: Border.all(
             color: widget.isPlaying
                 ? AppColors.primary
                 : (_isFocused
                       ? colorScheme.primary
-                      : colorScheme.outline.withValues(alpha: 0.1)),
-            width: widget.isPlaying ? 2.5 : (_isFocused ? 2.0 : 1.0),
+                      : colorScheme.outline.withValues(alpha: 0.15)),
+            width: widget.isPlaying ? 2.0 : (_isFocused ? 2.0 : 1.0),
           ),
           boxShadow: [
             if (widget.isPlaying || _isFocused)
               BoxShadow(
                 color: AppColors.primary.withValues(
-                  alpha: widget.isPlaying ? 0.45 : 0.35,
+                  alpha: widget.isPlaying ? 0.25 : 0.2,
                 ),
-                blurRadius: widget.isPlaying ? 20.0 : 14.0,
-                spreadRadius: widget.isPlaying ? 2.0 : 1.0,
-                offset: const Offset(0, 4),
+                blurRadius: widget.isPlaying ? 12.0 : 10.0,
+                spreadRadius: 1.0,
+                offset: const Offset(0, 2),
               )
             else
               BoxShadow(
@@ -310,15 +310,6 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                                     scale: 0.88,
                                   ).copyWith(
                                     fontWeight: FontWeight.bold,
-                                    shadows: widget.isPlaying
-                                        ? [
-                                            Shadow(
-                                              color: AppColors.primary
-                                                  .withValues(alpha: 0.8),
-                                              blurRadius: 10.0,
-                                            ),
-                                          ]
-                                        : null,
                                   ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -328,39 +319,31 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                             const SizedBox(width: 4.0),
                             Container(
                               padding: EdgeInsets.symmetric(
-                                horizontal: isCompactCard ? 4.0 : 6.0,
-                                vertical: 2.0,
+                                horizontal: isCompactCard ? 4.0 : 5.0,
+                                vertical: 1.5,
                               ),
                               decoration: BoxDecoration(
                                 color: AppColors.primary,
                                 borderRadius: BorderRadius.circular(4.0),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: AppColors.primary.withValues(
-                                      alpha: 0.6,
-                                    ),
-                                    blurRadius: 8.0,
-                                  ),
-                                ],
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(
-                                    Icons.graphic_eq_rounded,
-                                    color: Colors.black,
-                                    size: 10.0,
-                                  ),
                                   if (!isCompactCard) ...[
-                                    const SizedBox(width: 3.0),
                                     const Text(
                                       'PLAYING',
                                       style: TextStyle(
                                         color: Colors.black,
-                                        fontSize: 8.5,
-                                        fontWeight: FontWeight.w900,
+                                        fontSize: 8.0,
+                                        fontWeight: FontWeight.bold,
                                         letterSpacing: 0.3,
                                       ),
+                                    ),
+                                  ] else ...[
+                                    const Icon(
+                                      Icons.graphic_eq_rounded,
+                                      color: Colors.black,
+                                      size: 10.0,
                                     ),
                                   ],
                                 ],
@@ -381,9 +364,7 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                                   : 'Live Broadcast')),
                     style:
                         AppTypography.getCaption(
-                          color: _isFocused || widget.isPlaying
-                              ? AppColors.primary
-                              : AppColors.darkTextMuted,
+                          color: colorScheme.onSurfaceVariant,
                         ).copyWith(
                           fontSize: 10.5,
                           fontWeight: currentProgram != null || widget.isPlaying
@@ -497,25 +478,25 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
         padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 7.0),
         decoration: BoxDecoration(
           color: widget.isPlaying
-              ? AppColors.primaryContainer.withValues(alpha: 0.25)
-              : const Color(0xCC121214),
+              ? AppColors.primary.withValues(alpha: 0.15)
+              : colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
           borderRadius: BorderRadius.circular(10.0),
           border: Border.all(
             color: widget.isPlaying
                 ? AppColors.primary
                 : (_isFocused
                       ? colorScheme.primary
-                      : Colors.white.withValues(alpha: 0.08)),
+                      : colorScheme.outline.withValues(alpha: 0.15)),
             width: widget.isPlaying ? 2.0 : (_isFocused ? 1.5 : 1.0),
           ),
           boxShadow: [
             if (widget.isPlaying || _isFocused)
               BoxShadow(
                 color: AppColors.primary.withValues(
-                  alpha: widget.isPlaying ? 0.4 : 0.25,
+                  alpha: widget.isPlaying ? 0.25 : 0.2,
                 ),
-                blurRadius: widget.isPlaying ? 14.0 : 8.0,
-                spreadRadius: widget.isPlaying ? 1.5 : 0.0,
+                blurRadius: widget.isPlaying ? 12.0 : 8.0,
+                spreadRadius: widget.isPlaying ? 1.0 : 0.0,
                 offset: const Offset(0, 2),
               ),
           ],
@@ -549,17 +530,6 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                 children: [
                   Row(
                     children: [
-                      if (widget.isPlaying) ...[
-                        Container(
-                          width: 6.0,
-                          height: 6.0,
-                          margin: const EdgeInsets.only(right: 5.0),
-                          decoration: const BoxDecoration(
-                            color: AppColors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
                       Expanded(
                         child: Text(
                           channelNum != null && channelNum.isNotEmpty
@@ -574,29 +544,40 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                                 ? AppColors.primary
                                 : (_isFocused
                                       ? colorScheme.primary
-                                      : Colors.white),
-                            shadows: widget.isPlaying
-                                ? [
-                                    Shadow(
-                                      color: AppColors.primary.withValues(
-                                        alpha: 0.8,
-                                      ),
-                                      blurRadius: 10.0,
-                                    ),
-                                  ]
-                                : null,
+                                      : colorScheme.onSurface),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (timeStr.isNotEmpty) ...[
+                      if (widget.isPlaying) ...[
+                        const SizedBox(width: 6.0),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5.0,
+                            vertical: 1.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary,
+                            borderRadius: BorderRadius.circular(4.0),
+                          ),
+                          child: const Text(
+                            'PLAYING',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 8.0,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ] else if (timeStr.isNotEmpty) ...[
                         const SizedBox(width: 6.0),
                         Text(
                           timeStr,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 9.5,
-                            color: AppColors.darkTextSecondary,
+                            color: colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -606,10 +587,10 @@ class _LiveTvChannelCardState extends State<LiveTvChannelCard> {
                   const SizedBox(height: 2.0),
                   Text(
                     titleStr,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11.5,
                       fontWeight: FontWeight.w400,
-                      color: AppColors.darkTextSecondary,
+                      color: colorScheme.onSurfaceVariant,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,

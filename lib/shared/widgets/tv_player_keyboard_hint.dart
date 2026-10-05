@@ -68,7 +68,7 @@ class TvPlayerKeyboardState extends State<TvPlayerKeyboard> {
   void reclaimFocus() {
     if (!mounted) return;
     final node = _fullscreenFocusNode ?? _inlineFocusNode;
-    if (node != null && node.canRequestFocus && !node.hasFocus) {
+    if (node != null && node.canRequestFocus && !node.hasPrimaryFocus) {
       node.requestFocus();
     }
   }

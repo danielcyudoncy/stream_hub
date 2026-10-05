@@ -24,6 +24,9 @@ import 'shared/widgets/tv_remote_key_telemetry.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Bound Flutter in-memory decoded image cache to prevent OOMs during rapid fling scrolling
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 100 << 20; // 100 MB max
+  PaintingBinding.instance.imageCache.maximumSize = 100; // max 100 decoded images
   HttpOverrides.global = AppHttpOverrides();
   MediaKit.ensureInitialized();
   await PlatformHelper.initialize();
