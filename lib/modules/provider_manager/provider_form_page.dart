@@ -38,7 +38,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
   late final TextEditingController _passwordController;
   late final TextEditingController _macController;
   late final TextEditingController _xmltvController;
-  late final TextEditingController _notesController;
   late final Rx<ProviderType> _selectedType;
 
   late final FocusNode _nameFocusNode;
@@ -50,7 +49,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
   late final FocusNode _macFocusNode;
   late final FocusNode _xmltvFocusNode;
   late final FocusNode _xmltvPasteFocusNode;
-  late final FocusNode _notesFocusNode;
   late final FocusNode _cancelFocusNode;
   late final FocusNode _scanToAddFocusNode;
   late final FocusNode _submitFocusNode;
@@ -98,7 +96,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     _passwordController = TextEditingController(text: effective?.password ?? '');
     _macController = TextEditingController(text: effective?.macAddress ?? '');
     _xmltvController = TextEditingController(text: effective?.xmltvUrl ?? '');
-    _notesController = TextEditingController(text: effective?.notes ?? '');
     _selectedType = initialType.obs;
     _serverUrlController.addListener(_handleServerUrlChanged);
 
@@ -220,22 +217,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
       onKeyEvent: _handleXmltvPasteKeyEvent,
     );
 
-    _notesFocusNode = FocusNode(
-      debugLabel: 'provider_notes_field',
-      onKeyEvent: (node, event) => _handleFieldKeyEvent(
-        node: node,
-        event: event,
-        fieldId: 'notes',
-        controller: _notesController,
-        nextNode: _getNextNodeForField('notes'),
-        prevNode: _getPrevNodeForField('notes'),
-        isMultiLine: true,
-      ),
-    );
-    _notesFocusNode.addListener(
-      () => _handleFieldFocusChange('notes', _notesFocusNode),
-    );
-
     _cancelFocusNode = FocusNode(
       debugLabel: 'provider_cancel_button',
       onKeyEvent: _handleCancelKeyEvent,
@@ -252,6 +233,18 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     );
   }
 
+  FocusNode get _bottomActionNode =>
+      !isEditing ? _scanToAddFocusNode : _submitFocusNode;
+
+  FocusNode _getLastFieldNode() {
+    return switch (_selectedType.value) {
+      ProviderType.xtream => _passwordFocusNode,
+      ProviderType.stalker => _macFocusNode,
+      ProviderType.xmltv => _xmltvFocusNode,
+      _ => _serverUrlFocusNode,
+    };
+  }
+
   FocusNode? _getNextNodeForField(String fieldId) {
     switch (fieldId) {
       case 'name':
@@ -260,16 +253,14 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
         return switch (_selectedType.value) {
           ProviderType.xtream => _usernameFocusNode,
           ProviderType.stalker => _macFocusNode,
-          _ => _notesFocusNode,
+          _ => _bottomActionNode,
         };
       case 'username':
         return _passwordFocusNode;
       case 'password':
       case 'mac':
       case 'xmltv':
-        return _notesFocusNode;
-      case 'notes':
-        return !isEditing ? _scanToAddFocusNode : _submitFocusNode;
+        return _bottomActionNode;
       default:
         return null;
     }
@@ -287,13 +278,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
         return _serverUrlFocusNode;
       case 'xmltv':
         return _typeFocusNodes[ProviderType.xmltv];
-      case 'notes':
-        return switch (_selectedType.value) {
-          ProviderType.xtream => _passwordFocusNode,
-          ProviderType.stalker => _macFocusNode,
-          ProviderType.xmltv => _xmltvFocusNode,
-          _ => _serverUrlFocusNode,
-        };
       default:
         return null;
     }
@@ -308,7 +292,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     _passwordController.dispose();
     _macController.dispose();
     _xmltvController.dispose();
-    _notesController.dispose();
 
     _nameFocusNode.dispose();
     for (final node in _typeFocusNodes.values) {
@@ -321,7 +304,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     _macFocusNode.dispose();
     _xmltvFocusNode.dispose();
     _xmltvPasteFocusNode.dispose();
-    _notesFocusNode.dispose();
     _cancelFocusNode.dispose();
     _scanToAddFocusNode.dispose();
     _submitFocusNode.dispose();
@@ -498,7 +480,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
       return KeyEventResult.ignored;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      _notesFocusNode.requestFocus();
+      _getLastFieldNode().requestFocus();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowRight) {
@@ -514,7 +496,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
       return KeyEventResult.ignored;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      _notesFocusNode.requestFocus();
+      _getLastFieldNode().requestFocus();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -533,7 +515,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
       return KeyEventResult.ignored;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
-      _notesFocusNode.requestFocus();
+      _getLastFieldNode().requestFocus();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowLeft) {
@@ -572,7 +554,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-      _notesFocusNode.requestFocus();
+      _bottomActionNode.requestFocus();
       return KeyEventResult.handled;
     }
     if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
@@ -837,16 +819,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                       ],
                     );
                   }),
-                  _buildTvFormField(
-                    fieldId: 'notes',
-                    focusNode: _notesFocusNode,
-                    controller: _notesController,
-                    labelText: 'Notes',
-                    defaultHint: 'Optional notes about this provider',
-                    isMultiLine: true,
-                    maxLines: 3,
-                    maxLength: AppConstants.maxNotesLength,
-                  ),
                 ],
               ),
             ),
@@ -854,53 +826,87 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                TvFocusable(
-                  focusNode: _cancelFocusNode,
-                  onKeyEvent: _handleCancelKeyEvent,
-                  onTap: () => Get.back(),
-                  borderRadius: AppRadius.medium,
-                  scale: 1.05,
-                  descendantsAreFocusable: false,
-                  child: const OutlinedButton(
-                    onPressed: null,
-                    child: Text('Cancel'),
-                  ),
-                ),
-                AppSpacing.widthMD,
-                if (!isEditing)
-                  TvFocusable(
-                    focusNode: _scanToAddFocusNode,
-                    onKeyEvent: _handleScanToAddKeyEvent,
-                    onTap: _showPairingDialog,
+                Flexible(
+                  child: TvFocusable(
+                    focusNode: _cancelFocusNode,
+                    onKeyEvent: _handleCancelKeyEvent,
+                    onTap: () => Get.back(),
                     borderRadius: AppRadius.medium,
                     scale: 1.05,
                     descendantsAreFocusable: false,
                     child: OutlinedButton(
                       onPressed: null,
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: Theme.of(context).colorScheme.primary,
-                        disabledForegroundColor:
-                            Theme.of(context).colorScheme.primary,
-                        side: BorderSide(
-                          color: Theme.of(context).colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpacing.sm,
+                          vertical: 8.0,
                         ),
+                        minimumSize: const Size(0, 38.0),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.qr_code_scanner, size: 18),
-                          SizedBox(width: 6),
-                          Text('Scan to Add'),
-                        ],
+                      child: const Text(
+                        'Cancel',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
-                if (!isEditing) AppSpacing.widthMD,
-                AppButton(
-                  focusNode: _submitFocusNode,
-                  onKeyEvent: _handleSubmitKeyEvent,
-                  text: isEditing ? 'Save Changes' : 'Add Link',
-                  onPressed: () {
+                ),
+                if (!isEditing) ...[
+                  AppSpacing.widthSM,
+                  Flexible(
+                    child: TvFocusable(
+                      focusNode: _scanToAddFocusNode,
+                      onKeyEvent: _handleScanToAddKeyEvent,
+                      onTap: _showPairingDialog,
+                      borderRadius: AppRadius.medium,
+                      scale: 1.05,
+                      descendantsAreFocusable: false,
+                      child: OutlinedButton(
+                        onPressed: null,
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          disabledForegroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          side: BorderSide(
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.sm,
+                            vertical: 8.0,
+                          ),
+                          minimumSize: const Size(0, 38.0),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.qr_code_scanner, size: 16),
+                            SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Scan to Add',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                AppSpacing.widthSM,
+                Flexible(
+                  child: AppButton(
+                    focusNode: _submitFocusNode,
+                    onKeyEvent: _handleSubmitKeyEvent,
+                    height: 38.0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                    ),
+                    text: isEditing ? 'Save Changes' : 'Add Link',
+                    onPressed: () {
                     if (_formKey.currentState?.validate() ?? false) {
                       final trimmedName = _nameController.text.trim();
                       final trimmedServerUrl =
@@ -921,9 +927,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                       final trimmedXmltv = _xmltvController.text.trim().isEmpty
                           ? null
                           : _xmltvController.text.trim();
-                      final trimmedNotes = _notesController.text.trim().isEmpty
-                          ? null
-                          : _notesController.text.trim();
 
                       if (isEditing) {
                         final parts = XtreamUrlDetector.parse(trimmedServerUrl ?? '');
@@ -943,7 +946,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                             password: effectivePassword,
                             macAddress: trimmedMac,
                             xmltvUrl: trimmedXmltv,
-                            notes: trimmedNotes,
+                            notes: effectiveProvider?.notes,
                           ),
                         );
                       } else {
@@ -964,7 +967,7 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                           password: effectivePassword,
                           macAddress: trimmedMac,
                           xmltvUrl: trimmedXmltv,
-                          notes: trimmedNotes,
+                          notes: null,
                           createdAt: DateTime.now(),
                           updatedAt: DateTime.now(),
                           status: ProviderStatus.inactive,
@@ -975,13 +978,14 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                     }
                   },
                 ),
-              ],
-            ),
+              ),
             ],
           ),
-        ),
+        ],
       ),
-    );
+    ),
+  ),
+);
   }
 
    String _randomSuffix() {
@@ -1013,9 +1017,6 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
     }
     if (formData['xmltvUrl'] != null) {
       _xmltvController.text = (formData['xmltvUrl'] as String).trim();
-    }
-    if (formData['notes'] != null) {
-      _notesController.text = (formData['notes'] as String).trim();
     }
     final typeStr = formData['providerType'] as String?;
     if (typeStr != null) {

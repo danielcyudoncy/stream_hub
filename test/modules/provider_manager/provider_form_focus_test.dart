@@ -28,7 +28,7 @@ void main() {
   });
 
   testWidgets(
-    'Notes field D-pad Down navigates to Scan to Add and escapes multiline trap',
+    'Server URL field D-pad Down navigates to Scan to Add',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1280, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -42,24 +42,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Find the Notes text field
-      final notesFinder = find.ancestor(
-        of: find.text('Notes'),
+      // Find the Server URL text field
+      final serverFinder = find.ancestor(
+        of: find.text('Server URL'),
         matching: find.byType(TextFormField),
       );
-      expect(notesFinder, findsOneWidget);
+      expect(serverFinder, findsOneWidget);
 
-      // Focus the Notes field
-      await tester.tap(notesFinder);
+      // Focus the Server URL field
+      await tester.tap(serverFinder);
       await tester.pumpAndSettle();
-
 
       expect(
         tester.binding.focusManager.primaryFocus?.debugLabel,
-        equals('provider_notes_field'),
+        equals('provider_server_url_field'),
       );
 
-      // Press D-pad Down from Notes
+      // Press D-pad Down from Server URL
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
 
@@ -69,13 +68,13 @@ void main() {
       final primaryFocus = tester.binding.focusManager.primaryFocus;
       expect(primaryFocus?.debugLabel, equals('provider_scan_to_add_button'));
 
-      // Press D-pad Up from 'Scan to Add' -> moves back up to Notes
+      // Press D-pad Up from 'Scan to Add' -> moves back up to Server URL
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
 
       expect(
         tester.binding.focusManager.primaryFocus?.debugLabel,
-        equals('provider_notes_field'),
+        equals('provider_server_url_field'),
       );
 
       // Press D-pad Down back to 'Scan to Add'
@@ -113,7 +112,7 @@ void main() {
   );
 
   testWidgets(
-    'Edit Provider mode: Notes field D-pad Down navigates to Save Changes button',
+    'Edit Provider mode: Server URL field D-pad Down navigates to Save Changes button',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(1280, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -136,21 +135,21 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final notesFinder = find.ancestor(
-        of: find.text('Notes'),
+      final serverFinder = find.ancestor(
+        of: find.text('Server URL'),
         matching: find.byType(TextFormField),
       );
-      expect(notesFinder, findsOneWidget);
+      expect(serverFinder, findsOneWidget);
 
-      await tester.tap(notesFinder);
+      await tester.tap(serverFinder);
       await tester.pumpAndSettle();
 
       expect(
         tester.binding.focusManager.primaryFocus?.debugLabel,
-        equals('provider_notes_field'),
+        equals('provider_server_url_field'),
       );
 
-      // Press D-pad Down from Notes in edit mode
+      // Press D-pad Down from Server URL in edit mode
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
 
@@ -162,7 +161,7 @@ void main() {
   );
 
   testWidgets(
-    'TV mode: Notes field is readOnly until Select key is pressed and allows Up/Down navigation',
+    'TV mode: Server URL field is readOnly until Select key is pressed and allows Up/Down navigation',
     (tester) async {
       PlatformHelper.forceTvMode = true;
       addTearDown(() => PlatformHelper.forceTvMode = false);
@@ -179,30 +178,30 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final notesFinder = find.ancestor(
-        of: find.text('Notes'),
+      final serverFinder = find.ancestor(
+        of: find.text('Server URL'),
         matching: find.byType(TextFormField),
       );
-      expect(notesFinder, findsOneWidget);
+      expect(serverFinder, findsOneWidget);
 
       // Verify TextField is readOnly initially in TV mode to suppress keyboard popup
       final textFieldFinder = find.descendant(
-        of: notesFinder,
+        of: serverFinder,
         matching: find.byType(TextField),
       );
       final initialField = tester.widget<TextField>(textFieldFinder);
       expect(initialField.readOnly, isTrue);
 
-      // Focus Notes via focusNode.requestFocus() (mimicking remote D-pad arrival without touch tap)
+      // Focus Server URL via focusNode.requestFocus()
       tester.widget<TextField>(textFieldFinder).focusNode!.requestFocus();
       await tester.pumpAndSettle();
 
       expect(
         tester.binding.focusManager.primaryFocus?.debugLabel,
-        equals('provider_notes_field'),
+        equals('provider_server_url_field'),
       );
 
-      // Notes is focused but still readOnly (keyboard not popped)
+      // Server URL is focused but still readOnly (keyboard not popped)
       final focusedField = tester.widget<TextField>(textFieldFinder);
       expect(focusedField.readOnly, isTrue);
 
@@ -214,12 +213,12 @@ void main() {
         equals('provider_scan_to_add_button'),
       );
 
-      // Press D-pad Up -> navigates back to Notes
+      // Press D-pad Up -> navigates back to Server URL
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
       expect(
         tester.binding.focusManager.primaryFocus?.debugLabel,
-        equals('provider_notes_field'),
+        equals('provider_server_url_field'),
       );
 
       // Press Select/OK on remote -> activates edit mode
@@ -331,15 +330,15 @@ void main() {
       );
       expect(serverTextField.readOnly, isTrue);
 
-      // Press D-pad Down from Server URL -> moves to Notes
+      // Press D-pad Down from Server URL -> moves to Scan to Add
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       expect(
         tester.binding.focusManager.primaryFocus?.debugLabel,
-        equals('provider_notes_field'),
+        equals('provider_scan_to_add_button'),
       );
 
-      // Press D-pad Up from Notes -> moves back to Server URL
+      // Press D-pad Up from Scan to Add -> moves back to Server URL
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
       expect(
@@ -405,12 +404,12 @@ void main() {
         equals('provider_password_field'),
       );
 
-      // Navigate down to Notes
+      // Navigate down to Scan to Add
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       expect(
         tester.binding.focusManager.primaryFocus?.debugLabel,
-        equals('provider_notes_field'),
+        equals('provider_scan_to_add_button'),
       );
 
       // Navigate up back to Password

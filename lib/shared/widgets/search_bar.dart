@@ -202,7 +202,7 @@ class _AppSearchBarState extends State<AppSearchBar> {
               onSubmitted: _handleSubmitted,
               style: AppTypography.getBody(color: colorScheme.onSurface),
               decoration: InputDecoration(
-                hintText: isTv && !_isEditing
+                hintText: (PlatformHelper.isTV && !_isEditing)
                     ? '${widget.hintText} (Press OK to type)'
                     : widget.hintText,
                 hintStyle: AppTypography.getBody(

@@ -23,13 +23,13 @@ class AuthConstants {
   static const double passwordStrengthStrong = 1.0;
 
   static LinearGradient get primaryGradient => const LinearGradient(
-        colors: [Color(0xFF6366F1), Color(0xFF4F46E5)],
+        colors: [Color(0xFF0052D4), Color(0xFF0078F8)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
 
   static LinearGradient get secondaryGradient => const LinearGradient(
-        colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+        colors: [Color(0xFF0078F8), Color(0xFF00D0FE)],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );
