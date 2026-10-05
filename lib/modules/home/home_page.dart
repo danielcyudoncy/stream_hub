@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/repositories/playback_repository.dart';
 import '../../../core/routes/app_routes.dart';
@@ -368,17 +369,11 @@ class HomePage extends GetView<HomeController> {
         padding: const EdgeInsets.all(AppSpacing.xl),
         child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.all(AppSpacing.md),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colorScheme.primary.withValues(alpha: 0.15),
-              ),
-              child: Icon(
-                AppIcons.play,
-                size: 48.0,
-                color: colorScheme.primary,
-              ),
+            Image.asset(
+              AppAssets.logo,
+              width: 64.0,
+              height: 64.0,
+              fit: BoxFit.contain,
             ),
             AppSpacing.heightMD,
             Text(

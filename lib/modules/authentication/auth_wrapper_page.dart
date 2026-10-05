@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../core/helpers/platform_helper.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/tv_focusable.dart';
-import './constants/auth_constants.dart';
 import './account_loading_page.dart';
 import './complete_profile_page.dart';
 import './models/user_model.dart';
@@ -62,22 +61,21 @@ class AuthWrapperPage extends GetView<AuthController> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(AppSpacing.lg),
+                        width: 120.0,
+                        height: 120.0,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          gradient: AuthConstants.primaryGradient,
                           boxShadow: [
                             BoxShadow(
-                              color: colorScheme.primary.withValues(alpha: 0.5),
-                              blurRadius: 30.0,
-                              spreadRadius: 2.0,
+                              color: colorScheme.primary.withValues(alpha: 0.35),
+                              blurRadius: 36.0,
+                              spreadRadius: 4.0,
                             ),
                           ],
                         ),
-                        child: Icon(
-                          AppIcons.play,
-                          size: 48.0,
-                          color: colorScheme.onPrimary,
+                        child: Image.asset(
+                          AppAssets.logo,
+                          fit: BoxFit.contain,
                         ),
                       ),
                       AppSpacing.heightLG,
