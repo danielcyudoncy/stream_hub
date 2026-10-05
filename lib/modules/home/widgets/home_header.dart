@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../core/routes/app_routes.dart';
-import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_icons.dart';
 import '../../../core/theme/app_radius.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -45,19 +45,11 @@ class HomeHeader extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(4.0),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: LinearGradient(
-                            colors: AppColors.primaryGradient,
-                          ),
-                        ),
-                        child: const Icon(
-                          AppIcons.play,
-                          color: Colors.white,
-                          size: 12.0,
-                        ),
+                      Image.asset(
+                        AppAssets.logo,
+                        width: 20.0,
+                        height: 20.0,
+                        fit: BoxFit.contain,
                       ),
                       AppSpacing.widthXS,
                       Text(

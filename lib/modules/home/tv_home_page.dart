@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import '../../../core/constants/app_assets.dart';
 import '../../../core/media/enums/media_type.dart';
 import '../../../core/media/repositories/playback_repository.dart';
 import '../../../core/routes/app_routes.dart';
@@ -599,26 +600,11 @@ class _TvHomePageState extends State<TvHomePage> {
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 96,
-                  height: 96,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: AppColors.primaryGradient,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.35),
-                        blurRadius: 24,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    AppIcons.play,
-                    color: Colors.white,
-                    size: 48.0,
-                  ),
+                Image.asset(
+                  AppAssets.logo,
+                  width: 80.0,
+                  height: 80.0,
+                  fit: BoxFit.contain,
                 ),
                 AppSpacing.heightLG,
                 Text(
