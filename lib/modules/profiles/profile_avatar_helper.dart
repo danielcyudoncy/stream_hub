@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import '../../data/models/profile_model.dart';
 
@@ -18,6 +19,13 @@ const List<({Color color, IconData icon})> kAvatarPresets = [
   (color: Color(0xFF606C38), icon: Icons.sports_soccer_rounded),
 ];
 
+/// Checks if a photo URL represents an external network image (e.g. Google avatar).
+bool isNetworkAvatar(String? photoUrl) {
+  if (photoUrl == null) return false;
+  final trimmed = photoUrl.trim();
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://');
+}
+
 /// Derives an avatar preset index from a profile id / photo url
 /// (treated as an "avatar code" that is just the preset index as a string).
 int avatarIndexForProfile(ProfileModel? profile) {
@@ -29,4 +37,59 @@ int avatarIndexForProfile(ProfileModel? profile) {
   }
   // Fall back: hash the profile id to a stable index.
   return profile.id.hashCode.abs() % kAvatarPresets.length;
+}
+
+/// A unified avatar widget that renders either an authenticated user's remote
+/// avatar image (e.g. Google profile picture) with cached fallback, or one of
+/// the preset theme avatars.
+class ProfileAvatar extends StatelessWidget {
+  final String? photoUrl;
+  final ProfileModel? profile;
+  final double radius;
+  final double? iconSize;
+
+  const ProfileAvatar({
+    super.key,
+    this.photoUrl,
+    this.profile,
+    this.radius = 16.0,
+    this.iconSize,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final photoToUse = (photoUrl != null && photoUrl!.trim().isNotEmpty)
+        ? photoUrl!.trim()
+        : (profile?.photoUrl?.trim() ?? '0');
+    final idx = int.tryParse(photoToUse) ?? avatarIndexForProfile(profile);
+    final preset = kAvatarPresets[idx.clamp(0, kAvatarPresets.length - 1)];
+    final effectiveIconSize = iconSize ?? (radius * 0.875);
+
+    if (isNetworkAvatar(photoToUse)) {
+      return CachedNetworkImage(
+        imageUrl: photoToUse,
+        imageBuilder: (context, imageProvider) => CircleAvatar(
+          radius: radius,
+          backgroundColor: preset.color,
+          backgroundImage: imageProvider,
+        ),
+        placeholder: (context, url) => CircleAvatar(
+          radius: radius,
+          backgroundColor: preset.color,
+          child: Icon(preset.icon, color: Colors.white, size: effectiveIconSize),
+        ),
+        errorWidget: (context, url, error) => CircleAvatar(
+          radius: radius,
+          backgroundColor: preset.color,
+          child: Icon(preset.icon, color: Colors.white, size: effectiveIconSize),
+        ),
+      );
+    }
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: preset.color,
+      child: Icon(preset.icon, color: Colors.white, size: effectiveIconSize),
+    );
+  }
 }

@@ -9,6 +9,7 @@ import '../../../core/utils/validators.dart';
 import '../../../data/models/media_sync_result.dart';
 import '../../../data/repositories/catalog_repository.dart';
 import '../../../data/repositories/provider_repository.dart';
+import '../../../data/services/active_profile_service.dart';
 import '../../../data/services/provider_sync_service.dart';
 import './constants/auth_constants.dart';
 import './models/user_model.dart';
@@ -261,6 +262,12 @@ class AuthController extends GetxController {
       currentUser.value = user;
       isAuthenticated.value = true;
       await _persistSession();
+      if (Get.isRegistered<ActiveProfileService>()) {
+        await Get.find<ActiveProfileService>().syncWithAuthenticatedUser(
+          displayName: user.displayName,
+          photoUrl: user.photoUrl,
+        );
+      }
       Get.offAllNamed(AppRoutes.home);
     } on ApplicationException catch (e) {
       errorMessage.value = e.message;

@@ -57,12 +57,17 @@ class ProfileController extends GetxController {
         photoUrl.value = authUser.photoUrl ?? '';
       }
       var allProfiles = await _profileService.getAllProfiles();
+      final userPhoto = authUser?.photoUrl?.trim();
+      final userName = authUser?.displayName?.trim();
+      final hasUserPhoto = userPhoto != null && userPhoto.isNotEmpty;
+      final hasUserName = userName != null && userName.isNotEmpty;
+
       if (allProfiles.isEmpty) {
         final now = DateTime.now();
         final defaultProfile = ProfileModel(
           id: 'profile_${now.millisecondsSinceEpoch}',
-          displayName: 'Primary',
-          photoUrl: '0',
+          displayName: hasUserName ? userName : 'Primary',
+          photoUrl: hasUserPhoto ? userPhoto : '0',
           language: 'en',
           themeMode: 'system',
           createdAt: now,
@@ -83,6 +88,30 @@ class ProfileController extends GetxController {
         toSelect = allProfiles.firstWhereOrNull((p) => p.id == savedId);
       }
       toSelect ??= allProfiles.first;
+
+      // If user has an authenticated photo or name and profile has default values, sync them.
+      if (hasUserPhoto || hasUserName) {
+        final isDefaultPhoto = toSelect.photoUrl == null ||
+            toSelect.photoUrl == '0' ||
+            toSelect.photoUrl!.isEmpty;
+        final isDefaultName = toSelect.displayName == 'Primary' ||
+            toSelect.displayName.isEmpty;
+
+        if ((isDefaultPhoto && hasUserPhoto) || (isDefaultName && hasUserName)) {
+          final updated = toSelect.copyWith(
+            displayName:
+                (isDefaultName && hasUserName) ? userName : toSelect.displayName,
+            photoUrl:
+                (isDefaultPhoto && hasUserPhoto) ? userPhoto : toSelect.photoUrl,
+            updatedAt: DateTime.now(),
+          );
+          await _profileService.updateProfile(updated);
+          final idx = allProfiles.indexWhere((p) => p.id == updated.id);
+          if (idx >= 0) allProfiles[idx] = updated;
+          toSelect = updated;
+          profiles.value = List.from(allProfiles);
+        }
+      }
 
       await _applyProfileLocally(toSelect);
     } on ApplicationException catch (e) {
