@@ -5,6 +5,7 @@ class AppConstants {
   static const String appBuildNumber = '1';
   static const String developerName = 'StreamHub Pro Team';
   static const String appWebsite = 'https://streamhub.pro';
+  static const String defaultUpdateManifestUrl = 'https://streamhub.pro/api/version.json';
 
   // Hive Box Names
   static const String boxSettings = 'settings';

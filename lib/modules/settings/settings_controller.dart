@@ -7,10 +7,12 @@ import 'package:stream_hub/core/media/player/player_settings.dart';
 import 'package:stream_hub/core/media/repositories/playback_repository.dart';
 import 'package:stream_hub/core/services/cloud_sync_service.dart';
 import 'package:stream_hub/core/services/parental_control_service.dart';
+import 'package:stream_hub/core/services/app_update_service.dart';
 import 'package:stream_hub/data/models/settings_model.dart';
 import 'package:stream_hub/data/services/settings_service.dart';
 import 'package:stream_hub/data/services/profile_service.dart';
 import 'package:stream_hub/data/services/cache_service.dart';
+import 'package:stream_hub/shared/dialogs/app_update_dialog.dart';
 
 class SettingsController extends GetxController {
   final SettingsService _settingsService;
@@ -419,6 +421,36 @@ class SettingsController extends GetxController {
     final syncService = _cloudSync;
     if (syncService == null) return;
     await syncService.syncAll(force: true);
+  }
+
+  // --- In-App Self-Updates ---
+
+  AppUpdateService? get _appUpdateService =>
+      Get.isRegistered<AppUpdateService>() ? Get.find<AppUpdateService>() : null;
+
+  Rx<AppUpdateStatus> get updateStatus =>
+      _appUpdateService?.status ?? AppUpdateStatus.idle.obs;
+
+  RxString get currentAppVersion =>
+      _appUpdateService?.currentVersion ?? '1.0.0'.obs;
+
+  RxInt get currentBuildNumber =>
+      _appUpdateService?.currentBuildNumber ?? 1.obs;
+
+  Future<void> checkForUpdates({bool showFeedback = true}) async {
+    final service = _appUpdateService;
+    if (service == null) return;
+    final info = await service.checkForUpdate(silent: !showFeedback);
+    if (info != null) {
+      await AppUpdateDialog.show(updateInfo: info);
+    } else if (showFeedback && service.status.value == AppUpdateStatus.upToDate) {
+      Get.snackbar(
+        'Up to Date',
+        'StreamHub Pro is up to date (v${currentAppVersion.value}+${currentBuildNumber.value}).',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(seconds: 3),
+      );
+    }
   }
 
   Future<void> _persistSettings() async {

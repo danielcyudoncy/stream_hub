@@ -57,6 +57,7 @@ import 'package:stream_hub/core/media/stream_matching_service.dart';
 import 'package:stream_hub/core/services/media_watchlist_service.dart';
 import 'package:stream_hub/core/services/cloud_sync_service.dart';
 import 'package:stream_hub/core/services/parental_control_service.dart';
+import 'package:stream_hub/core/services/app_update_service.dart';
 import 'package:stream_hub/data/services/active_profile_service.dart';
 
 class AppBinding extends Bindings {
@@ -277,6 +278,10 @@ class AppBinding extends Bindings {
 
     if (!Get.isRegistered<CloudSyncService>()) {
       Get.put<CloudSyncService>(CloudSyncService(), permanent: true);
+    }
+
+    if (!Get.isRegistered<AppUpdateService>()) {
+      Get.put<AppUpdateService>(AppUpdateService(), permanent: true);
     }
   }
 }
