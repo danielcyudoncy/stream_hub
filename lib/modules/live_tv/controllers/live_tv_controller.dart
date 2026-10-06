@@ -270,26 +270,73 @@ class LiveTVController extends GetxController {
         targetChannel;
 
     String? foundCat;
-    final candidates = [
-      ...matched.genres,
-      matched.metadata['category_name']?.toString() ?? '',
-      matched.metadata['groupTitle']?.toString() ?? '',
-      matched.metadata['group']?.toString() ?? '',
-      matched.metadata['genre']?.toString() ?? '',
-    ];
+    final candidates = <String>[];
 
+    // Check category ID mappings from _allCategories (e.g. Xtream numeric categoryId)
+    final catId = matched.metadata['categoryId']?.toString() ??
+        matched.metadata['category_id']?.toString() ??
+        targetChannel.metadata['categoryId']?.toString() ??
+        targetChannel.metadata['category_id']?.toString();
+    if (catId != null && catId.isNotEmpty) {
+      final categoryItem = _allCategories.firstWhereOrNull(
+        (c) =>
+            c.id == catId ||
+            c.id == 'xtream-live-cat-$catId' ||
+            c.metadata['category_id']?.toString() == catId ||
+            c.metadata['categoryId']?.toString() == catId,
+      );
+      if (categoryItem != null && categoryItem.title.trim().isNotEmpty) {
+        candidates.add(categoryItem.title.trim());
+      }
+    }
+
+    final catName = matched.metadata['category_name']?.toString() ??
+        targetChannel.metadata['category_name']?.toString() ??
+        '';
+    if (catName.trim().isNotEmpty) candidates.add(catName.trim());
+
+    final groupTitle = matched.metadata['groupTitle']?.toString() ??
+        matched.metadata['group_title']?.toString() ??
+        targetChannel.metadata['groupTitle']?.toString() ??
+        '';
+    if (groupTitle.trim().isNotEmpty) candidates.add(groupTitle.trim());
+
+    final catMeta = matched.metadata['category']?.toString() ??
+        targetChannel.metadata['category']?.toString() ??
+        '';
+    if (catMeta.trim().isNotEmpty) candidates.add(catMeta.trim());
+
+    final group = matched.metadata['group']?.toString() ?? '';
+    if (group.trim().isNotEmpty) candidates.add(group.trim());
+
+    final genreMeta = matched.metadata['genre']?.toString() ?? '';
+    if (genreMeta.trim().isNotEmpty) candidates.add(genreMeta.trim());
+
+    candidates.addAll(matched.genres);
+    candidates.addAll(targetChannel.genres);
+
+    // 1. Exact match
     for (final raw in candidates) {
       if (raw.trim().isEmpty) continue;
       final target = raw.trim().toLowerCase();
-      // 1. Exact match
       foundCat = categories.firstWhereOrNull((c) => c.toLowerCase() == target);
       if (foundCat != null) break;
-      // 2. Contains match
-      foundCat = categories.firstWhereOrNull((c) {
-        final cl = c.toLowerCase();
-        return cl.contains(target) || target.contains(cl);
-      });
-      if (foundCat != null) break;
+    }
+
+    // 2. Contains match (ignoring 'All Channels', '★ Favorites', '🕒 Recent')
+    if (foundCat == null) {
+      for (final raw in candidates) {
+        if (raw.trim().isEmpty) continue;
+        final target = raw.trim().toLowerCase();
+        foundCat = categories.firstWhereOrNull((c) {
+          final cl = c.toLowerCase();
+          return cl != 'all channels' &&
+              cl != '★ favorites' &&
+              cl != '🕒 recent' &&
+              (cl.contains(target) || target.contains(cl));
+        });
+        if (foundCat != null) break;
+      }
     }
 
     if (foundCat == null && (matched.favorite || targetChannel.favorite)) {
