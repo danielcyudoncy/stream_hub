@@ -96,7 +96,14 @@ class AppUpdateService extends GetxService {
       }
 
       final responseBody = await response.transform(utf8.decoder).join();
-      final Map<String, dynamic> json = jsonDecode(responseBody);
+      final trimmedBody = responseBody.trim();
+      if (!trimmedBody.startsWith('{')) {
+        throw const FormatException(
+          'Update server did not return a valid JSON manifest (received HTML/plain text).',
+        );
+      }
+
+      final Map<String, dynamic> json = jsonDecode(trimmedBody);
       final info = AppUpdateInfo.fromJson(json);
 
       final isNewer = info.buildNumber > currentBuildNumber.value;
@@ -119,11 +126,14 @@ class AppUpdateService extends GetxService {
       errorMessage.value = 'Failed to check for updates: $e';
       _logger?.warning('App update check failed', tag: 'AppUpdateService', error: e);
       if (!silent) {
+        final message = e is FormatException
+            ? 'The update server did not return a valid JSON manifest (received HTML instead).'
+            : 'Could not check for updates. Please verify your internet connection.';
         Get.snackbar(
           'Update Check Failed',
-          'Could not check for updates. Please verify your internet connection.',
+          message,
           snackPosition: SnackPosition.BOTTOM,
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 5),
         );
       }
       return null;
