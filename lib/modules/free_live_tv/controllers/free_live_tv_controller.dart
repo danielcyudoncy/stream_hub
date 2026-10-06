@@ -268,7 +268,8 @@ class FreeLiveTvController extends GetxController {
         if (foundCat != null) break;
         foundCat = categories.firstWhereOrNull((c) {
           final cl = c.toLowerCase();
-          return cl.contains(target) || target.contains(cl);
+          return cl != 'all channels' &&
+              (cl.contains(target) || target.contains(cl));
         });
         if (foundCat != null) break;
       }

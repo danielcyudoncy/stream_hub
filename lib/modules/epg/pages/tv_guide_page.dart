@@ -49,6 +49,8 @@ class _TVGuidePageState extends State<TVGuidePage> {
   final FocusNode _searchFocusNode = FocusNode(debugLabel: 'TvGuide_Search');
   final FocusNode _refreshFocusNode = FocusNode(debugLabel: 'TvGuide_Refresh');
   Worker? _selectedViewWorker;
+  Worker? _selectedCategoryWorker;
+  final ScrollController _categoryScrollController = ScrollController();
 
   final Map<String, FocusNode> _categoryFocusNodes = <String, FocusNode>{};
   String? _lastFocusedCategory;
@@ -60,19 +62,60 @@ class _TVGuidePageState extends State<TVGuidePage> {
     );
   }
 
+  void _scrollToAndFocusCategory(String cat, List<String> categories) {
+    if (!mounted || cat.isEmpty) return;
+    _lastFocusedCategory = cat;
+    final index = categories.indexOf(cat);
+    if (index >= 0 && _categoryScrollController.hasClients) {
+      final targetOffset = (index * 115.0).clamp(
+        0.0,
+        _categoryScrollController.position.maxScrollExtent,
+      );
+      _categoryScrollController.animateTo(
+        targetOffset,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+      ).then((_) {
+        if (!mounted) return;
+        final node = _getCategoryFocusNode(cat);
+        if (node.canRequestFocus) {
+          node.requestFocus();
+        }
+      });
+    } else {
+      final node = _getCategoryFocusNode(cat);
+      if (node.canRequestFocus) {
+        node.requestFocus();
+      }
+    }
+  }
+
   bool _focusActiveCategory() {
     if (!mounted) return false;
     final liveCtrl = Get.isRegistered<LiveTVController>()
         ? Get.find<LiveTVController>()
         : null;
-    final selectedCat = liveCtrl?.selectedCategory.value ??
-        controller.selectedCategory.value;
-    final catToFocus = _lastFocusedCategory ??
-        (selectedCat.isNotEmpty ? selectedCat : 'All Channels');
-    final node = _categoryFocusNodes[catToFocus] ??
-        _categoryFocusNodes.values.firstOrNull;
+    final activeLiveCat = liveCtrl?.selectedCategory.value;
+    final activeGuideCat = controller.selectedCategory.value;
+
+    final selectedCat = (activeLiveCat != null &&
+            activeLiveCat.isNotEmpty &&
+            activeLiveCat != 'All Channels')
+        ? activeLiveCat
+        : (activeGuideCat.isNotEmpty && activeGuideCat != 'All'
+            ? activeGuideCat
+            : (_lastFocusedCategory ?? 'All Channels'));
+
+    final catToFocus = selectedCat;
+    final node = _categoryFocusNodes[catToFocus];
     if (node != null && node.canRequestFocus) {
       node.requestFocus();
+      _lastFocusedCategory = catToFocus;
+      return true;
+    }
+    final fallback = _categoryFocusNodes.values.firstOrNull;
+    if (fallback != null && fallback.canRequestFocus) {
+      fallback.requestFocus();
       return true;
     }
     return false;
@@ -188,6 +231,13 @@ class _TVGuidePageState extends State<TVGuidePage> {
           _initialFocus();
         });
       });
+      _selectedCategoryWorker = ever(liveCtrl.selectedCategory, (cat) {
+        if (!mounted || cat == 'All Channels' || cat.isEmpty) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _scrollToAndFocusCategory(cat, liveCtrl.categories);
+        });
+      });
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initialFocus();
@@ -197,6 +247,8 @@ class _TVGuidePageState extends State<TVGuidePage> {
   @override
   void dispose() {
     _selectedViewWorker?.dispose();
+    _selectedCategoryWorker?.dispose();
+    _categoryScrollController.dispose();
     _viewModeFocusNode.dispose();
     _searchFocusNode.dispose();
     _refreshFocusNode.dispose();
@@ -221,7 +273,12 @@ class _TVGuidePageState extends State<TVGuidePage> {
           liveCtrl.reloadLiveTVData();
         }
         liveCtrl.handleNavigationArguments();
-        _initialFocus();
+        final selCat = liveCtrl.selectedCategory.value;
+        if (selCat.isNotEmpty && selCat != 'All Channels') {
+          _scrollToAndFocusCategory(selCat, liveCtrl.categories);
+        } else {
+          _initialFocus();
+        }
       }
     });
 
@@ -1218,6 +1275,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
                     controller.selectedCategory.value;
 
                 return ListView.separated(
+                  controller: _categoryScrollController,
                   scrollDirection: Axis.horizontal,
                   itemCount: categories.length,
                   separatorBuilder: (_, _) => AppSpacing.widthSM,

@@ -500,4 +500,65 @@ void main() {
     expect(controller.isFullscreenMode.value, isFalse);
     expect(freeCtrl.activePlayingChannel.value?.id, 'free-ch-1');
   });
+
+  test('handleNavigationArguments selects matching category for navigated channel', () async {
+    controller.onInit();
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    // Navigating with testChannel2 which has genres: ['News']
+    final channelArg = Channel(
+      id: 'ch-2',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'BBC News HD',
+      mediaType: MediaType.channel,
+      number: '102',
+      isLive: true,
+      genres: const ['News'],
+      metadata: const {'resolution': 'FHD'},
+      createdAt: DateTime(2025, 1, 2),
+      updatedAt: DateTime(2025, 1, 2),
+    );
+
+    // Mock Get.arguments
+    Get.routing.args = channelArg;
+
+    controller.handleNavigationArguments();
+
+    expect(controller.selectedCategory.value, 'News');
+    expect(controller.featuredChannel.value?.id, 'ch-2');
+  });
+
+  test('handleNavigationArguments resolves categoryId via category metadata', () async {
+    final xtreamCat = MediaItem(
+      id: '12',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.xtream,
+      title: 'US | News',
+      mediaType: MediaType.collection,
+      metadata: const {'category_id': '12'},
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+    final cnnChannel = Channel(
+      id: 'ch-cnn',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.xtream,
+      title: 'CNN International',
+      mediaType: MediaType.channel,
+      metadata: const {'categoryId': '12'},
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    catalogRepo.items.addAll([xtreamCat, cnnChannel]);
+    controller.onInit();
+    await Future.delayed(const Duration(milliseconds: 50));
+
+    Get.routing.args = {'channel': cnnChannel};
+    controller.handleNavigationArguments();
+
+    expect(controller.selectedCategory.value, 'US | News');
+    expect(controller.featuredChannel.value?.id, 'ch-cnn');
+  });
 }
