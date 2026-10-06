@@ -126,8 +126,6 @@ class _ProfileAvatarButton extends StatelessWidget {
       final photoToUse = activePhoto.isNotEmpty
           ? activePhoto
           : (profile?.photoUrl ?? '0');
-      final idx = int.tryParse(photoToUse) ?? avatarIndexForProfile(profile);
-      final preset = kAvatarPresets[idx.clamp(0, kAvatarPresets.length - 1)];
 
       final nameToUse = activeName.isNotEmpty
           ? activeName
@@ -141,10 +139,11 @@ class _ProfileAvatarButton extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Tooltip(
             message: nameToUse,
-            child: CircleAvatar(
+            child: ProfileAvatar(
+              photoUrl: photoToUse,
+              profile: profile,
               radius: 16,
-              backgroundColor: preset.color,
-              child: Icon(preset.icon, color: Colors.white, size: 14),
+              iconSize: 14,
             ),
           ),
         ),

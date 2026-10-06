@@ -16,6 +16,7 @@ import '../../data/services/favorite_service.dart';
 import '../../modules/player/controllers/player_controller.dart';
 import '../../modules/player/pages/floating_player_page.dart';
 import '../../data/services/active_profile_service.dart';
+import '../../modules/profiles/profile_avatar_helper.dart';
 import '../../modules/profiles/profile_controller.dart';
 import '../../modules/provider_manager/provider_manager_controller.dart';
 import '../../modules/live_tv/widgets/multi_view_layout_dialog.dart';
@@ -729,9 +730,15 @@ class _TvScaffoldState extends State<TvScaffold> {
               ? providerCtrl!.providers.first.name
               : 'IPTV Premium');
 
+      final photoUrl =
+          (activeService != null && activeService.activePhotoUrl.value.isNotEmpty)
+              ? activeService.activePhotoUrl.value
+              : (profileCtrl?.activeProfile.value?.photoUrl ?? '');
+
       return _buildProfileHeaderContent(
         profileName: profileName,
         providerName: providerName,
+        photoUrl: photoUrl,
       );
     });
   }
@@ -739,6 +746,7 @@ class _TvScaffoldState extends State<TvScaffold> {
   Widget _buildProfileHeaderContent({
     required String profileName,
     required String providerName,
+    String photoUrl = '',
   }) {
     return TvFocusable(
       focusNode: _profileFocusNode,
@@ -792,7 +800,7 @@ class _TvScaffoldState extends State<TvScaffold> {
                           mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            _buildProfileAvatar(profileName),
+                            _buildProfileAvatar(profileName, photoUrl: photoUrl),
                             Padding(
                               padding: const EdgeInsets.only(left: 14.0),
                               child: SizedBox(
@@ -847,7 +855,7 @@ class _TvScaffoldState extends State<TvScaffold> {
                 : KeyedSubtree(
                     key: const ValueKey('profile_collapsed'),
                     child: Center(
-                      child: _buildProfileAvatar(profileName),
+                      child: _buildProfileAvatar(profileName, photoUrl: photoUrl),
                     ),
                   ),
           ),
@@ -856,41 +864,47 @@ class _TvScaffoldState extends State<TvScaffold> {
     );
   }
 
-  Widget _buildProfileAvatar(String profileName) {
+  Widget _buildProfileAvatar(String profileName, {String photoUrl = ''}) {
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
       children: [
-        Container(
-          width: 42,
-          height: 42,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [AppColors.primary, AppColors.primaryContainer],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.35),
-                blurRadius: 10,
+        if (isNetworkAvatar(photoUrl))
+          ProfileAvatar(
+            photoUrl: photoUrl,
+            radius: 21,
+          )
+        else
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [AppColors.primary, AppColors.primaryContainer],
               ),
-            ],
-          ),
-          child: Center(
-            child: Text(
-              profileName.isNotEmpty
-                  ? profileName[0].toUpperCase()
-                  : 'U',
-              style: const TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-                fontSize: 17,
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.35),
+                  blurRadius: 10,
+                ),
+              ],
+            ),
+            child: Center(
+              child: Text(
+                profileName.isNotEmpty
+                    ? profileName[0].toUpperCase()
+                    : 'U',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                ),
               ),
             ),
           ),
-        ),
         Positioned(
           bottom: -1,
           right: -1,

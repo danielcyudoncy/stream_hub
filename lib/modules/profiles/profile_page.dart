@@ -341,8 +341,6 @@ class _ProfileSwitcher extends StatelessWidget {
             // Existing profile chips.
             ...profiles.map((p) {
               final isActive = p.id == active?.id;
-              final avatarIdx = avatarIndexForProfile(p);
-              final preset = kAvatarPresets[avatarIdx];
               return Padding(
                 padding: const EdgeInsets.only(right: AppSpacing.sm),
                 child: TvFocusable(
@@ -370,10 +368,10 @@ class _ProfileSwitcher extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircleAvatar(
+                          ProfileAvatar(
+                            profile: p,
                             radius: 18,
-                            backgroundColor: preset.color,
-                            child: Icon(preset.icon, color: Colors.white, size: 16),
+                            iconSize: 16,
                           ),
                           const SizedBox(width: AppSpacing.sm),
                           Column(
@@ -540,52 +538,96 @@ class _AvatarPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final selectedPhoto = controller.photoUrl.value;
+      final selectedPhoto = controller.photoUrl.value.trim();
       final currentIdx = int.tryParse(selectedPhoto) ??
           avatarIndexForProfile(controller.activeProfile.value);
+      final accountPhoto =
+          controller.currentUser.value?.photoUrl?.trim() ?? '';
+      final hasAccountPhoto = isNetworkAvatar(accountPhoto);
+      final isAccountPhotoSelected =
+          hasAccountPhoto && selectedPhoto == accountPhoto;
+
       return Wrap(
         spacing: AppSpacing.sm,
         runSpacing: AppSpacing.sm,
-        children: List.generate(kAvatarPresets.length, (i) {
-          final preset = kAvatarPresets[i];
-          final isSelected = i == currentIdx;
-          return TvFocusable(
-            onTap: () {
-              // Store the preset index as the photoUrl — no real URL needed.
-              controller.photoUrl.value = '$i';
-            },
-            borderRadius: BorderRadius.circular(30),
-            scale: 1.08,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: isSelected
-                    ? Border.all(
-                        color: Theme.of(context).colorScheme.primary,
-                        width: 3,
-                      )
-                    : Border.all(color: Colors.transparent, width: 3),
-                boxShadow: isSelected
-                    ? [
-                        BoxShadow(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withValues(alpha: 0.4),
-                          blurRadius: 8,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: CircleAvatar(
-                radius: 26,
-                backgroundColor: preset.color,
-                child: Icon(preset.icon, color: Colors.white, size: 22),
+        children: [
+          if (hasAccountPhoto) ...[
+            TvFocusable(
+              onTap: () {
+                controller.photoUrl.value = accountPhoto;
+              },
+              borderRadius: BorderRadius.circular(30),
+              scale: 1.08,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: isAccountPhotoSelected
+                      ? Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 3,
+                        )
+                      : Border.all(color: Colors.transparent, width: 3),
+                  boxShadow: isAccountPhotoSelected
+                      ? [
+                          BoxShadow(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.4),
+                            blurRadius: 8,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: ProfileAvatar(
+                  photoUrl: accountPhoto,
+                  radius: 26,
+                  iconSize: 22,
+                ),
               ),
             ),
-          );
-        }),
+          ],
+          ...List.generate(kAvatarPresets.length, (i) {
+            final preset = kAvatarPresets[i];
+            final isSelected = !isAccountPhotoSelected && i == currentIdx;
+            return TvFocusable(
+              onTap: () {
+                controller.photoUrl.value = '$i';
+              },
+              borderRadius: BorderRadius.circular(30),
+              scale: 1.08,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: isSelected
+                      ? Border.all(
+                          color: Theme.of(context).colorScheme.primary,
+                          width: 3,
+                        )
+                      : Border.all(color: Colors.transparent, width: 3),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.4),
+                            blurRadius: 8,
+                          ),
+                        ]
+                      : null,
+                ),
+                child: CircleAvatar(
+                  radius: 26,
+                  backgroundColor: preset.color,
+                  child: Icon(preset.icon, color: Colors.white, size: 22),
+                ),
+              ),
+            );
+          }),
+        ],
       );
     });
   }

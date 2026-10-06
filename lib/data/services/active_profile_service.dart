@@ -103,4 +103,66 @@ class ActiveProfileService extends GetxService {
     activeDisplayName.value = '';
     activePhotoUrl.value = '';
   }
+
+  /// Syncs authenticated user profile metadata (e.g. from Google Sign-In)
+  /// with the active profile in local storage and memory if using default values.
+  Future<void> syncWithAuthenticatedUser({
+    String? displayName,
+    String? photoUrl,
+  }) async {
+    try {
+      final validName = displayName?.trim();
+      final validPhoto = photoUrl?.trim();
+      final hasName = validName != null && validName.isNotEmpty;
+      final hasPhoto = validPhoto != null && validPhoto.isNotEmpty;
+
+      if (!hasName && !hasPhoto) return;
+
+      if (Get.isRegistered<ProfileRepository>()) {
+        final repo = Get.find<ProfileRepository>();
+        final allProfiles = await repo.getAllProfiles();
+        if (allProfiles.isNotEmpty) {
+          final current = (profileId.value.isNotEmpty)
+              ? allProfiles.firstWhereOrNull((p) => p.id == profileId.value) ??
+                  allProfiles.first
+              : allProfiles.first;
+
+          final isDefaultPhoto = current.photoUrl == null ||
+              current.photoUrl == '0' ||
+              current.photoUrl!.isEmpty;
+          final isDefaultName = current.displayName == 'Primary' ||
+              current.displayName.isEmpty;
+
+          final newName =
+              (isDefaultName && hasName) ? validName : current.displayName;
+          final newPhoto =
+              (isDefaultPhoto && hasPhoto) ? validPhoto : current.photoUrl;
+
+          if (newName != current.displayName || newPhoto != current.photoUrl) {
+            final updated = current.copyWith(
+              displayName: newName,
+              photoUrl: newPhoto,
+              updatedAt: DateTime.now(),
+            );
+            await repo.updateProfile(updated);
+            setActiveProfile(
+              updated.id,
+              displayName: updated.displayName,
+              photoUrl: updated.photoUrl,
+            );
+            _logger.info(
+              'ActiveProfileService: synced profile with authenticated user ($newName, $newPhoto)',
+              tag: 'ActiveProfileService',
+            );
+          }
+        }
+      }
+    } catch (e) {
+      _logger.warning(
+        'ActiveProfileService: failed to sync with authenticated user',
+        tag: 'ActiveProfileService',
+        error: e,
+      );
+    }
+  }
 }
