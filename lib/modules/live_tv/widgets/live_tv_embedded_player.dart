@@ -1045,6 +1045,19 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
               return const SizedBox.shrink();
             }),
 
+            // 2. Full-Screen / Card Dimming Scrim
+            IgnorePointer(
+              ignoring: true,
+              child: AnimatedOpacity(
+                opacity: _controlsVisible ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: const ColoredBox(
+                  color: Colors.black45,
+                ),
+              ),
+            ),
+
             // 4. Center Glowing Play/Pause Button
             IgnorePointer(
               ignoring: !_controlsVisible,
@@ -1156,13 +1169,13 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                         horizontal: AppSpacing.sm,
                         vertical: isFullscreen ? AppSpacing.md : 2.0,
                       ),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            Colors.black87,
-                            Colors.black45,
+                            Colors.black.withValues(alpha: 0.75),
+                            Colors.black.withValues(alpha: 0.3),
                             Colors.transparent,
                           ],
                         ),
@@ -1384,13 +1397,13 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
                         horizontal: AppSpacing.sm,
                         vertical: isFullscreen ? AppSpacing.md : 2.0,
                       ),
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Colors.black87,
-                            Colors.black45,
+                            Colors.black.withValues(alpha: 0.75),
+                            Colors.black.withValues(alpha: 0.3),
                             Colors.transparent,
                           ],
                         ),

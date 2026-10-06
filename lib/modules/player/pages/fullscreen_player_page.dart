@@ -188,10 +188,38 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
             _buildStateOverlay(),
             _buildSkipIntroOverlay(),
             _buildNextEpisodeOverlay(),
-            if (_controlsVisible) ...[
-              _buildControlsOverlay(context),
-              _buildTopBar(context),
-            ],
+            // Full-screen dimming scrim
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: true,
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: const ColoredBox(
+                    color: Colors.black45,
+                  ),
+                ),
+              ),
+            ),
+            // On-screen controls & top bar
+            IgnorePointer(
+              ignoring: !_controlsVisible,
+              child: ExcludeFocus(
+                excluding: !_controlsVisible,
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: Stack(
+                    children: [
+                      _buildControlsOverlay(context),
+                      _buildTopBar(context),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ],
         ),
         child: _buildVideoLayer(),
@@ -401,66 +429,62 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
       right: 0,
       child: SafeArea(
         bottom: false,
-        child: AnimatedOpacity(
-          opacity: _controlsVisible ? 1.0 : 0.0,
-          duration: const Duration(milliseconds: 250),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: AppSpacing.xs,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: AppSpacing.xs,
+          ),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Colors.black.withValues(alpha: 0.75),
+                Colors.transparent,
+              ],
             ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withValues(alpha: 0.85),
-                  Colors.transparent,
-                ],
+          ),
+          child: Row(
+            children: [
+              TvFocusable(
+                onTap: _handleBack,
+                scale: 1.15,
+                borderRadius: BorderRadius.circular(24),
+                child: IconButton(
+                  icon: const Icon(AppIcons.back, color: Colors.white),
+                  onPressed: _handleBack,
+                ),
               ),
-            ),
-            child: Row(
-              children: [
-                TvFocusable(
-                  onTap: _handleBack,
+              Expanded(
+                child: Obx(() {
+                  final title =
+                      _controller.sessionRx.value?.metadata.title ?? 'Player';
+                  return Text(
+                    title,
+                    style: AppTypography.getBody(
+                      color: Colors.white,
+                    ).copyWith(fontSize: 13, fontWeight: FontWeight.w600),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                }),
+              ),
+              Obx(() {
+                final isFav = _controller.isFavoriteRx.value;
+                return TvFocusable(
+                  onTap: _controller.toggleFavorite,
                   scale: 1.15,
                   borderRadius: BorderRadius.circular(24),
                   child: IconButton(
-                    icon: const Icon(AppIcons.back, color: Colors.white),
-                    onPressed: _handleBack,
-                  ),
-                ),
-                Expanded(
-                  child: Obx(() {
-                    final title =
-                        _controller.sessionRx.value?.metadata.title ?? 'Player';
-                    return Text(
-                      title,
-                      style: AppTypography.getBody(
-                        color: Colors.white,
-                      ).copyWith(fontSize: 13, fontWeight: FontWeight.w600),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    );
-                  }),
-                ),
-                Obx(() {
-                  final isFav = _controller.isFavoriteRx.value;
-                  return TvFocusable(
-                    onTap: _controller.toggleFavorite,
-                    scale: 1.15,
-                    borderRadius: BorderRadius.circular(24),
-                    child: IconButton(
-                      icon: Icon(
-                        isFav ? Icons.favorite : Icons.favorite_border,
-                        color: isFav ? Colors.red : Colors.white70,
-                      ),
-                      onPressed: _controller.toggleFavorite,
+                    icon: Icon(
+                      isFav ? Icons.favorite : Icons.favorite_border,
+                      color: isFav ? Colors.red : Colors.white70,
                     ),
-                  );
-                }),
-              ],
-            ),
+                    onPressed: _controller.toggleFavorite,
+                  ),
+                );
+              }),
+            ],
           ),
         ),
       ),
@@ -480,7 +504,10 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.transparent, Colors.black.withValues(alpha: 0.6)],
+            colors: [
+              Colors.transparent,
+              Colors.black.withValues(alpha: 0.5),
+            ],
           ),
         ),
         child: Row(
