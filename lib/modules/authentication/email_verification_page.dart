@@ -22,8 +22,10 @@ class EmailVerificationPage extends GetView<AuthController> {
     return AppScaffold(
       title: 'Verify Email',
       showNavigation: false,
-      body: Center(
-        child: SingleChildScrollView(
+      showAppBar: false,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420.0),
@@ -44,9 +46,13 @@ class EmailVerificationPage extends GetView<AuthController> {
                         ),
                       ),
                       AppSpacing.widthSM,
-                      Text(
-                        'Verify Your Email',
-                        style: AppTypography.getHeadline(color: colorScheme.onSurface),
+                      Expanded(
+                        child: Text(
+                          'Verify Your Email',
+                          style: AppTypography.getTitle(
+                            color: colorScheme.onSurface,
+                          ).copyWith(fontWeight: FontWeight.w700),
+                        ),
                       ),
                     ],
                   ),
@@ -132,6 +138,7 @@ class EmailVerificationPage extends GetView<AuthController> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

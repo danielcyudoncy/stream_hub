@@ -41,8 +41,10 @@ class LoginPage extends GetView<AuthController> {
     return AppScaffold(
       title: 'Sign In',
       showNavigation: false,
-      body: TvKeyboardAwareScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
+      showAppBar: false,
+      body: SafeArea(
+        child: TvKeyboardAwareScrollView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
         maxWidth: 420.0,
         child: FocusTraversalGroup(
           policy: WidgetOrderTraversalPolicy(),
@@ -51,25 +53,12 @@ class LoginPage extends GetView<AuthController> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  children: [
-                    TvFocusable(
-                      onTap: () => Get.back(),
-                      scale: 1.0,
-                      borderRadius: AppRadius.medium,
-                      child: const IconButton(
-                        icon: Icon(AppIcons.back),
-                        onPressed: null,
-                      ),
-                    ),
-                    AppSpacing.widthSM,
-                    Text(
-                      'Welcome Back',
-                      style: AppTypography.getHeadline(
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Welcome Back',
+                  style: AppTypography.getHeadline(
+                    color: colorScheme.onSurface,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
                 AppSpacing.heightLG,
                 Obx(() {
@@ -178,6 +167,7 @@ class LoginPage extends GetView<AuthController> {
                       Obx(
                         () => AppButton.primary(
                           autofocus: isTV,
+                          width: double.infinity,
                           text: 'Sign In',
                           isLoading: controller.isLoading.value,
                           onPressed: () => controller.loginWithEmail(
@@ -186,11 +176,7 @@ class LoginPage extends GetView<AuthController> {
                           ),
                         ),
                       ),
-                      AppSpacing.heightSM,
-                      AppButton.text(
-                        text: 'Continue as Guest',
-                        onPressed: () => controller.loginAnonymously(),
-                      ),
+
                       AppSpacing.heightMD,
                       Row(
                         children: [
@@ -220,6 +206,7 @@ class LoginPage extends GetView<AuthController> {
                       AppSpacing.heightMD,
                       Obx(
                         () => AppButton.secondary(
+                          width: double.infinity,
                           text: 'Sign in with Google',
                           icon: Icons.g_mobiledata_outlined,
                           isLoading: controller.isLoading.value,
@@ -258,6 +245,7 @@ class LoginPage extends GetView<AuthController> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

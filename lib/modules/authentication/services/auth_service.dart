@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:get/get.dart';
+import '../../../core/config/auth_config.dart';
 import '../../../core/errors/exceptions.dart';
 import '../../../core/logging/logging_service.dart';
 import '../../../data/services/firebase_service.dart';
@@ -17,7 +18,11 @@ class AuthService extends GetxService {
   bool _authInitialized = false;
 
   GoogleSignIn get _googleSignInInstance {
-    _googleSignIn ??= GoogleSignIn();
+    _googleSignIn ??= GoogleSignIn(
+      serverClientId: AuthConfig.googleServerClientId.isNotEmpty
+          ? AuthConfig.googleServerClientId
+          : null,
+    );
     return _googleSignIn!;
   }
 

@@ -26,9 +26,11 @@ class CompleteProfilePage extends GetView<AuthController> {
     return AppScaffold(
       title: 'Complete Profile',
       showNavigation: false,
-      body: TvKeyboardAwareScrollView(
-        padding: const EdgeInsets.all(AppSpacing.lg),
-        maxWidth: 420.0,
+      showAppBar: false,
+      body: SafeArea(
+        child: TvKeyboardAwareScrollView(
+          padding: const EdgeInsets.all(AppSpacing.lg),
+          maxWidth: 420.0,
         child: AppCard(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -46,10 +48,12 @@ class CompleteProfilePage extends GetView<AuthController> {
                     ),
                   ),
                   AppSpacing.widthSM,
-                  Text(
-                    'Complete Your Profile',
-                    style: AppTypography.getHeadline(
-                      color: colorScheme.onSurface,
+                  Expanded(
+                    child: Text(
+                      'Complete Your Profile',
+                      style: AppTypography.getTitle(
+                        color: colorScheme.onSurface,
+                      ).copyWith(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ],
@@ -121,6 +125,7 @@ class CompleteProfilePage extends GetView<AuthController> {
           ),
         ),
       ),
-    );
+    ),
+  );
   }
 }

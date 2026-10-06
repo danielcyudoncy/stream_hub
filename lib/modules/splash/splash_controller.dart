@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 import '../../core/media/enums/media_type.dart';
 import '../../core/logging/logging_service.dart';
 import '../../core/routes/app_routes.dart';
+import '../../core/theme/app_durations.dart';
 import '../../data/repositories/catalog_repository.dart';
 import '../../data/services/database_service.dart';
 import '../../data/services/firebase_service.dart';
@@ -21,7 +22,7 @@ class SplashController extends GetxController {
   void onInit() {
     super.onInit();
     // Safety watchdog: ensure the splash screen never hangs permanently.
-    _watchdogTimer = Timer(const Duration(seconds: 4), () {
+    _watchdogTimer = Timer(const Duration(seconds: 7), () {
       if (!_hasNavigated) {
         Get.find<LoggingService>().warning(
           'Splash bootstrap watchdog timed out; forcing navigation',
@@ -40,6 +41,7 @@ class SplashController extends GetxController {
   }
 
   Future<void> _bootstrap() async {
+    final minDelayFuture = Future.delayed(AppDurations.splashDelay);
     try {
       statusMessage.value = 'Initializing...';
 
@@ -77,6 +79,9 @@ class SplashController extends GetxController {
               } catch (_) {}
             }
 
+            // Ensure branding splash screen stays visible for at least the configured duration
+            await minDelayFuture;
+
             if (hasCachedChannels) {
               // Channels are already cached: navigate directly & sync rest in background
               unawaited(_syncProvidersOnStartup());
@@ -100,9 +105,11 @@ class SplashController extends GetxController {
         }
       }
 
+      await minDelayFuture;
       statusMessage.value = 'Ready!';
       _navigateAway(AppRoutes.authWrapper);
     } catch (e) {
+      await minDelayFuture;
       statusMessage.value = 'Initialization failed. Retrying...';
       _navigateAway(AppRoutes.authWrapper);
     }
