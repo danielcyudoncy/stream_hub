@@ -255,6 +255,103 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 50));
       expect(controller.allResults.length, 2);
     });
+
+    test('searching for specific channel (e.g. cnn) only returns target channel and does not expand to all news channels', () async {
+      final items = [
+        _buildItem(
+          id: 'ch-cnn',
+          title: 'CNN HD',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+        _buildItem(
+          id: 'ch-bbc',
+          title: 'BBC News',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+        _buildItem(
+          id: 'ch-fox',
+          title: 'Fox News',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+        _buildItem(
+          id: 'ch-sky',
+          title: 'Sky News',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+      ];
+      final fakeRepo = _FakeCatalogRepository(items);
+      final controller = SearchHubController(catalogRepository: fakeRepo);
+
+      await controller.performSearch('cnn');
+
+      expect(controller.allResults.length, 1);
+      expect(controller.allResults.first.title, 'CNN HD');
+      expect(controller.allResults.any((item) => item.title == 'BBC News'), isFalse);
+      expect(controller.allResults.any((item) => item.title == 'Fox News'), isFalse);
+    });
+
+    test('ranks exact and prefix title matches ahead of other matches', () async {
+      final items = [
+        _buildItem(
+          id: 'ch-1',
+          title: 'World News Tonight',
+          description: 'Includes cnn reports',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+        _buildItem(
+          id: 'ch-2',
+          title: 'CNN International',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+        _buildItem(
+          id: 'ch-3',
+          title: 'CNN',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+      ];
+      final fakeRepo = _FakeCatalogRepository(items);
+      final controller = SearchHubController(catalogRepository: fakeRepo);
+
+      await controller.performSearch('cnn');
+
+      expect(controller.allResults.length, 3);
+      // 'CNN' exact match is first
+      expect(controller.allResults[0].title, 'CNN');
+      // 'CNN International' prefix match is second
+      expect(controller.allResults[1].title, 'CNN International');
+      // 'World News Tonight' description match is last
+      expect(controller.allResults[2].title, 'World News Tonight');
+    });
+
+    test('searching for genre name (e.g. News) returns channels in that genre', () async {
+      final items = [
+        _buildItem(
+          id: 'ch-cnn',
+          title: 'CNN HD',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+        _buildItem(
+          id: 'ch-bbc',
+          title: 'BBC News',
+          mediaType: MediaType.channel,
+          genres: ['News'],
+        ),
+      ];
+      final fakeRepo = _FakeCatalogRepository(items);
+      final controller = SearchHubController(catalogRepository: fakeRepo);
+
+      await controller.performSearch('News');
+
+      expect(controller.allResults.length, 2);
+    });
   });
 
   group('SearchHubPage Widget Tests', () {

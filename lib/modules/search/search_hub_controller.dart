@@ -202,15 +202,18 @@ class SearchHubController extends GetxController {
       }
 
       final allItems = await repo.getAllItems();
-      final matched = <MediaItem>[];
+      final scoredItems = <({MediaItem item, int score})>[];
 
-      final curatedGenre = CuratedGenre.findByQuery(query);
-      final searchKeywords = curatedGenre != null
-          ? <String>{
-              query,
-              ...curatedGenre.keywords.map((k) => k.toLowerCase()),
-            }
-          : <String>{query};
+      // Check if user explicitly searched for a recognized genre (e.g. "News", "Sports", "Kids", "Action")
+      final curatedGenre = CuratedGenre.findByGenreName(query);
+      final genreId = curatedGenre?.id.toLowerCase();
+      final genreTitle = curatedGenre?.title.toLowerCase();
+
+      final queryWords = query
+          .split(RegExp(r'\s+'))
+          .map((w) => w.trim())
+          .where((w) => w.length >= 2)
+          .toList();
 
       for (final item in allItems) {
         if (selectedProviderId.value != 'all' &&
@@ -227,23 +230,95 @@ class SearchHubController extends GetxController {
             '';
         final genres = item.genres.map((g) => g.toLowerCase()).toList();
 
-        var matches = false;
-        for (final kw in searchKeywords) {
-          if (title.contains(kw) ||
-              subtitle.contains(kw) ||
-              category.contains(kw) ||
-              desc.contains(kw) ||
-              genres.any((g) => g.contains(kw))) {
-            matches = true;
-            break;
+        var score = 0;
+
+        // 1. Direct title matching (highest priority)
+        if (title == query) {
+          score += 1000;
+        } else if (title.startsWith(query)) {
+          score += 500;
+        } else {
+          final words = title.split(RegExp(r'[^a-z0-9]+'));
+          if (words.contains(query)) {
+            score += 350;
+          } else if (title.contains(query)) {
+            score += 150;
           }
         }
 
-        if (matches) {
-          matched.add(item);
-          if (matched.length >= 400) break;
+        // 2. Multi-word title matching (if query has multiple words)
+        if (queryWords.length > 1) {
+          var matchedWords = 0;
+          for (final qw in queryWords) {
+            if (title.contains(qw)) matchedWords++;
+          }
+          if (matchedWords == queryWords.length) {
+            score += 200;
+          } else if (matchedWords > 0) {
+            score += 30 * matchedWords;
+          }
+        }
+
+        // 3. Subtitle matching
+        if (subtitle.isNotEmpty) {
+          if (subtitle == query) {
+            score += 300;
+          } else if (subtitle.startsWith(query)) {
+            score += 150;
+          } else if (subtitle.contains(query)) {
+            score += 80;
+          }
+        }
+
+        // 4. Genres matching (item's explicit genres)
+        if (genres.contains(query)) {
+          score += 120;
+        } else if (genres.any((g) => g.contains(query))) {
+          score += 60;
+        }
+
+        // 5. Category matching
+        if (category.isNotEmpty) {
+          if (category == query) {
+            score += 100;
+          } else if (category.contains(query)) {
+            score += 40;
+          }
+        }
+
+        // 6. Description matching
+        if (desc.isNotEmpty && desc.contains(query)) {
+          score += 20;
+        }
+
+        // 7. Curated genre search boost (ONLY applied if query itself is a genuine genre name)
+        if (curatedGenre != null) {
+          if (genreId != null &&
+              (category.contains(genreId) ||
+                  genres.any((g) => g.contains(genreId)))) {
+            score += 60;
+          }
+          if (genreTitle != null &&
+              (category.contains(genreTitle) ||
+                  genres.any((g) => g.contains(genreTitle)))) {
+            score += 60;
+          }
+          for (final kw in curatedGenre.keywords) {
+            final lkw = kw.toLowerCase();
+            if (lkw != query && (title.contains(lkw) || category.contains(lkw))) {
+              score += 10;
+              break;
+            }
+          }
+        }
+
+        if (score > 0) {
+          scoredItems.add((item: item, score: score));
         }
       }
+
+      scoredItems.sort((a, b) => b.score.compareTo(a.score));
+      final matched = scoredItems.map((e) => e.item).toList();
 
       allResults.assignAll(matched);
       movieResults.assignAll(

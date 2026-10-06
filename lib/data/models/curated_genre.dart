@@ -237,13 +237,32 @@ class CuratedGenre {
     ),
   ];
 
+  static final Map<String, CuratedGenre> _nameLookup = () {
+    final map = <String, CuratedGenre>{};
+    for (final genre in defaultGenres) {
+      map[genre.id.toLowerCase()] = genre;
+      map[genre.title.toLowerCase()] = genre;
+      map[genre.title.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')] = genre;
+      map[genre.id.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '')] = genre;
+    }
+    return map;
+  }();
+
+  /// Looks up a curated genre strictly by genre id or title name (e.g. 'News', 'Sports', 'Action').
+  static CuratedGenre? findByGenreName(String name) {
+    final clean = name.trim().toLowerCase();
+    if (clean.isEmpty) return null;
+    return _nameLookup[clean] ??
+        _nameLookup[clean.replaceAll(RegExp(r'[^a-z0-9]'), '')];
+  }
+
   static final Map<String, CuratedGenre> _lookup = () {
     final map = <String, CuratedGenre>{};
     for (final genre in defaultGenres) {
-      map[genre.id] = genre;
-      map[genre.title] = genre;
+      map[genre.id.toLowerCase()] = genre;
+      map[genre.title.toLowerCase()] = genre;
       for (final keyword in genre.keywords) {
-        map[keyword] = genre;
+        map[keyword.toLowerCase()] = genre;
       }
     }
     return map;

@@ -60,8 +60,8 @@ class _TVGuidePageState extends State<TVGuidePage> {
     );
   }
 
-  void _focusActiveCategory() {
-    if (!mounted) return;
+  bool _focusActiveCategory() {
+    if (!mounted) return false;
     final liveCtrl = Get.isRegistered<LiveTVController>()
         ? Get.find<LiveTVController>()
         : null;
@@ -73,6 +73,26 @@ class _TVGuidePageState extends State<TVGuidePage> {
         _categoryFocusNodes.values.firstOrNull;
     if (node != null && node.canRequestFocus) {
       node.requestFocus();
+      return true;
+    }
+    return false;
+  }
+
+  void _focusTopBarFromGuide() {
+    if (!mounted) return;
+    if (_viewModeFocusNode.canRequestFocus) {
+      _viewModeFocusNode.requestFocus();
+    } else if (_searchFocusNode.canRequestFocus) {
+      _searchFocusNode.requestFocus();
+    } else if (_refreshFocusNode.canRequestFocus) {
+      _refreshFocusNode.requestFocus();
+    }
+  }
+
+  void _moveUpFromChannelGrid() {
+    final focused = _focusActiveCategory();
+    if (!focused) {
+      _focusTopBarFromGuide();
     }
   }
 
@@ -113,8 +133,26 @@ class _TVGuidePageState extends State<TVGuidePage> {
           return KeyEventResult.handled;
         }
       } else if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
-        _focusActiveCategory();
-        return KeyEventResult.handled;
+        final liveCtrl = Get.isRegistered<LiveTVController>()
+            ? Get.find<LiveTVController>()
+            : null;
+        final isTimeline = liveCtrl?.selectedView.value == 'timeline';
+        if (isTimeline) {
+          if (Get.isRegistered<TvNavigationService>()) {
+            final restored =
+                TvNavigationService.to.restoreFocus('live_channels');
+            if (restored) return KeyEventResult.handled;
+          }
+        } else {
+          final focused = _focusActiveCategory();
+          if (focused) return KeyEventResult.handled;
+          if (Get.isRegistered<TvNavigationService>()) {
+            final restored =
+                TvNavigationService.to.restoreFocus('live_channels');
+            if (restored) return KeyEventResult.handled;
+          }
+        }
+        return KeyEventResult.ignored;
       }
     }
     return KeyEventResult.ignored;
@@ -1426,7 +1464,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
             regionId: 'live_channels',
             itemId: item.id,
             itemIndex: index,
-            onMoveUp: index < 4 ? _focusActiveCategory : null,
+            onMoveUp: index < 4 ? _moveUpFromChannelGrid : null,
             onTap: isPlaying
                 ? liveCtrl.expandToFullscreen
                 : () => liveCtrl.openChannel(item),
@@ -1478,7 +1516,7 @@ class _TVGuidePageState extends State<TVGuidePage> {
       programs: guidePrograms,
       channelProgramsMap: channelProgramsMap,
       activePlayingChannelId: liveCtrl.activePlayingChannel.value?.id,
-      onMoveUp: _focusActiveCategory,
+      onMoveUp: _focusTopBarFromGuide,
       onChannelTap: (epgChannel) {
         final match = channels.firstWhereOrNull((c) => c.id == epgChannel.id);
         if (match != null) {
