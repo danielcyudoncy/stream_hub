@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../core/constants/app_constants.dart';
+import '../../../core/services/app_update_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
@@ -38,7 +40,17 @@ class AboutPage extends GetView {
                   AppSpacing.heightMD,
                   Text('StreamHub Pro', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
                   AppSpacing.heightXS,
-                  Text('Version 1.0.0 (Build 1)', style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6))),
+                  Builder(
+                    builder: (context) {
+                      final updateService = Get.isRegistered<AppUpdateService>() ? Get.find<AppUpdateService>() : null;
+                      final version = updateService?.currentVersion.value ?? AppConstants.appVersion;
+                      final build = updateService?.currentBuildNumber.value ?? AppConstants.appBuildNumber;
+                      return Text(
+                        'Version $version (Build $build)',
+                        style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                      );
+                    },
+                  ),
                 ],
               ),
             ),
@@ -46,15 +58,22 @@ class AboutPage extends GetView {
             const SectionHeader(title: 'App Information', subtitle: 'General application details'),
             AppSpacing.heightXS,
             AppCard(
-              child: Column(
-                children: [
-                  _buildInfoRow(context, 'Application Name', 'StreamHub Pro'),
-                  _buildInfoRow(context, 'Version', '1.0.0'),
-                  _buildInfoRow(context, 'Build Number', '1'),
-                  _buildInfoRow(context, 'Developer', 'StreamHub Pro Team'),
-                  _buildInfoRow(context, 'License', 'Commercial'),
-                  _buildInfoRow(context, 'Website', 'https://streamhub.pro'),
-                ],
+              child: Builder(
+                builder: (context) {
+                  final updateService = Get.isRegistered<AppUpdateService>() ? Get.find<AppUpdateService>() : null;
+                  final version = updateService?.currentVersion.value ?? AppConstants.appVersion;
+                  final build = (updateService?.currentBuildNumber.value ?? AppConstants.appBuildNumber).toString();
+                  return Column(
+                    children: [
+                      _buildInfoRow(context, 'Application Name', AppConstants.appName),
+                      _buildInfoRow(context, 'Version', version),
+                      _buildInfoRow(context, 'Build Number', build),
+                      _buildInfoRow(context, 'Developer', AppConstants.developerName),
+                      _buildInfoRow(context, 'License', 'Commercial'),
+                      _buildInfoRow(context, 'Website', AppConstants.appWebsite),
+                    ],
+                  );
+                },
               ),
             ),
             AppSpacing.heightXL,

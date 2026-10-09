@@ -18,6 +18,8 @@ class AppColors {
   
   static const Color error = Color(0xFFFF5252);
   static const Color onError = Color(0xFF690005);
+  static const Color warning = Color(0xFFF59E0B);
+  static const Color success = Color(0xFF10B981);
   
   static const Color textPrimary = Color(0xFFF8FAFC); // Ice White (On-surface)
   static const Color textSecondary = Color(0xFF94A3B8); // Cool Slate (On-surface-variant)

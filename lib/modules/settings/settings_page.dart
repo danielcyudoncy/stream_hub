@@ -11,6 +11,7 @@ import 'package:stream_hub/shared/widgets/section_header.dart';
 import 'package:stream_hub/shared/widgets/settings_tile.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
+import 'package:stream_hub/core/services/app_update_service.dart';
 import 'package:stream_hub/shared/dialogs/confirmation_dialog.dart';
 import 'package:stream_hub/shared/dialogs/parental_pin_dialog.dart';
 import 'settings_controller.dart';
@@ -614,16 +615,52 @@ class SettingsPage extends GetView<SettingsController> {
       children: [
         const SectionHeader(
           title: 'About',
-          subtitle: 'Application information',
+          subtitle: 'Application information & updates',
         ),
         AppSpacing.heightXS,
         AppCard(
-          child: SettingsTile(
-            title: 'About StreamHub Pro',
-            subtitle: 'Version 1.0.0 (Build 1)',
-            leadingIcon: Icons.info_outline,
-            onTap: () => Get.toNamed('/about'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          child: Column(
+            children: [
+              Obx(() {
+                final status = controller.updateStatus.value;
+                final isChecking = status == AppUpdateStatus.checking;
+                final isDownloading = status == AppUpdateStatus.downloading;
+
+                String subtitle =
+                    'Version ${controller.currentAppVersion.value} (Build ${controller.currentBuildNumber.value})';
+                if (isChecking) {
+                  subtitle = 'Checking for updates...';
+                } else if (isDownloading) {
+                  subtitle = 'Downloading update...';
+                } else if (status == AppUpdateStatus.updateAvailable) {
+                  subtitle = 'Update available! Tap to install';
+                }
+
+                return SettingsTile(
+                  title: 'Check for Updates',
+                  subtitle: subtitle,
+                  leadingIcon: Icons.system_update_rounded,
+                  trailing: isChecking
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded, size: 20),
+                  onTap: isChecking
+                      ? null
+                      : () => controller.checkForUpdates(showFeedback: true),
+                );
+              }),
+              SettingsTile(
+                title: 'About StreamHub Pro',
+                subtitle: 'Application details & licenses',
+                leadingIcon: Icons.info_outline,
+                onTap: () => Get.toNamed('/about'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                showDivider: false,
+              ),
+            ],
           ),
         ),
       ],

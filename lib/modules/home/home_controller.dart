@@ -17,7 +17,10 @@ import '../../../data/repositories/provider_repository.dart';
 import '../../../core/media/repositories/playback_repository.dart';
 import '../../../data/services/catalog_refresh_coordinator.dart';
 import '../../../data/services/home_snapshot_service.dart';
+import 'package:flutter/material.dart';
 import '../../../core/services/tmdb_catalog_service.dart';
+import '../../../core/services/app_update_service.dart';
+import '../../../shared/dialogs/app_update_dialog.dart';
 
 enum SectionLoadState { idle, loading, loaded, error }
 
@@ -149,10 +152,43 @@ class HomeController extends GetxController {
         _log('[HOME] No cache, loading from network');
         await _loadAllFromNetwork();
       }
+      _checkStartupUpdate();
     } catch (e) {
       _log('[HOME] Init error: $e');
       isLoading.value = false;
     }
+  }
+
+  void _checkStartupUpdate() {
+    Future.delayed(const Duration(seconds: 4), () async {
+      if (isClosed) return;
+      if (Get.isRegistered<AppUpdateService>()) {
+        final updateService = Get.find<AppUpdateService>();
+        final info = await updateService.checkForUpdate(silent: true);
+        if (info != null && !isClosed) {
+          if (info.forceUpdate) {
+            await AppUpdateDialog.show(updateInfo: info);
+          } else {
+            Get.snackbar(
+              'Update Available',
+              'StreamHub Pro v${info.latestVersion} is available.',
+              snackPosition: SnackPosition.TOP,
+              duration: const Duration(seconds: 8),
+              mainButton: TextButton(
+                onPressed: () {
+                  if (Get.isSnackbarOpen) Get.closeCurrentSnackbar();
+                  AppUpdateDialog.show(updateInfo: info);
+                },
+                child: const Text(
+                  'Update Now',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+              ),
+            );
+          }
+        }
+      }
+    });
   }
 
   void _applySnapshot(HomeSnapshot snapshot) {
