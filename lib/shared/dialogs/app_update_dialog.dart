@@ -304,8 +304,11 @@ class AppUpdateDialog extends StatelessWidget {
     bool isDownloading,
     bool isInstalling,
   ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: AppSpacing.sm,
+      runSpacing: AppSpacing.sm,
       children: [
         if (!updateInfo.forceUpdate && !isInstalling) ...[
           TvFocusable(
@@ -328,8 +331,33 @@ class AppUpdateDialog extends StatelessWidget {
               ),
             ),
           ),
-          AppSpacing.widthMD,
         ],
+        if (!isInstalling && updateInfo.apkUrl.isNotEmpty)
+          TvFocusable(
+            onTap: () async {
+              await service.openInBrowser(updateInfo.apkUrl);
+            },
+            borderRadius: AppRadius.medium,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.sm),
+              decoration: BoxDecoration(
+                borderRadius: AppRadius.medium,
+                border: Border.all(color: colorScheme.primary.withValues(alpha: 0.4)),
+                color: colorScheme.primary.withValues(alpha: 0.08),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.open_in_browser_rounded, color: colorScheme.primary, size: 18),
+                  AppSpacing.widthXS,
+                  Text(
+                    'Open in Browser',
+                    style: AppTypography.getBody(color: colorScheme.primary).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ),
+          ),
         if (!isInstalling)
           TvFocusable(
             autofocus: true,
@@ -351,7 +379,7 @@ class AppUpdateDialog extends StatelessWidget {
                   const Icon(Icons.download_rounded, color: Colors.white, size: 20),
                   AppSpacing.widthXS,
                   Text(
-                    isDownloading ? 'Downloading...' : 'Update Now',
+                    isDownloading ? 'Downloading...' : 'Install In-App',
                     style: AppTypography.getBody(color: Colors.white).copyWith(fontWeight: FontWeight.bold),
                   ),
                 ],
