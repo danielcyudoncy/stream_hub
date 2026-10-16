@@ -94,5 +94,23 @@ void main() {
       expect(service.downloadProgress.value, 0.0);
       expect(service.downloadStatusMessage.value, isEmpty);
     });
+
+    test('checkForUpdate safely skips Remote Config when Firebase is not initialized', () async {
+      final service = AppUpdateService();
+      // Even if Firebase.apps is empty in unit tests, checkForUpdate should not throw an exception
+      final result = await service.checkForUpdate(
+        customManifestUrl: 'http://127.0.0.1:9999/non_existent.json',
+        silent: true,
+      );
+
+      expect(result, isNull);
+      expect(service.status.value, AppUpdateStatus.error);
+    });
+
+    test('openInBrowser handles invalid URL gracefully', () async {
+      final service = AppUpdateService();
+      final success = await service.openInBrowser('');
+      expect(success, isFalse);
+    });
   });
 }

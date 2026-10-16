@@ -4,8 +4,16 @@ class AppConstants {
   static const String appVersion = '1.0.0';
   static const String appBuildNumber = '1';
   static const String developerName = 'StreamHub Pro Team';
-  static const String appWebsite = 'https://streamhub.pro';
-  static const String defaultUpdateManifestUrl = 'https://streamhub.pro/api/version.json';
+  static const String appWebsite = 'https://streamhub-pro-website.web.app';
+  static const String defaultUpdateManifestUrl = 'https://streamhub-pro-website.web.app/api/version.json';
+
+  // Remote Config Keys for App Updates
+  static const String keyRemoteConfigLatestVersionCode = 'latest_version_code';
+  static const String keyRemoteConfigLatestVersionName = 'latest_version_name';
+  static const String keyRemoteConfigMinSupportedVersionCode = 'min_supported_version_code';
+  static const String keyRemoteConfigApkDownloadUrl = 'apk_download_url';
+  static const String keyRemoteConfigReleaseNotes = 'release_notes';
+  static const String keyRemoteConfigForceUpdate = 'force_update';
 
   // Hive Box Names
   static const String boxSettings = 'settings';
