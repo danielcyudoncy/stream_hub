@@ -2,14 +2,14 @@
   "parameters": {
     "latest_version_code": {
       "defaultValue": {
-        "value": "1"
+        "value": "2"
       },
       "description": "The latest versionCode of the application (e.g. 1 corresponds to v1.0.0+1). Trigger update if > installed build number.",
       "valueType": "NUMBER"
     },
     "latest_version_name": {
       "defaultValue": {
-        "value": "1.0.0"
+        "value": "1.0.1"
       },
       "description": "User-facing version string displayed in the update dialog (e.g. 1.0.0).",
       "valueType": "STRING"
@@ -30,7 +30,7 @@
     },
     "release_notes": {
       "defaultValue": {
-        "value": "• 30-Day VIP Free Trial with zero upfront card requirement\n• Paystack subscription and billing management\n• TV remote and D-pad navigation polish\n• Free Live TV 100% free forever"
+        "value": "• Seamless Live TV orientation and fullscreen rotation\n• Fixed black overlay and player touch controls\n• Free Live TV 10-slot pass with VIP trial switch\n• Performance optimizations and bug fixes"
       },
       "description": "Multiline bulleted notes or JSON array of strings describing what's new in this release.",
       "valueType": "STRING"
