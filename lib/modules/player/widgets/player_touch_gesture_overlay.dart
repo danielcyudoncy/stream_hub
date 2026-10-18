@@ -194,7 +194,7 @@ class _PlayerTouchGestureOverlayState extends State<PlayerTouchGestureOverlay> {
             ),
 
             // 4. Overlaid Controls (Buttons, Top Bar, Bottom Bar)
-            if (widget.controls != null) widget.controls!,
+            if (widget.controls != null) Positioned.fill(child: widget.controls!),
 
             // 5. Left HUD: Brightness Indicator
             if (_showHud && _currentDrag == _DragType.brightness)

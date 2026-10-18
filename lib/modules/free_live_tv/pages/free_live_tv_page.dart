@@ -18,6 +18,7 @@ import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_category_bar.dar
 import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_channel_card.dart';
 import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_embedded_player.dart';
 import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_skeleton.dart';
+import 'package:stream_hub/modules/free_live_tv/widgets/free_tv_slot_counter_bar.dart';
 import 'package:stream_hub/shared/widgets/app_scaffold.dart';
 import 'package:stream_hub/shared/widgets/empty_library.dart';
 import 'package:stream_hub/shared/widgets/error_view.dart';
@@ -366,6 +367,12 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               Expanded(
                 child: Column(
                   children: [
+                    FreeTvSlotCounterBar(
+                      slotService: controller.slotService,
+                      allChannels: controller.channels,
+                      onChannelSelected: (ch) =>
+                          controller.onChannelTapped(context, ch),
+                    ),
                     _buildHeaderSummaryRow(
                       favoritesOnly,
                       selectedCountry,
@@ -413,7 +420,15 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               autofocus: false,
             ),
 
-            // 3. Category & Country Bar
+            // 3. 10 Free Channel Pass Counter
+            FreeTvSlotCounterBar(
+              slotService: controller.slotService,
+              allChannels: controller.channels,
+              onChannelSelected: (ch) =>
+                  controller.onChannelTapped(context, ch),
+            ),
+
+            // 4. Category & Country Bar
             Padding(
               padding: const EdgeInsets.only(top: 2.0, bottom: 2.0),
               child: FreeTvCategoryBar(
@@ -511,6 +526,17 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
           children: [
             // 1. Top Showcase: Channel Info on Left, Large 16:9 Live Mini-Player on Right
             _buildTopShowcase(context),
+
+            // 10 Free Channel Pass Counter
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+              child: FreeTvSlotCounterBar(
+                slotService: controller.slotService,
+                allChannels: controller.channels,
+                onChannelSelected: (ch) =>
+                    controller.onChannelTapped(context, ch),
+              ),
+            ),
 
             // 2. Full-Width Category Rail Below the Player
             Padding(
@@ -1010,7 +1036,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                 if (controller.activePlayingChannel.value?.id == channel.id) {
                   controller.enterFullscreen();
                 } else {
-                  controller.openChannel(channel);
+                  controller.onChannelTapped(context, channel);
                 }
               },
               borderRadius: AppRadius.pill,
@@ -1139,7 +1165,7 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
                   }
                   return KeyEventResult.ignored;
                 },
-                onTap: () => controller.openChannel(featured),
+                onTap: () => controller.onChannelTapped(context, featured),
                 borderRadius: AppRadius.pill,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1347,9 +1373,10 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
               channel: item,
               isList: true,
               isPlaying: isPlaying,
+              slotService: controller.slotService,
               onTap: isPlaying
                   ? controller.enterFullscreen
-                  : () => controller.openChannel(item),
+                  : () => controller.onChannelTapped(context, item),
               onFavorite: () => controller.toggleFavorite(item),
             );
           });
@@ -1377,9 +1404,10 @@ class _FreeLiveTvPageState extends State<FreeLiveTvPage> {
             channel: item,
             isList: false,
             isPlaying: isPlaying,
+            slotService: controller.slotService,
             onTap: isPlaying
                 ? controller.enterFullscreen
-                : () => controller.openChannel(item),
+                : () => controller.onChannelTapped(context, item),
             onFavorite: () => controller.toggleFavorite(item),
           );
         });

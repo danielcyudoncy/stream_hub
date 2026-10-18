@@ -288,6 +288,15 @@ class AppUpdateService extends GetxService {
       request.headers.set('Accept', 'application/json');
 
       final response = await request.close().timeout(const Duration(seconds: 15));
+      if (response.statusCode == 404) {
+        _logger?.info(
+          'Update manifest returned 404; no newer version published. App is up to date.',
+          tag: 'AppUpdateService',
+        );
+        updateInfo.value = null;
+        status.value = AppUpdateStatus.upToDate;
+        return null;
+      }
       if (response.statusCode != 200) {
         throw HttpException('Server responded with status code ${response.statusCode}');
       }
@@ -323,9 +332,14 @@ class AppUpdateService extends GetxService {
       errorMessage.value = 'Failed to check for updates: $e';
       _logger?.warning('App update check failed', tag: 'AppUpdateService', error: e);
       if (!silent) {
-        final message = e is FormatException
-            ? 'The update server did not return a valid JSON manifest (received HTML instead).'
-            : 'Could not check for updates. Please verify your internet connection.';
+        final String message;
+        if (e is SocketException || e is TimeoutException) {
+          message = 'Could not reach update server. Please verify your internet connection.';
+        } else if (e is FormatException) {
+          message = 'The update server did not return a valid JSON manifest.';
+        } else {
+          message = 'Could not check for updates ($e). Please try again later.';
+        }
         Get.snackbar(
           'Update Check Failed',
           message,

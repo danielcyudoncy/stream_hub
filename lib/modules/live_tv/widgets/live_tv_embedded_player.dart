@@ -1046,14 +1046,18 @@ class LiveTvEmbeddedPlayerState extends State<LiveTvEmbeddedPlayer> {
             }),
 
             // 2. Full-Screen / Card Dimming Scrim
-            IgnorePointer(
-              ignoring: true,
-              child: AnimatedOpacity(
-                opacity: _controlsVisible ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                child: const ColoredBox(
-                  color: Colors.black45,
+            Positioned.fill(
+              child: IgnorePointer(
+                ignoring: true,
+                child: AnimatedOpacity(
+                  opacity: _controlsVisible ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: const SizedBox.expand(
+                    child: ColoredBox(
+                      color: Colors.black45,
+                    ),
+                  ),
                 ),
               ),
             ),

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../core/constants/app_constants.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/tv_focusable.dart';
+import '../../data/services/free_tv_slot_service.dart';
 import 'subscription_controller.dart';
 import 'widgets/subscription_benefit_tile.dart';
 import 'widgets/subscription_plan_card.dart';
@@ -560,12 +561,92 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                // Developer / Testing Mode Card
+                _buildTestModeCard(context),
+                const SizedBox(height: 24),
               ],
             ),
           ),
         );
       }),
     );
+  }
+
+  Widget _buildTestModeCard(BuildContext context) {
+    if (!Get.isRegistered<FreeTvSlotService>()) return const SizedBox.shrink();
+    final slotService = Get.find<FreeTvSlotService>();
+
+    return Obx(() {
+      final isSimulating = slotService.simulateFreeTier.value;
+
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSimulating
+                ? Colors.cyanAccent.withValues(alpha: 0.5)
+                : Colors.white.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.science_outlined,
+                  size: 20,
+                  color: isSimulating ? Colors.cyanAccent : Colors.white70,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Developer / Testing Mode',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: isSimulating ? Colors.cyanAccent : Colors.white,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Simulate that your 30-day VIP trial has expired to test the 10 Free Channel Pass, channel card VIP locks, and channel swapping flow.',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: 0.6),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  isSimulating
+                      ? 'Active: Free Tier (Gating Enabled)'
+                      : 'Inactive: 30-Day VIP Active',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSimulating ? Colors.cyanAccent : Colors.white70,
+                  ),
+                ),
+                Switch.adaptive(
+                  value: isSimulating,
+                  activeThumbColor: Colors.cyanAccent,
+                  onChanged: (val) {
+                    slotService.simulateFreeTier.value = val;
+                  },
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    });
   }
 
   void _showCancelConfirmationDialog(

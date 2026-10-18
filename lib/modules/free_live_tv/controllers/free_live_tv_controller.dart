@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:stream_hub/core/helpers/platform_helper.dart';
@@ -14,19 +15,27 @@ import 'package:stream_hub/core/streaming/repositories/stream_repository.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
 import 'package:stream_hub/data/models/media_item.dart';
 import 'package:stream_hub/data/repositories/free_tv_repository.dart';
+import 'package:stream_hub/data/services/free_tv_slot_service.dart';
 import 'package:stream_hub/data/sources/free_tv_regions.dart';
 import 'package:stream_hub/modules/player/controllers/player_controller.dart';
 import 'package:stream_hub/modules/settings/settings_controller.dart';
 import '../../live_tv/controllers/live_tv_controller.dart';
+import '../widgets/free_tv_slot_dialog.dart';
 
 class FreeLiveTvController extends GetxController {
   final FreeTvRepository repository;
+  final FreeTvSlotService slotService;
   final LoggingService _logger;
 
   FreeLiveTvController({
     FreeTvRepository? repository,
+    FreeTvSlotService? slotService,
     LoggingService? logger,
   })  : repository = repository ?? FreeTvRepository(),
+        slotService = slotService ??
+            (Get.isRegistered<FreeTvSlotService>()
+                ? Get.find<FreeTvSlotService>()
+                : FreeTvSlotService()),
         _logger = logger ?? LoggingService();
 
   final List<FreeTvChannel> _allChannels = [];
@@ -860,8 +869,65 @@ class FreeLiveTvController extends GetxController {
     loadProgress.value = complete ? 100 : 0;
   }
 
+  /// Handler when a channel card or row is tapped.
+  /// If already active, toggles full screen.
+  /// If unlocked, starts playback.
+  /// If locked, presents Add-to-Free-Pass or Limit-Reached modal.
+  Future<void> onChannelTapped(BuildContext context, FreeTvChannel channel) async {
+    if (activePlayingChannel.value?.id == channel.id) {
+      enterFullscreen();
+      return;
+    }
+
+    if (slotService.isChannelUnlocked(channel.id)) {
+      await openChannel(channel);
+      return;
+    }
+
+    if (!slotService.isFull) {
+      await FreeTvSlotDialog.showAddOrUpgrade(
+        context: context,
+        channel: channel,
+        slotService: slotService,
+        onAddedAndPlay: () => openChannel(channel),
+      );
+    } else {
+      await FreeTvSlotDialog.showLimitReached(
+        context: context,
+        channel: channel,
+        slotService: slotService,
+        allChannels: channels,
+        onSwappedAndPlay: (swapped) => openChannel(swapped),
+      );
+    }
+  }
+
   /// Plays the channel with automatic multi-stream fallback.
   Future<void> openChannel(FreeTvChannel channel, {int streamIndex = 0}) async {
+    // 10 Free Channel Pass Enforcer:
+    if (!slotService.isChannelUnlocked(channel.id)) {
+      final context = Get.context;
+      if (context != null) {
+        if (!slotService.isFull) {
+          FreeTvSlotDialog.showAddOrUpgrade(
+            context: context,
+            channel: channel,
+            slotService: slotService,
+            onAddedAndPlay: () => openChannel(channel, streamIndex: streamIndex),
+          );
+        } else {
+          FreeTvSlotDialog.showLimitReached(
+            context: context,
+            channel: channel,
+            slotService: slotService,
+            allChannels: channels,
+            onSwappedAndPlay: (swapped) => openChannel(swapped),
+          );
+        }
+      }
+      return;
+    }
+
     final availableUrls = channel.resolvedStreamUrls;
     if (availableUrls.isEmpty) {
       playbackStatusMessage.value = 'No playable stream found for this channel.';

@@ -493,4 +493,72 @@ void main() {
     expect(find.byType(LiveTvEmbeddedPlayer), findsOneWidget);
     expect(find.byType(LiveTvChannelCard), findsOneWidget);
   });
+
+  testWidgets('preserves LiveTvEmbeddedPlayer state identity across rotation and fullscreen toggle', (tester) async {
+    final channel = Channel(
+      id: 'ch-rotate-test',
+      providerId: 'prov-1',
+      providerType: MediaSourceType.m3u,
+      title: 'Rotation Test Channel',
+      mediaType: MediaType.channel,
+      number: '103',
+      isLive: true,
+      genres: const ['News'],
+      createdAt: DateTime(2025, 1, 1),
+      updatedAt: DateTime(2025, 1, 1),
+    );
+
+    // 1. Start in Mobile Portrait
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1.0;
+    PlatformHelper.forceMobileMode = true;
+    addTearDown(() => PlatformHelper.forceMobileMode = false);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(createSubject(items: [channel]));
+    await tester.pumpAndSettle();
+
+    final portraitPlayerFinder = find.byType(LiveTvEmbeddedPlayer);
+    expect(portraitPlayerFinder, findsOneWidget);
+    final initialPlayerState = tester.state<LiveTvEmbeddedPlayerState>(portraitPlayerFinder);
+
+    // 2. Rotate to Landscape (360x720 -> 720x360)
+    tester.view.physicalSize = const Size(720, 360);
+    await tester.pumpAndSettle();
+
+    final landscapePlayerFinder = find.byType(LiveTvEmbeddedPlayer);
+    expect(landscapePlayerFinder, findsOneWidget);
+    final landscapePlayerState = tester.state<LiveTvEmbeddedPlayerState>(landscapePlayerFinder);
+
+    // Verify element reparenting: the state MUST be the exact same instance!
+    expect(identical(initialPlayerState, landscapePlayerState), isTrue,
+        reason: 'LiveTvEmbeddedPlayerState must not be recreated when rotating to landscape');
+
+    // 3. Toggle to Fullscreen
+    final controller = Get.find<LiveTVController>();
+    controller.isFullscreenMode.value = true;
+    await tester.pumpAndSettle();
+
+    final fullscreenPlayerFinder = find.byType(LiveTvEmbeddedPlayer);
+    expect(fullscreenPlayerFinder, findsOneWidget);
+    final fullscreenPlayerState = tester.state<LiveTvEmbeddedPlayerState>(fullscreenPlayerFinder);
+
+    // Verify element reparenting in fullscreen: the state MUST still be the exact same instance!
+    expect(identical(initialPlayerState, fullscreenPlayerState), isTrue,
+        reason: 'LiveTvEmbeddedPlayerState must not be recreated when entering fullscreen');
+
+    // 4. Exit Fullscreen back to Portrait
+    controller.isFullscreenMode.value = false;
+    tester.view.physicalSize = const Size(360, 720);
+    await tester.pumpAndSettle();
+
+    final finalPlayerFinder = find.byType(LiveTvEmbeddedPlayer);
+    expect(finalPlayerFinder, findsOneWidget);
+    final finalPlayerState = tester.state<LiveTvEmbeddedPlayerState>(finalPlayerFinder);
+
+    expect(identical(initialPlayerState, finalPlayerState), isTrue,
+        reason: 'LiveTvEmbeddedPlayerState must be preserved when returning to portrait');
+  });
 }
+

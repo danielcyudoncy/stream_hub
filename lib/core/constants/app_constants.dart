@@ -28,6 +28,7 @@ class AppConstants {
   static const String boxAuthSession = 'auth_session';
   static const String boxWatchlist = 'watchlist';
   static const String boxSubscription = 'subscription';
+  static const String boxFreeTvSlots = 'free_tv_slots';
 
   // Paystack Configuration
   static const String paystackBaseUrl = 'https://api.paystack.co';

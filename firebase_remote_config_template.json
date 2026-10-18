@@ -2,16 +2,16 @@
   "parameters": {
     "latest_version_code": {
       "defaultValue": {
-        "value": "2"
+        "value": "1"
       },
-      "description": "The latest versionCode of the application (e.g. 2 corresponds to v1.0.1+2). Trigger update if > installed build number.",
+      "description": "The latest versionCode of the application (e.g. 1 corresponds to v1.0.0+1). Trigger update if > installed build number.",
       "valueType": "NUMBER"
     },
     "latest_version_name": {
       "defaultValue": {
-        "value": "1.0.1"
+        "value": "1.0.0"
       },
-      "description": "User-facing version string displayed in the update dialog (e.g. 1.0.1).",
+      "description": "User-facing version string displayed in the update dialog (e.g. 1.0.0).",
       "valueType": "STRING"
     },
     "min_supported_version_code": {
@@ -23,14 +23,14 @@
     },
     "apk_download_url": {
       "defaultValue": {
-        "value": "https://streamhub-pro-website.web.app/downloads/StreamHubPro.apk"
+        "value": "https://appdistribution.firebase.google.com/testerapps/1:410364732768:android:d815c460fa9f5e28a92a05"
       },
       "description": "Direct download link to the APK file hosted on Firebase Hosting, Storage, or website.",
       "valueType": "STRING"
     },
     "release_notes": {
       "defaultValue": {
-        "value": "• Improved Live TV streaming stability and buffer management\n• Fixed EPG sync performance\n• UI and animation polish"
+        "value": "• 30-Day VIP Free Trial with zero upfront card requirement\n• Paystack subscription and billing management\n• TV remote and D-pad navigation polish\n• Free Live TV 100% free forever"
       },
       "description": "Multiline bulleted notes or JSON array of strings describing what's new in this release.",
       "valueType": "STRING"
