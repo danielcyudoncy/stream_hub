@@ -184,6 +184,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
         onTap: _toggleControls,
         onVolumeChanged: (vol) => _controller.setVolume(vol),
         controls: Stack(
+          fit: StackFit.expand,
           children: [
             _buildStateOverlay(),
             _buildSkipIntroOverlay(),
@@ -196,8 +197,10 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                   opacity: _controlsVisible ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
-                  child: const ColoredBox(
-                    color: Colors.black45,
+                  child: const SizedBox.expand(
+                    child: ColoredBox(
+                      color: Colors.black45,
+                    ),
                   ),
                 ),
               ),
@@ -212,6 +215,7 @@ class _FullscreenPlayerPageState extends State<FullscreenPlayerPage> {
                   duration: const Duration(milliseconds: 250),
                   curve: Curves.easeInOut,
                   child: Stack(
+                    fit: StackFit.expand,
                     children: [
                       _buildControlsOverlay(context),
                       _buildTopBar(context),
