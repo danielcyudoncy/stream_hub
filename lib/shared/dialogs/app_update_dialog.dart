@@ -109,19 +109,21 @@ class AppUpdateDialog extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              AppSpacing.heightMD,
-                            ],
-                            if (isDownloading) ...[
-                              _buildDownloadProgress(context, colorScheme, updateService),
-                            ] else if (isInstalling) ...[
-                              _buildInstallingIndicator(context, colorScheme),
-                            ] else if (status == AppUpdateStatus.error) ...[
-                              _buildErrorBanner(context, updateService.errorMessage.value),
                             ],
                           ],
                         ),
                       ),
                     ),
+                    if (isDownloading) ...[
+                      AppSpacing.heightMD,
+                      _buildDownloadProgress(context, colorScheme, updateService),
+                    ] else if (isInstalling) ...[
+                      AppSpacing.heightMD,
+                      _buildInstallingIndicator(context, colorScheme),
+                    ] else if (status == AppUpdateStatus.error) ...[
+                      AppSpacing.heightMD,
+                      _buildErrorBanner(context, updateService.errorMessage.value),
+                    ],
                     AppSpacing.heightLG,
                     _buildActions(context, colorScheme, updateService, isDownloading, isInstalling),
                   ],
@@ -160,11 +162,31 @@ class AppUpdateDialog extends StatelessWidget {
                 style: AppTypography.getHeadline(color: colorScheme.onSurface),
               ),
               AppSpacing.heightXS,
-              Text(
-                'v${updateInfo.latestVersion} (Build ${updateInfo.buildNumber})',
-                style: AppTypography.getCaption(
-                  color: colorScheme.primary,
-                ).copyWith(fontWeight: FontWeight.w600),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                children: [
+                  Text(
+                    'v${updateInfo.latestVersion} (Build ${updateInfo.buildNumber})',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.primary,
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  Container(
+                    width: 4,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: colorScheme.onSurface.withValues(alpha: 0.3),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  Text(
+                    '~25.9 MB',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurface.withValues(alpha: 0.7),
+                    ).copyWith(fontWeight: FontWeight.w600),
+                  ),
+                ],
               ),
             ],
           ),
@@ -201,38 +223,96 @@ class AppUpdateDialog extends StatelessWidget {
     ColorScheme colorScheme,
     AppUpdateService service,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Downloading update...',
-              style: AppTypography.getBody(color: colorScheme.onSurface),
-            ),
-            Text(
-              '${(service.downloadProgress.value * 100).toInt()}%',
-              style: AppTypography.getBody(color: colorScheme.primary).copyWith(fontWeight: FontWeight.bold),
-            ),
-          ],
+    final progress = service.downloadProgress.value;
+    final pct = (progress * 100).toInt();
+    final message = service.downloadStatusMessage.value.isNotEmpty
+        ? service.downloadStatusMessage.value
+        : 'Connecting to download server...';
+
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: AppRadius.medium,
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.3),
+          width: 1,
         ),
-        AppSpacing.heightXS,
-        ClipRRect(
-          borderRadius: BorderRadius.circular(4),
-          child: LinearProgressIndicator(
-            value: service.downloadProgress.value > 0 ? service.downloadProgress.value : null,
-            backgroundColor: colorScheme.onSurface.withValues(alpha: 0.1),
-            valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
-            minHeight: 8,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      value: progress > 0 ? progress : null,
+                      valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+                    ),
+                  ),
+                  AppSpacing.widthSM,
+                  Text(
+                    'Downloading update...',
+                    style: AppTypography.getBody(color: colorScheme.onSurface).copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$pct%',
+                  style: AppTypography.getCaption(color: colorScheme.primary).copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        AppSpacing.heightXS,
-        Text(
-          service.downloadStatusMessage.value,
-          style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6)),
-        ),
-      ],
+          AppSpacing.heightSM,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress > 0 ? progress : null,
+              backgroundColor: colorScheme.onSurface.withValues(alpha: 0.12),
+              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+              minHeight: 8,
+            ),
+          ),
+          AppSpacing.heightSM,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  message,
+                  style: AppTypography.getCaption(
+                    color: colorScheme.onSurface.withValues(alpha: 0.8),
+                  ).copyWith(fontWeight: FontWeight.w500),
+                ),
+              ),
+              Text(
+                'Total: ~25.9 MB',
+                style: AppTypography.getCaption(
+                  color: colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -376,10 +456,16 @@ class AppUpdateDialog extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.download_rounded, color: Colors.white, size: 20),
+                  Icon(
+                    isDownloading ? Icons.hourglass_top_rounded : Icons.download_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                   AppSpacing.widthXS,
                   Text(
-                    isDownloading ? 'Downloading...' : 'Install In-App',
+                    isDownloading
+                        ? '${(service.downloadProgress.value * 100).toInt()}% Downloading...'
+                        : 'Install In-App (~25.9 MB)',
                     style: AppTypography.getBody(color: Colors.white).copyWith(fontWeight: FontWeight.bold),
                   ),
                 ],
