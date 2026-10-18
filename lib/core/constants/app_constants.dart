@@ -27,6 +27,17 @@ class AppConstants {
   static const String boxCache = 'cache';
   static const String boxAuthSession = 'auth_session';
   static const String boxWatchlist = 'watchlist';
+  static const String boxSubscription = 'subscription';
+
+  // Paystack Configuration
+  static const String paystackBaseUrl = 'https://api.paystack.co';
+  static const String paystackPublicKey = 'pk_test_6beb8956c581da3b4444a0b39ceae17bd1251e72';
+  static const String paystackDefaultPlanCode = 'PLN_e4jdnvxfa9khg47';
+  static const String paystackDefaultPlanName = 'Premium Account';
+  static const int paystackDefaultPlanAmount = 100000; // 100,000 kobo = ₦1,000.00
+  static const String paystackDefaultPlanCurrency = 'NGN';
+  static const String paystackDefaultPlanInterval = 'monthly';
+  static const String paystackCallbackUrl = 'https://standard.paystack.co/close';
 
   // Settings Keys
   static const String keyThemeMode = 'theme_mode';

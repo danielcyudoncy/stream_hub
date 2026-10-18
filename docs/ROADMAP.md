@@ -377,6 +377,18 @@ Premium Features
 - [x] Cloud Sync
 - [x] Profiles
 - [x] Parental Control
+- [x] Paystack Subscription Subsystem (`PLN_e4jdnvxfa9khg47`)
+  - [x] `SubscriptionModel` & `SubscriptionStatus` (`none`, `trial`, `active`, `pastDue`, `expired`, `cancelled`)
+  - [x] Frictionless 30-Day VIP Free Trial (auto-provisioned on initial install, zero card required)
+  - [x] `PaystackService` API adapter (`/transaction/initialize`, `/transaction/verify`, `/subscription/disable`, `/subscription/:code/manage/link`)
+  - [x] `SubscriptionLocalService` (Hive cache box: `subscription`)
+  - [x] `SubscriptionRemoteService` (Paystack API + Cloud Firestore `users/{uid}/subscription/current` sync)
+  - [x] `SubscriptionRepository` (offline-first single source of truth with stream observation)
+  - [x] `SubscriptionGuard` entitlement engine (Free Live TV always free, custom IPTV features gated)
+  - [x] In-app cancellation flow with confirmation dialog and auto-renewal toggle (`AUTO-RENEW ON/OFF`)
+  - [x] Paystack customer self-service manage portal integration
+  - [x] `SubscriptionPage` / Paywall UI with checkout, trial status countdown, and verification
+  - [x] Settings integration with real-time entitlement badge (`TRIAL`, `ACTIVE`, `UPGRADE`)
 
 > **Parental Control Implementation Note:** Standard IPTV sources (Xtream Codes, Stalker Portal, M3U) only expose numeric review scores (e.g. IMDb 7.5/10) rather than standardized maturity/censor ratings (MPAA, TV-MA). Parental control enforcement operates via cryptographic SHA-256 PIN challenge gates across all playback pipelines (Live TV, Movies, Series, and Downloads), with support for adult category/genre heuristics, temporary 5-minute authenticated grace periods, and PIN-secured Settings modification.
 

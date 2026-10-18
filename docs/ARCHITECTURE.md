@@ -1371,6 +1371,57 @@ PlaybackEngine (Autoplay Next Overlay / Skip Intro Button)
 
 ---
 
+## Subscription & Billing Subsystem
+
+The Subscription & Billing Subsystem provides commercial entitlement gating, recurring Paystack subscription processing, and automated trial lifecycle management:
+
+```
+UI (Settings / SubscriptionPage / ProviderManager)
+  ↓
+SubscriptionGuard (Entitlement Engine)
+  ↓
+SubscriptionRepository (Offline-First Single Source of Truth)
+  ↙                                                 ↘
+SubscriptionLocalService (Hive: `subscription` box)   SubscriptionRemoteService
+                                                       ↙                      ↘
+                                            PaystackService (REST API)     FirebaseFirestore (`users/{uid}/subscription`)
+```
+
+### Components & Responsibilities
+
+1. **`SubscriptionModel`**:
+   - Canonical immutable model defining subscriber state.
+   - Statuses: `none`, `trial`, `active`, `pastDue`, `expired`, `cancelled`.
+   - Tiers: `free`, `premium`.
+   - Computed properties: `isActive`, `isPremium`, `isTrial`, `daysRemaining`, `formattedPrice`.
+2. **`SubscriptionGuard`**:
+   - Centralized feature access validator.
+   - Core Invariant: **Free Live TV is strictly subscription-independent and 100% free forever.**
+   - Gated features (`EntitledFeature`): `customIptvProviders`, `providerStreamPlayback`, `offlineDownloads`, `multiView`, `crossDeviceCloudSync`.
+   - Routes un-entitled actions to the `/subscription` paywall.
+3. **`SubscriptionRepository` & `SubscriptionRepositoryImpl`**:
+   - Unified interface for state observation (`watchSubscription()` stream), status queries, checkout initiation, verification, and cancellation.
+   - Caches state locally in Hive (`subscription` box) for offline-first readiness.
+   - Synchronizes remote state with Firestore and Paystack in the background.
+4. **`PaystackService` & `SubscriptionRemoteService`**:
+   - Direct REST communication with Paystack (`https://api.paystack.co`):
+     - `POST /transaction/initialize`: Initiates checkout with plan `PLN_e4jdnvxfa9khg47` (₦1,000 / month).
+     - `GET /transaction/verify/:reference`: Validates payment status and extracts reusable card authorizations.
+     - `POST /subscription/disable`: Halts automated recurring billing on customer cards.
+     - `GET /subscription/:code/manage/link`: Retrieves customer self-service billing and invoice portal.
+   - Mirrored to Cloud Firestore (`users/{userId}/subscription/current`).
+5. **Frictionless 30-Day VIP Free Trial**:
+   - Auto-provisioned on initial launch without requiring credit card details.
+   - Grants full access to custom IPTV providers, playback, and advanced features for 30 days.
+   - In-app countdown displayed in Settings (`TRIAL (29d)`) and on the Subscription screen.
+   - Automatic expiry enforcement transitioning back to the free tier without locking out Free Live TV.
+6. **Subscription Cancellation & Auto-Renewal**:
+   - In-app cancellation flow with confirmation dialog.
+   - Preserves VIP entitlements through the paid billing cycle while disabling future Paystack debits.
+   - Dynamic UI banner: `AUTO-RENEW ON` vs `AUTO-RENEW OFF`.
+
+---
+
 ## Architecture Rules
 
 - Keep widgets small.

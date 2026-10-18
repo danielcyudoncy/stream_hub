@@ -76,6 +76,8 @@ import '../../modules/developer/developer_binding.dart';
 import '../../modules/developer/pages/playback_test_page.dart';
 import '../../modules/developer/pages/provider_test_page.dart';
 import '../../modules/developer/pages/stream_test_page.dart';
+import '../../modules/subscription/subscription_page.dart';
+import '../../modules/subscription/subscription_binding.dart';
 import '../../shared/widgets/empty_view.dart';
 
 class AppPages {
@@ -367,6 +369,11 @@ class AppPages {
       name: AppRoutes.streamTest,
       page: () => const StreamTestPage(),
       binding: DeveloperBinding(),
+    ),
+    GetPage(
+      name: AppRoutes.subscription,
+      page: () => const SubscriptionPage(),
+      binding: SubscriptionBinding(),
     ),
   ];
 }

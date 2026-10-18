@@ -19,6 +19,7 @@ import 'package:stream_hub/shared/widgets/tv_keyboard_aware_scroll_view.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_model.dart';
 import 'package:stream_hub/modules/provider_manager/widgets/pairing_dialog.dart';
+import 'package:stream_hub/core/guards/subscription_guard.dart';
 import 'provider_manager_controller.dart';
 
 class ProviderFormPage extends StatefulWidget {
@@ -907,6 +908,13 @@ class _ProviderFormPageState extends State<ProviderFormPage> {
                     ),
                     text: isEditing ? 'Save Changes' : 'Add Link',
                     onPressed: () {
+                    if (!isEditing && !SubscriptionGuard.canAccess(EntitledFeature.customIptvProviders)) {
+                      SubscriptionGuard.promptPaywall(
+                        context: context,
+                        featureName: 'Custom IPTV Providers',
+                      );
+                      return;
+                    }
                     if (_formKey.currentState?.validate() ?? false) {
                       final trimmedName = _nameController.text.trim();
                       final trimmedServerUrl =
