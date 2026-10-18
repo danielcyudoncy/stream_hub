@@ -17,6 +17,7 @@ class DatabaseService extends GetxService {
   late Box watchProgressBox;
   late Box recentSearchesBox;
   late Box subscriptionBox;
+  late Box freeTvSlotsBox;
 
   Future<DatabaseService> init() async {
     // Idempotent: services are initialized in main() before runApp and again in
@@ -33,6 +34,7 @@ class DatabaseService extends GetxService {
       watchProgressBox = await _openBoxSafe(AppConstants.boxWatchProgress);
       recentSearchesBox = await _openBoxSafe(AppConstants.boxRecentSearches);
       subscriptionBox = await _openBoxSafe(AppConstants.boxSubscription);
+      freeTvSlotsBox = await _openBoxSafe(AppConstants.boxFreeTvSlots);
 
       _initialized = true;
       _logger.info(

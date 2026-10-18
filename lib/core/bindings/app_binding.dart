@@ -63,6 +63,7 @@ import 'package:stream_hub/data/services/paystack_service.dart';
 import 'package:stream_hub/data/services/subscription_local_service.dart';
 import 'package:stream_hub/data/services/subscription_remote_service.dart';
 import 'package:stream_hub/data/repositories/subscription_repository.dart';
+import 'package:stream_hub/data/services/free_tv_slot_service.dart';
 
 class AppBinding extends Bindings {
   @override
@@ -113,6 +114,7 @@ class AppBinding extends Bindings {
       remoteService: subscriptionRemoteService,
     );
     Get.put<SubscriptionRepository>(subscriptionRepo, permanent: true);
+    Get.put<FreeTvSlotService>(FreeTvSlotService(), permanent: true);
     
     final loggingService = Get.find<LoggingService>();
     Get.put<XMLTVDownloadService>(XMLTVDownloadService(loggingService), permanent: true);

@@ -4,6 +4,7 @@ import 'package:stream_hub/data/remote/free_tv_m3u_remote_data_source.dart';
 import 'package:stream_hub/data/repositories/free_tv_repository.dart';
 import 'package:stream_hub/data/services/free_tv_catalog_builder.dart';
 import 'package:stream_hub/data/services/free_tv_service.dart';
+import 'package:stream_hub/data/services/free_tv_slot_service.dart';
 import 'package:stream_hub/data/sources/free_tv_sources.dart';
 import '../controllers/free_live_tv_controller.dart';
 
@@ -38,9 +39,14 @@ class FreeLiveTvBinding extends Bindings {
       ),
     );
 
+    if (!Get.isRegistered<FreeTvSlotService>()) {
+      Get.lazyPut<FreeTvSlotService>(() => FreeTvSlotService());
+    }
+
     Get.lazyPut<FreeLiveTvController>(
       () => FreeLiveTvController(
         repository: Get.find<FreeTvRepository>(),
+        slotService: Get.find<FreeTvSlotService>(),
         logger: Get.isRegistered<LoggingService>()
             ? Get.find<LoggingService>()
             : null,

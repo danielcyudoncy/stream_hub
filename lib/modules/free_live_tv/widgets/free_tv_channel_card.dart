@@ -1,10 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'package:stream_hub/core/theme/app_colors.dart';
 import 'package:stream_hub/core/theme/app_radius.dart';
 import 'package:stream_hub/core/theme/app_spacing.dart';
 import 'package:stream_hub/core/theme/app_typography.dart';
 import 'package:stream_hub/data/models/free_tv_channel.dart';
+import 'package:stream_hub/data/services/free_tv_slot_service.dart';
 import 'package:stream_hub/shared/widgets/channel_placeholder.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 
@@ -14,6 +16,7 @@ class FreeTvChannelCard extends StatelessWidget {
   final VoidCallback? onFavorite;
   final bool isList;
   final bool isPlaying;
+  final FreeTvSlotService? slotService;
 
   const FreeTvChannelCard({
     super.key,
@@ -22,6 +25,7 @@ class FreeTvChannelCard extends StatelessWidget {
     this.onFavorite,
     this.isList = false,
     this.isPlaying = false,
+    this.slotService,
   });
 
   @override
@@ -178,36 +182,43 @@ class FreeTvChannelCard extends StatelessWidget {
               ],
             ),
 
-            // Top-left LIVE badge
+            // Top-left LIVE badge & Free Pass / VIP Slot Badge
             Positioned(
               top: 6,
               left: 6,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFEF4444),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.fiber_manual_record_rounded,
-                      color: Colors.white,
-                      size: 8,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    SizedBox(width: 3),
-                    Text(
-                      'LIVE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.5,
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.fiber_manual_record_rounded,
+                          color: Colors.white,
+                          size: 8,
+                        ),
+                        SizedBox(width: 3),
+                        Text(
+                          'LIVE',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 4),
+                  _buildSlotBadge(context),
+                ],
               ),
             ),
 
@@ -343,6 +354,9 @@ class FreeTvChannelCard extends StatelessWidget {
                 ),
               ),
 
+              _buildSlotBadge(context),
+              const SizedBox(width: 6),
+
               // Live indicator / Playing badge
               if (isPlaying)
                 Container(
@@ -383,5 +397,67 @@ class FreeTvChannelCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Widget _buildSlotBadge(BuildContext context) {
+    final service = slotService ??
+        (Get.isRegistered<FreeTvSlotService>()
+            ? Get.find<FreeTvSlotService>()
+            : null);
+    if (service == null) return const SizedBox.shrink();
+
+    return Obx(() {
+      if (service.isVip) return const SizedBox.shrink();
+      final isSelected = service.selectedChannelIds.contains(channel.id);
+      if (isSelected) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFF10B981),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle_rounded, color: Colors.black, size: 9),
+              SizedBox(width: 2),
+              Text(
+                'FREE PASS',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        );
+      } else {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF59E0B),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.lock_rounded, color: Colors.black, size: 9),
+              SizedBox(width: 2),
+              Text(
+                'VIP',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+    });
   }
 }
