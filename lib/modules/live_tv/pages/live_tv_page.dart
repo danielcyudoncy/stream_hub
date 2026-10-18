@@ -52,11 +52,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
   final GlobalKey<PopupMenuButtonState<String>> _morePopupKey =
       GlobalKey<PopupMenuButtonState<String>>();
 
-  final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerPortraitKey =
-      GlobalKey<LiveTvEmbeddedPlayerState>();
-  final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerLandscapeKey =
-      GlobalKey<LiveTvEmbeddedPlayerState>();
-  final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerFullscreenKey =
+  final GlobalKey<LiveTvEmbeddedPlayerState> _embeddedPlayerKey =
       GlobalKey<LiveTvEmbeddedPlayerState>();
   final FocusNode _providerButtonFocusNode =
       FocusNode(debugLabel: 'LiveTvProviderButton');
@@ -206,9 +202,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
   }
 
   void _focusPlayerFromCategory() {
-    final state = _embeddedPlayerLandscapeKey.currentState ??
-        _embeddedPlayerPortraitKey.currentState;
-    state?.focusPlayer();
+    _embeddedPlayerKey.currentState?.focusPlayer();
   }
 
   void _focusLastCategory() {
@@ -308,7 +302,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
               width: double.infinity,
               height: double.infinity,
               child: LiveTvEmbeddedPlayer(
-                key: _embeddedPlayerFullscreenKey,
+                key: _embeddedPlayerKey,
                 controller: controller,
                 isFullscreen: true,
                 autofocus: true,
@@ -335,7 +329,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
                           _buildTopAppBar(context, isList),
                           Expanded(
                             child: LiveTvEmbeddedPlayer(
-                              key: _embeddedPlayerLandscapeKey,
+                              key: _embeddedPlayerKey,
                               controller: controller,
                               isFullscreen: false,
                               autofocus: false,
@@ -472,7 +466,7 @@ class _LiveTVPageState extends State<LiveTVPage> {
                       : double.infinity,
                 ),
                 child: LiveTvEmbeddedPlayer(
-                  key: _embeddedPlayerPortraitKey,
+                  key: _embeddedPlayerKey,
                   controller: controller,
                   isFullscreen: false,
                   autofocus: false,
