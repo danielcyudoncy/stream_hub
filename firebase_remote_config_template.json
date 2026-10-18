@@ -16,7 +16,7 @@
     },
     "min_supported_version_code": {
       "defaultValue": {
-        "value": "1"
+        "value": "2"
       },
       "description": "Minimum build number required to use the app. If installed build < this, force_update is enforced.",
       "valueType": "NUMBER"
@@ -37,7 +37,7 @@
     },
     "force_update": {
       "defaultValue": {
-        "value": "false"
+        "value": "true"
       },
       "description": "When true, blocks the user from dismissing the update dialog until they update.",
       "valueType": "BOOLEAN"
