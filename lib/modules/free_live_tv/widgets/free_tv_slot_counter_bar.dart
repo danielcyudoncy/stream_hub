@@ -112,6 +112,41 @@ class FreeTvSlotCounterBar extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(width: AppSpacing.sm),
+          TvFocusable(
+            onTap: () {
+              slotService.simulateFreeTier.value = true;
+            },
+            borderRadius: AppRadius.pill,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.sm,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: AppRadius.pill,
+                border: Border.all(
+                  color: Colors.white30,
+                ),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.science_rounded, size: 14, color: Colors.white),
+                  SizedBox(width: 4),
+                  Text(
+                    'Test Free Mode',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -287,6 +322,47 @@ class FreeTvSlotCounterBar extends StatelessWidget {
                           style: TextStyle(
                             color: Colors.black,
                             fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              if (slotService.simulateFreeTier.value) ...[
+                const SizedBox(width: 6),
+                TvFocusable(
+                  onTap: () {
+                    slotService.simulateFreeTier.value = false;
+                  },
+                  borderRadius: AppRadius.pill,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.sm,
+                      vertical: AppSpacing.xs,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                      borderRadius: AppRadius.pill,
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B),
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.restore_rounded,
+                          size: 13,
+                          color: Color(0xFFF59E0B),
+                        ),
+                        SizedBox(width: 4),
+                        Text(
+                          'Restore VIP',
+                          style: TextStyle(
+                            color: Color(0xFFF59E0B),
+                            fontSize: 10,
                             fontWeight: FontWeight.w800,
                           ),
                         ),

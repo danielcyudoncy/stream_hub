@@ -36,6 +36,10 @@ class FreeTvSlotService extends GetxService {
   final RxList<String> selectedChannelIds = <String>[].obs;
   final RxBool isVipActive = false.obs;
 
+  /// Test flag allowing developers/testers to simulate the Free Tier (trial expired)
+  /// without waiting 30 days.
+  final RxBool simulateFreeTier = false.obs;
+
   StreamSubscription? _subscriptionSub;
 
   Box? _getBox() {
@@ -133,7 +137,10 @@ class FreeTvSlotService extends GetxService {
   }
 
   /// Whether VIP/trial is active and all channels are unrestricted.
-  bool get isVip => isVipActive.value || SubscriptionGuard.isSubscribed;
+  bool get isVip {
+    if (simulateFreeTier.value) return false;
+    return isVipActive.value || SubscriptionGuard.isSubscribed;
+  }
 
   /// Whether the 10-channel gating restriction is active (i.e. Free tier / trial expired).
   bool get isGatingActive => !isVip;
