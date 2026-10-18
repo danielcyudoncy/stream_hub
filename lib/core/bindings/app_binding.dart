@@ -59,6 +59,10 @@ import 'package:stream_hub/core/services/cloud_sync_service.dart';
 import 'package:stream_hub/core/services/parental_control_service.dart';
 import 'package:stream_hub/core/services/app_update_service.dart';
 import 'package:stream_hub/data/services/active_profile_service.dart';
+import 'package:stream_hub/data/services/paystack_service.dart';
+import 'package:stream_hub/data/services/subscription_local_service.dart';
+import 'package:stream_hub/data/services/subscription_remote_service.dart';
+import 'package:stream_hub/data/repositories/subscription_repository.dart';
 
 class AppBinding extends Bindings {
   @override
@@ -96,6 +100,19 @@ class AppBinding extends Bindings {
     
     Get.put<EPGEngine>(EPGEngine(), permanent: true);
     Get.put<TimelineEngine>(TimelineEngine(), permanent: true);
+
+    // Subscription & Paystack Billing Subsystem
+    final paystackService = PaystackService();
+    Get.put<PaystackService>(paystackService, permanent: true);
+    final subscriptionLocalService = SubscriptionLocalService();
+    Get.put<SubscriptionLocalService>(subscriptionLocalService, permanent: true);
+    final subscriptionRemoteService = SubscriptionRemoteService(paystackService: paystackService);
+    Get.put<SubscriptionRemoteService>(subscriptionRemoteService, permanent: true);
+    final subscriptionRepo = SubscriptionRepositoryImpl(
+      localService: subscriptionLocalService,
+      remoteService: subscriptionRemoteService,
+    );
+    Get.put<SubscriptionRepository>(subscriptionRepo, permanent: true);
     
     final loggingService = Get.find<LoggingService>();
     Get.put<XMLTVDownloadService>(XMLTVDownloadService(loggingService), permanent: true);

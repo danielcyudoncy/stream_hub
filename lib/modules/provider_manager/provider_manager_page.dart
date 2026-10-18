@@ -13,6 +13,7 @@ import 'package:stream_hub/shared/widgets/filter_sheet.dart';
 import 'package:stream_hub/shared/widgets/provider_card.dart';
 import 'package:stream_hub/shared/widgets/tv_focusable.dart';
 import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
+import 'package:stream_hub/core/guards/subscription_guard.dart';
 import 'provider_manager_controller.dart';
 
 class ProviderManagerPage extends StatefulWidget {
@@ -43,6 +44,17 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
     super.dispose();
   }
 
+  void _navigateToAddProvider(BuildContext context) {
+    if (!SubscriptionGuard.canAccess(EntitledFeature.customIptvProviders)) {
+      SubscriptionGuard.promptPaywall(
+        context: context,
+        featureName: 'Custom IPTV Providers',
+      );
+      return;
+    }
+    Get.toNamed(AppRoutes.providerForm);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -56,7 +68,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
       actions: [
         if (!isTvMode)
           TvFocusable(
-            onTap: () => Get.toNamed(AppRoutes.providerForm),
+            onTap: () => _navigateToAddProvider(context),
             borderRadius: BorderRadius.circular(8.0),
             scale: 1.05,
             child: Container(
@@ -83,11 +95,11 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
       ],
       floatingActionButton: !isTvMode
           ? TvFocusable(
-              onTap: () => Get.toNamed(AppRoutes.providerForm),
+              onTap: () => _navigateToAddProvider(context),
               borderRadius: BorderRadius.circular(28.0),
               scale: 1.05,
               child: FloatingActionButton.extended(
-                onPressed: () => Get.toNamed(AppRoutes.providerForm),
+                onPressed: () => _navigateToAddProvider(context),
                 backgroundColor: colorScheme.primary,
                 foregroundColor: colorScheme.onPrimary,
                 icon: Icon(AppIcons.add, color: colorScheme.onPrimary),
@@ -118,7 +130,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
                       'Add your first IPTV playlist or streaming source to start watching.',
                   icon: AppIcons.providers,
                   actionLabel: 'Add Media Source',
-                  onAction: () => Get.toNamed(AppRoutes.providerForm),
+                  onAction: () => _navigateToAddProvider(context),
                 );
               }
 
@@ -212,7 +224,7 @@ class _ProviderManagerPageState extends State<ProviderManagerPage> {
               AppSpacing.widthMD,
               TvFocusable(
                 autofocus: isTvMode,
-                onTap: () => Get.toNamed(AppRoutes.providerForm),
+                onTap: () => _navigateToAddProvider(context),
                 borderRadius: BorderRadius.circular(10.0),
                 scale: 1.05,
                 child: Container(

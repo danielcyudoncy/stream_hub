@@ -14,6 +14,7 @@ import 'package:stream_hub/modules/provider_manager/models/provider_enums.dart';
 import 'package:stream_hub/core/services/app_update_service.dart';
 import 'package:stream_hub/shared/dialogs/confirmation_dialog.dart';
 import 'package:stream_hub/shared/dialogs/parental_pin_dialog.dart';
+import 'package:stream_hub/data/repositories/subscription_repository.dart';
 import 'settings_controller.dart';
 
 class SettingsPage extends GetView<SettingsController> {
@@ -36,6 +37,8 @@ class SettingsPage extends GetView<SettingsController> {
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
             _buildMediaSourcesSection(context, colorScheme),
+            AppSpacing.heightXL,
+            _buildSubscriptionSection(context, colorScheme),
             AppSpacing.heightXL,
             _buildCloudSyncSection(context, colorScheme),
             AppSpacing.heightXL,
@@ -145,6 +148,94 @@ class SettingsPage extends GetView<SettingsController> {
                 leadingIcon: Icons.video_collection_outlined,
                 onTap: () => _showComingSoon('Emby'),
                 trailing: _buildComingSoonBadge(colorScheme),
+                showDivider: false,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubscriptionSection(
+    BuildContext context,
+    ColorScheme colorScheme,
+  ) {
+    final subscriptionRepo = Get.isRegistered<SubscriptionRepository>()
+        ? Get.find<SubscriptionRepository>()
+        : null;
+    final sub = subscriptionRepo?.currentSubscription;
+    final isTrial = sub?.isTrial ?? false;
+    final isPaid = (sub?.isPremium ?? false) && !isTrial;
+
+    final String tileTitle = isPaid
+        ? 'Premium Member'
+        : isTrial
+            ? '30-Day VIP Trial'
+            : 'StreamHub Pro Premium';
+
+    final String tileSubtitle = isPaid
+        ? (sub?.isAutoRenewing == true
+            ? 'Active (Auto-renewing) • ₦1,000 / month'
+            : 'Active (Expires in ${sub?.daysRemaining} days)')
+        : isTrial
+            ? '${sub?.daysRemaining ?? 30} days remaining • Full access unlocked'
+            : 'Unlock unlimited IPTV playlists, multi-view & VOD downloads';
+
+    final String badgeText = isPaid
+        ? 'ACTIVE'
+        : isTrial
+            ? 'TRIAL (${sub?.daysRemaining ?? 30}d)'
+            : 'UPGRADE';
+
+    final Color badgeColor = isPaid
+        ? Colors.green
+        : isTrial
+            ? Colors.cyan
+            : Colors.amber;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+          title: 'Subscription',
+          subtitle: 'Manage your StreamHub Pro membership and billing',
+        ),
+        AppSpacing.heightXS,
+        AppCard(
+          child: Column(
+            children: [
+              SettingsTile(
+                title: tileTitle,
+                subtitle: tileSubtitle,
+                leadingIcon: Icons.workspace_premium_rounded,
+                iconColor: badgeColor,
+                onTap: () => Get.toNamed(AppRoutes.subscription),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: badgeColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: badgeColor,
+                        ),
+                      ),
+                      child: Text(
+                        badgeText,
+                        style: TextStyle(
+                          color: badgeColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.arrow_forward_ios, size: 16),
+                  ],
+                ),
                 showDivider: false,
               ),
             ],

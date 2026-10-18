@@ -25,6 +25,8 @@ class AppRoutes {
 
   static const String search = '/search';
   static const String settings = '/settings';
+  static const String subscription = '/subscription';
+  static const String paywall = '/subscription';
   static const String providerManager = '/provider-manager';
   static const String providerForm = '/provider-form';
   static const String providerDetails = '/provider-details';
