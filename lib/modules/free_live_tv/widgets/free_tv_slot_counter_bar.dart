@@ -53,27 +53,31 @@ class FreeTvSlotCounterBar extends StatelessWidget {
           width: 1,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF59E0B).withValues(alpha: 0.20),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.stars_rounded,
-              color: Color(0xFFF59E0B),
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF59E0B).withValues(alpha: 0.20),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.stars_rounded,
+                  color: Color(0xFFF59E0B),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
                     Text(
                       'VIP Pass Active',
@@ -81,7 +85,6 @@ class FreeTvSlotCounterBar extends StatelessWidget {
                         color: const Color(0xFFF59E0B),
                       ).copyWith(fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
@@ -102,49 +105,49 @@ class FreeTvSlotCounterBar extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 1),
-                Text(
-                  'All Free TV channels are unlocked and ad-free',
-                  style: AppTypography.getCaption(
-                    color: Colors.white70,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
-          TvFocusable(
-            onTap: () {
-              slotService.simulateFreeTier.value = true;
-            },
-            borderRadius: AppRadius.pill,
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.sm,
-                vertical: 6,
               ),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
+              const SizedBox(width: AppSpacing.xs),
+              TvFocusable(
+                onTap: () {
+                  slotService.simulateFreeTier.value = true;
+                },
                 borderRadius: AppRadius.pill,
-                border: Border.all(
-                  color: Colors.white30,
-                ),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.science_rounded, size: 14, color: Colors.white),
-                  SizedBox(width: 4),
-                  Text(
-                    'Test Free Mode',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.sm,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: AppRadius.pill,
+                    border: Border.all(
+                      color: Colors.white30,
                     ),
                   ),
-                ],
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.science_rounded, size: 13, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'Test Free Mode',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'All Free TV channels are unlocked and ad-free',
+            style: AppTypography.getCaption(
+              color: Colors.white70,
             ),
           ),
         ],
@@ -184,6 +187,7 @@ class FreeTvSlotCounterBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
@@ -202,177 +206,180 @@ class FreeTvSlotCounterBar extends StatelessWidget {
               ),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+                child: Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 6,
+                  runSpacing: 4,
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          '10 Free Channel Pass',
-                          style: AppTypography.getLabel(
-                            color: colorScheme.onSurface,
-                          ).copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isFull
-                                ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
-                                : const Color(0xFF10B981).withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '$used / $max USED',
-                            style: TextStyle(
-                              color: isFull
-                                  ? const Color(0xFFF59E0B)
-                                  : const Color(0xFF10B981),
-                              fontSize: 9,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
                     Text(
-                      isFull
-                          ? 'All 10 free slots used. Tap a channel to swap or upgrade to VIP.'
-                          : '$remaining slot${remaining == 1 ? '' : 's'} left. Pick your favorite channels for free.',
-                      style: AppTypography.getCaption(
-                        color: colorScheme.onSurfaceVariant,
+                      '10 Free Channel Pass',
+                      style: AppTypography.getLabel(
+                        color: colorScheme.onSurface,
+                      ).copyWith(fontWeight: FontWeight.w700),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isFull
+                            ? const Color(0xFFF59E0B).withValues(alpha: 0.2)
+                            : const Color(0xFF10B981).withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        '$used / $max USED',
+                        style: TextStyle(
+                          color: isFull
+                              ? const Color(0xFFF59E0B)
+                              : const Color(0xFF10B981),
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.sm),
-              if (used > 0)
-                TvFocusable(
-                  onTap: () {
-                    FreeTvSlotDialog.showManageSlots(
-                      context: context,
-                      slotService: slotService,
-                      allChannels: allChannels,
-                      onChannelSelected: onChannelSelected,
-                    );
-                  },
-                  borderRadius: AppRadius.pill,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colorScheme.surfaceContainerHighest,
-                      borderRadius: AppRadius.pill,
-                      border: Border.all(
-                        color: colorScheme.outline.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.tune_rounded,
-                          size: 14,
-                          color: colorScheme.onSurface,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Manage',
-                          style: AppTypography.getCaption(
-                            color: colorScheme.onSurface,
-                          ).copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (isFull) ...[
-                const SizedBox(width: 6),
-                TvFocusable(
-                  onTap: () => Get.toNamed(AppRoutes.subscription),
-                  borderRadius: AppRadius.pill,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B),
-                      borderRadius: AppRadius.pill,
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.stars_rounded,
-                          size: 14,
-                          color: Colors.black,
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'VIP',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-              if (slotService.simulateFreeTier.value) ...[
-                const SizedBox(width: 6),
-                TvFocusable(
-                  onTap: () {
-                    slotService.simulateFreeTier.value = false;
-                  },
-                  borderRadius: AppRadius.pill,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AppSpacing.sm,
-                      vertical: AppSpacing.xs,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                      borderRadius: AppRadius.pill,
-                      border: Border.all(
-                        color: const Color(0xFFF59E0B),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.restore_rounded,
-                          size: 13,
-                          color: Color(0xFFF59E0B),
-                        ),
-                        SizedBox(width: 4),
-                        Text(
-                          'Restore VIP',
-                          style: TextStyle(
-                            color: Color(0xFFF59E0B),
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
+          const SizedBox(height: 4),
+          Text(
+            isFull
+                ? 'All 10 free slots used. Tap a channel to swap or upgrade to VIP.'
+                : '$remaining slot${remaining == 1 ? '' : 's'} left. Pick your favorite channels for free.',
+            style: AppTypography.getCaption(
+              color: colorScheme.onSurfaceVariant,
+            ),
+          ),
+          if (used > 0 || isFull || slotService.simulateFreeTier.value) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                if (used > 0)
+                  TvFocusable(
+                    onTap: () {
+                      FreeTvSlotDialog.showManageSlots(
+                        context: context,
+                        slotService: slotService,
+                        allChannels: allChannels,
+                        onChannelSelected: onChannelSelected,
+                      );
+                    },
+                    borderRadius: AppRadius.pill,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colorScheme.surfaceContainerHighest,
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(
+                          color: colorScheme.outline.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.tune_rounded,
+                            size: 13,
+                            color: colorScheme.onSurface,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Manage',
+                            style: AppTypography.getCaption(
+                              color: colorScheme.onSurface,
+                            ).copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (isFull)
+                  TvFocusable(
+                    onTap: () => Get.toNamed(AppRoutes.subscription),
+                    borderRadius: AppRadius.pill,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B),
+                        borderRadius: AppRadius.pill,
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.stars_rounded,
+                            size: 13,
+                            color: Colors.black,
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'VIP',
+                            style: TextStyle(
+                              color: Colors.black,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (slotService.simulateFreeTier.value)
+                  TvFocusable(
+                    onTap: () {
+                      slotService.simulateFreeTier.value = false;
+                    },
+                    borderRadius: AppRadius.pill,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.sm,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                        borderRadius: AppRadius.pill,
+                        border: Border.all(
+                          color: const Color(0xFFF59E0B),
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.restore_rounded,
+                            size: 13,
+                            color: Color(0xFFF59E0B),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Restore VIP',
+                            style: TextStyle(
+                              color: Color(0xFFF59E0B),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ],
           const SizedBox(height: AppSpacing.xs),
           // 10 Slot Segments Bar
           Row(
