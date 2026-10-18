@@ -23,7 +23,7 @@
     },
     "apk_download_url": {
       "defaultValue": {
-        "value": "https://appdistribution.firebase.google.com/testerapps/1:410364732768:android:d815c460fa9f5e28a92a05"
+        "value": "https://stream-hub-fecfa.web.app/releases/stream_hub.apk"
       },
       "description": "Direct download link to the APK file hosted on Firebase Hosting, Storage, or website.",
       "valueType": "STRING"

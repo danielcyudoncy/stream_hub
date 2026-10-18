@@ -422,6 +422,13 @@ class AppUpdateService extends GetxService {
         throw HttpException('Download failed with status ${response.statusCode}');
       }
 
+      final contentType = response.headers.contentType?.mimeType ?? '';
+      if (contentType.contains('text/html')) {
+        throw const FormatException(
+          'The update URL returned a webpage instead of an APK package.',
+        );
+      }
+
       final contentLength = response.contentLength;
       final sink = targetFile.openWrite();
       _activeDownloadSink = sink;
@@ -457,6 +464,22 @@ class AppUpdateService extends GetxService {
       await sink.flush();
       await sink.close();
       _activeDownloadSink = null;
+
+      // Verify file is a valid Android APK (ZIP archive magic bytes: PK\x03\x04)
+      final headerBytes = await targetFile.openRead(0, 4).first;
+      final isValidApk = headerBytes.length >= 4 &&
+          headerBytes[0] == 0x50 && // P
+          headerBytes[1] == 0x4B && // K
+          headerBytes[2] == 0x03 &&
+          headerBytes[3] == 0x04;
+      if (!isValidApk) {
+        if (await targetFile.exists()) {
+          await targetFile.delete();
+        }
+        throw const FormatException(
+          'Downloaded package file is corrupt or not a valid Android APK.',
+        );
+      }
 
       status.value = AppUpdateStatus.downloaded;
       _logger?.info('APK update downloaded to ${targetFile.path}', tag: 'AppUpdateService');
