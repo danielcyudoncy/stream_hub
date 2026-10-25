@@ -13,10 +13,13 @@ import '../services/subscription_remote_service.dart';
 abstract class SubscriptionRepository {
   SubscriptionModel get currentSubscription;
   bool get isSubscribed;
+  bool get isOwnerVip;
   Future<SubscriptionModel> getSubscription({bool forceRefresh = false});
   Stream<SubscriptionModel> watchSubscription();
   Future<PaystackInitResponse> initializeSubscription({required String email, String? planCode});
   Future<SubscriptionModel> verifyAndActivate({required String reference, required String email});
+  Future<void> activateOwnerVip();
+  Future<void> deactivateOwnerVip();
   Future<void> cancelSubscription();
   Future<String?> getManageLink();
   Future<void> refresh();
@@ -45,6 +48,9 @@ class SubscriptionRepositoryImpl extends GetxService implements SubscriptionRepo
 
   @override
   bool get isSubscribed => _currentSubscription.isPremium;
+
+  @override
+  bool get isOwnerVip => _currentSubscription.isOwnerVip;
 
   @override
   Stream<SubscriptionModel> watchSubscription() => _subscriptionStreamController.stream;
@@ -165,6 +171,26 @@ class SubscriptionRepositoryImpl extends GetxService implements SubscriptionRepo
       if (e is ApplicationException) rethrow;
       throw UnknownException(originalError: e);
     }
+  }
+
+  @override
+  Future<void> activateOwnerVip() async {
+    final userId = _getEffectiveUserId();
+    final ownerSub = SubscriptionModel.ownerVip(userId: userId);
+    await _localService.saveSubscription(ownerSub);
+    await _remoteService.syncToFirestore(ownerSub);
+    _updateCurrent(ownerSub);
+    _logger.info('Owner Lifetime VIP activated successfully', tag: 'SubscriptionRepository');
+  }
+
+  @override
+  Future<void> deactivateOwnerVip() async {
+    final userId = _getEffectiveUserId();
+    final freeSub = SubscriptionModel.free(userId: userId, email: '');
+    await _localService.saveSubscription(freeSub);
+    await _remoteService.syncToFirestore(freeSub);
+    _updateCurrent(freeSub);
+    _logger.info('Deactivated Owner VIP; reverted to Free tier', tag: 'SubscriptionRepository');
   }
 
   @override

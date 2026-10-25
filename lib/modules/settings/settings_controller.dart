@@ -9,10 +9,12 @@ import 'package:stream_hub/core/services/cloud_sync_service.dart';
 import 'package:stream_hub/core/services/parental_control_service.dart';
 import 'package:stream_hub/core/services/app_update_service.dart';
 import 'package:stream_hub/data/models/settings_model.dart';
+import 'package:stream_hub/data/repositories/subscription_repository.dart';
 import 'package:stream_hub/data/services/settings_service.dart';
 import 'package:stream_hub/data/services/profile_service.dart';
 import 'package:stream_hub/data/services/cache_service.dart';
 import 'package:stream_hub/shared/dialogs/app_update_dialog.dart';
+import 'package:stream_hub/shared/dialogs/owner_pin_dialog.dart';
 
 class SettingsController extends GetxController {
   final SettingsService _settingsService;
@@ -50,6 +52,7 @@ class SettingsController extends GetxController {
   final RxBool autoSkipIntro = false.obs;
   final RxBool isLoading = false.obs;
   final RxString errorMessage = ''.obs;
+  final RxBool isDeveloperModeUnlocked = false.obs;
 
   SettingsModel? _settings;
   PlayerSettings? _playerSettings;
@@ -57,6 +60,11 @@ class SettingsController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<SubscriptionRepository>()) {
+      if (Get.find<SubscriptionRepository>().isOwnerVip) {
+        isDeveloperModeUnlocked.value = true;
+      }
+    }
     _loadSettings();
   }
 
@@ -449,6 +457,75 @@ class SettingsController extends GetxController {
         'StreamHub Pro is up to date (v${currentAppVersion.value}+${currentBuildNumber.value}).',
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 3),
+      );
+    }
+  }
+
+  // --- Secret Developer / Owner Tap ---
+  int _secretTapCount = 0;
+  DateTime? _lastTapTime;
+
+  Future<void> handleSecretVersionTap() async {
+    final now = DateTime.now();
+    if (_lastTapTime == null || now.difference(_lastTapTime!) > const Duration(seconds: 3)) {
+      _secretTapCount = 1;
+    } else {
+      _secretTapCount++;
+    }
+    _lastTapTime = now;
+
+    if (!Get.isRegistered<SubscriptionRepository>()) return;
+    final repo = Get.find<SubscriptionRepository>();
+
+    if (repo.isOwnerVip) {
+      if (_secretTapCount >= 3) {
+        _secretTapCount = 0;
+        Get.snackbar(
+          '👑 Owner Mode Active',
+          'Owner Lifetime VIP is already permanently active on this device.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.amber.shade900,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+      }
+      return;
+    }
+
+    if (_secretTapCount >= 7) {
+      _secretTapCount = 0;
+      final verified = await OwnerPinDialog.show(
+        title: '👑 Owner Master Verification',
+        message: 'Enter the secret 4-digit Master PIN to unlock Owner VIP Mode and Developer Tools.',
+      );
+      if (verified) {
+        isDeveloperModeUnlocked.value = true;
+        await repo.activateOwnerVip();
+        Get.snackbar(
+          '👑 Owner Mode Activated!',
+          'Permanent Lifetime VIP pass granted with all features unlocked.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.amber.shade900,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
+      } else {
+        Get.snackbar(
+          'Access Denied',
+          'Incorrect Master PIN. Owner VIP access was not granted.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.red.shade900,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 3),
+        );
+      }
+    } else if (_secretTapCount >= 4) {
+      final remaining = 7 - _secretTapCount;
+      Get.snackbar(
+        'Developer Mode',
+        'You are $remaining tap${remaining == 1 ? '' : 's'} away from Owner VIP verification.',
+        snackPosition: SnackPosition.BOTTOM,
+        duration: const Duration(milliseconds: 1200),
       );
     }
   }

@@ -44,6 +44,21 @@ void main() {
       expect(expiredTrial.daysRemaining, 0);
     });
 
+    test('SubscriptionModel.ownerVip creates permanent lifetime VIP pass', () {
+      final ownerSub = SubscriptionModel.ownerVip(userId: 'admin_123');
+
+      expect(ownerSub.userId, 'admin_123');
+      expect(ownerSub.status, SubscriptionStatus.active);
+      expect(ownerSub.tier, SubscriptionTier.premium);
+      expect(ownerSub.isActive, true);
+      expect(ownerSub.isPremium, true);
+      expect(ownerSub.isOwnerVip, true);
+      expect(ownerSub.isTrial, false);
+      expect(ownerSub.planCode, 'OWNER_LIFETIME_VIP');
+      expect(ownerSub.amount, 0);
+      expect(ownerSub.expiryDate?.year, 2099);
+    });
+
     test('SubscriptionModel.fromJson deserializes active subscription correctly', () {
       final now = DateTime.now();
       final expiry = now.add(const Duration(days: 28));

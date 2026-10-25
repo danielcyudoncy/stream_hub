@@ -107,6 +107,31 @@ class SubscriptionModel {
     );
   }
 
+  /// Factory for a lifetime Owner VIP pass
+  factory SubscriptionModel.ownerVip({
+    required String userId,
+    String email = 'owner@streamhub.pro',
+  }) {
+    final now = DateTime.now();
+    return SubscriptionModel(
+      userId: userId,
+      email: email,
+      status: SubscriptionStatus.active,
+      tier: SubscriptionTier.premium,
+      planCode: 'OWNER_LIFETIME_VIP',
+      planName: '👑 Owner Lifetime VIP',
+      amount: 0,
+      currency: 'NGN',
+      interval: 'lifetime',
+      reference: 'OWNER_SECRET_BYPASS',
+      startDate: now,
+      expiryDate: DateTime(2099, 12, 31, 23, 59, 59),
+      createdAt: now,
+      updatedAt: now,
+      isAutoRenewing: true,
+    );
+  }
+
   /// Whether the subscription or trial is currently active and within its valid date range
   bool get isActive {
     if (status != SubscriptionStatus.active && status != SubscriptionStatus.trial) {
@@ -123,6 +148,9 @@ class SubscriptionModel {
 
   /// Whether this is an active trial
   bool get isTrial => status == SubscriptionStatus.trial && isActive;
+
+  /// Whether this is an active owner VIP pass
+  bool get isOwnerVip => planCode == 'OWNER_LIFETIME_VIP' && isPremium;
 
   /// Returns remaining days until next billing or expiry date
   int get daysRemaining {

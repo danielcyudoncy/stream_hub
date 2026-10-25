@@ -5,12 +5,34 @@ import '../../../core/services/app_update_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_typography.dart';
+import '../../../data/repositories/subscription_repository.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_scaffold.dart';
 import '../../../shared/widgets/section_header.dart';
+import '../settings/settings_controller.dart';
+import '../../../shared/dialogs/owner_pin_dialog.dart';
 
 class AboutPage extends GetView {
   const AboutPage({super.key});
+
+  Future<void> _onSecretTap() async {
+    if (Get.isRegistered<SettingsController>()) {
+      await Get.find<SettingsController>().handleSecretVersionTap();
+    } else {
+      final verified = await OwnerPinDialog.show();
+      if (verified && Get.isRegistered<SubscriptionRepository>()) {
+        await Get.find<SubscriptionRepository>().activateOwnerVip();
+        Get.snackbar(
+          '👑 Owner Mode Activated!',
+          'Permanent Lifetime VIP pass granted with all features unlocked.',
+          snackPosition: SnackPosition.BOTTOM,
+          backgroundColor: Colors.amber.shade900,
+          colorText: Colors.white,
+          duration: const Duration(seconds: 5),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,32 +48,36 @@ class AboutPage extends GetView {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 96,
-                    height: 96,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(colors: AppColors.primaryGradient),
+              child: GestureDetector(
+                onTap: _onSecretTap,
+                behavior: HitTestBehavior.opaque,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(colors: AppColors.primaryGradient),
+                      ),
+                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 48),
                     ),
-                    child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 48),
-                  ),
-                  AppSpacing.heightMD,
-                  Text('StreamHub Pro', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
-                  AppSpacing.heightXS,
-                  Builder(
-                    builder: (context) {
-                      final updateService = Get.isRegistered<AppUpdateService>() ? Get.find<AppUpdateService>() : null;
-                      final version = updateService?.currentVersion.value ?? AppConstants.appVersion;
-                      final build = updateService?.currentBuildNumber.value ?? AppConstants.appBuildNumber;
-                      return Text(
-                        'Version $version (Build $build)',
-                        style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6)),
-                      );
-                    },
-                  ),
-                ],
+                    AppSpacing.heightMD,
+                    Text('StreamHub Pro', style: AppTypography.getHeadline(color: colorScheme.onSurface)),
+                    AppSpacing.heightXS,
+                    Builder(
+                      builder: (context) {
+                        final updateService = Get.isRegistered<AppUpdateService>() ? Get.find<AppUpdateService>() : null;
+                        final version = updateService?.currentVersion.value ?? AppConstants.appVersion;
+                        final build = updateService?.currentBuildNumber.value ?? AppConstants.appBuildNumber;
+                        return Text(
+                          'Version $version (Build $build)',
+                          style: AppTypography.getCaption(color: colorScheme.onSurface.withValues(alpha: 0.6)),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             AppSpacing.heightXL,

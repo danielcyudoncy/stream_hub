@@ -57,8 +57,21 @@ class SettingsPage extends GetView<SettingsController> {
             _buildPrivacySection(context, colorScheme),
             AppSpacing.heightXL,
             _buildAboutSection(context, colorScheme),
-            AppSpacing.heightXL,
-            _buildDeveloperSection(context, colorScheme),
+            Obx(() {
+              final isDevUnlocked = controller.isDeveloperModeUnlocked.value;
+              final isOwner = Get.isRegistered<SubscriptionRepository>() &&
+                  Get.find<SubscriptionRepository>().isOwnerVip;
+              if (!isDevUnlocked && !isOwner) {
+                return const SizedBox.shrink();
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppSpacing.heightXL,
+                  _buildDeveloperSection(context, colorScheme),
+                ],
+              );
+            }),
             AppSpacing.heightXXL,
           ],
         );
@@ -165,34 +178,43 @@ class SettingsPage extends GetView<SettingsController> {
         ? Get.find<SubscriptionRepository>()
         : null;
     final sub = subscriptionRepo?.currentSubscription;
-    final isTrial = sub?.isTrial ?? false;
-    final isPaid = (sub?.isPremium ?? false) && !isTrial;
+    final isOwner = sub?.isOwnerVip ?? false;
+    final isTrial = !isOwner && (sub?.isTrial ?? false);
+    final isPaid = !isOwner && (sub?.isPremium ?? false) && !isTrial;
 
-    final String tileTitle = isPaid
-        ? 'Premium Member'
-        : isTrial
-            ? '30-Day VIP Trial'
-            : 'StreamHub Pro Premium';
+    final String tileTitle = isOwner
+        ? '👑 Owner Lifetime VIP'
+        : isPaid
+            ? 'Premium Member'
+            : isTrial
+                ? '30-Day VIP Trial'
+                : 'StreamHub Pro Premium';
 
-    final String tileSubtitle = isPaid
-        ? (sub?.isAutoRenewing == true
-            ? 'Active (Auto-renewing) • ₦1,000 / month'
-            : 'Active (Expires in ${sub?.daysRemaining} days)')
-        : isTrial
-            ? '${sub?.daysRemaining ?? 30} days remaining • Full access unlocked'
-            : 'Unlock unlimited IPTV playlists, multi-view & VOD downloads';
+    final String tileSubtitle = isOwner
+        ? 'Permanent VIP access unlocked for app owner'
+        : isPaid
+            ? (sub?.isAutoRenewing == true
+                ? 'Active (Auto-renewing) • ₦1,000 / month'
+                : 'Active (Expires in ${sub?.daysRemaining} days)')
+            : isTrial
+                ? '${sub?.daysRemaining ?? 30} days remaining • Full access unlocked'
+                : 'Unlock unlimited IPTV playlists, multi-view & VOD downloads';
 
-    final String badgeText = isPaid
-        ? 'ACTIVE'
-        : isTrial
-            ? 'TRIAL (${sub?.daysRemaining ?? 30}d)'
-            : 'UPGRADE';
+    final String badgeText = isOwner
+        ? 'OWNER VIP'
+        : isPaid
+            ? 'ACTIVE'
+            : isTrial
+                ? 'TRIAL (${sub?.daysRemaining ?? 30}d)'
+                : 'UPGRADE';
 
-    final Color badgeColor = isPaid
-        ? Colors.green
-        : isTrial
-            ? Colors.cyan
-            : Colors.amber;
+    final Color badgeColor = isOwner
+        ? Colors.amber
+        : isPaid
+            ? Colors.green
+            : isTrial
+                ? Colors.cyan
+                : Colors.amber;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,42 +225,78 @@ class SettingsPage extends GetView<SettingsController> {
         ),
         AppSpacing.heightXS,
         AppCard(
-          child: Column(
-            children: [
-              SettingsTile(
-                title: tileTitle,
-                subtitle: tileSubtitle,
-                leadingIcon: Icons.workspace_premium_rounded,
-                iconColor: badgeColor,
-                onTap: () => Get.toNamed(AppRoutes.subscription),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+          child: TvFocusable(
+            onTap: () => Get.toNamed(AppRoutes.subscription),
+            borderRadius: BorderRadius.circular(12),
+            scale: 1.01,
+            child: InkWell(
+              onTap: () => Get.toNamed(AppRoutes.subscription),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: badgeColor.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.workspace_premium_rounded,
                           color: badgeColor,
+                          size: 24,
                         ),
-                      ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            tileTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.getBody(color: colorScheme.onSurface).copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: badgeColor.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: badgeColor,
+                            ),
+                          ),
+                          child: Text(
+                            badgeText,
+                            style: TextStyle(
+                              color: badgeColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.arrow_forward_ios,
+                          size: 14,
+                          color: colorScheme.onSurface.withValues(alpha: 0.4),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 34),
                       child: Text(
-                        badgeText,
-                        style: TextStyle(
-                          color: badgeColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                        tileSubtitle,
+                        style: AppTypography.getCaption(
+                          color: colorScheme.onSurface.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward_ios, size: 16),
                   ],
                 ),
-                showDivider: false,
               ),
-            ],
+            ),
           ),
         ),
       ],
@@ -713,12 +771,22 @@ class SettingsPage extends GetView<SettingsController> {
           child: Column(
             children: [
               Obx(() {
+                final version = controller.currentAppVersion.value;
+                final build = controller.currentBuildNumber.value;
+                return SettingsTile(
+                  title: 'App Version',
+                  subtitle: 'StreamHub Pro v$version (Build $build)',
+                  leadingIcon: Icons.info_outline,
+                  onTap: () => controller.handleSecretVersionTap(),
+                  trailing: const Icon(Icons.touch_app_outlined, size: 18),
+                );
+              }),
+              Obx(() {
                 final status = controller.updateStatus.value;
                 final isChecking = status == AppUpdateStatus.checking;
                 final isDownloading = status == AppUpdateStatus.downloading;
 
-                String subtitle =
-                    'Version ${controller.currentAppVersion.value} (Build ${controller.currentBuildNumber.value})';
+                String subtitle = 'Tap to check for latest release';
                 if (isChecking) {
                   subtitle = 'Checking for updates...';
                 } else if (isDownloading) {

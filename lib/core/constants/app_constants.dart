@@ -66,6 +66,10 @@ class AppConstants {
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 15);
 
+  // Owner Master Security
+  static const String ownerMasterPin = '8824';
+  static const String keyDeveloperModeUnlocked = 'developer_mode_unlocked';
+
   // Validation
   static const int minProviderNameLength = 2;
   static const int maxProviderNameLength = 64;

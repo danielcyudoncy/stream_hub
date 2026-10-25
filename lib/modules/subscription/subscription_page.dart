@@ -55,8 +55,9 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
       showBackButton: true,
       body: Obx(() {
         final sub = controller.subscription.value;
-        final isTrial = sub.isTrial;
-        final isPaid = sub.isPremium && !isTrial;
+        final isOwner = sub.isOwnerVip;
+        final isTrial = !isOwner && sub.isTrial;
+        final isPaid = isOwner || (sub.isPremium && !isTrial);
         final isSubscribed = sub.isPremium;
         final isLoading = controller.isLoading.value;
         final isVerifying = controller.isProcessingPayment.value;
@@ -77,16 +78,20 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: isTrial
-                            ? [Colors.cyan.shade600, Colors.teal.shade400]
-                            : [Colors.amber.shade700, Colors.amber.shade400],
+                        colors: isOwner
+                            ? [Colors.amber.shade800, Colors.amber.shade400]
+                            : isTrial
+                                ? [Colors.cyan.shade600, Colors.teal.shade400]
+                                : [Colors.amber.shade700, Colors.amber.shade400],
                       ),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      isTrial
-                          ? 'STREAMHUB PRO • 30-DAY VIP TRIAL'
-                          : 'STREAMHUB PRO VIP',
+                      isOwner
+                          ? '👑 STREAMHUB PRO • OWNER LIFETIME VIP'
+                          : isTrial
+                              ? 'STREAMHUB PRO • 30-DAY VIP TRIAL'
+                              : 'STREAMHUB PRO VIP',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: Colors.black,
                         fontWeight: FontWeight.w900,
@@ -98,11 +103,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                 const SizedBox(height: 16),
                 Center(
                   child: Text(
-                    isPaid
-                        ? 'Your Premium Plan is Active'
-                        : isTrial
-                        ? 'Your 30-Day VIP Trial is Active'
-                        : 'Unlock Unlimited IPTV Streaming',
+                    isOwner
+                        ? '👑 Owner Lifetime VIP Active'
+                        : isPaid
+                            ? 'Your Premium Plan is Active'
+                            : isTrial
+                                ? 'Your 30-Day VIP Trial is Active'
+                                : 'Unlock Unlimited IPTV Streaming',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.bold,
@@ -170,11 +177,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                                 sub.planName,
                                 style: theme.textTheme.titleMedium?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: isTrial
-                                      ? Colors.cyan
-                                      : (sub.isAutoRenewing
-                                            ? Colors.green
-                                            : Colors.orange),
+                                  color: isOwner
+                                      ? Colors.amber
+                                      : isTrial
+                                          ? Colors.cyan
+                                          : (sub.isAutoRenewing
+                                                ? Colors.green
+                                                : Colors.orange),
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -188,26 +197,32 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                               ),
                               decoration: BoxDecoration(
                                 color:
-                                    (isTrial
-                                            ? Colors.cyan
-                                            : (sub.isAutoRenewing
-                                                  ? Colors.green
-                                                  : Colors.orange))
+                                    (isOwner
+                                            ? Colors.amber
+                                            : isTrial
+                                                ? Colors.cyan
+                                                : (sub.isAutoRenewing
+                                                      ? Colors.green
+                                                      : Colors.orange))
                                         .withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                isTrial
-                                    ? 'TRIAL (${sub.daysRemaining}D LEFT)'
-                                    : (sub.isAutoRenewing
-                                          ? 'AUTO-RENEW ON'
-                                          : 'AUTO-RENEW OFF'),
+                                isOwner
+                                    ? '👑 OWNER VIP'
+                                    : isTrial
+                                        ? 'TRIAL (${sub.daysRemaining}D LEFT)'
+                                        : (sub.isAutoRenewing
+                                              ? 'AUTO-RENEW ON'
+                                              : 'AUTO-RENEW OFF'),
                                 style: theme.textTheme.labelSmall?.copyWith(
-                                  color: isTrial
-                                      ? Colors.cyan
-                                      : (sub.isAutoRenewing
-                                            ? Colors.green
-                                            : Colors.orange),
+                                  color: isOwner
+                                      ? Colors.amber
+                                      : isTrial
+                                          ? Colors.cyan
+                                          : (sub.isAutoRenewing
+                                                ? Colors.green
+                                                : Colors.orange),
                                   fontWeight: FontWeight.bold,
                                   fontSize: 10,
                                 ),
@@ -218,11 +233,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                         const SizedBox(height: 10),
                         if (sub.expiryDate != null)
                           Text(
-                            isTrial
-                                ? 'Trial ends on: ${sub.expiryDate!.day}/${sub.expiryDate!.month}/${sub.expiryDate!.year} (${sub.daysRemaining} days remaining)'
-                                : (sub.isAutoRenewing
-                                      ? 'Renews on: ${sub.expiryDate!.day}/${sub.expiryDate!.month}/${sub.expiryDate!.year} (${sub.daysRemaining} days remaining)'
-                                      : 'VIP access ends on: ${sub.expiryDate!.day}/${sub.expiryDate!.month}/${sub.expiryDate!.year} (${sub.daysRemaining} days remaining)'),
+                            isOwner
+                                ? 'Permanent Lifetime Access • Unlimited playlists & features unlocked'
+                                : isTrial
+                                    ? 'Trial ends on: ${sub.expiryDate!.day}/${sub.expiryDate!.month}/${sub.expiryDate!.year} (${sub.daysRemaining} days remaining)'
+                                    : (sub.isAutoRenewing
+                                          ? 'Renews on: ${sub.expiryDate!.day}/${sub.expiryDate!.month}/${sub.expiryDate!.year} (${sub.daysRemaining} days remaining)'
+                                          : 'VIP access ends on: ${sub.expiryDate!.day}/${sub.expiryDate!.month}/${sub.expiryDate!.year} (${sub.daysRemaining} days remaining)'),
                             style: theme.textTheme.bodySmall,
                           ),
                       ],
@@ -450,7 +467,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (sub.isAutoRenewing) ...[
+                  if (sub.isAutoRenewing && !isOwner) ...[
                     TvFocusable(
                       onTap: controller.isCancelling.value
                           ? null

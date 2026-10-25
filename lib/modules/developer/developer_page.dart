@@ -24,6 +24,36 @@ class DeveloperPage extends GetView<DeveloperController> {
         children: [
           AppCard(
             child: Obx(() {
+              final isVip = controller.isOwnerVip.value;
+              return TvFocusable(
+                borderRadius: BorderRadius.circular(12),
+                scale: 1.01,
+                onTap: () => controller.toggleOwnerVip(!isVip),
+                child: SwitchListTile(
+                  title: Text(
+                    '👑 Owner Lifetime VIP Pass',
+                    style: AppTypography.getBody(
+                      color: isVip ? Colors.amber : colorScheme.onSurface,
+                    ).copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(
+                    isVip
+                        ? 'Active — Unlimited access to all custom IPTV playlists, offline downloads, multi-view, and cloud sync.'
+                        : 'Inactive — Switch on to use the entire app without payment.',
+                    style: AppTypography.getCaption(
+                      color: colorScheme.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  value: isVip,
+                  activeThumbColor: Colors.amber,
+                  onChanged: (value) => controller.toggleOwnerVip(value),
+                ),
+              );
+            }),
+          ),
+          AppSpacing.heightXS,
+          AppCard(
+            child: Obx(() {
               final enabled = controller.isDebugEnabled;
               return TvFocusable(
                 borderRadius: BorderRadius.circular(12),
