@@ -86,16 +86,21 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
                       ),
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      isOwner
-                          ? '👑 STREAMHUB PRO • OWNER LIFETIME VIP'
-                          : isTrial
-                              ? 'STREAMHUB PRO • 30-DAY VIP TRIAL'
-                              : 'STREAMHUB PRO VIP',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        isOwner
+                            ? '👑 STREAMHUB PRO • OWNER LIFETIME VIP'
+                            : isTrial
+                                ? 'STREAMHUB PRO • 30-DAY VIP TRIAL'
+                                : 'STREAMHUB PRO VIP',
+                        maxLines: 1,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                          fontSize: 11,
+                          letterSpacing: 0.8,
+                        ),
                       ),
                     ),
                   ),
