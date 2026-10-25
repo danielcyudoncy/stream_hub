@@ -66,8 +66,8 @@ class AppConstants {
   static const Duration connectTimeout = Duration(seconds: 15);
   static const Duration receiveTimeout = Duration(seconds: 15);
 
-  // Owner Master Security
-  static const String ownerMasterPin = '8824';
+  // Owner Master Security (One-way salted SHA-256 hash of Master PIN)
+  static const String ownerMasterPinHash = '754c843a4027bb66647b671de436e7afe781bb4e8700b234f43d098680d4abe2';
   static const String keyDeveloperModeUnlocked = 'developer_mode_unlocked';
 
   // Validation

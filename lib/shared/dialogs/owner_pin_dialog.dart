@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -63,7 +65,11 @@ class _OwnerPinDialogState extends State<OwnerPinDialog> {
       return;
     }
 
-    if (entered == AppConstants.ownerMasterPin) {
+    const salt = 'streamhub_owner_secret_salt_';
+    final bytes = utf8.encode(salt + entered);
+    final hash = sha256.convert(bytes).toString();
+
+    if (hash == AppConstants.ownerMasterPinHash) {
       Navigator.of(context).pop(true);
     } else {
       setState(() {
